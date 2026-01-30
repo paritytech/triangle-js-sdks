@@ -1,48 +1,48 @@
-import type { AccountId } from '@novasamatech/statement-store';
-import { memo } from 'react';
+import { Button, ThemeProvider, defaultTheme } from '@novasamatech/tr-ui';
+import { memo, useEffect } from 'react';
 
 import { useAuthStatus } from '../hooks/authStatus.js';
-import { useIdentity } from '../hooks/identity.js';
 import { useAuthentication } from '../providers/AuthProvider.js';
 import { useTranslations } from '../providers/TranslationProvider.js';
-import { Button } from '../ui/Button.js';
-import { Logo } from '../ui/Logo.js';
 import { LogoSmall } from '../ui/LogoSmall.js';
 import { Modal } from '../ui/Modal.js';
 import { QrCode } from '../ui/QrCode.js';
-import type { ThemeVariant } from '../ui/Theme.js';
-import { Theme } from '../ui/Theme.js';
 
-import styles from './PairingModal.module.css';
+import styles from './Pairing.module.css';
 
 type Props = {
-  theme?: ThemeVariant;
+  theme?: 'light' | 'dark';
 };
 
-export const PairingModal = memo(({ theme = 'dark' }: Props) => {
+export const PairingModal = memo(({ theme }: Props = {}) => {
   const auth = useAuthentication();
   const { status } = useAuthStatus();
 
-  const open = status.step !== 'none';
+  const open = auth.authUIMode === 'modal' && status.step !== 'none' && status.step !== 'finished';
 
-  const toggleModal = (open: boolean) => {
-    if (!open && status.step !== 'attestation') {
+  const toggleModal = (newOpen: boolean) => {
+    if (!newOpen && status.step !== 'attestation') {
       auth.abortAuthentication();
     }
   };
 
+  useEffect(() => {
+    if (auth.authUIMode === 'modal' && status.step === 'finished') {
+      auth.abortAuthentication();
+    }
+  }, [auth, status.step]);
+
   return (
-    <Theme value={theme}>
+    <ThemeProvider theme={defaultTheme} defaultMode={theme ?? 'light'}>
       <Modal open={open} onOpenChange={toggleModal} width="fit-content">
         <div className={styles.container}>
           {status.step === 'pairing' && <PairingStep payload={status.payload} />}
           {status.step === 'pairingError' && <PairingErrorStep message={status.message} />}
           {status.step === 'attestation' && <LoadingStep />}
           {status.step === 'attestationError' && <PairingErrorStep message={status.message} />}
-          {status.step === 'finished' && <FinishedStep accountId={status.session.remoteAccount.accountId} />}
         </div>
       </Modal>
-    </Theme>
+    </ThemeProvider>
   );
 });
 
@@ -53,45 +53,26 @@ const PairingStep = ({ payload }: { payload: string }) => {
     <div className={styles.pairingContainer}>
       <span className={styles.pairingHeader}>{translation.pairingHeader}</span>
       <span className={styles.scanCallToAction}>{translation.pairingScanCallToAction}</span>
-      <QrCode value={payload} size={270} />
+      <div className={styles.qrContainer}>
+        <QrCode value={payload} size={280} theme="dark" />
+      </div>
       <span className={styles.pairingDescription}>{translation.pairingDescription}</span>
     </div>
   );
 };
 
 const LoadingStep = () => {
+  const { status } = useAuthStatus();
   const translation = useTranslations();
+  const welcomeText = translation.pairingLoginMessage.replace('{username}', status.username || 'Guest');
 
   return (
     <div className={styles.loaderContainer}>
+      <span className={styles.loaderHeader}>{welcomeText}</span>
       <div className={styles.loaderLogo}>
         <LogoSmall size={100} />
       </div>
       <span className={styles.loaderText}>{translation.pairingLoader}</span>
-    </div>
-  );
-};
-
-const FinishedStep = ({ accountId }: { accountId: AccountId }) => {
-  const auth = useAuthentication();
-
-  const [identity, identityPending] = useIdentity(accountId);
-
-  return (
-    <div className={styles.finishedContainer}>
-      <div className={styles.finishedLogo}>
-        <Logo size={30} />
-        <div className={styles.finishedLogoSeparator} />
-        <div className={styles.finishedLogoTitle}>Products for People</div>
-      </div>
-      <div className={styles.finishedWelcome}>Welcome to Polkadot</div>
-      <div className={styles.finishedUsername}>
-        {identity?.fullUsername ?? identity?.liteUsername ?? (identityPending ? 'Loading...' : 'Unknown user')}
-      </div>
-      <div className={styles.finishedVoucher}></div>
-      <div className={styles.finishedButton}>
-        <Button onClick={() => auth.abortAuthentication()}>Let's go</Button>
-      </div>
     </div>
   );
 };
@@ -102,11 +83,11 @@ const PairingErrorStep = ({ message }: { message: string }) => {
 
   return (
     <div className={styles.errorContainer}>
-      <span className={styles.errorTitle}>Sorry, we've got some troubles!</span>
-      <span className={styles.genericText}>{message}</span>
-      <div className={styles.errorButton}>
-        <Button onClick={() => auth.authenticate()}>{translation.pairingRetry}</Button>
-      </div>
+      <span className={styles.errorTitle}>{translation.pairingError}</span>
+      <span className={styles.errorGenericText}>{message}</span>
+      <Button variant="secondary" type="button" onClick={() => auth.authenticate()}>
+        {translation.pairingRetry}
+      </Button>
     </div>
   );
 };

@@ -10,6 +10,10 @@ export type Translations = {
   pairingRetry: string;
   pairingError: string;
   pairingWelcomeMessage: string;
+  pairingLoginMessage: string;
+  pairingPopoverWelcome: string;
+  pairingPopoverLoginHeading: string;
+  pairingPopoverScanDescription: string;
 };
 
 export type TranslationsMap = Record<string, Translations>;
@@ -19,7 +23,7 @@ const defaultLanguage = 'en';
 const defaultKeys: TranslationsMap = {
   [defaultLanguage]: {
     pairingHeader: 'Log in to save',
-    pairingScanCallToAction: 'scan a qr code with a phone',
+    pairingScanCallToAction: 'Scan it with a phone',
     pairingDescription:
       'Scanning the QR code opens the Polkadot mobile app, where users are guided step-by-step through the onboarding or setup process.',
     pairingLoader: 'Just a second...',
@@ -27,6 +31,10 @@ const defaultKeys: TranslationsMap = {
     pairingRetry: 'Retry',
     pairingError: 'Error while pairing',
     pairingWelcomeMessage: 'Welcome back,',
+    pairingLoginMessage: 'Loggin in, {username}',
+    pairingPopoverWelcome: 'Welcome to Polkadot, {username}',
+    pairingPopoverLoginHeading: 'Login to explore all Polkadot features',
+    pairingPopoverScanDescription: 'Scan with your phone camera to log in using the Polkadot mobile app',
   },
 };
 
