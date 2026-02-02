@@ -21,7 +21,7 @@ describe('Host API: meta provider', () => {
     const { container } = setup();
     const statuses: ConnectionStatus[] = [];
 
-    container.subscribeConnectionStatus(status => {
+    container.subscribeProductConnectionStatus(status => {
       statuses.push(status);
     });
 
@@ -47,7 +47,7 @@ describe('Host API: meta provider', () => {
     const { container } = setup();
     const statuses: ConnectionStatus[] = [];
 
-    container.subscribeConnectionStatus(status => {
+    container.subscribeProductConnectionStatus(status => {
       statuses.push(status);
     });
 
@@ -63,7 +63,7 @@ describe('Host API: meta provider', () => {
     const { container } = setup();
     const callback = vi.fn();
 
-    const unsubscribe = container.subscribeConnectionStatus(callback);
+    const unsubscribe = container.subscribeProductConnectionStatus(callback);
 
     // Unsubscribe before ready
     unsubscribe();
@@ -81,12 +81,12 @@ describe('Host API: meta provider', () => {
     const statuses2: ConnectionStatus[] = [];
 
     // Subscribe both before any init happens
-    container.subscribeConnectionStatus(status => {
+    container.subscribeProductConnectionStatus(status => {
       statuses1.push(status);
     });
 
     // Second subscriber may miss 'disconnected' if first subscriber triggered init
-    container.subscribeConnectionStatus(status => {
+    container.subscribeProductConnectionStatus(status => {
       statuses2.push(status);
     });
 

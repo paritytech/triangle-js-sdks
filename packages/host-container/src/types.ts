@@ -2,6 +2,7 @@ import type {
   Codec,
   CodecType,
   ConnectionStatus,
+  HexString,
   HostApiProtocol,
   VersionedProtocolRequest,
   VersionedProtocolSubscription,
@@ -102,13 +103,10 @@ export type Container = {
   handleStatementStoreCreateProof: InferHandler<'v1', HostApiProtocol['statement_store_create_proof']>;
   handleStatementStoreSubmit: InferHandler<'v1', HostApiProtocol['statement_store_submit']>;
 
-  handleJsonRpcMessageSubscribe: (
-    params: WithVersion<'v1', Value<HostApiProtocol['jsonrpc_message_subscribe']['start']>>,
-    provider: JsonRpcProvider,
-  ) => VoidFunction;
+  handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
 
   isReady(): Promise<boolean>;
   dispose(): void;
 
-  subscribeConnectionStatus(callback: (connectionStatus: ConnectionStatus) => void): VoidFunction;
+  subscribeProductConnectionStatus(callback: (connectionStatus: ConnectionStatus) => void): VoidFunction;
 };

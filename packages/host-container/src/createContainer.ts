@@ -326,11 +326,15 @@ export function createContainer(provider: Provider): Container {
       });
     },
 
-    handleJsonRpcMessageSubscribe(genesisHash, provider) {
+    handleChainConnection(factory) {
       init();
       return transport.handleSubscription('jsonrpc_message_subscribe', (params, send) => {
         assertEnumVariant(params, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
-        if (params.value !== genesisHash) {
+
+        const genesisHash = params.value;
+        const provider = factory(params.value);
+
+        if (provider === null) {
           return () => {
             // empty subscription, we don't want to react to foreign chain subscription request
           };
@@ -341,10 +345,9 @@ export function createContainer(provider: Provider): Container {
         const unsubRequests = transport.handleRequest('jsonrpc_message_send', async message => {
           assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
           const [requestedGenesisHash, payload] = message.value;
-          if (requestedGenesisHash !== genesisHash) {
-            return enumValue('v1', resultOk(undefined));
+          if (requestedGenesisHash === genesisHash) {
+            connection.send(payload);
           }
-          connection.send(payload);
           return enumValue('v1', resultOk(undefined));
         });
 
@@ -359,7 +362,7 @@ export function createContainer(provider: Provider): Container {
       return transport.isReady();
     },
 
-    subscribeConnectionStatus(callback: (connectionStatus: ConnectionStatus) => void) {
+    subscribeProductConnectionStatus(callback: (connectionStatus: ConnectionStatus) => void) {
       // this specific order exists because container should report all connection statuses including "disconnected",
       // which immediately got changed to "connecting" after init() call.
       const unsubscribe = transport.onConnectionStatusChange(callback);

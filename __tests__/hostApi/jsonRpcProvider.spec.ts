@@ -45,15 +45,19 @@ describe('Host API: JSON RPC provider', () => {
     container.handleFeature((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
-    container.handleJsonRpcMessageSubscribe(WellKnownChain.polkadotRelay, onMessage => {
-      return {
-        send(message) {
-          receivedByProvider.push(message);
-          onMessage(JSON.stringify(outputMessage));
-        },
-        disconnect() {
-          /* empty */
-        },
+    container.handleChainConnection(chain => {
+      if (chain !== WellKnownChain.polkadotRelay) return null;
+
+      return onMessage => {
+        return {
+          send(message) {
+            receivedByProvider.push(message);
+            onMessage(JSON.stringify(outputMessage));
+          },
+          disconnect() {
+            /* empty */
+          },
+        };
       };
     });
 
@@ -81,15 +85,19 @@ describe('Host API: JSON RPC provider', () => {
 
     // Feature returns false - chain not supported
     container.handleFeature((_, { ok }) => ok(false));
-    container.handleJsonRpcMessageSubscribe(WellKnownChain.polkadotRelay, onMessage => {
-      return {
-        send(message) {
-          receivedByProvider.push(message);
-          onMessage(JSON.stringify({ jsonrpc: '2.0', id: '1', result: 'ok' }));
-        },
-        disconnect() {
-          /* empty */
-        },
+    container.handleChainConnection(chain => {
+      if (chain !== WellKnownChain.polkadotRelay) return null;
+
+      return onMessage => {
+        return {
+          send(message) {
+            receivedByProvider.push(message);
+            onMessage(JSON.stringify({ jsonrpc: '2.0', id: '1', result: 'ok' }));
+          },
+          disconnect() {
+            /* empty */
+          },
+        };
       };
     });
 
@@ -112,12 +120,16 @@ describe('Host API: JSON RPC provider', () => {
     container.handleFeature((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
-    container.handleJsonRpcMessageSubscribe(WellKnownChain.polkadotRelay, () => {
-      return {
-        send() {
-          /* empty */
-        },
-        disconnect: disconnectFn,
+    container.handleChainConnection(chain => {
+      if (chain !== WellKnownChain.polkadotRelay) return null;
+
+      return () => {
+        return {
+          send() {
+            /* empty */
+          },
+          disconnect: disconnectFn,
+        };
       };
     });
 
@@ -150,28 +162,37 @@ describe('Host API: JSON RPC provider', () => {
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
     // Only handle Polkadot chain
-    container.handleJsonRpcMessageSubscribe(WellKnownChain.polkadotRelay, onMessage => {
-      return {
-        send(message) {
-          receivedByPolkadot.push(message);
-          onMessage(JSON.stringify({ jsonrpc: '2.0', id: '1', result: 'polkadot' }));
-        },
-        disconnect() {
-          /* empty */
-        },
-      };
-    });
-    // Handler for different chain should not receive messages
-    container.handleJsonRpcMessageSubscribe(differentChain, onMessage => {
-      return {
-        send(message) {
-          receivedByOther.push(message);
-          onMessage(JSON.stringify({ jsonrpc: '2.0', id: '1', result: 'other' }));
-        },
-        disconnect() {
-          /* empty */
-        },
-      };
+    container.handleChainConnection(chain => {
+      if (chain === WellKnownChain.polkadotRelay) {
+        return onMessage => {
+          return {
+            send(message) {
+              receivedByPolkadot.push(message);
+              onMessage(JSON.stringify({ jsonrpc: '2.0', id: '1', result: 'polkadot' }));
+            },
+            disconnect() {
+              /* empty */
+            },
+          };
+        };
+      }
+
+      // Handler for different chain should not receive messages
+      if (chain === differentChain) {
+        return onMessage => {
+          return {
+            send(message) {
+              receivedByOther.push(message);
+              onMessage(JSON.stringify({ jsonrpc: '2.0', id: '1', result: 'other' }));
+            },
+            disconnect() {
+              /* empty */
+            },
+          };
+        };
+      }
+
+      return null;
     });
 
     const sdkConnection = provider(() => {
