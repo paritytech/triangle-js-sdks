@@ -35,23 +35,16 @@ function isWebview() {
   }
 }
 
-async function* pollWebviewPort(cooldown: number) {
-  while (true) {
-    yield window['__HOST_API_PORT__'];
-    await delay(cooldown);
-  }
-}
-
 async function getWebviewPort() {
-  for await (const port of pollWebviewPort(100)) {
-    if (port) {
-      return port;
-    }
+  if (window['__HOST_API_PORT__']) {
+    return window['__HOST_API_PORT__'];
   }
-  throw new Error('No webview port found');
+
+  await delay(100);
+  return getWebviewPort();
 }
 
-function isValidMessage(event: MessageEvent, sourceEnv: MessageEventSource, currentEnv: MessageEventSource) {
+function isValidIframeMessage(event: MessageEvent, sourceEnv: MessageEventSource, currentEnv: MessageEventSource) {
   return (
     event.source !== currentEnv &&
     event.source === sourceEnv &&
@@ -60,23 +53,31 @@ function isValidMessage(event: MessageEvent, sourceEnv: MessageEventSource, curr
   );
 }
 
+function isValidWebviewMessage(event: MessageEvent) {
+  return event.data && event.data.constructor.name === 'Uint8Array';
+}
+
 function createDefaultSdkProvider(): Provider {
   const subscribers = new Set<(message: Uint8Array) => void>();
 
-  const handleMessage = async (event: MessageEvent) => {
-    const source = isIframe() ? getParentWindow() : isWebview() ? await getWebviewPort() : null;
-    if (!source) throw new Error('No message source found');
-    if (!isValidMessage(event, source, window)) return;
+  const handleIframeMessage = (event: MessageEvent) => {
+    if (!isValidIframeMessage(event, getParentWindow(), window)) return;
+    for (const subscriber of subscribers) {
+      subscriber(event.data);
+    }
+  };
 
+  const handleWebviewMessage = (event: MessageEvent) => {
+    if (!isValidWebviewMessage(event)) return;
     for (const subscriber of subscribers) {
       subscriber(event.data);
     }
   };
 
   if (isIframe()) {
-    window.addEventListener('message', handleMessage);
+    window.addEventListener('message', handleIframeMessage);
   } else if (isWebview()) {
-    getWebviewPort().then(port => port.addEventListener('message', handleMessage));
+    getWebviewPort().then(port => port.addEventListener('message', handleWebviewMessage));
   }
 
   return {
@@ -100,10 +101,10 @@ function createDefaultSdkProvider(): Provider {
     dispose() {
       subscribers.clear();
       if (isIframe()) {
-        window.removeEventListener('message', handleMessage);
+        window.removeEventListener('message', handleIframeMessage);
       }
       if (isWebview()) {
-        getWebviewPort().then(port => port.removeEventListener('message', handleMessage));
+        getWebviewPort().then(port => port.removeEventListener('message', handleWebviewMessage));
       }
     },
   };

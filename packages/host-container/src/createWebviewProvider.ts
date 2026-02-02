@@ -13,13 +13,8 @@ function hasWindow() {
   }
 }
 
-function isValidMessage(event: MessageEvent, sourceEnv: MessageEventSource, currentEnv: MessageEventSource) {
-  return (
-    event.source !== currentEnv &&
-    event.source === sourceEnv &&
-    event.data &&
-    event.data.constructor.name === 'Uint8Array'
-  );
+function isValidMessage(event: MessageEvent) {
+  return event.data && event.data.constructor.name === 'Uint8Array';
 }
 
 type Params = {
@@ -65,6 +60,8 @@ export function createWebviewProvider({ webview, logger, openDevTools }: Params)
       }
 
       port = port1;
+      port.start();
+      port.addEventListener('message', messageHandler);
       resolve(port);
     });
   });
@@ -79,21 +76,12 @@ export function createWebviewProvider({ webview, logger, openDevTools }: Params)
 
   const messageHandler = (event: MessageEvent) => {
     if (disposed) return;
-    waitForWebview(port => {
-      if (disposed) return;
+    if (!isValidMessage(event)) return;
 
-      if (!isValidMessage(event, port, window)) return;
-
-      for (const subscriber of subscribers) {
-        subscriber(event.data);
-      }
-    });
+    for (const subscriber of subscribers) {
+      subscriber(event.data);
+    }
   };
-
-  waitForWebview(port => {
-    if (disposed) return;
-    port.addEventListener('message', messageHandler);
-  });
 
   return {
     logger: logger ?? createDefaultLogger(),
