@@ -25,11 +25,11 @@ function isValidMessage(event: MessageEvent, sourceEnv: MessageEventSource, curr
 type Params = {
   webview: WebviewTag;
   logger?: Logger;
+  openDevTools?: boolean;
 };
 
-export function createWebviewProvider({ webview, logger }: Params): Provider {
+export function createWebviewProvider({ webview, logger, openDevTools }: Params): Provider {
   let disposed = false;
-  let subscribed = false;
   let port: MessagePort | null = null;
   const subscribers = new Set<(message: Uint8Array) => void>();
 
@@ -42,7 +42,6 @@ export function createWebviewProvider({ webview, logger }: Params): Provider {
       const { port1, port2 } = new MessageChannel();
       const portInitMessage = `HOST_API_PORT_INIT_${nanoid(12)}`;
 
-      port = port1;
       await webview
         .executeJavaScript(
           `
@@ -61,6 +60,11 @@ export function createWebviewProvider({ webview, logger }: Params): Provider {
       // @ts-expect-error contentWindow is undefined somehow
       webview.contentWindow.postMessage(portInitMessage, '*', [port2]);
 
+      if (openDevTools) {
+        webview.openDevTools();
+      }
+
+      port = port1;
       resolve(port);
     });
   });
@@ -77,6 +81,7 @@ export function createWebviewProvider({ webview, logger }: Params): Provider {
     if (disposed) return;
     waitForWebview(port => {
       if (disposed) return;
+
       if (!isValidMessage(event, port, window)) return;
 
       for (const subscriber of subscribers) {
@@ -84,6 +89,11 @@ export function createWebviewProvider({ webview, logger }: Params): Provider {
       }
     });
   };
+
+  waitForWebview(port => {
+    if (disposed) return;
+    port.addEventListener('message', messageHandler);
+  });
 
   return {
     logger: logger ?? createDefaultLogger(),
@@ -101,11 +111,6 @@ export function createWebviewProvider({ webview, logger }: Params): Provider {
       });
     },
     subscribe(callback) {
-      if (!subscribed && port) {
-        subscribed = true;
-        port.addEventListener('message', messageHandler);
-      }
-
       subscribers.add(callback);
       return () => {
         subscribers.delete(callback);
@@ -118,6 +123,7 @@ export function createWebviewProvider({ webview, logger }: Params): Provider {
       if (port) {
         port.removeEventListener('message', messageHandler);
       }
+      port = null;
     },
   };
 }
