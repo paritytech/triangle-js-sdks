@@ -38,7 +38,7 @@ export function createWebviewProvider({ webview, logger }: Params): Provider {
       reject(new Error(e.errorDescription));
     });
 
-    webview.addEventListener('dom-ready', async () => {
+    webview.addEventListener('did-start-loading', async () => {
       const { port1, port2 } = new MessageChannel();
       const portInitMessage = `PORT_INIT_${nanoid(12)}`;
 
