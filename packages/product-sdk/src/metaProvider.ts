@@ -1,8 +1,8 @@
 import type { ConnectionStatus, Transport } from '@novasamatech/host-api';
 
-import { defaultTransport } from './defaultTransport.js';
+import { sandboxTransport } from './sandboxTransport.js';
 
-export function createMetaProvider(transport: Transport = defaultTransport) {
+export function createMetaProvider(transport: Transport = sandboxTransport) {
   // if (transport.isCorrectEnvironment() && typeof window !== 'undefined') {
   //   const getUrl = () => {
   //     return window.location.pathname + window.location.hash + window.location.search;

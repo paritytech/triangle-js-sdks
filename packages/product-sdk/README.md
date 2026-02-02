@@ -6,7 +6,7 @@ An easy way to embed Polkadot host functionality into your dapp.
 
 Product SDK provides a set of tools to integrate your application with any Polkadot host application.
 Core features:
-- Generic account provider similar to [polkadot-js extension](https://polkadot.js.org/extension/)
+- Generic injectWeb3 provider similar to [polkadot-js extension](https://polkadot.js.org/extension/)
 - Chat module integration
 - Statement store integration
 - Redirect [PAPI](https://papi.how/) requests to host application

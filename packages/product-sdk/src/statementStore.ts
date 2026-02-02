@@ -8,7 +8,7 @@ import type {
 } from '@novasamatech/host-api';
 import { createHostApi, enumValue } from '@novasamatech/host-api';
 
-import { defaultTransport } from './defaultTransport.js';
+import { sandboxTransport } from './sandboxTransport.js';
 
 export type Statement = CodecType<typeof StatementCodec>;
 export type SignedStatement = CodecType<typeof SignedStatementCodec>;
@@ -16,7 +16,7 @@ export type SignedStatement = CodecType<typeof SignedStatementCodec>;
 export type Topic = CodecType<typeof TopicCodec>;
 export type ProductAccountId = CodecType<typeof ProductAccountIdCodec>;
 
-export const createStatementStore = (transport: Transport = defaultTransport) => {
+export const createStatementStore = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
 
   return {

@@ -21,6 +21,7 @@
     "README.md"
   ],
   "dependencies": {
+    "@novasamatech/scale": "0.5.3-0",
     "@polkadot-api/utils": "^0.2.0",
     "nanoevents": "9.1.0",
     "nanoid": "5.1.6",

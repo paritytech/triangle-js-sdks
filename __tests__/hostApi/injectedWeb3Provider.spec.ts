@@ -7,7 +7,7 @@ import {
   toHex,
 } from '@novasamatech/host-api';
 import { createContainer } from '@novasamatech/host-container';
-import { createExtensionEnableFactory } from '@novasamatech/product-sdk';
+import { createNonProductExtensionEnableFactory } from '@novasamatech/product-sdk';
 
 import type { SignerResult } from '@polkadot/types/types';
 import { AccountId } from '@polkadot-api/substrate-bindings';
@@ -20,7 +20,7 @@ async function setup() {
   const container = createContainer(providers.host);
   const sdkTransport = createTransport(providers.sdk);
 
-  const enable = await createExtensionEnableFactory(sdkTransport);
+  const enable = await createNonProductExtensionEnableFactory(sdkTransport);
   assert(enable, 'Enable function should be available');
 
   const injected = await enable();

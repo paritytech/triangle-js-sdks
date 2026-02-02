@@ -25,6 +25,22 @@ export const ChatRoomRegistrationResult = Struct({
 export const ChatCreateRoomV1_request = ChatRoomRequest;
 export const ChatCreateRoomV1_response = Result(ChatRoomRegistrationResult, ChatRoomRegistrationErr);
 
+// register as a bot
+
+export const ChatBotRegistrationErr = ErrEnum('ChatBotRegistrationErr', {
+  PermissionDenied: [_void, 'Permission denied'],
+  Unknown: [GenericErr, 'Unknown error while chat registration'],
+});
+
+export const ChatBotRequest = Struct({
+  botId: str,
+  name: str,
+  icon: str, // URL or base64-encoded image for contact
+});
+
+export const ChatCreateBotV1_request = ChatBotRequest;
+export const ChatCreateBotV1_response = Result(ChatRoomRegistrationResult, ChatRoomRegistrationErr);
+
 // receiving rooms
 
 export const ChatRoomParticipation = Status('RoomHost', 'Bot');
@@ -107,9 +123,15 @@ export const ActionTrigger = Struct({
   actionId: str,
 });
 
+export const ChatCommand = Struct({
+  command: str,
+  payload: str,
+});
+
 export const ChatActionPayload = Enum({
   MessagePosted: ChatMessageContent,
   ActionTriggered: ActionTrigger,
+  Command: ChatCommand,
 });
 
 export const ReceivedChatAction = Struct({

@@ -1,6 +1,12 @@
 import type { Provider } from '@novasamatech/host-api';
 import { createDefaultLogger, createTransport } from '@novasamatech/host-api';
 
+declare global {
+  interface Window {
+    __HOST_API_PORT__?: MessagePort;
+  }
+}
+
 function getParentWindow() {
   if (window.top) {
     return window.top;
@@ -16,6 +22,21 @@ function isIframe() {
   }
 }
 
+function isWebview() {
+  try {
+    return window['__HOST_API_PORT__'] !== undefined;
+  } catch {
+    return false;
+  }
+}
+
+function getWebviewPort() {
+  if (window['__HOST_API_PORT__']) {
+    return window['__HOST_API_PORT__'];
+  }
+  throw new Error('No webview port found');
+}
+
 function isValidMessage(event: MessageEvent, sourceEnv: MessageEventSource, currentEnv: MessageEventSource) {
   return (
     event.source !== currentEnv &&
@@ -29,7 +50,9 @@ function createDefaultSdkProvider(): Provider {
   const subscribers = new Set<(message: Uint8Array) => void>();
 
   const handleMessage = (event: MessageEvent) => {
-    if (!isValidMessage(event, getParentWindow(), window)) return;
+    const source = isIframe() ? getParentWindow() : isWebview() ? getWebviewPort() : null;
+    if (!source) throw new Error('No message source found');
+    if (!isValidMessage(event, source, window)) return;
 
     for (const subscriber of subscribers) {
       subscriber(event.data);
@@ -38,15 +61,21 @@ function createDefaultSdkProvider(): Provider {
 
   if (isIframe()) {
     window.addEventListener('message', handleMessage);
+  } else if (isWebview()) {
+    getWebviewPort().addEventListener('message', handleMessage);
   }
 
   return {
     logger: createDefaultLogger(),
     isCorrectEnvironment() {
-      return isIframe();
+      return isIframe() || isWebview();
     },
     postMessage(message) {
-      getParentWindow().postMessage(message, '*', [message.buffer]);
+      if (isIframe()) {
+        getParentWindow().postMessage(message, '*', [message.buffer]);
+      } else if (isWebview()) {
+        getWebviewPort().postMessage(message, [message.buffer]);
+      }
     },
     subscribe(callback) {
       subscribers.add(callback);
@@ -59,9 +88,12 @@ function createDefaultSdkProvider(): Provider {
       if (isIframe()) {
         window.removeEventListener('message', handleMessage);
       }
+      if (isWebview()) {
+        getWebviewPort().removeEventListener('message', handleMessage);
+      }
     },
   };
 }
 
-export const defaultProvider = createDefaultSdkProvider();
-export const defaultTransport = createTransport(defaultProvider);
+export const sandboxProvider = createDefaultSdkProvider();
+export const sandboxTransport = createTransport(sandboxProvider);

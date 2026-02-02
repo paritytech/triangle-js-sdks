@@ -3,15 +3,20 @@ import { createHostApi, enumValue, unwrapResultOrThrow } from '@novasamatech/hos
 import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import { getSyncProvider } from '@polkadot-api/json-rpc-provider-proxy';
 
-import { defaultTransport } from './defaultTransport.js';
+import { sandboxTransport } from './sandboxTransport.js';
 
 type InternalParams = {
   transport?: Transport;
 };
 
-export function createPapiProvider(genesisHash: HexString, internal?: InternalParams): JsonRpcProvider {
+export function createPapiProvider(
+  genesisHash: HexString,
+  // for testing purposes only, should not be used in real production code
+  __fallback?: JsonRpcProvider,
+  internal?: InternalParams,
+): JsonRpcProvider {
   const version = 'v1';
-  const transport = internal?.transport ?? defaultTransport;
+  const transport = internal?.transport ?? sandboxTransport;
   if (!transport.isCorrectEnvironment()) {
     throw new Error('PapiProvider can only be used in a product environment');
   }
@@ -64,6 +69,7 @@ export function createPapiProvider(genesisHash: HexString, internal?: InternalPa
   return getSyncProvider(() =>
     checkIfReady().then(ready => {
       if (ready) return spektrProvider;
+      if (__fallback) return __fallback;
       throw new Error(`Chain ${genesisHash} not supported by host`);
     }),
   );

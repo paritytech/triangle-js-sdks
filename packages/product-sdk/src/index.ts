@@ -1,10 +1,19 @@
 export { SpektrExtensionName, WellKnownChain } from './constants.js';
-export { defaultProvider, defaultTransport } from './defaultTransport.js';
+
+export { sandboxProvider, sandboxTransport } from './sandboxTransport.js';
+
 export { hostApi } from './hostApi.js';
-export { createMetaProvider, metaProvider } from './createMetaProvider.js';
-export { createExtensionEnableFactory, injectSpektrExtension } from './injectSpektrExtension.js';
-export { createPapiProvider } from './createPapiProvider.js';
+
+export { createMetaProvider, metaProvider } from './metaProvider.js';
+
+export { createNonProductExtensionEnableFactory, injectSpektrExtension } from './injectWeb3.js';
+export { createPapiProvider } from './papiProvider.js';
+
 export type { ChatMessageContent, ReceivedChatAction } from './chat.js';
 export { createChat } from './chat.js';
+
 export type { ProductAccountId, SignedStatement, Statement, Topic } from './statementStore.js';
 export { createStatementStore } from './statementStore.js';
+
+export type { ProductAccount } from './accounts.js';
+export { createAccountsProvider } from './accounts.js';

@@ -8,8 +8,8 @@ import type {
 } from '@novasamatech/host-api';
 import { createHostApi, enumValue } from '@novasamatech/host-api';
 
-import { defaultTransport } from './defaultTransport.js';
 import { promiseWithResolvers } from './helpers.js';
+import { sandboxTransport } from './sandboxTransport.js';
 
 promiseWithResolvers();
 
@@ -18,7 +18,7 @@ export type ReceivedChatAction = CodecType<typeof ReceivedChatActionCodec>;
 export type ChatRoomRegistrationResult = CodecType<typeof ChatRoomRegistrationResultCodec>;
 export type ChatRoom = CodecType<typeof ChatRoomCodec>;
 
-export const createChat = (transport: Transport = defaultTransport) => {
+export const createChat = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
   let registrationStatus: ChatRoomRegistrationResult | null = null;
 

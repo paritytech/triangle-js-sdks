@@ -52,7 +52,7 @@ type InferMethod<Method extends VersionedProtocolRequest | VersionedProtocolSubs
       ? InferSubscribeMethod<Method>
       : never;
 
-type HostApi = {
+export type HostApi = {
   [K in keyof HostApiProtocol as SnakeToCamelCase<K>]: InferMethod<HostApiProtocol[K]>;
 };
 

@@ -1,7 +1,8 @@
-export type { ConnectionStatus, Logger, Transport } from './types.js';
+export type { ConnectionStatus, Logger, Subscription, Transport } from './types.js';
 export type { Provider } from './provider.js';
 export { createRequestId } from './helpers.js';
 
+export type { HostApi } from './hostApi.js';
 export { createHostApi } from './hostApi.js';
 export { createTransport } from './transport.js';
 export { createDefaultLogger } from './logger.js';
@@ -28,7 +29,14 @@ export {
 
 export { GenericError } from './protocol/commonCodecs.js';
 export { CreateTransactionErr, VersionedPublicTxPayload } from './protocol/v1/createTransaction.js';
-export { Account, AccountId, CreateProofErr, ProductAccountId, RequestCredentialsErr } from './protocol/v1/accounts.js';
+export {
+  Account,
+  AccountId,
+  CreateProofErr,
+  ProductAccountId,
+  RequestCredentialsErr,
+  RingLocation,
+} from './protocol/v1/accounts.js';
 export {
   ChatActionPayload,
   ChatMessageContent,

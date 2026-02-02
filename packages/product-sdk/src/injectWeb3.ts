@@ -6,7 +6,7 @@ import type { SignerPayloadJSON, SignerPayloadRaw, SignerResult } from '@polkado
 import { AccountId } from '@polkadot-api/substrate-bindings';
 
 import { SpektrExtensionName, Version } from './constants.js';
-import { defaultTransport } from './defaultTransport.js';
+import { sandboxTransport } from './sandboxTransport.js';
 
 const UNSUPPORTED_VERSION_ERROR = 'Unsupported message version';
 
@@ -30,7 +30,7 @@ interface Injected {
   signer: Signer;
 }
 
-export async function createExtensionEnableFactory(transport: Transport) {
+export async function createNonProductExtensionEnableFactory(transport: Transport) {
   const ready = await transport.isReady();
   if (!ready) return null;
 
@@ -152,11 +152,11 @@ export async function createExtensionEnableFactory(transport: Transport) {
   return enable;
 }
 
-export async function injectSpektrExtension(transport: Transport | null = defaultTransport) {
+export async function injectSpektrExtension(transport: Transport | null = sandboxTransport) {
   if (!transport) return false;
 
   try {
-    const enable = await createExtensionEnableFactory(transport);
+    const enable = await createNonProductExtensionEnableFactory(transport);
 
     if (enable) {
       injectExtension(enable, { name: SpektrExtensionName, version: Version });
