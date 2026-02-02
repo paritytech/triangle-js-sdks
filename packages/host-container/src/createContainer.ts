@@ -328,7 +328,7 @@ export function createContainer(provider: Provider): Container {
 
     handleChainConnection(factory) {
       init();
-      return transport.handleSubscription('jsonrpc_message_subscribe', (params, send, interrupt) => {
+      return transport.handleSubscription('jsonrpc_message_subscribe', (params, send) => {
         assertEnumVariant(params, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
 
         const genesisHash = params.value;
@@ -346,7 +346,6 @@ export function createContainer(provider: Provider): Container {
           unsubRequests();
           unsubscribeDestroy();
           connection.disconnect();
-          interrupt();
         });
 
         const unsubRequests = transport.handleRequest('jsonrpc_message_send', async message => {
