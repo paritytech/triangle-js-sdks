@@ -4,7 +4,12 @@ import { createDefaultLogger, createTransport } from '@novasamatech/host-api';
 declare global {
   interface Window {
     __HOST_API_PORT__?: MessagePort;
+    __HOST_WEBVIEW_MARK__?: boolean;
   }
+}
+
+function delay(ttl: number) {
+  return new Promise<void>(resolve => setTimeout(resolve, ttl));
 }
 
 function getParentWindow() {
@@ -24,15 +29,24 @@ function isIframe() {
 
 function isWebview() {
   try {
-    return window['__HOST_API_PORT__'] !== undefined;
+    return window['__HOST_WEBVIEW_MARK__'] === true;
   } catch {
     return false;
   }
 }
 
-function getWebviewPort() {
-  if (window['__HOST_API_PORT__']) {
-    return window['__HOST_API_PORT__'];
+async function* pollWebviewPort(cooldown: number) {
+  while (true) {
+    yield window['__HOST_API_PORT__'];
+    await delay(cooldown);
+  }
+}
+
+async function getWebviewPort() {
+  for await (const port of pollWebviewPort(100)) {
+    if (port) {
+      return port;
+    }
   }
   throw new Error('No webview port found');
 }
@@ -49,8 +63,8 @@ function isValidMessage(event: MessageEvent, sourceEnv: MessageEventSource, curr
 function createDefaultSdkProvider(): Provider {
   const subscribers = new Set<(message: Uint8Array) => void>();
 
-  const handleMessage = (event: MessageEvent) => {
-    const source = isIframe() ? getParentWindow() : isWebview() ? getWebviewPort() : null;
+  const handleMessage = async (event: MessageEvent) => {
+    const source = isIframe() ? getParentWindow() : isWebview() ? await getWebviewPort() : null;
     if (!source) throw new Error('No message source found');
     if (!isValidMessage(event, source, window)) return;
 
@@ -62,7 +76,7 @@ function createDefaultSdkProvider(): Provider {
   if (isIframe()) {
     window.addEventListener('message', handleMessage);
   } else if (isWebview()) {
-    getWebviewPort().addEventListener('message', handleMessage);
+    getWebviewPort().then(port => port.addEventListener('message', handleMessage));
   }
 
   return {
@@ -74,7 +88,7 @@ function createDefaultSdkProvider(): Provider {
       if (isIframe()) {
         getParentWindow().postMessage(message, '*', [message.buffer]);
       } else if (isWebview()) {
-        getWebviewPort().postMessage(message, [message.buffer]);
+        getWebviewPort().then(port => port.postMessage(message, [message.buffer]));
       }
     },
     subscribe(callback) {
@@ -89,7 +103,7 @@ function createDefaultSdkProvider(): Provider {
         window.removeEventListener('message', handleMessage);
       }
       if (isWebview()) {
-        getWebviewPort().removeEventListener('message', handleMessage);
+        getWebviewPort().then(port => port.removeEventListener('message', handleMessage));
       }
     },
   };
