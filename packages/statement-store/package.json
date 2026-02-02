@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/statement-store",
   "type": "module",
-  "version": "0.5.3-0",
+  "version": "0.5.4-0",
   "description": "Statement store integration",
   "license": "Apache-2.0",
   "repository": {

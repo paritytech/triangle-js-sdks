@@ -1,3 +1,25 @@
+## 0.5.4-0 (2026-02-02)
+
+### 🚀 Features
+
+- papp integration ([#5](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/5))
+- Implemented correct Polkadot app pairing ui ([#6](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/6))
+- Support new statement store errors while submitting statements ([#8](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/8))
+- host api spec ([#7](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/7))
+- externalized scale helpers into separated library ([d8d3826](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/d8d3826))
+- host chat package WIP ([be14c03](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/be14c03))
+- statement store integration ([3810e61](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/3810e61))
+- webview integrations ([b6e84f6](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/b6e84f6))
+
+### 🩹 Fixes
+
+- Explicitly set account type to sr25519 in extension injector ([c942974](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/c942974))
+- pairing ui logos and texts ([d99f67d](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/d99f67d))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.5.3-0 (2026-01-11)
 
 ### 🚀 Features

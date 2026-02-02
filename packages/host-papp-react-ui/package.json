@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-papp-react-ui",
   "type": "module",
-  "version": "0.5.3-0",
+  "version": "0.5.4-0",
   "description": "Polkadot app UI Flow",
   "license": "Apache-2.0",
   "repository": {
