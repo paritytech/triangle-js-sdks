@@ -28,6 +28,7 @@ export function createTransport(provider: Provider): Transport {
 
   const events = createNanoEvents<{
     connectionStatus: (status: ConnectionStatus) => void;
+    destroy: VoidFunction;
   }>();
 
   events.on('connectionStatus', value => {
@@ -330,10 +331,15 @@ export function createTransport(provider: Provider): Transport {
       return events.on('connectionStatus', callback);
     },
 
-    dispose() {
+    onDestroy(callback) {
+      return events.on('destroy', callback);
+    },
+
+    destroy() {
       disposed = true;
       provider.dispose();
       changeConnectionStatus('disconnected');
+      events.emit('destroy');
       events.events = {};
       handshakeAbortController.abort('Transport disposed');
     },

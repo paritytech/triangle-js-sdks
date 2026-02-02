@@ -34,8 +34,9 @@ export type Transport = {
 
   isCorrectEnvironment(): boolean;
   isReady(): Promise<boolean>;
+  destroy(): void;
   onConnectionStatusChange(callback: (status: ConnectionStatus) => void): VoidFunction;
-  dispose(): void;
+  onDestroy(callback: VoidFunction): VoidFunction;
 
   request<const Method extends HostApiMethod>(
     method: Method,

@@ -328,7 +328,7 @@ export function createContainer(provider: Provider): Container {
 
     handleChainConnection(factory) {
       init();
-      return transport.handleSubscription('jsonrpc_message_subscribe', (params, send) => {
+      return transport.handleSubscription('jsonrpc_message_subscribe', (params, send, interrupt) => {
         assertEnumVariant(params, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
 
         const genesisHash = params.value;
@@ -342,6 +342,13 @@ export function createContainer(provider: Provider): Container {
 
         const connection = provider(message => send(enumValue('v1', message)));
 
+        const unsubscribeDestroy = transport.onDestroy(() => {
+          unsubRequests();
+          unsubscribeDestroy();
+          connection.disconnect();
+          interrupt();
+        });
+
         const unsubRequests = transport.handleRequest('jsonrpc_message_send', async message => {
           assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
           const [requestedGenesisHash, payload] = message.value;
@@ -353,7 +360,8 @@ export function createContainer(provider: Provider): Container {
 
         return () => {
           unsubRequests();
-          connection?.disconnect();
+          unsubscribeDestroy();
+          connection.disconnect();
         };
       });
     },
@@ -371,7 +379,7 @@ export function createContainer(provider: Provider): Container {
     },
 
     dispose() {
-      transport.dispose();
+      transport.destroy();
     },
   };
 }
