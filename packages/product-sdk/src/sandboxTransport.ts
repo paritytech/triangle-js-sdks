@@ -35,13 +35,16 @@ function isWebview() {
   }
 }
 
-async function getWebviewPort() {
+async function getWebviewPort(iteration = 200) {
+  if (iteration === 0) {
+    throw new Error('No webview port found');
+  }
   if (window['__HOST_API_PORT__']) {
     return window['__HOST_API_PORT__'];
   }
 
   await delay(100);
-  return getWebviewPort();
+  return getWebviewPort(iteration - 1);
 }
 
 function isValidIframeMessage(event: MessageEvent, sourceEnv: MessageEventSource, currentEnv: MessageEventSource) {
@@ -77,7 +80,7 @@ function createDefaultSdkProvider(): Provider {
   if (isIframe()) {
     window.addEventListener('message', handleIframeMessage);
   } else if (isWebview()) {
-    getWebviewPort().then(port => port.addEventListener('message', handleWebviewMessage));
+    getWebviewPort().then(port => (port.onmessage = handleWebviewMessage));
   }
 
   return {
@@ -104,7 +107,7 @@ function createDefaultSdkProvider(): Provider {
         window.removeEventListener('message', handleIframeMessage);
       }
       if (isWebview()) {
-        getWebviewPort().then(port => port.removeEventListener('message', handleWebviewMessage));
+        getWebviewPort().then(port => (port.onmessage = null));
       }
     },
   };
