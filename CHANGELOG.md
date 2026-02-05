@@ -1,3 +1,21 @@
+## 0.5.4 (2026-02-05)
+
+### 🚀 Features
+
+- host-container: webview integration provider
+- host-container: new interface for chain connections
+- product-sdk: statement store integration
+- product-sdk: accounts manager API
+- product-sdk: chat manager API
+
+### 🩹 Fixes
+
+- correct disposal of chain connection ([01e3985](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/01e3985))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.5.3-0 (2026-01-11)
 
 ### 🚀 Features
