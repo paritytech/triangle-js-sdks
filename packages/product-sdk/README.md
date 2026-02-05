@@ -72,7 +72,7 @@ function createPapiClient(): PolkadotClient {
 }
 ```
 
-### Subscribing connection status
+### Subscribing host connection status
 
 ```ts
 import { metaProvider } from '@novasamatech/product-sdk';
@@ -85,29 +85,42 @@ const unsubscribe = metaProvider.subscribeConnectionStatus((status) => {
 ### Chat Integration
 
 ```ts
-import { createChat } from '@novasamatech/product-sdk';
+import { createProductChatManager } from '@novasamatech/product-sdk';
 
-// Create chat instance
-const chat = createChat();
+// Create manager instance
+const chat = createProductChatManager();
 
-// Register your dapp as a chat contact
-const registrationStatus = await chat.register({
+// Register your product as a chat contact
+const roomRegistrationStatus = await chat.registerRoom({
+  roomId: 'my-product-room',
+  name: 'My Product',
+  icon: 'https://example.com/icon.png'
+});
+
+// Register your product as a chat bot
+const botRegistrationStatus = await chat.registerBot({
+  botId: 'my-product-bot',
   name: 'My Product',
   icon: 'https://example.com/icon.png'
 });
 
 // Send a message
-const { messageId } = await chat.sendMessage({
+const { messageId } = await chat.sendMessage('my-product-room', {
   tag: 'Text',
   value: 'Hello dear user!'
 });
 
-// Subscribe to chat actions (incoming messages, etc.)
+// Subscribing to chat actions (incoming messages, etc.)
 const subscriber = chat.subscribeAction((action) => {
-  if (action.tag === 'MessagePosted') {
+  console.log('Room:', action.roomId);
+  console.log('Sender:', action.peer);
+
+  const payload = action.payload;
+
+  if (payload.tag === 'MessagePosted') {
     console.log('Received message:', action.value);
   }
-  if (action.tag === 'ActionTriggered') {
+  if (payload.tag === 'ActionTriggered') {
     console.log('User triggered action:', action.value)
   }
 });

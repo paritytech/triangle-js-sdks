@@ -15,6 +15,8 @@ npm install @novasamatech/host-container --save -E
 
 ### Basic Container Setup
 
+#### iframe
+
 ```ts
 import { createContainer, createIframeProvider } from '@novasamatech/host-container';
 
@@ -27,6 +29,22 @@ const provider = createIframeProvider({
 const container = createContainer(provider);
 
 document.body.appendChild(iframe);
+```
+
+#### webview
+
+```ts
+import { createContainer, createWebviewProvider } from '@novasamatech/host-container';
+
+const webview = document.createElement('webview');
+
+const provider = createWebviewProvider({
+  webview,
+  openDevTools: false,
+});
+const container = createContainer(provider);
+
+document.body.appendChild(webview);
 ```
 
 ## API reference
@@ -42,32 +60,19 @@ container.handleFeature((params, { ok, err }) => {
 });
 ```
 
-### handlePermissionRequest
+### handleLocalStorageRead
 
 ```ts
-container.handlePermissionRequest(async (params, { ok, err }) => {
-  if (params.tag === 'ChainConnect') {
-    // Show permission dialog to user
-    const approved = await showPermissionDialog(params.value);
-    return approved ? ok(undefined) : err({ tag: 'Rejected' });
-  }
-  return err({ tag: 'Unknown', value: { reason: 'Unsupported permission type' } });
-});
-```
-
-### handleStorageRead
-
-```ts
-container.handleStorageRead(async (key, { ok, err }) => {
+container.handleLocalStorageRead(async (key, { ok, err }) => {
   const value = await storage.get(key);
   return ok(value ?? null);
 });
 ```
 
-### handleStorageWrite
+### handleLocalStorageWrite
 
 ```ts
-container.handleStorageWrite(async ([key, value], { ok, err }) => {
+container.handleLocalStorageWrite(async ([key, value], { ok, err }) => {
   try {
     await storage.set(key, value);
     return ok(undefined);
@@ -77,10 +82,10 @@ container.handleStorageWrite(async ([key, value], { ok, err }) => {
 });
 ```
 
-### handleStorageClear
+### handleLocalStorageClear
 
 ```ts
-container.handleStorageClear(async (key, { ok, err }) => {
+container.handleLocalStorageClear(async (key, { ok, err }) => {
   await storage.delete(key);
   return ok(undefined);
 });
@@ -184,12 +189,24 @@ container.handleSignPayload(async (payload, { ok, err }) => {
 });
 ```
 
-### handleChatCreateContact
+### handleChatCreateRoom
 
 ```ts
-container.handleChatCreateContact(async (contact, { ok, err }) => {
-  await chatService.registerContact(contact);
+container.handleChatCreateRoom(async (room, { ok, err }) => {
+  await chatService.registerRoom(room);
   return ok(undefined);
+});
+```
+
+## handleChatBotRegistration
+
+### handleChatListSubscribe
+
+```ts
+container.handleChatListSubscribe((_, send, interrupt) => {
+  const listener = (rooms) => send(rooms);
+  chatService.on('roomsUpdate', listener);
+  return () => chatService.off('roomsUpdate', listener);
 });
 ```
 
@@ -212,6 +229,25 @@ container.handleChatActionSubscribe((_, send, interrupt) => {
 });
 ```
 
+### handleStatementStoreQuery
+
+```ts
+container.handleStatementStoreQuery(async (query, { ok, err }) => {
+  const statements = await statementStore.query(query);
+  return ok(statements);
+});
+```
+
+### handleStatementStoreSubscribe
+
+```ts
+container.handleStatementStoreSubscribe((query, send, interrupt) => {
+  const listener = (statements) => send(statements);
+  statementStore.subscribe(query, listener);
+  return () => statementStore.unsubscribe(query, listener);
+});
+```
+
 ### handleStatementStoreCreateProof
 
 ```ts
@@ -225,16 +261,34 @@ container.handleStatementStoreCreateProof(async ([[dotnsId, derivationIndex], st
 });
 ```
 
-### handleJsonRpcMessageSubscribe
+### handleStatementStoreSubmit
+
+```ts
+container.handleStatementStoreSubmit(async (statement, { ok, err }) => {
+  try {
+    await statementStore.submit(statement);
+    return ok(undefined);
+  } catch (e) {
+    return err({ tag: 'Unknown', value: { reason: e.message } });
+  }
+});
+```
+
+### handleChainConnection
 
 ```ts
 import { getWsProvider } from 'polkadot-api/ws-provider';
 
-const provider = getWsProvider('wss://rpc.polkadot.io');
-container.handleJsonRpcMessageSubscribe(
-  { genesisHash: '0x...' },
-  provider
-);
+const chains = new Map([
+  ['0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3', 'wss://rpc.polkadot.io'],
+  ['0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe', 'wss://kusama-rpc.polkadot.io'],
+]);
+
+container.handleChainConnection((genesisHash) => {
+  const endpoint = chains.get(genesisHash);
+  if (!endpoint) return null;
+  return getWsProvider(endpoint);
+});
 ```
 
 ### isReady
@@ -252,39 +306,12 @@ if (ready) {
 container.dispose();
 ```
 
-### subscribeConnectionStatus
+### subscribeProductConnectionStatus
 
 ```ts
-const unsubscribe = container.subscribeConnectionStatus((status) => {
+const unsubscribe = container.subscribeProductConnectionStatus((status) => {
   console.log('Connection status:', status);
 });
-```
-
-## PAPI provider support
-
-Host container supports [PAPI](https://papi.how/) request redirection from product to host container.
-It can be useful to deduplicate socket connections or light client instances between multiple dapps.
-
-To support this feature, you should add two additional handlers to the container:
-
-### Chain support check
-```ts
-const genesisHash = '0x...';
-
-container.handleFeature(async (feature) => {
-  return feature.tag === 'Chain' && feature.value === genesisHash;
-});
-```
-
-### Provider implementation
-
-```ts
-import { getWsProvider } from 'polkadot-api/ws-provider';
-
-const genesisHash = '0x...';
-const provider = getWsProvider('wss://...');
-
-container.connectToPapiProvider(genesisHash, provider);
 ```
 
 ## Known pitfalls

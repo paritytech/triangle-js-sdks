@@ -37,7 +37,7 @@ export function createRequestId() {
 
 export function extractErrorMessage(err: unknown) {
   if (err instanceof Error) {
-    return err.toString();
+    return err.message;
   }
 
   if (err) {

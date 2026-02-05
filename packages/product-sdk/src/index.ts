@@ -9,8 +9,14 @@ export { createMetaProvider, metaProvider } from './metaProvider.js';
 export { createNonProductExtensionEnableFactory, injectSpektrExtension } from './injectWeb3.js';
 export { createPapiProvider } from './papiProvider.js';
 
-export type { ChatMessageContent, ReceivedChatAction } from './chat.js';
-export { createChat } from './chat.js';
+export type {
+  ChatBotRegistrationResult,
+  ChatMessageContent,
+  ChatRoom,
+  ChatRoomRegistrationResult,
+  ReceivedChatAction,
+} from './chat.js';
+export { createProductChatManager } from './chat.js';
 
 export type { ProductAccountId, SignedStatement, Statement, Topic } from './statementStore.js';
 export { createStatementStore } from './statementStore.js';

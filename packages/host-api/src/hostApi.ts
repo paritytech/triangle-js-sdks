@@ -6,7 +6,7 @@ import { extractErrorMessage } from './helpers.js';
 import { GenericError } from './protocol/commonCodecs.js';
 import type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './protocol/impl.js';
 import { CreateProofErr, RequestCredentialsErr } from './protocol/v1/accounts.js';
-import { ChatMessagePostingErr, ChatRoomRegistrationErr } from './protocol/v1/chat.js';
+import { ChatBotRegistrationErr, ChatMessagePostingErr, ChatRoomRegistrationErr } from './protocol/v1/chat.js';
 import { CreateTransactionErr } from './protocol/v1/createTransaction.js';
 import { HandshakeErr } from './protocol/v1/handshake.js';
 import { SigningErr } from './protocol/v1/sign.js';
@@ -338,6 +338,27 @@ export function createHostApi(transport: Transport): HostApi {
       const response = fromPromise(transport.request('chat_create_room', payload), e => ({
         tag: payload.tag,
         value: new ChatRoomRegistrationErr.Unknown({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chatRegisterBot(payload) {
+      const response = fromPromise(transport.request('chat_register_bot', payload), e => ({
+        tag: payload.tag,
+        value: new ChatBotRegistrationErr.Unknown({ reason: extractErrorMessage(e) }),
       }));
 
       return response.andThen(response => {

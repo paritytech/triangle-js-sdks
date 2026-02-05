@@ -1,57 +1,69 @@
 import type {
+  ChatBotRegistrationStatus as ChatBotRegistrationStatusCodec,
   ChatMessageContent as ChatMessageContentCodec,
   ChatRoom as ChatRoomCodec,
-  ChatRoomRegistrationResult as ChatRoomRegistrationResultCodec,
+  ChatRoomRegistrationStatus as ChatRoomRegistrationStatusCodec,
   CodecType,
   ReceivedChatAction as ReceivedChatActionCodec,
   Transport,
 } from '@novasamatech/host-api';
 import { createHostApi, enumValue } from '@novasamatech/host-api';
 
-import { promiseWithResolvers } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
-
-promiseWithResolvers();
 
 export type ChatMessageContent = CodecType<typeof ChatMessageContentCodec>;
 export type ReceivedChatAction = CodecType<typeof ReceivedChatActionCodec>;
-export type ChatRoomRegistrationResult = CodecType<typeof ChatRoomRegistrationResultCodec>;
+export type ChatRoomRegistrationResult = CodecType<typeof ChatRoomRegistrationStatusCodec>;
+export type ChatBotRegistrationResult = CodecType<typeof ChatBotRegistrationStatusCodec>;
 export type ChatRoom = CodecType<typeof ChatRoomCodec>;
 
-export const createChat = (transport: Transport = sandboxTransport) => {
+export const createProductChatManager = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
-  let registrationStatus: ChatRoomRegistrationResult | null = null;
-
-  const messageQueue: {
-    roomId: string;
-    content: ChatMessageContent;
-    resolve: (response: { messageId: string }) => void;
-    reject: (reason: unknown) => void;
-  }[] = [];
+  const roomRegistrationStatus: Record<string, ChatRoomRegistrationResult> = {};
+  const botRegistrationStatus: Record<string, ChatBotRegistrationResult> = {};
 
   const chat = {
-    async register(params: { roomId: string; name: string; icon: string }) {
-      if (registrationStatus) {
-        return registrationStatus;
+    async registerRoom(params: { roomId: string; name: string; icon: string }) {
+      const existingRegistration = roomRegistrationStatus[params.roomId];
+      if (existingRegistration) {
+        return existingRegistration;
       }
 
       const result = await hostApi.chatCreateRoom(enumValue('v1', params));
 
       return result.match(
         payload => {
-          if (payload.tag === 'v1') {
-            registrationStatus = payload.value;
-
-            if (messageQueue.length > 0) {
-              messageQueue.forEach(({ roomId, content, resolve, reject }) => {
-                chat.sendMessage(roomId, content).then(resolve, reject);
-              });
-              messageQueue.length = 0;
+          switch (payload.tag) {
+            case 'v1': {
+              roomRegistrationStatus[params.roomId] = payload.value.status;
+              return payload.value.status;
             }
+            default:
+              throw new Error(`Unknown message version ${payload.tag}`);
+          }
+        },
+        err => {
+          throw err.value;
+        },
+      );
+    },
+    async registerBot(params: { botId: string; name: string; icon: string }) {
+      const existingRegistration = botRegistrationStatus[params.botId];
+      if (existingRegistration) {
+        return existingRegistration;
+      }
 
-            return registrationStatus;
-          } else {
-            throw new Error(`Unknown message version ${payload.tag}`);
+      const result = await hostApi.chatRegisterBot(enumValue('v1', params));
+
+      return result.match(
+        payload => {
+          switch (payload.tag) {
+            case 'v1': {
+              botRegistrationStatus[params.botId] = payload.value.status;
+              return payload.value.status;
+            }
+            default:
+              throw new Error(`Unknown message version ${payload.tag}`);
           }
         },
         err => {
@@ -60,26 +72,22 @@ export const createChat = (transport: Transport = sandboxTransport) => {
       );
     },
     async sendMessage(roomId: string, payload: ChatMessageContent) {
-      if (registrationStatus) {
-        const result = await hostApi.chatPostMessage(enumValue('v1', { roomId, payload }));
+      const result = await hostApi.chatPostMessage(enumValue('v1', { roomId, payload }));
 
-        return result.match(
-          payload => {
-            if (payload.tag === 'v1') {
+      return result.match(
+        payload => {
+          switch (payload.tag) {
+            case 'v1': {
               return { messageId: payload.value.messageId };
-            } else {
-              throw new Error(`Unknown message version ${payload.tag}`);
             }
-          },
-          err => {
-            throw err.value;
-          },
-        );
-      } else {
-        const { promise, resolve, reject } = promiseWithResolvers<{ messageId: string }>();
-        messageQueue.push({ roomId, content: payload, resolve, reject });
-        return promise;
-      }
+            default:
+              throw new Error(`Unknown message version ${payload.tag}`);
+          }
+        },
+        err => {
+          throw err.value;
+        },
+      );
     },
     subscribeChatList(callback: (rooms: ChatRoom[]) => void) {
       return hostApi.chatListSubscribe(enumValue('v1', undefined), action => {
@@ -90,8 +98,12 @@ export const createChat = (transport: Transport = sandboxTransport) => {
     },
     subscribeAction(callback: (action: ReceivedChatAction) => void) {
       return hostApi.chatActionSubscribe(enumValue('v1', undefined), action => {
-        if (action.tag === 'v1') {
-          callback(action.value);
+        switch (action.tag) {
+          case 'v1':
+            callback(action.value);
+            break;
+          default:
+            console.error(`Unknown message version ${action.tag}`);
         }
       });
     },

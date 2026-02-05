@@ -39,11 +39,14 @@ export {
 } from './protocol/v1/accounts.js';
 export {
   ChatActionPayload,
+  ChatBotRegistrationErr,
+  ChatBotRegistrationStatus,
   ChatMessageContent,
   ChatMessagePostingErr,
   ChatRoom,
   ChatRoomRegistrationErr,
   ChatRoomRegistrationResult,
+  ChatRoomRegistrationStatus,
   ReceivedChatAction,
 } from './protocol/v1/chat.js';
 export { HandshakeErr } from './protocol/v1/handshake.js';

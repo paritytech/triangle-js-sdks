@@ -92,6 +92,7 @@ export type Container = {
   // chat
 
   handleChatCreateRoom: InferHandler<'v1', HostApiProtocol['chat_create_room']>;
+  handleChatBotRegistration: InferHandler<'v1', HostApiProtocol['chat_register_bot']>;
   handleChatListSubscribe: InferHandler<'v1', HostApiProtocol['chat_list_subscribe']>;
   handleChatPostMessage: InferHandler<'v1', HostApiProtocol['chat_post_message']>;
   handleChatActionSubscribe: InferHandler<'v1', HostApiProtocol['chat_action_subscribe']>;

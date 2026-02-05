@@ -1,5 +1,6 @@
 import type { ConnectionStatus, Provider } from '@novasamatech/host-api';
 import {
+  ChatBotRegistrationErr,
   ChatMessagePostingErr,
   ChatRoomRegistrationErr,
   CreateProofErr,
@@ -219,6 +220,20 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('chat_create_room', async params => {
         const version = 'v1';
         const error = new ChatRoomRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChatBotRegistration(handler) {
+      init();
+      return transport.handleRequest('chat_register_bot', async params => {
+        const version = 'v1';
+        const error = new ChatBotRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
         return guardVersion(params, version, error)
           .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))

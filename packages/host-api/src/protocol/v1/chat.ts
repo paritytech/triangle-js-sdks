@@ -1,5 +1,5 @@
 import { Enum, ErrEnum, Status } from '@novasamatech/scale';
-import { Option, Result, Struct, Vector, _void, str, u64 } from 'scale-ts';
+import { Bytes, Option, Result, Struct, Vector, _void, str, u64 } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
 
@@ -38,8 +38,14 @@ export const ChatBotRequest = Struct({
   icon: str, // URL or base64-encoded image for contact
 });
 
-export const ChatCreateBotV1_request = ChatBotRequest;
-export const ChatCreateBotV1_response = Result(ChatRoomRegistrationResult, ChatRoomRegistrationErr);
+export const ChatBotRegistrationStatus = Status('New', 'Exists');
+
+export const ChatBotRegistrationResult = Struct({
+  status: ChatBotRegistrationStatus,
+});
+
+export const ChatRegisterBotV1_request = ChatBotRequest;
+export const ChatRegisterBotV1_response = Result(ChatBotRegistrationResult, ChatBotRegistrationErr);
 
 // receiving rooms
 
@@ -121,6 +127,7 @@ export const ChatPostMessageV1_response = Result(ChatPostMessageResult, ChatMess
 export const ActionTrigger = Struct({
   messageId: str,
   actionId: str,
+  payload: Option(Bytes()),
 });
 
 export const ChatCommand = Struct({
