@@ -9,6 +9,7 @@ Core features:
 - Generic injectWeb3 provider similar to [polkadot-js extension](https://polkadot.js.org/extension/)
 - Chat module integration
 - Statement store integration
+- Accounts provider for product accounts and signing
 - Redirect [PAPI](https://papi.how/) requests to host application
 - Receive additional information from host application - supported chains, theme, etc.
 
@@ -124,6 +125,11 @@ const subscriber = chat.subscribeAction((action) => {
     console.log('User triggered action:', action.value)
   }
 });
+
+// Subscribing to chat room list updates
+const chatListSubscriber = chat.subscribeChatList((rooms) => {
+  console.log('Chat rooms updated:', rooms);
+});
 ```
 
 **Note:** Messages sent before registration will be queued and sent automatically after successful registration.
@@ -174,5 +180,55 @@ await statementStore.submit(signedStatement);
 
 // Unsubscribe when done
 subscription.unsubscribe();
+```
+
+### Accounts Provider
+
+The Accounts Provider allows you to access product accounts and create signers for signing transactions.
+
+```ts
+import { createAccountsProvider } from '@novasamatech/product-sdk';
+import type { ProductAccount } from '@novasamatech/product-sdk';
+
+// Create accounts provider instance
+const accountsProvider = createAccountsProvider();
+
+// Get a product account by DotNS identifier and derivation index
+const accountResult = await accountsProvider.getProductAccount('product.dot', 0);
+
+if (accountResult.isOk()) {
+  const account: ProductAccount = accountResult.value;
+  console.log('Public key:', account.publicKey);
+}
+
+// Get account alias
+const aliasResult = await accountsProvider.getProductAccountAlias('product.dot', 0);
+
+if (aliasResult.isOk()) {
+  console.log('Alias:', aliasResult.value);
+}
+
+// Get non-product accounts (external wallets)
+const nonProductAccountsResult = await accountsProvider.getNonProductAccounts();
+
+if (nonProductAccountsResult.isOk()) {
+  console.log('Non-product accounts:', nonProductAccountsResult.value);
+}
+
+// Create a signer for a product account (for use with PAPI)
+const account: ProductAccount = {
+  dotNsIdentifier: 'product.dot',
+  derivationIndex: 0,
+  publicKey: new Uint8Array([/* ... */])
+};
+const signer = accountsProvider.getProductAccountSigner(account);
+
+// Create a signer for a non-product account
+const nonProductSigner = accountsProvider.getNonProductAccountSigner(account);
+
+// PAPI transaction signing example
+
+const productAccountSignedTx = await tx.signAndSubmit(signer);
+const nonProductAccountSignedTx = await tx.signAndSubmit(nonProductSigner);
 ```
 

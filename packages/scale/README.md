@@ -38,7 +38,7 @@ const bytes = fromHex("0xff0080");
 
 ### Nullable
 
-Codec for nullable values (null/undefined mapping).
+Codec for nullable values (null -> _void mapping).
 
 ```typescript
 import { Nullable } from '@novasamatech/scale';
@@ -46,10 +46,10 @@ import { u32 } from 'scale-ts';
 
 const nullableCodec = Nullable(u32);
 
-// Encode null as undefined
+// Encode null as _void
 const encoded = nullableCodec.enc(null);
 
-// Decode undefined as null
+// Decode _void as null
 const decoded = nullableCodec.dec(encoded);
 // Result: null
 ```
