@@ -33,15 +33,15 @@
     "@novasamatech/statement-store": "0.5.4-9",
     "@novasamatech/storage-adapter": "0.5.4-9",
     "@polkadot-api/utils": "0.2.0",
-    "@polkadot-api/substrate-bindings": "^0.16.5",
+    "@polkadot-api/substrate-bindings": "^0.17.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.27",
     "@scure/sr25519": "1.0.0",
     "nanoevents": "9.1.0",
     "nanoid": "5.1.6",
     "neverthrow": "^8.2.0",
-    "polkadot-api": "^1.23.2",
+    "polkadot-api": "^1.23.3",
     "scale-ts": "1.6.1",
-    "verifiablejs": "1.1.0"
+    "verifiablejs": "1.2.0"
   },
   "publishConfig": {
     "access": "public"

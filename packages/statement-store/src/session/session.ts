@@ -43,8 +43,11 @@ export function createSession({
       .encrypt(data)
       .map<Statement>(data => ({
         priority: getPriority(now()),
+        // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
         channel: Binary.fromBytes(channel),
+        // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
         topics: [Binary.fromBytes(sessionId)],
+        // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
         data: Binary.fromBytes(data),
       }))
       .asyncAndThen(prover.generateMessageProof)

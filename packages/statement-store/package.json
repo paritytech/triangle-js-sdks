@@ -25,13 +25,13 @@
   ],
   "dependencies": {
     "@polkadot-api/sdk-statement": "^0.3.0",
-    "@polkadot-api/substrate-bindings": "^0.16.5",
+    "@polkadot-api/substrate-bindings": "^0.17.0",
     "@polkadot-api/utils": "0.2.0",
     "@polkadot-labs/hdkd-helpers": "0.0.27",
     "@noble/hashes": "2.0.1",
     "@noble/ciphers": "2.1.1",
     "@scure/sr25519": "1.0.0",
-    "polkadot-api": "^1.23.2",
+    "polkadot-api": "^1.23.3",
     "neverthrow": "^8.2.0",
     "scale-ts": "1.6.1"
   },
