@@ -29,7 +29,7 @@
     "react-dom": ">=18"
   },
   "dependencies": {
-    "@novasamatech/statement-store": "0.5.2",
+    "@novasamatech/statement-store": "0.5.4",
     "@polkadot-api/utils": "^0.2.0",
     "@radix-ui/react-dialog": "1.1.15",
     "qr-code-styling": "1.9.2",

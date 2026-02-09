@@ -73,9 +73,9 @@ export const PairingPopover = memo(({ theme, children }: Props) => {
 });
 
 const PairingStep = ({ payload }: { payload: string }) => {
-  const { status } = useAuthStatus();
+  const { guestUsername } = useAuthStatus();
   const translation = useTranslations();
-  const welcomeText = translation.pairingPopoverWelcome.replace('{username}', status.username || 'Guest');
+  const welcomeText = translation.pairingPopoverWelcome.replace('{username}', guestUsername || 'Guest');
 
   return (
     <div className={styles.pairingPopoverContainer}>
@@ -91,9 +91,9 @@ const PairingStep = ({ payload }: { payload: string }) => {
 };
 
 const LoadingStep = () => {
-  const { status } = useAuthStatus();
+  const { guestUsername } = useAuthStatus();
   const translation = useTranslations();
-  const welcomeText = translation.pairingPopoverWelcome.replace('{username}', status.username || 'Guest');
+  const welcomeText = translation.pairingPopoverWelcome.replace('{username}', guestUsername || 'Guest');
 
   return (
     <div className={styles.loaderContainerPopover}>

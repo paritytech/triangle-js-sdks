@@ -62,9 +62,9 @@ const PairingStep = ({ payload }: { payload: string }) => {
 };
 
 const LoadingStep = () => {
-  const { status } = useAuthStatus();
+  const { guestUsername } = useAuthStatus();
   const translation = useTranslations();
-  const welcomeText = translation.pairingLoginMessage.replace('{username}', status.username || 'Guest');
+  const welcomeText = translation.pairingLoginMessage.replace('{username}', guestUsername || 'Guest');
 
   return (
     <div className={styles.loaderContainer}>
