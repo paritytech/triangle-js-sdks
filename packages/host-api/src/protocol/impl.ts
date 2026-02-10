@@ -30,6 +30,7 @@ import {
   CreateTransactionWithNonProductAccountV1_request,
   CreateTransactionWithNonProductAccountV1_response,
 } from './v1/createTransaction.js';
+import { DevicePermissionV1_request, DevicePermissionV1_response } from './v1/devicePermission.js';
 import { FeatureV1_request, FeatureV1_response } from './v1/feature.js';
 import { HandshakeV1_request, HandshakeV1_response } from './v1/handshake.js';
 import {
@@ -38,6 +39,7 @@ import {
   JsonRpcMessageSubscribeV1_receive,
   JsonRpcMessageSubscribeV1_start,
 } from './v1/jsonRpc.js';
+import { PushNotificationV1_request, PushNotificationV1_response } from './v1/notification.js';
 import { SignPayloadV1_request, SignPayloadV1_response, SignRawV1_request, SignRawV1_response } from './v1/sign.js';
 import {
   StatementStoreCreateProofV1_request,
@@ -227,113 +229,121 @@ const versionedSubscription = <const EnumValues extends VersionedArguments>(
 export type HostApiProtocol = typeof hostApiProtocol;
 
 export const hostApiProtocol = {
-  // host requests
+  // host calls
 
-  handshake: versionedRequest({
+  host_handshake: versionedRequest({
     v1: [HandshakeV1_request, HandshakeV1_response],
   }),
 
-  feature: versionedRequest({
+  host_feature_supported: versionedRequest({
     v1: [FeatureV1_request, FeatureV1_response],
   }),
 
-  // local storage
+  host_device_permission: versionedRequest({
+    v1: [DevicePermissionV1_request, DevicePermissionV1_response],
+  }),
 
-  local_storage_read: versionedRequest({
+  host_push_notification: versionedRequest({
+    v1: [PushNotificationV1_request, PushNotificationV1_response],
+  }),
+
+  // storage
+
+  host_local_storage_read: versionedRequest({
     v1: [StorageReadV1_request, StorageReadV1_response],
   }),
 
-  local_storage_write: versionedRequest({
+  host_local_storage_write: versionedRequest({
     v1: [StorageWriteV1_request, StorageWriteV1_response],
   }),
 
-  local_storage_clear: versionedRequest({
+  host_local_storage_clear: versionedRequest({
     v1: [StorageClearV1_request, StorageClearV1_response],
   }),
 
   // accounts
 
-  account_get: versionedRequest({
+  host_account_get: versionedRequest({
     v1: [AccountGetV1_request, AccountGetV1_response],
   }),
 
-  account_get_alias: versionedRequest({
+  host_account_get_alias: versionedRequest({
     v1: [AccountGetAliasV1_request, AccountGetAliasV1_response],
   }),
 
-  account_create_proof: versionedRequest({
+  host_account_create_proof: versionedRequest({
     v1: [AccountCreateProofV1_request, AccountCreateProofV1_response],
   }),
 
-  get_non_product_accounts: versionedRequest({
+  host_get_non_product_accounts: versionedRequest({
     v1: [GetNonProductAccountsV1_request, GetNonProductAccountsV1_response],
   }),
 
   // signing
 
-  create_transaction: versionedRequest({
+  host_create_transaction: versionedRequest({
     v1: [CreateTransactionV1_request, CreateTransactionV1_response],
   }),
 
-  create_transaction_with_non_product_account: versionedRequest({
+  host_create_transaction_with_non_product_account: versionedRequest({
     v1: [CreateTransactionWithNonProductAccountV1_request, CreateTransactionWithNonProductAccountV1_response],
   }),
 
-  sign_raw: versionedRequest({
+  host_sign_raw: versionedRequest({
     v1: [SignRawV1_request, SignRawV1_response],
   }),
 
-  sign_payload: versionedRequest({
+  host_sign_payload: versionedRequest({
     v1: [SignPayloadV1_request, SignPayloadV1_response],
   }),
 
   // chat
 
-  chat_create_room: versionedRequest({
+  host_chat_create_room: versionedRequest({
     v1: [ChatCreateRoomV1_request, ChatCreateRoomV1_response],
   }),
 
-  chat_register_bot: versionedRequest({
+  host_chat_register_bot: versionedRequest({
     v1: [ChatRegisterBotV1_request, ChatRegisterBotV1_response],
   }),
 
-  chat_list_subscribe: versionedSubscription({
+  host_chat_list_subscribe: versionedSubscription({
     v1: [ChatListSubscribeV1_start, ChatListSubscribeV1_receive],
   }),
 
-  chat_post_message: versionedRequest({
+  host_chat_post_message: versionedRequest({
     v1: [ChatPostMessageV1_request, ChatPostMessageV1_response],
   }),
 
-  chat_action_subscribe: versionedSubscription({
+  host_chat_action_subscribe: versionedSubscription({
     v1: [ChatActionSubscribeV1_start, ChatActionSubscribeV1_receive],
   }),
 
-  // statement store
+  // statement store (remote namespace)
 
-  statement_store_query: versionedRequest({
+  remote_statement_store_query: versionedRequest({
     v1: [StatementStoreQueryV1_request, StatementStoreQueryV1_response],
   }),
 
-  statement_store_subscribe: versionedSubscription({
+  remote_statement_store_subscribe: versionedSubscription({
     v1: [StatementStoreSubscribeV1_start, StatementStoreSubscribeV1_receive],
   }),
 
-  statement_store_create_proof: versionedRequest({
+  remote_statement_store_create_proof: versionedRequest({
     v1: [StatementStoreCreateProofV1_request, StatementStoreCreateProofV1_response],
   }),
 
-  statement_store_submit: versionedRequest({
+  remote_statement_store_submit: versionedRequest({
     v1: [StatementStoreSubmitV1_request, StatementStoreSubmitV1_response],
   }),
 
-  // json rpc
+  // json rpc (temporary, kept until chain methods are added)
 
-  jsonrpc_message_send: versionedRequest({
+  host_jsonrpc_message_send: versionedRequest({
     v1: [JsonRpcMessageSendV1_request, JsonRpcMessageSendV1_response],
   }),
 
-  jsonrpc_message_subscribe: versionedSubscription({
+  host_jsonrpc_message_subscribe: versionedSubscription({
     v1: [JsonRpcMessageSubscribeV1_start, JsonRpcMessageSubscribeV1_receive],
   }),
 } as const;

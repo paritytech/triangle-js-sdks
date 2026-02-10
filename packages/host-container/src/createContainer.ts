@@ -47,9 +47,37 @@ export function createContainer(provider: Provider): Container {
   }
 
   return {
-    handleFeature(handler) {
+    handleFeatureSupported(handler) {
       init();
-      return transport.handleRequest('feature', async message => {
+      return transport.handleRequest('host_feature_supported', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleDevicePermission(handler) {
+      init();
+      return transport.handleRequest('host_device_permission', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handlePushNotification(handler) {
+      init();
+      return transport.handleRequest('host_push_notification', async message => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -63,7 +91,7 @@ export function createContainer(provider: Provider): Container {
 
     handleLocalStorageRead(handler) {
       init();
-      return transport.handleRequest('local_storage_read', async message => {
+      return transport.handleRequest('host_local_storage_read', async message => {
         const version = 'v1';
         const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -77,7 +105,7 @@ export function createContainer(provider: Provider): Container {
 
     handleLocalStorageWrite(handler) {
       init();
-      return transport.handleRequest('local_storage_write', async message => {
+      return transport.handleRequest('host_local_storage_write', async message => {
         const version = 'v1';
         const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -91,7 +119,7 @@ export function createContainer(provider: Provider): Container {
 
     handleLocalStorageClear(handler) {
       init();
-      return transport.handleRequest('local_storage_clear', async params => {
+      return transport.handleRequest('host_local_storage_clear', async params => {
         const version = 'v1';
         const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -105,7 +133,7 @@ export function createContainer(provider: Provider): Container {
 
     handleAccountGet(handler) {
       init();
-      return transport.handleRequest('account_get', async params => {
+      return transport.handleRequest('host_account_get', async params => {
         const version = 'v1';
         const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -119,7 +147,7 @@ export function createContainer(provider: Provider): Container {
 
     handleAccountGetAlias(handler) {
       init();
-      return transport.handleRequest('account_get_alias', async params => {
+      return transport.handleRequest('host_account_get_alias', async params => {
         const version = 'v1';
         const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -133,7 +161,7 @@ export function createContainer(provider: Provider): Container {
 
     handleAccountCreateProof(handler) {
       init();
-      return transport.handleRequest('account_create_proof', async params => {
+      return transport.handleRequest('host_account_create_proof', async params => {
         const version = 'v1';
         const error = new CreateProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -147,7 +175,7 @@ export function createContainer(provider: Provider): Container {
 
     handleGetNonProductAccounts(handler) {
       init();
-      return transport.handleRequest('get_non_product_accounts', async params => {
+      return transport.handleRequest('host_get_non_product_accounts', async params => {
         const version = 'v1';
         const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -161,7 +189,7 @@ export function createContainer(provider: Provider): Container {
 
     handleCreateTransaction(handler) {
       init();
-      return transport.handleRequest('create_transaction', async params => {
+      return transport.handleRequest('host_create_transaction', async params => {
         const version = 'v1';
         const error = new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -175,7 +203,7 @@ export function createContainer(provider: Provider): Container {
 
     handleCreateTransactionWithNonProductAccount(handler) {
       init();
-      return transport.handleRequest('create_transaction_with_non_product_account', async params => {
+      return transport.handleRequest('host_create_transaction_with_non_product_account', async params => {
         const version = 'v1';
         const error = new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -189,7 +217,7 @@ export function createContainer(provider: Provider): Container {
 
     handleSignRaw(handler) {
       init();
-      return transport.handleRequest('sign_raw', async params => {
+      return transport.handleRequest('host_sign_raw', async params => {
         const version = 'v1';
         const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -203,7 +231,7 @@ export function createContainer(provider: Provider): Container {
 
     handleSignPayload(handler) {
       init();
-      return transport.handleRequest('sign_payload', async params => {
+      return transport.handleRequest('host_sign_payload', async params => {
         const version = 'v1';
         const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -217,7 +245,7 @@ export function createContainer(provider: Provider): Container {
 
     handleChatCreateRoom(handler) {
       init();
-      return transport.handleRequest('chat_create_room', async params => {
+      return transport.handleRequest('host_chat_create_room', async params => {
         const version = 'v1';
         const error = new ChatRoomRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -231,7 +259,7 @@ export function createContainer(provider: Provider): Container {
 
     handleChatBotRegistration(handler) {
       init();
-      return transport.handleRequest('chat_register_bot', async params => {
+      return transport.handleRequest('host_chat_register_bot', async params => {
         const version = 'v1';
         const error = new ChatBotRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -245,7 +273,7 @@ export function createContainer(provider: Provider): Container {
 
     handleChatListSubscribe(handler) {
       init();
-      return transport.handleSubscription('chat_list_subscribe', (params, send, interrupt) => {
+      return transport.handleSubscription('host_chat_list_subscribe', (params, send, interrupt) => {
         const version = 'v1';
 
         return guardVersion(params, version, null)
@@ -259,7 +287,7 @@ export function createContainer(provider: Provider): Container {
 
     handleChatPostMessage(handler) {
       init();
-      return transport.handleRequest('chat_post_message', async params => {
+      return transport.handleRequest('host_chat_post_message', async params => {
         const version = 'v1';
         const error = new ChatMessagePostingErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -273,7 +301,7 @@ export function createContainer(provider: Provider): Container {
 
     handleChatActionSubscribe(handler) {
       init();
-      return transport.handleSubscription('chat_action_subscribe', (params, send, interrupt) => {
+      return transport.handleSubscription('host_chat_action_subscribe', (params, send, interrupt) => {
         const version = 'v1';
 
         return guardVersion(params, version, null)
@@ -287,7 +315,7 @@ export function createContainer(provider: Provider): Container {
 
     handleStatementStoreQuery(handler) {
       init();
-      return transport.handleRequest('statement_store_query', async params => {
+      return transport.handleRequest('remote_statement_store_query', async params => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -301,7 +329,7 @@ export function createContainer(provider: Provider): Container {
 
     handleStatementStoreSubscribe(handler) {
       init();
-      return transport.handleSubscription('statement_store_subscribe', (params, send, interrupt) => {
+      return transport.handleSubscription('remote_statement_store_subscribe', (params, send, interrupt) => {
         const version = 'v1';
 
         return guardVersion(params, version, null)
@@ -315,7 +343,7 @@ export function createContainer(provider: Provider): Container {
 
     handleStatementStoreCreateProof(handler) {
       init();
-      return transport.handleRequest('statement_store_create_proof', async params => {
+      return transport.handleRequest('remote_statement_store_create_proof', async params => {
         const version = 'v1';
         const error = new StatementProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -329,7 +357,7 @@ export function createContainer(provider: Provider): Container {
 
     handleStatementStoreSubmit(handler) {
       init();
-      return transport.handleRequest('statement_store_submit', async params => {
+      return transport.handleRequest('remote_statement_store_submit', async params => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
@@ -343,7 +371,7 @@ export function createContainer(provider: Provider): Container {
 
     handleChainConnection(factory) {
       init();
-      return transport.handleSubscription('jsonrpc_message_subscribe', (params, send) => {
+      return transport.handleSubscription('host_jsonrpc_message_subscribe', (params, send) => {
         assertEnumVariant(params, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
 
         const genesisHash = params.value;
@@ -363,7 +391,7 @@ export function createContainer(provider: Provider): Container {
           connection.disconnect();
         });
 
-        const unsubRequests = transport.handleRequest('jsonrpc_message_send', async message => {
+        const unsubRequests = transport.handleRequest('host_jsonrpc_message_send', async message => {
           assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
           const [requestedGenesisHash, payload] = message.value;
           if (requestedGenesisHash === genesisHash) {

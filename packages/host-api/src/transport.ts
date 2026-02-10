@@ -94,7 +94,7 @@ export function createTransport(provider: Provider): Transport {
         };
 
         return new Promise<boolean>(resolve => {
-          const unsubscribe = transport.listenMessages('handshake_response', responseId => {
+          const unsubscribe = transport.listenMessages('host_handshake_response', responseId => {
             if (responseId === id) {
               cleanup(interval, unsubscribe);
               resolved = true;
@@ -111,7 +111,7 @@ export function createTransport(provider: Provider): Transport {
               return;
             }
 
-            transport.postMessage(id, enumValue('handshake_request', enumValue('v1', codecVersion)));
+            transport.postMessage(id, enumValue('host_handshake_request', enumValue('v1', codecVersion)));
           }, HANDSHAKE_INTERVAL);
         }).then(success => {
           if (!success && !resolved) {
@@ -346,7 +346,7 @@ export function createTransport(provider: Provider): Transport {
   };
 
   if (provider.isCorrectEnvironment()) {
-    transport.handleRequest('handshake', async version => {
+    transport.handleRequest('host_handshake', async version => {
       switch (version.tag) {
         case 'v1': {
           codecVersion = version.value;

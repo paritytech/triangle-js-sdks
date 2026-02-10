@@ -42,7 +42,7 @@ describe('Host API: JSON RPC provider', () => {
     const receivedByProvider: string[] = [];
     const receivedBySDK: string[] = [];
 
-    container.handleFeature((params, { ok }) =>
+    container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
     container.handleChainConnection(chain => {
@@ -84,7 +84,7 @@ describe('Host API: JSON RPC provider', () => {
     const receivedByProvider: string[] = [];
 
     // Feature returns false - chain not supported
-    container.handleFeature((_, { ok }) => ok(false));
+    container.handleFeatureSupported((_, { ok }) => ok(false));
     container.handleChainConnection(chain => {
       if (chain !== WellKnownChain.polkadotRelay) return null;
 
@@ -117,7 +117,7 @@ describe('Host API: JSON RPC provider', () => {
     const { container, provider } = setup(WellKnownChain.polkadotRelay);
     const disconnectFn = vi.fn();
 
-    container.handleFeature((params, { ok }) =>
+    container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
     container.handleChainConnection(chain => {
@@ -158,7 +158,7 @@ describe('Host API: JSON RPC provider', () => {
     const receivedByPolkadot: string[] = [];
     const receivedByOther: string[] = [];
 
-    container.handleFeature((params, { ok }) =>
+    container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
     // Only handle Polkadot chain

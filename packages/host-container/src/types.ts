@@ -64,45 +64,47 @@ type InferHandler<
 export type Container = {
   // host
 
-  handleFeature: InferHandler<'v1', HostApiProtocol['feature']>;
+  handleFeatureSupported: InferHandler<'v1', HostApiProtocol['host_feature_supported']>;
+  handleDevicePermission: InferHandler<'v1', HostApiProtocol['host_device_permission']>;
+  handlePushNotification: InferHandler<'v1', HostApiProtocol['host_push_notification']>;
 
   // storage
 
-  handleLocalStorageRead: InferHandler<'v1', HostApiProtocol['local_storage_read']>;
-  handleLocalStorageWrite: InferHandler<'v1', HostApiProtocol['local_storage_write']>;
-  handleLocalStorageClear: InferHandler<'v1', HostApiProtocol['local_storage_clear']>;
+  handleLocalStorageRead: InferHandler<'v1', HostApiProtocol['host_local_storage_read']>;
+  handleLocalStorageWrite: InferHandler<'v1', HostApiProtocol['host_local_storage_write']>;
+  handleLocalStorageClear: InferHandler<'v1', HostApiProtocol['host_local_storage_clear']>;
 
   // accounts
 
-  handleAccountGet: InferHandler<'v1', HostApiProtocol['account_get']>;
-  handleAccountGetAlias: InferHandler<'v1', HostApiProtocol['account_get_alias']>;
-  handleAccountCreateProof: InferHandler<'v1', HostApiProtocol['account_create_proof']>;
-  handleGetNonProductAccounts: InferHandler<'v1', HostApiProtocol['get_non_product_accounts']>;
+  handleAccountGet: InferHandler<'v1', HostApiProtocol['host_account_get']>;
+  handleAccountGetAlias: InferHandler<'v1', HostApiProtocol['host_account_get_alias']>;
+  handleAccountCreateProof: InferHandler<'v1', HostApiProtocol['host_account_create_proof']>;
+  handleGetNonProductAccounts: InferHandler<'v1', HostApiProtocol['host_get_non_product_accounts']>;
 
   // signing
 
-  handleCreateTransaction: InferHandler<'v1', HostApiProtocol['create_transaction']>;
+  handleCreateTransaction: InferHandler<'v1', HostApiProtocol['host_create_transaction']>;
   handleCreateTransactionWithNonProductAccount: InferHandler<
     'v1',
-    HostApiProtocol['create_transaction_with_non_product_account']
+    HostApiProtocol['host_create_transaction_with_non_product_account']
   >;
-  handleSignRaw: InferHandler<'v1', HostApiProtocol['sign_raw']>;
-  handleSignPayload: InferHandler<'v1', HostApiProtocol['sign_payload']>;
+  handleSignRaw: InferHandler<'v1', HostApiProtocol['host_sign_raw']>;
+  handleSignPayload: InferHandler<'v1', HostApiProtocol['host_sign_payload']>;
 
   // chat
 
-  handleChatCreateRoom: InferHandler<'v1', HostApiProtocol['chat_create_room']>;
-  handleChatBotRegistration: InferHandler<'v1', HostApiProtocol['chat_register_bot']>;
-  handleChatListSubscribe: InferHandler<'v1', HostApiProtocol['chat_list_subscribe']>;
-  handleChatPostMessage: InferHandler<'v1', HostApiProtocol['chat_post_message']>;
-  handleChatActionSubscribe: InferHandler<'v1', HostApiProtocol['chat_action_subscribe']>;
+  handleChatCreateRoom: InferHandler<'v1', HostApiProtocol['host_chat_create_room']>;
+  handleChatBotRegistration: InferHandler<'v1', HostApiProtocol['host_chat_register_bot']>;
+  handleChatListSubscribe: InferHandler<'v1', HostApiProtocol['host_chat_list_subscribe']>;
+  handleChatPostMessage: InferHandler<'v1', HostApiProtocol['host_chat_post_message']>;
+  handleChatActionSubscribe: InferHandler<'v1', HostApiProtocol['host_chat_action_subscribe']>;
 
   // statement store
 
-  handleStatementStoreQuery: InferHandler<'v1', HostApiProtocol['statement_store_query']>;
-  handleStatementStoreSubscribe: InferHandler<'v1', HostApiProtocol['statement_store_subscribe']>;
-  handleStatementStoreCreateProof: InferHandler<'v1', HostApiProtocol['statement_store_create_proof']>;
-  handleStatementStoreSubmit: InferHandler<'v1', HostApiProtocol['statement_store_submit']>;
+  handleStatementStoreQuery: InferHandler<'v1', HostApiProtocol['remote_statement_store_query']>;
+  handleStatementStoreSubscribe: InferHandler<'v1', HostApiProtocol['remote_statement_store_subscribe']>;
+  handleStatementStoreCreateProof: InferHandler<'v1', HostApiProtocol['remote_statement_store_create_proof']>;
+  handleStatementStoreSubmit: InferHandler<'v1', HostApiProtocol['remote_statement_store_submit']>;
 
   handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
 

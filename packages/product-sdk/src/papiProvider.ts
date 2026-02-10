@@ -49,7 +49,7 @@ export function createPapiProvider(
       if (!ready) return false;
 
       return transport
-        .request('feature', enumValue('v1', enumValue('Chain', genesisHash)))
+        .request('host_feature_supported', enumValue('v1', enumValue('Chain', genesisHash)))
         .then(payload => {
           switch (payload.tag) {
             case 'v1': {

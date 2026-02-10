@@ -53,3 +53,4 @@ export { HandshakeErr } from './protocol/v1/handshake.js';
 export { SigningErr } from './protocol/v1/sign.js';
 export { SignedStatement, Statement, StatementProofErr, Topic } from './protocol/v1/statementStore.js';
 export { StorageErr } from './protocol/v1/storage.js';
+export { DevicePermissionRequest } from './protocol/v1/devicePermission.js';
