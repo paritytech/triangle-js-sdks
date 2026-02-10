@@ -18,7 +18,9 @@ export const PairingPopover = memo(({ theme, children }: Props) => {
   const auth = useAuthentication();
   const { status } = useAuthStatus();
 
-  const open = auth.authUIMode === 'popover' && status.step !== 'none';
+  const isStorybook = typeof process !== 'undefined' && process.env?.STORYBOOK === 'true';
+
+  const open = auth.authUIMode === 'popover' && (isStorybook || status.step !== 'none');
 
   const handleTriggerClick = useCallback(() => {
     if (status.step === 'none') {
@@ -73,13 +75,11 @@ export const PairingPopover = memo(({ theme, children }: Props) => {
 });
 
 const PairingStep = ({ payload }: { payload: string }) => {
-  const { guestUsername } = useAuthStatus();
   const translation = useTranslations();
-  const welcomeText = translation.pairingPopoverWelcome.replace('{username}', guestUsername || 'Guest');
 
   return (
     <div className={styles.pairingPopoverContainer}>
-      <span className={styles.pairingPopoverHeader}>{welcomeText}</span>
+      <span className={styles.pairingPopoverHeader}>{translation.pairingPopoverWelcome}</span>
 
       <div className={styles.qrContainer}>
         <QrCode value={payload} size={200} theme="dark" />
@@ -91,13 +91,11 @@ const PairingStep = ({ payload }: { payload: string }) => {
 };
 
 const LoadingStep = () => {
-  const { guestUsername } = useAuthStatus();
   const translation = useTranslations();
-  const welcomeText = translation.pairingPopoverWelcome.replace('{username}', guestUsername || 'Guest');
 
   return (
     <div className={styles.loaderContainerPopover}>
-      <span className={styles.pairingPopoverHeader}>{welcomeText}</span>
+      <span className={styles.pairingPopoverHeader}>{translation.pairingPopoverWelcome}</span>
       <div className={styles.loaderLogo}>
         <LogoSmall size={100} />
       </div>

@@ -62,13 +62,11 @@ const PairingStep = ({ payload }: { payload: string }) => {
 };
 
 const LoadingStep = () => {
-  const { guestUsername } = useAuthStatus();
   const translation = useTranslations();
-  const welcomeText = translation.pairingLoginMessage.replace('{username}', guestUsername || 'Guest');
 
   return (
     <div className={styles.loaderContainer}>
-      <span className={styles.loaderHeader}>{welcomeText}</span>
+      <span className={styles.loaderHeader}>{translation.pairingLoginMessage}</span>
       <div className={styles.loaderLogo}>
         <LogoSmall size={100} />
       </div>

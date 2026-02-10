@@ -5,10 +5,10 @@ import {
   createTransport,
   enumValue,
 } from '@novasamatech/host-api';
+
 import { createContainer } from '@novasamatech/host-container';
 import type { ChatMessageContent } from '@novasamatech/product-sdk';
 import { createProductChatManager } from '@novasamatech/product-sdk';
-
 import { describe, expect, it, vi } from 'vitest';
 
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';

@@ -1,8 +1,8 @@
 import { GenericError, StatementProofErr, createTransport, enumValue } from '@novasamatech/host-api';
+
 import { createContainer } from '@novasamatech/host-container';
 import type { ProductAccountId, SignedStatement, Statement, Topic } from '@novasamatech/product-sdk';
 import { createStatementStore } from '@novasamatech/product-sdk';
-
 import { describe, expect, it, vi } from 'vitest';
 
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';

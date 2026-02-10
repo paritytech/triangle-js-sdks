@@ -1,8 +1,8 @@
 import type { HexString } from '@novasamatech/host-api';
 import { createTransport } from '@novasamatech/host-api';
+
 import { createContainer } from '@novasamatech/host-container';
 import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
-
 import { describe, expect, it, vi } from 'vitest';
 
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';

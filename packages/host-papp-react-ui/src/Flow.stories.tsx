@@ -4,6 +4,7 @@ import { AccountId } from '@polkadot-api/substrate-bindings';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { PairingModal } from './flow/PairingModal.js';
+import { PairingPopover } from './flow/PairingPopover.js';
 import { PappProvider } from './flow/PappProvider.js';
 import { useSessionIdentity } from './hooks/identity.js';
 import { useAuthentication } from './providers/AuthProvider.js';
@@ -67,7 +68,14 @@ const ConnectButton = () => {
     );
   }
 
-  return <button onClick={() => auth.authenticate()}>Connect Polkadot</button>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'columm', gap: 8 }}>
+      <PairingPopover>
+        <button onClick={() => auth.authenticate('popover')}>Open auth Popover</button>
+      </PairingPopover>
+      <button onClick={() => auth.authenticate('modal')}>Open auth Modal</button>
+    </div>
+  );
 };
 
 const meta: Meta<typeof PappProvider> = {
