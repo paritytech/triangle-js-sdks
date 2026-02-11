@@ -37,8 +37,8 @@ export const QrCode = memo(({ value, size, theme = 'light' }: Props) => {
       image: imageBase64 ? `data:image/svg+xml;base64,${imageBase64}` : undefined,
       imageOptions: {
         hideBackgroundDots: true,
-        imageSize: 0.3,
-        margin: 10,
+        imageSize: 0.4,
+        margin: 6,
       },
       dotsOptions: {
         type: 'rounded',
