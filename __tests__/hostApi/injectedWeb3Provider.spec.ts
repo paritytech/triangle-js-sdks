@@ -6,9 +6,9 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
-
 import { createContainer } from '@novasamatech/host-container';
 import { createNonProductExtensionEnableFactory } from '@novasamatech/product-sdk';
+
 import type { SignerResult } from '@polkadot/types/types';
 import { AccountId } from '@polkadot-api/substrate-bindings';
 import { assert, describe, expect, it, vitest } from 'vitest';

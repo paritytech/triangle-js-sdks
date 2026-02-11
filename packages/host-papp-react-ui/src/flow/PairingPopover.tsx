@@ -46,8 +46,8 @@ export const PairingPopover = memo(({ theme, children }: Props) => {
   return (
     <ThemeProvider theme={defaultTheme} defaultMode={theme ?? 'light'}>
       <Popover open={open} onOpenChange={togglePopover}>
-        <Popover.Trigger asChild>
-          <div onClick={handleTriggerClick}>{children}</div>
+        <Popover.Trigger asChild onClick={handleTriggerClick}>
+          {children}
         </Popover.Trigger>
         <Popover.Content
           className={styles.popoverContent}

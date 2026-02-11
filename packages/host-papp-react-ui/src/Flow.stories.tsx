@@ -1,5 +1,6 @@
 import type { SignPayloadRequest, UserSession } from '@novasamatech/host-papp';
 import { createPappAdapter } from '@novasamatech/host-papp';
+import { Button } from '@novasamatech/tr-ui';
 import { AccountId } from '@polkadot-api/substrate-bindings';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
@@ -47,7 +48,7 @@ const SignPayloadExample = ({ session }: { session: UserSession | null }) => {
   };
 
   return (
-    <button onClick={() => session.signPayload(payload).match(console.log, console.error)}>Example sign request</button>
+    <Button onClick={() => session.signPayload(payload).match(console.log, console.error)}>Example sign request</Button>
   );
 };
 
@@ -61,7 +62,7 @@ const ConnectButton = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span>{identity?.fullUsername ?? identity?.liteUsername ?? (pending ? 'Loading...' : 'Unknown user')}</span>
-          <button onClick={() => auth.disconnect(session)}>Disconnect</button>
+          <Button onClick={() => auth.disconnect(session)}>Disconnect</Button>
         </div>
         <SignPayloadExample session={session} />
       </div>
@@ -69,11 +70,11 @@ const ConnectButton = () => {
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'columm', gap: 8 }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
       <PairingPopover>
-        <button onClick={() => auth.authenticate('popover')}>Open auth Popover</button>
+        <Button onClick={() => auth.authenticate('popover')}>Open auth Popover</Button>
       </PairingPopover>
-      <button onClick={() => auth.authenticate('modal')}>Open auth Modal</button>
+      <Button onClick={() => auth.authenticate('modal')}>Open auth Modal</Button>
     </div>
   );
 };
