@@ -87,7 +87,7 @@ export function createSsoSessionManager({
       return session
         .sendDisconnectMessage()
         .andThen(() => disconnect(userSession))
-        .andThen(() => (storage.clearAll ? storage.clearAll() : okAsync(undefined)));
+        .andThen(() => userSecretRepository.clear(userSession.id));
     },
 
     dispose() {

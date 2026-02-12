@@ -23,21 +23,6 @@ export function createLocalStorageAdapter(prefix: string): StorageAdapter {
       localStorage.removeItem(prefixedKey);
       events.emit(prefixedKey, null);
     }, toError),
-    clearAll: fromAsyncThrowable(async () => {
-      const keysToRemove: string[] = [];
-
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key && key.startsWith(prefixPattern)) {
-          keysToRemove.push(key);
-        }
-      }
-
-      for (const key of keysToRemove) {
-        localStorage.removeItem(key);
-        events.emit(key, null);
-      }
-    }, toError),
     subscribe(key, callback) {
       const prefixedKey = withPrefix(key);
       const unsubscribeLocalListener = events.on(prefixedKey, callback);
