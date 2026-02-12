@@ -1,15 +1,16 @@
-import { Bytes, Option, Result, Tuple, _void } from 'scale-ts';
+import { ErrEnum } from '@novasamatech/scale';
+import { Bytes, Option, Result, Tuple, _void, str } from 'scale-ts';
 
-import { ErrEnum, GenericErr, Hex } from '../commonCodecs.js';
+import { GenericErr } from '../commonCodecs.js';
 
 // common structures
 
 export const StorageErr = ErrEnum('StorageErr', {
   Full: [_void, 'Storage is full'],
-  Unknown: [GenericErr, 'Storage: unknown error'],
+  Unknown: [GenericErr, 'Unknown storage error'],
 });
 
-export const StorageKey = Hex();
+export const StorageKey = str;
 export const StorageValue = Bytes();
 
 // actions

@@ -1,6 +1,7 @@
+import { Enum, ErrEnum } from '@novasamatech/scale';
 import { Bytes, Option, Result, Struct, Tuple, Vector, _void, u32, u64 } from 'scale-ts';
 
-import { Enum, ErrEnum, GenericErr } from '../commonCodecs.js';
+import { GenericErr, GenericError } from '../commonCodecs.js';
 
 import { ProductAccountId } from './accounts.js';
 
@@ -48,6 +49,23 @@ export const Statement = Struct({
   data: Option(Bytes()),
 });
 
+export const SignedStatement = Struct({
+  proof: StatementProof,
+  decryptionKey: Option(DecryptionKey),
+  priority: Option(u32),
+  channel: Option(Channel),
+  topics: Vector(Topic),
+  data: Option(Bytes()),
+});
+
+// query
+
+export const StatementStoreQueryV1_request = Vector(Topic);
+export const StatementStoreQueryV1_response = Result(Vector(SignedStatement), GenericError);
+
+export const StatementStoreSubscribeV1_start = Vector(Topic);
+export const StatementStoreSubscribeV1_receive = Vector(SignedStatement);
+
 // creating proof
 
 export const StatementProofErr = ErrEnum('StatementProofErr', {
@@ -58,3 +76,8 @@ export const StatementProofErr = ErrEnum('StatementProofErr', {
 
 export const StatementStoreCreateProofV1_request = Tuple(ProductAccountId, Statement);
 export const StatementStoreCreateProofV1_response = Result(StatementProof, StatementProofErr);
+
+// submit
+
+export const StatementStoreSubmitV1_request = SignedStatement;
+export const StatementStoreSubmitV1_response = Result(_void, GenericError);

@@ -1,3 +1,4 @@
+import { enumValue } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
@@ -74,43 +75,26 @@ export function createUserSession({
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
-        data: {
-          tag: 'v1',
-          value: {
-            tag: 'SignRequest',
-            value: payload,
-          },
-        },
+        data: enumValue('v1', enumValue('SignRequest', payload)),
       });
 
       const responseFilter = (message: RemoteMessage) => {
-        return (
+        if (
           message.data.tag === 'v1' &&
           message.data.value.tag === 'SignResponse' &&
           message.data.value.value.respondingTo === messageId
-        );
+        ) {
+          return message.data.value.value.payload;
+        }
       };
 
       return request
         .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
         .andThen(message => {
-          const { data } = message.payload;
-
-          switch (data.tag) {
-            case 'v1': {
-              switch (data.value.tag) {
-                case 'SignResponse':
-                  if (data.value.value.payload.success) {
-                    return ok(data.value.value.payload.value);
-                  } else {
-                    return err(new Error(data.value.value.payload.value));
-                  }
-                default:
-                  return err(new Error(`Incorrect sign response: ${data.value.tag}`));
-              }
-            }
-            default:
-              return err(new Error(`Unsupported message version ${data.tag}`));
+          if (message.success) {
+            return ok(message.value);
+          } else {
+            return err(new Error(message.value));
           }
         });
     },
@@ -119,13 +103,7 @@ export function createUserSession({
       return session
         .submitRequestMessage(RemoteMessageCodec, {
           messageId: nanoid(),
-          data: {
-            tag: 'v1' as const,
-            value: {
-              tag: 'Disconnected' as const,
-              value: undefined,
-            },
-          },
+          data: enumValue('v1', enumValue('Disconnected', undefined)),
         })
         .map(() => undefined);
     },
@@ -134,18 +112,20 @@ export function createUserSession({
       return session.subscribe(RemoteMessageCodec, messages => {
         processedMessages.read().andThen(processed => {
           const results = messages.map<ResultAsync<ProcessedMessage, Error>>(message => {
-            if (message.type === 'request') {
-              const isMessageProcessed = processed.includes(message.payload.messageId);
+            if (message.type === 'request' && message.payload.status === 'parsed') {
+              const payload = message.payload;
+
+              const isMessageProcessed = processed.includes(payload.value.messageId);
               if (isMessageProcessed) {
                 return okAsync({ processed: false });
               }
 
-              return callback(message.payload)
+              return callback(payload.value)
                 .orTee(error => {
-                  console.error('Error while processing sso messsage:', error);
+                  console.error('Error while processing sso message:', error);
                 })
                 .orElse(() => okAsync(false))
-                .map(processed => (processed ? { processed, message: message.payload } : { processed }));
+                .map(processed => (processed ? { processed, message: payload.value } : { processed }));
             }
             return okAsync({ processed: false });
           });

@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-papp-react-ui",
   "type": "module",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "description": "Polkadot app UI Flow",
   "license": "Apache-2.0",
   "repository": {
@@ -34,9 +34,11 @@
     "qr-code-styling": "1.9.2"
   },
   "devDependencies": {
-    "@types/react": "19.2.7",
+    "@types/react": "19.2.13",
     "@types/react-dom": "19.2.3",
-    "@polkadot-api/substrate-bindings": "^0.16.6",
+    "@polkadot-api/substrate-bindings": "^0.17.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
     "typescript-plugin-css-modules": "5.2.0",
     "vite-plugin-wasm": "3.5.0"
   },

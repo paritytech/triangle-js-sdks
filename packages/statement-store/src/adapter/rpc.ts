@@ -61,7 +61,9 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
     queryStatements(topics, destination) {
       return fromPromise(
         sdk.getStatements({
+          // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
           topics: topics.map(t => Binary.fromBytes(t)),
+          // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
           dest: destination ? Binary.fromBytes(destination) : null,
         }),
         toError,

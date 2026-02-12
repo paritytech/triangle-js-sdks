@@ -1,5 +1,5 @@
 import { createHostApi } from '@novasamatech/host-api';
 
-import { defaultTransport } from './defaultTransport.js';
+import { sandboxTransport } from './sandboxTransport.js';
 
-export const hostApi = createHostApi(defaultTransport);
+export const hostApi = createHostApi(sandboxTransport);

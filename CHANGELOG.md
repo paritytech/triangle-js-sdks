@@ -1,3 +1,41 @@
+## 0.5.4 (2026-02-05)
+
+### 🚀 Features
+
+- host-container: webview integration provider
+- host-container: new interface for chain connections
+- product-sdk: statement store integration
+- product-sdk: accounts manager API
+- product-sdk: chat manager API
+
+### 🩹 Fixes
+
+- correct disposal of chain connection ([01e3985](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/01e3985))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
+## 0.5.3-0 (2026-01-11)
+
+### 🚀 Features
+
+- papp integration ([#5](https://github.com/novasamatech/spektr-sdk/pull/5))
+- Implemented correct Polkadot app pairing ui ([#6](https://github.com/novasamatech/spektr-sdk/pull/6))
+- Support new statement store errors while submitting statements ([#8](https://github.com/novasamatech/spektr-sdk/pull/8))
+- host api spec ([#7](https://github.com/novasamatech/spektr-sdk/pull/7))
+- externalized scale helpers into separated library ([d8d3826](https://github.com/novasamatech/spektr-sdk/commit/d8d3826))
+- host chat package WIP ([be14c03](https://github.com/novasamatech/spektr-sdk/commit/be14c03))
+
+### 🩹 Fixes
+
+- Explicitly set account type to sr25519 in extension injector ([c942974](https://github.com/novasamatech/spektr-sdk/commit/c942974))
+- pairing ui logos and texts ([d99f67d](https://github.com/novasamatech/spektr-sdk/commit/d99f67d))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.5.2 (2026-01-08)
 
 ### 🩹 Fixes

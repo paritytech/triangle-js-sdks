@@ -1,9 +1,6 @@
-import { fromHex as papiFromHex, toHex as papiToHex } from '@polkadot-api/utils';
 import { nanoid } from 'nanoid';
-import type { ResultPayload } from 'scale-ts';
 
 import type { ComposeMessageAction } from './protocol/messageCodec.js';
-import type { HexString } from './protocol/types.js';
 
 export function delay(ttl: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ttl));
@@ -27,43 +24,6 @@ export const promiseWithResolvers = <const T>(): PromiseWithResolvers<T> => {
   return { promise, resolve, reject };
 };
 
-export function unwrapResultOrThrow<Ok, Err>(response: ResultPayload<Ok, Err>, toError: (e: Err) => Error) {
-  if (response.success) {
-    return response.value;
-  }
-
-  throw toError(response.value);
-}
-
-export function okResult<const T>(value: T) {
-  return { success: true as const, value };
-}
-
-export function errResult<const T>(e: T) {
-  return { success: false as const, value: e };
-}
-
-export function enumValue<const Tag extends string, const Value>(tag: Tag, value: Value) {
-  return { tag, value };
-}
-
-export function isEnumVariant<const Enum extends { tag: string; value: unknown }, const Tag extends Enum['tag']>(
-  v: Enum,
-  tag: Tag,
-): v is Extract<Enum, { tag: Tag }> {
-  return v.tag === tag;
-}
-
-export function assertEnumVariant<const Enum extends { tag: string; value: unknown }, const Tag extends Enum['tag']>(
-  v: Enum,
-  tag: Tag,
-  message: string,
-): asserts v is Extract<Enum, { tag: Tag }> {
-  if (!isEnumVariant(v, tag)) {
-    throw new Error(message);
-  }
-}
-
 export function composeAction<const Method extends string, const Suffix extends string>(
   method: Method,
   suffix: Suffix,
@@ -77,7 +37,7 @@ export function createRequestId() {
 
 export function extractErrorMessage(err: unknown) {
   if (err instanceof Error) {
-    return err.toString();
+    return err.message;
   }
 
   if (err) {
@@ -85,12 +45,4 @@ export function extractErrorMessage(err: unknown) {
   }
 
   return 'Unknown error occurred.';
-}
-
-export function toHex(value: Uint8Array): HexString {
-  return papiToHex(value) as HexString;
-}
-
-export function fromHex(value: string): Uint8Array {
-  return papiFromHex(value);
 }

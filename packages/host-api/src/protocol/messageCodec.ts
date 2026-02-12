@@ -1,8 +1,8 @@
+import type { EnumCodec } from '@novasamatech/scale';
+import { Enum } from '@novasamatech/scale';
 import type { Codec, CodecType } from 'scale-ts';
 import { Struct, _void, str } from 'scale-ts';
 
-import type { EnumCodec } from './commonCodecs.js';
-import { Enum } from './commonCodecs.js';
 import type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './impl.js';
 import { hostApiProtocol } from './impl.js';
 
@@ -38,11 +38,11 @@ const createPayload = (hostApi: HostApiProtocol): EnumCodec<HostApiPayloadFields
   const fields: Record<string, Codec<any>> = {};
 
   for (const [method, payload] of Object.entries(hostApi)) {
-    if (payload.type === 'request') {
+    if (payload.method === 'request') {
       fields[`${method}_request`] = payload.request;
       fields[`${method}_response`] = payload.response;
     }
-    if (payload.type === 'subscription') {
+    if (payload.method === 'subscribe') {
       fields[`${method}_start`] = payload.start;
       fields[`${method}_stop`] = _void;
       fields[`${method}_interrupt`] = _void;

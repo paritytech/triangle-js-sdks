@@ -16,10 +16,10 @@ import type { Callback } from '../types.js';
 import type { Encryption } from './encyption.js';
 import { DecodingError, DecryptionError, UnknownError } from './error.js';
 import { toMessage } from './messageMapper.js';
-import type { ResponseCode } from './scale/statementData.js';
+import type { ResponseStatus } from './scale/statementData.js';
 import { StatementData } from './scale/statementData.js';
 import type { StatementProver } from './statementProver.js';
-import type { Message, RequestMessage, ResponseMessage, Session } from './types.js';
+import type { Filter, Message, ResponseMessage, Session } from './types.js';
 
 export type SessionParams = {
   localAccount: LocalSessionAccount;
@@ -43,8 +43,11 @@ export function createSession({
       .encrypt(data)
       .map<Statement>(data => ({
         priority: getPriority(now()),
+        // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
         channel: Binary.fromBytes(channel),
+        // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
         topics: [Binary.fromBytes(sessionId)],
+        // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
         data: Binary.fromBytes(data),
       }))
       .asyncAndThen(prover.generateMessageProof)
@@ -75,7 +78,7 @@ export function createSession({
         .map(() => ({ requestId }));
     },
 
-    submitResponseMessage(requestId: string, responseCode: ResponseCode) {
+    submitResponseMessage(requestId: string, responseCode: ResponseStatus) {
       const sessionId = createSessionId(remoteAccount.publicKey, localAccount, remoteAccount);
 
       const encode = fromThrowable(StatementData.enc, toError);
@@ -88,21 +91,17 @@ export function createSession({
       return rawData.asyncAndThen(data => submit(sessionId, createResponseChannel(sessionId), data));
     },
 
-    waitForRequestMessage<T, S extends T>(
-      codec: Codec<T>,
-      filter: (message: T) => message is S,
-    ): ResultAsync<RequestMessage<S>, Error> {
-      const promise = new Promise<RequestMessage<S>>(resolve => {
+    waitForRequestMessage<T, S>(codec: Codec<T>, filter: Filter<T, S>): ResultAsync<S, Error> {
+      const promise = new Promise<S>(resolve => {
         const unsubscribe = session.subscribe(codec, messages => {
           for (const message of messages) {
-            if (message.type === 'request' && filter(message.payload)) {
+            if (message.type !== 'request') continue;
+            const payload = message.payload;
+            if (payload.status !== 'parsed') continue;
+            const filtered = filter(payload.value);
+            if (filtered) {
               unsubscribe();
-              resolve({
-                type: 'request',
-                localId: message.localId,
-                requestId: message.requestId,
-                payload: message.payload,
-              });
+              resolve(filtered);
               break;
             }
           }
@@ -171,7 +170,7 @@ export function createSession({
   return session;
 }
 
-function mapResponseCode(responseCode: ResponseCode) {
+function mapResponseCode(responseCode: ResponseStatus) {
   switch (responseCode) {
     case 'success':
       return ok();

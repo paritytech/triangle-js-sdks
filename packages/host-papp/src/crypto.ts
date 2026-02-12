@@ -1,14 +1,13 @@
 import { p256 } from '@noble/curves/nist.js';
-import { entropyToMiniSecret, mnemonicToEntropy } from '@polkadot-labs/hdkd-helpers';
 import {
-  HDKD as sr25519HDKD,
-  getPublicKey as sr25519GetPublicKey,
-  secretFromSeed as sr25519SecretFromSeed,
-  sign as sr25519Sign,
-  verify as sr25519Verify,
-} from '@scure/sr25519';
+  createSr25519Secret,
+  deriveSr25519PublicKey,
+  signWithSr25519Secret,
+  verifySr25519Signature,
+} from '@novasamatech/statement-store';
+import { entropyToMiniSecret, mnemonicToEntropy } from '@polkadot-labs/hdkd-helpers';
 import type { Codec } from 'scale-ts';
-import { Bytes, str } from 'scale-ts';
+import { Bytes } from 'scale-ts';
 
 import type { Branded } from './types.js';
 
@@ -45,58 +44,7 @@ export function bytesToString(bytes: Uint8Array) {
   return textDecoder.decode(bytes);
 }
 
-function parseDerivations(derivationsStr: string) {
-  const DERIVATION_RE = /(\/{1,2})([^/]+)/g;
-
-  const derivations = [] as [type: 'hard' | 'soft', code: string][];
-  for (const [, type, code] of derivationsStr.matchAll(DERIVATION_RE)) {
-    if (code) {
-      derivations.push([type === '//' ? 'hard' : 'soft', code]);
-    }
-  }
-  return derivations;
-}
-
-function createChainCode(derivation: string) {
-  const chainCode = new Uint8Array(32);
-  chainCode.set(str.enc(derivation));
-  return chainCode;
-}
-
-// statement store key pair
-
-export function createSsSecret(entropy: Uint8Array): SsSecret {
-  const miniSecret = entropyToMiniSecret(entropy);
-  return sr25519SecretFromSeed(miniSecret) as SsSecret;
-}
-
-export function createSsDerivation(secret: SsSecret, derivation: string) {
-  const derivations = parseDerivations(derivation);
-
-  return derivations.reduce((secret, [type, derivation]) => {
-    const chainCode = createChainCode(derivation);
-
-    switch (type) {
-      case 'hard':
-        return sr25519HDKD.secretHard(secret, chainCode) as SsSecret;
-
-      case 'soft':
-        return sr25519HDKD.secretSoft(secret, chainCode) as SsSecret;
-    }
-  }, secret);
-}
-
-export function getSsPub(secret: SsSecret) {
-  return sr25519GetPublicKey(secret) as SsPublicKey;
-}
-
-export function signWithSsSecret(secret: SsSecret, message: Uint8Array) {
-  return sr25519Sign(secret, message);
-}
-
-export function verifyWithSsSecret(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) {
-  return sr25519Verify(message, signature, publicKey);
-}
+// sr25519 account
 
 export type DerivedSr25519Account = {
   secret: SsSecret;
@@ -108,15 +56,15 @@ export type DerivedSr25519Account = {
 
 export function deriveSr25519Account(mnemonic: string, derivation: string): DerivedSr25519Account {
   const entropy = mnemonicToEntropy(mnemonic);
-  const secret = createSsDerivation(createSsSecret(entropy), derivation);
-  const publicKey = getSsPub(secret);
+  const secret = createSr25519Secret(entropy, derivation) as SsSecret;
+  const publicKey = deriveSr25519PublicKey(secret) as SsPublicKey;
 
   return {
     secret,
     publicKey,
     entropy,
-    sign: message => signWithSsSecret(secret, message),
-    verify: (message, signature) => verifyWithSsSecret(message, signature, publicKey),
+    sign: message => signWithSr25519Secret(secret, message),
+    verify: (message, signature) => verifySr25519Signature(message, signature, publicKey),
   };
 }
 

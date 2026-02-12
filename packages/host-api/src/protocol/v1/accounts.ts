@@ -1,6 +1,7 @@
+import { ErrEnum, Hex } from '@novasamatech/scale';
 import { Bytes, Option, Result, Struct, Tuple, Vector, _void, str, u32 } from 'scale-ts';
 
-import { ErrEnum, GenericErr, GenesisHash, Hex } from '../commonCodecs.js';
+import { GenericErr, GenesisHash } from '../commonCodecs.js';
 
 // common types
 

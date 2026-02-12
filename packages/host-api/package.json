@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-api",
   "type": "module",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "description": "Host API: transport implementation for host - product integration.",
   "license": "Apache-2.0",
   "repository": {
@@ -21,6 +21,7 @@
     "README.md"
   ],
   "dependencies": {
+    "@novasamatech/scale": "0.5.4",
     "@polkadot-api/utils": "^0.2.0",
     "nanoevents": "9.1.0",
     "nanoid": "5.1.6",

@@ -1,8 +1,8 @@
 import { Bytes, Enum, Struct, Vector, enhanceCodec, str, u8 } from 'scale-ts';
 
-export type ResponseCode = 'success' | 'decryptionFailed' | 'decodingFailed' | 'unknown';
+export type ResponseStatus = 'success' | 'decryptionFailed' | 'decodingFailed' | 'unknown';
 
-export const ResponseCodeCodec = enhanceCodec<number, ResponseCode>(
+export const ResponseCode = enhanceCodec<number, ResponseStatus>(
   u8,
   error => {
     switch (error) {
@@ -37,7 +37,7 @@ export const Request = Struct({
 
 export const Response = Struct({
   requestId: str,
-  responseCode: ResponseCodeCodec,
+  responseCode: ResponseCode,
 });
 
 export const StatementData = Enum({

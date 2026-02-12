@@ -2,6 +2,7 @@ import type {
   Codec,
   CodecType,
   ConnectionStatus,
+  HexString,
   HostApiProtocol,
   VersionedProtocolRequest,
   VersionedProtocolSubscription,
@@ -64,13 +65,12 @@ export type Container = {
   // host
 
   handleFeature: InferHandler<'v1', HostApiProtocol['feature']>;
-  handlePermissionRequest: InferHandler<'v1', HostApiProtocol['permission_request']>;
 
   // storage
 
-  handleStorageRead: InferHandler<'v1', HostApiProtocol['storage_read']>;
-  handleStorageWrite: InferHandler<'v1', HostApiProtocol['storage_write']>;
-  handleStorageClear: InferHandler<'v1', HostApiProtocol['storage_clear']>;
+  handleLocalStorageRead: InferHandler<'v1', HostApiProtocol['local_storage_read']>;
+  handleLocalStorageWrite: InferHandler<'v1', HostApiProtocol['local_storage_write']>;
+  handleLocalStorageClear: InferHandler<'v1', HostApiProtocol['local_storage_clear']>;
 
   // accounts
 
@@ -91,21 +91,23 @@ export type Container = {
 
   // chat
 
-  handleChatCreateContact: InferHandler<'v1', HostApiProtocol['chat_create_contact']>;
+  handleChatCreateRoom: InferHandler<'v1', HostApiProtocol['chat_create_room']>;
+  handleChatBotRegistration: InferHandler<'v1', HostApiProtocol['chat_register_bot']>;
+  handleChatListSubscribe: InferHandler<'v1', HostApiProtocol['chat_list_subscribe']>;
   handleChatPostMessage: InferHandler<'v1', HostApiProtocol['chat_post_message']>;
   handleChatActionSubscribe: InferHandler<'v1', HostApiProtocol['chat_action_subscribe']>;
 
   // statement store
 
+  handleStatementStoreQuery: InferHandler<'v1', HostApiProtocol['statement_store_query']>;
+  handleStatementStoreSubscribe: InferHandler<'v1', HostApiProtocol['statement_store_subscribe']>;
   handleStatementStoreCreateProof: InferHandler<'v1', HostApiProtocol['statement_store_create_proof']>;
+  handleStatementStoreSubmit: InferHandler<'v1', HostApiProtocol['statement_store_submit']>;
 
-  handleJsonRpcMessageSubscribe: (
-    params: WithVersion<'v1', Value<HostApiProtocol['jsonrpc_message_subscribe']['start']>>,
-    provider: JsonRpcProvider,
-  ) => VoidFunction;
+  handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
 
   isReady(): Promise<boolean>;
   dispose(): void;
 
-  subscribeConnectionStatus(callback: (connectionStatus: ConnectionStatus) => void): VoidFunction;
+  subscribeProductConnectionStatus(callback: (connectionStatus: ConnectionStatus) => void): VoidFunction;
 };

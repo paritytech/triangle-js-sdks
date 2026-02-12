@@ -19,6 +19,7 @@ node_modules
 
 .nx/cache
 .nx/workspace-data
+.experiments
 .github/instructions/nx.instructions.md
 .cursor/rules/nx-rules.mdc
 vite.config.*.timestamp*

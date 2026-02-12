@@ -1,54 +1,45 @@
 import type {
-  ChatContactRegistrationStatus as ChatContactRegistrationStatusCodec,
-  ChatMessage as ChatMessageCodec,
+  ChatBotRegistrationStatus as ChatBotRegistrationStatusCodec,
+  ChatMessageContent as ChatMessageContentCodec,
+  ChatRoom as ChatRoomCodec,
+  ChatRoomRegistrationStatus as ChatRoomRegistrationStatusCodec,
   CodecType,
   ReceivedChatAction as ReceivedChatActionCodec,
   Transport,
 } from '@novasamatech/host-api';
 import { createHostApi, enumValue } from '@novasamatech/host-api';
 
-import { defaultTransport } from './defaultTransport.js';
-import { promiseWithResolvers } from './helpers.js';
+import { sandboxTransport } from './sandboxTransport.js';
 
-promiseWithResolvers();
-
-export type ChatMessage = CodecType<typeof ChatMessageCodec>;
+export type ChatMessageContent = CodecType<typeof ChatMessageContentCodec>;
 export type ReceivedChatAction = CodecType<typeof ReceivedChatActionCodec>;
-export type ChatContactRegistrationStatus = CodecType<typeof ChatContactRegistrationStatusCodec>;
+export type ChatRoomRegistrationResult = CodecType<typeof ChatRoomRegistrationStatusCodec>;
+export type ChatBotRegistrationResult = CodecType<typeof ChatBotRegistrationStatusCodec>;
+export type ChatRoom = CodecType<typeof ChatRoomCodec>;
 
-export const createChat = (transport: Transport = defaultTransport) => {
+export const createProductChatManager = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
-  let registrationStatus: ChatContactRegistrationStatus | null = null;
-
-  const messageQueue: {
-    message: ChatMessage;
-    resolve: (response: { messageId: string }) => void;
-    reject: (reason: unknown) => void;
-  }[] = [];
+  const roomRegistrationStatus: Record<string, ChatRoomRegistrationResult> = {};
+  const botRegistrationStatus: Record<string, ChatBotRegistrationResult> = {};
 
   const chat = {
-    async register(params: { name: string; icon: string }) {
-      if (registrationStatus) {
-        return registrationStatus;
+    async registerRoom(params: { roomId: string; name: string; icon: string }) {
+      const existingRegistration = roomRegistrationStatus[params.roomId];
+      if (existingRegistration) {
+        return existingRegistration;
       }
 
-      const result = await hostApi.chat_create_contact(enumValue('v1', params));
+      const result = await hostApi.chatCreateRoom(enumValue('v1', params));
 
       return result.match(
         payload => {
-          if (payload.tag === 'v1') {
-            registrationStatus = payload.value;
-
-            if (messageQueue.length > 0) {
-              messageQueue.forEach(({ message, resolve, reject }) => {
-                chat.sendMessage(message).then(resolve, reject);
-              });
-              messageQueue.length = 0;
+          switch (payload.tag) {
+            case 'v1': {
+              roomRegistrationStatus[params.roomId] = payload.value.status;
+              return payload.value.status;
             }
-
-            return registrationStatus;
-          } else {
-            throw new Error(`Unknown message version ${payload.tag}`);
+            default:
+              throw new Error(`Unknown message version ${payload.tag}`);
           }
         },
         err => {
@@ -56,32 +47,63 @@ export const createChat = (transport: Transport = defaultTransport) => {
         },
       );
     },
-    async sendMessage(message: ChatMessage) {
-      if (registrationStatus) {
-        const result = await hostApi.chat_post_message(enumValue('v1', message));
-
-        return result.match(
-          payload => {
-            if (payload.tag === 'v1') {
-              return { messageId: payload.value.messageId };
-            } else {
-              throw new Error(`Unknown message version ${payload.tag}`);
-            }
-          },
-          err => {
-            throw err.value;
-          },
-        );
-      } else {
-        const { promise, resolve, reject } = promiseWithResolvers<{ messageId: string }>();
-        messageQueue.push({ message, resolve, reject });
-        return promise;
+    async registerBot(params: { botId: string; name: string; icon: string }) {
+      const existingRegistration = botRegistrationStatus[params.botId];
+      if (existingRegistration) {
+        return existingRegistration;
       }
+
+      const result = await hostApi.chatRegisterBot(enumValue('v1', params));
+
+      return result.match(
+        payload => {
+          switch (payload.tag) {
+            case 'v1': {
+              botRegistrationStatus[params.botId] = payload.value.status;
+              return payload.value.status;
+            }
+            default:
+              throw new Error(`Unknown message version ${payload.tag}`);
+          }
+        },
+        err => {
+          throw err.value;
+        },
+      );
     },
-    subscribeAction(callback: (action: ReceivedChatAction) => void) {
-      return hostApi.chat_action_subscribe(enumValue('v1', undefined), action => {
+    async sendMessage(roomId: string, payload: ChatMessageContent) {
+      const result = await hostApi.chatPostMessage(enumValue('v1', { roomId, payload }));
+
+      return result.match(
+        payload => {
+          switch (payload.tag) {
+            case 'v1': {
+              return { messageId: payload.value.messageId };
+            }
+            default:
+              throw new Error(`Unknown message version ${payload.tag}`);
+          }
+        },
+        err => {
+          throw err.value;
+        },
+      );
+    },
+    subscribeChatList(callback: (rooms: ChatRoom[]) => void) {
+      return hostApi.chatListSubscribe(enumValue('v1', undefined), action => {
         if (action.tag === 'v1') {
           callback(action.value);
+        }
+      });
+    },
+    subscribeAction(callback: (action: ReceivedChatAction) => void) {
+      return hostApi.chatActionSubscribe(enumValue('v1', undefined), action => {
+        switch (action.tag) {
+          case 'v1':
+            callback(action.value);
+            break;
+          default:
+            console.error(`Unknown message version ${action.tag}`);
         }
       });
     },

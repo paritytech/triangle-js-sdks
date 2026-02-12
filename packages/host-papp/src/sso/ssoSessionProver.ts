@@ -1,54 +1,25 @@
 import type { StatementProver } from '@novasamatech/statement-store';
-import { getStatementSigner, statementCodec } from '@polkadot-api/sdk-statement';
-import { err, errAsync, fromThrowable, ok, okAsync } from 'neverthrow';
-import { compact } from 'scale-ts';
-
-import { getSsPub, signWithSsSecret, verifyWithSsSecret } from '../crypto.js';
-import { toError } from '../helpers/utils.js';
+import { createSr25519Prover } from '@novasamatech/statement-store';
+import { err, ok } from 'neverthrow';
 
 import type { UserSecretRepository } from './userSecretRepository.js';
 import type { StoredUserSession } from './userSessionRepository.js';
-
-const verify = fromThrowable(verifyWithSsSecret, toError);
 
 export function createSsoStatementProver(
   userSession: StoredUserSession,
   userSecretRepository: UserSecretRepository,
 ): StatementProver {
-  const secret = userSecretRepository
+  const prover = userSecretRepository
     .read(userSession.id)
     .andThen(secrets => (secrets ? ok(secrets) : err(new Error(`Secrets for session ${userSession.id} not found.`))))
-    .map(x => x.ssSecret);
+    .map(x => createSr25519Prover(x.ssSecret));
 
   return {
     generateMessageProof(statement) {
-      return secret.map(secret => {
-        const signer = getStatementSigner(getSsPub(secret), 'sr25519', data => signWithSsSecret(secret, data));
-
-        return signer.sign(statement);
-      });
+      return prover.andThen(prover => prover.generateMessageProof(statement));
     },
     verifyMessageProof(statement) {
-      const { proof, ...unsigned } = statement;
-
-      if (!proof) {
-        // TODO should we pass check when proof is not presented?
-        return okAsync(true);
-      }
-
-      const encoded = statementCodec.enc(unsigned);
-      const compactLen = compact.enc(compact.dec(encoded)).length;
-
-      switch (proof.type) {
-        case 'sr25519':
-          return verify(
-            encoded.slice(compactLen),
-            proof.value.signature.asBytes(),
-            proof.value.signer.asBytes(),
-          ).asyncAndThen(x => okAsync(x));
-        default:
-          return errAsync(new Error(`Proof type ${proof.type} is not supported.`));
-      }
+      return prover.andThen(prover => prover.verifyMessageProof(statement));
     },
   };
 }

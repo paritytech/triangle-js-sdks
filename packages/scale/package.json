@@ -1,0 +1,33 @@
+{
+  "name": "@novasamatech/scale",
+  "type": "module",
+  "version": "0.5.4",
+  "description": "additional scale-ts bindings",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/novasamatech/spektr-sdk.git"
+  },
+  "keywords": [
+    "polkadot"
+  ],
+  "main": "dist/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "@polkadot-api/utils": "^0.2.0",
+    "scale-ts": "1.6.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

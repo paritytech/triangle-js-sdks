@@ -1,0 +1,39 @@
+{
+  "name": "@novasamatech/host-chat",
+  "type": "module",
+  "version": "0.5.4",
+  "private": "true",
+  "description": "Host statement store chat integration",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/novasamatech/spektr-sdk.git"
+  },
+  "keywords": [
+    "polkadot",
+    "spektr",
+    "dapp"
+  ],
+  "main": "dist/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "@novasamatech/scale": "0.5.4",
+    "@novasamatech/statement-store": "0.5.4",
+    "@novasamatech/storage-adapter": "0.5.4",
+    "nanoid": "5.1.6",
+    "neverthrow": "^8.2.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

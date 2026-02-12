@@ -1,6 +1,7 @@
+import { ErrEnum } from '@novasamatech/scale';
 import { Result, _void, u8 } from 'scale-ts';
 
-import { ErrEnum, GenericErr } from '../commonCodecs.js';
+import { GenericErr } from '../commonCodecs.js';
 
 export const HandshakeErr = ErrEnum('HandshakeErr', {
   Timeout: [_void, 'Handshake: timeout'],

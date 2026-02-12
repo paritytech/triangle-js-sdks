@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-papp",
   "type": "module",
-  "version": "0.5.2",
+  "version": "0.5.4",
   "description": "Polkadot app integration",
   "license": "Apache-2.0",
   "repository": {
@@ -28,18 +28,20 @@
     "@noble/ciphers": "2.1.1",
     "@noble/curves": "2.0.1",
     "@noble/hashes": "2.0.1",
-    "@novasamatech/host-api": "0.5.2",
-    "@novasamatech/statement-store": "0.5.2",
-    "@novasamatech/storage-adapter": "0.5.2",
-    "@polkadot-api/substrate-bindings": "^0.16.5",
+    "@novasamatech/host-api": "0.5.4",
+    "@novasamatech/scale": "0.5.4",
+    "@novasamatech/statement-store": "0.5.4",
+    "@novasamatech/storage-adapter": "0.5.4",
+    "@polkadot-api/utils": "0.2.0",
+    "@polkadot-api/substrate-bindings": "^0.17.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.27",
     "@scure/sr25519": "1.0.0",
     "nanoevents": "9.1.0",
     "nanoid": "5.1.6",
     "neverthrow": "^8.2.0",
-    "polkadot-api": "^1.23.2",
+    "polkadot-api": "^1.23.3",
     "scale-ts": "1.6.1",
-    "verifiablejs": "1.1.0"
+    "verifiablejs": "1.2.0"
   },
   "publishConfig": {
     "access": "public"

@@ -1,8 +1,9 @@
+import type { HexString } from '@novasamatech/scale';
+import { Enum, ErrEnum, Hex, Nullable } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
 import { Bytes, Result, Struct, Tuple, Vector, _void, enhanceCodec, str, u32, u8 } from 'scale-ts';
 
-import { Enum, ErrEnum, GenericErr, Hex, Nullable } from '../commonCodecs.js';
-import type { HexString } from '../types.js';
+import { GenericErr } from '../commonCodecs.js';
 
 import { ProductAccountId } from './accounts.js';
 
@@ -12,12 +13,13 @@ import { ProductAccountId } from './accounts.js';
  */
 
 export const CreateTransactionErr = ErrEnum('CreateTransactionErr', {
-  FailedToDecode: [_void, 'CreateTransaction: failed to decode'],
-  Rejected: [_void, 'CreateTransaction: rejected'],
+  FailedToDecode: [_void, 'Failed to decode'],
+  Rejected: [_void, 'Rejected'],
   // Unsupported payload version
   // Failed to infer missing extensions, some extension is unsupported, etc.
-  NotSupported: [str, 'CreateTransaction: not supported'],
-  Unknown: [GenericErr, 'CreateTransaction: unknown error'],
+  NotSupported: [str, 'Not Supported'],
+  PermissionDenied: [_void, 'Permission denied'],
+  Unknown: [GenericErr, 'Unknown error'],
 });
 
 export const TxPayloadExtensionV1 = Struct({

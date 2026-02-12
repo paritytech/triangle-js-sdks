@@ -1,7 +1,7 @@
+import type { EnumCodec } from '@novasamatech/scale';
+import { Enum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
 
-import type { EnumCodec } from './commonCodecs.js';
-import { Enum } from './commonCodecs.js';
 import {
   AccountCreateProofV1_request,
   AccountCreateProofV1_response,
@@ -15,10 +15,14 @@ import {
 import {
   ChatActionSubscribeV1_receive,
   ChatActionSubscribeV1_start,
-  ChatCreateContactV1_request,
-  ChatCreateContactV1_response,
+  ChatCreateRoomV1_request,
+  ChatCreateRoomV1_response,
+  ChatListSubscribeV1_receive,
+  ChatListSubscribeV1_start,
   ChatPostMessageV1_request,
   ChatPostMessageV1_response,
+  ChatRegisterBotV1_request,
+  ChatRegisterBotV1_response,
 } from './v1/chat.js';
 import {
   CreateTransactionV1_request,
@@ -34,9 +38,17 @@ import {
   JsonRpcMessageSubscribeV1_receive,
   JsonRpcMessageSubscribeV1_start,
 } from './v1/jsonRpc.js';
-import { PermissionRequestV1_request, PermissionRequestV1_response } from './v1/permission.js';
 import { SignPayloadV1_request, SignPayloadV1_response, SignRawV1_request, SignRawV1_response } from './v1/sign.js';
-import { StatementStoreCreateProofV1_request, StatementStoreCreateProofV1_response } from './v1/statementStore.js';
+import {
+  StatementStoreCreateProofV1_request,
+  StatementStoreCreateProofV1_response,
+  StatementStoreQueryV1_request,
+  StatementStoreQueryV1_response,
+  StatementStoreSubmitV1_request,
+  StatementStoreSubmitV1_response,
+  StatementStoreSubscribeV1_receive,
+  StatementStoreSubscribeV1_start,
+} from './v1/statementStore.js';
 import {
   StorageClearV1_request,
   StorageClearV1_response,
@@ -55,13 +67,13 @@ type InferVersionedArgument<EnumValues extends VersionedArguments, N extends num
 };
 
 export type VersionedProtocolRequest<T extends VersionedArguments = VersionedArguments> = {
-  type: 'request';
+  method: 'request';
   request: EnumCodec<InferVersionedArgument<T, 0>>;
   response: EnumCodec<InferVersionedArgument<T, 1>>;
 };
 
 export type VersionedProtocolSubscription<T extends VersionedArguments = VersionedArguments> = {
-  type: 'subscription';
+  method: 'subscribe';
   start: EnumCodec<InferVersionedArgument<T, 0>>;
   receive: EnumCodec<InferVersionedArgument<T, 1>>;
 };
@@ -79,7 +91,7 @@ const versionedRequest = <const EnumValues extends VersionedArguments>(
   values: EnumValues,
 ): VersionedProtocolRequest<EnumValues> => {
   return {
-    type: 'request',
+    method: 'request',
     request: enumFromArg(values, 0),
     response: enumFromArg(values, 1),
   };
@@ -89,7 +101,7 @@ const versionedSubscription = <const EnumValues extends VersionedArguments>(
   values: EnumValues,
 ): VersionedProtocolSubscription<EnumValues> => {
   return {
-    type: 'subscription',
+    method: 'subscribe',
     start: enumFromArg(values, 0),
     receive: enumFromArg(values, 1),
   };
@@ -97,106 +109,124 @@ const versionedSubscription = <const EnumValues extends VersionedArguments>(
 
 // actual api
 
-export type HostApiProtocol = {
-  // host requests
+// export type HostApiProtocol = {
+//   // host requests
+//
+//   handshake: VersionedProtocolRequest<{
+//     v1: [typeof HandshakeV1_request, typeof HandshakeV1_response];
+//   }>;
+//
+//   feature: VersionedProtocolRequest<{
+//     v1: [typeof FeatureV1_request, typeof FeatureV1_response];
+//   }>;
+//
+//   // local storage
+//
+//   local_storage_read: VersionedProtocolRequest<{
+//     v1: [typeof StorageReadV1_request, typeof StorageReadV1_response];
+//   }>;
+//
+//   local_storage_write: VersionedProtocolRequest<{
+//     v1: [typeof StorageWriteV1_request, typeof StorageWriteV1_response];
+//   }>;
+//
+//   local_storage_clear: VersionedProtocolRequest<{
+//     v1: [typeof StorageClearV1_request, typeof StorageClearV1_response];
+//   }>;
+//
+//   // accounts
+//
+//   account_get: VersionedProtocolRequest<{
+//     v1: [typeof AccountGetV1_request, typeof AccountGetV1_response];
+//   }>;
+//
+//   account_get_alias: VersionedProtocolRequest<{
+//     v1: [typeof AccountGetAliasV1_request, typeof AccountGetAliasV1_response];
+//   }>;
+//
+//   account_create_proof: VersionedProtocolRequest<{
+//     v1: [typeof AccountCreateProofV1_request, typeof AccountCreateProofV1_response];
+//   }>;
+//
+//   get_non_product_accounts: VersionedProtocolRequest<{
+//     v1: [typeof GetNonProductAccountsV1_request, typeof GetNonProductAccountsV1_response];
+//   }>;
+//
+//   // signing
+//
+//   create_transaction: VersionedProtocolRequest<{
+//     v1: [typeof CreateTransactionV1_request, typeof CreateTransactionV1_response];
+//   }>;
+//
+//   create_transaction_with_non_product_account: VersionedProtocolRequest<{
+//     v1: [
+//       typeof CreateTransactionWithNonProductAccountV1_request,
+//       typeof CreateTransactionWithNonProductAccountV1_response,
+//     ];
+//   }>;
+//
+//   sign_raw: VersionedProtocolRequest<{
+//     v1: [typeof SignRawV1_request, typeof SignRawV1_response];
+//   }>;
+//
+//   sign_payload: VersionedProtocolRequest<{
+//     v1: [typeof SignPayloadV1_request, typeof SignPayloadV1_response];
+//   }>;
+//
+//   // chat
+//
+//   chat_create_room: VersionedProtocolRequest<{
+//     v1: [typeof ChatCreateRoomV1_request, typeof ChatCreateRoomV1_response];
+//   }>;
+//
+//   chat_register_bot: VersionedProtocolRequest<{
+//     v1: [typeof ChatRegisterBotV1_request, typeof ChatRegisterBotV1_response];
+//   }>;
+//
+//   chat_list_subscribe: VersionedProtocolSubscription<{
+//     v1: [typeof ChatListSubscribeV1_start, typeof ChatListSubscribeV1_receive];
+//   }>;
+//
+//   chat_post_message: VersionedProtocolRequest<{
+//     v1: [typeof ChatPostMessageV1_request, typeof ChatPostMessageV1_response];
+//   }>;
+//
+//   chat_action_subscribe: VersionedProtocolSubscription<{
+//     v1: [typeof ChatActionSubscribeV1_start, typeof ChatActionSubscribeV1_receive];
+//   }>;
+//
+//   // statement store
+//
+//   statement_store_query: VersionedProtocolRequest<{
+//     v1: [typeof StatementStoreQueryV1_request, typeof StatementStoreQueryV1_response];
+//   }>;
+//
+//   statement_store_subscribe: VersionedProtocolSubscription<{
+//     v1: [typeof StatementStoreSubscribeV1_start, typeof StatementStoreSubscribeV1_receive];
+//   }>;
+//
+//   statement_store_create_proof: VersionedProtocolRequest<{
+//     v1: [typeof StatementStoreCreateProofV1_request, typeof StatementStoreCreateProofV1_response];
+//   }>;
+//
+//   statement_store_submit: VersionedProtocolRequest<{
+//     v1: [typeof StatementStoreSubmitV1_request, typeof StatementStoreSubmitV1_response];
+//   }>;
+//
+//   // json rpc
+//
+//   jsonrpc_message_send: VersionedProtocolRequest<{
+//     v1: [typeof JsonRpcMessageSendV1_request, typeof JsonRpcMessageSendV1_response];
+//   }>;
+//
+//   jsonrpc_message_subscribe: VersionedProtocolSubscription<{
+//     v1: [typeof JsonRpcMessageSubscribeV1_start, typeof JsonRpcMessageSubscribeV1_receive];
+//   }>;
+// };
 
-  handshake: VersionedProtocolRequest<{
-    v1: [typeof HandshakeV1_request, typeof HandshakeV1_response];
-  }>;
+export type HostApiProtocol = typeof hostApiProtocol;
 
-  feature: VersionedProtocolRequest<{
-    v1: [typeof FeatureV1_request, typeof FeatureV1_response];
-  }>;
-
-  permission_request: VersionedProtocolRequest<{
-    v1: [typeof PermissionRequestV1_request, typeof PermissionRequestV1_response];
-  }>;
-
-  // storage
-
-  storage_read: VersionedProtocolRequest<{
-    v1: [typeof StorageReadV1_request, typeof StorageReadV1_response];
-  }>;
-
-  storage_write: VersionedProtocolRequest<{
-    v1: [typeof StorageWriteV1_request, typeof StorageWriteV1_response];
-  }>;
-
-  storage_clear: VersionedProtocolRequest<{
-    v1: [typeof StorageClearV1_request, typeof StorageClearV1_response];
-  }>;
-
-  // accounts
-
-  account_get: VersionedProtocolRequest<{
-    v1: [typeof AccountGetV1_request, typeof AccountGetV1_response];
-  }>;
-
-  account_get_alias: VersionedProtocolRequest<{
-    v1: [typeof AccountGetAliasV1_request, typeof AccountGetAliasV1_response];
-  }>;
-
-  account_create_proof: VersionedProtocolRequest<{
-    v1: [typeof AccountCreateProofV1_request, typeof AccountCreateProofV1_response];
-  }>;
-
-  get_non_product_accounts: VersionedProtocolRequest<{
-    v1: [typeof GetNonProductAccountsV1_request, typeof GetNonProductAccountsV1_response];
-  }>;
-
-  // signing
-
-  create_transaction: VersionedProtocolRequest<{
-    v1: [typeof CreateTransactionV1_request, typeof CreateTransactionV1_response];
-  }>;
-
-  create_transaction_with_non_product_account: VersionedProtocolRequest<{
-    v1: [
-      typeof CreateTransactionWithNonProductAccountV1_request,
-      typeof CreateTransactionWithNonProductAccountV1_response,
-    ];
-  }>;
-
-  sign_raw: VersionedProtocolRequest<{
-    v1: [typeof SignRawV1_request, typeof SignRawV1_response];
-  }>;
-
-  sign_payload: VersionedProtocolRequest<{
-    v1: [typeof SignPayloadV1_request, typeof SignPayloadV1_response];
-  }>;
-
-  // chat
-
-  chat_create_contact: VersionedProtocolRequest<{
-    v1: [typeof ChatCreateContactV1_request, typeof ChatCreateContactV1_response];
-  }>;
-
-  chat_post_message: VersionedProtocolRequest<{
-    v1: [typeof ChatPostMessageV1_request, typeof ChatPostMessageV1_response];
-  }>;
-
-  chat_action_subscribe: VersionedProtocolSubscription<{
-    v1: [typeof ChatActionSubscribeV1_start, typeof ChatActionSubscribeV1_receive];
-  }>;
-
-  // statement store
-
-  statement_store_create_proof: VersionedProtocolRequest<{
-    v1: [typeof StatementStoreCreateProofV1_request, typeof StatementStoreCreateProofV1_response];
-  }>;
-
-  // json rpc
-
-  jsonrpc_message_send: VersionedProtocolRequest<{
-    v1: [typeof JsonRpcMessageSendV1_request, typeof JsonRpcMessageSendV1_response];
-  }>;
-
-  jsonrpc_message_subscribe: VersionedProtocolSubscription<{
-    v1: [typeof JsonRpcMessageSubscribeV1_start, typeof JsonRpcMessageSubscribeV1_receive];
-  }>;
-};
-
-export const hostApiProtocol: HostApiProtocol = {
+export const hostApiProtocol = {
   // host requests
 
   handshake: versionedRequest({
@@ -207,21 +237,17 @@ export const hostApiProtocol: HostApiProtocol = {
     v1: [FeatureV1_request, FeatureV1_response],
   }),
 
-  permission_request: versionedRequest({
-    v1: [PermissionRequestV1_request, PermissionRequestV1_response],
-  }),
+  // local storage
 
-  // storage
-
-  storage_read: versionedRequest({
+  local_storage_read: versionedRequest({
     v1: [StorageReadV1_request, StorageReadV1_response],
   }),
 
-  storage_write: versionedRequest({
+  local_storage_write: versionedRequest({
     v1: [StorageWriteV1_request, StorageWriteV1_response],
   }),
 
-  storage_clear: versionedRequest({
+  local_storage_clear: versionedRequest({
     v1: [StorageClearV1_request, StorageClearV1_response],
   }),
 
@@ -263,8 +289,16 @@ export const hostApiProtocol: HostApiProtocol = {
 
   // chat
 
-  chat_create_contact: versionedRequest({
-    v1: [ChatCreateContactV1_request, ChatCreateContactV1_response],
+  chat_create_room: versionedRequest({
+    v1: [ChatCreateRoomV1_request, ChatCreateRoomV1_response],
+  }),
+
+  chat_register_bot: versionedRequest({
+    v1: [ChatRegisterBotV1_request, ChatRegisterBotV1_response],
+  }),
+
+  chat_list_subscribe: versionedSubscription({
+    v1: [ChatListSubscribeV1_start, ChatListSubscribeV1_receive],
   }),
 
   chat_post_message: versionedRequest({
@@ -277,8 +311,20 @@ export const hostApiProtocol: HostApiProtocol = {
 
   // statement store
 
+  statement_store_query: versionedRequest({
+    v1: [StatementStoreQueryV1_request, StatementStoreQueryV1_response],
+  }),
+
+  statement_store_subscribe: versionedSubscription({
+    v1: [StatementStoreSubscribeV1_start, StatementStoreSubscribeV1_receive],
+  }),
+
   statement_store_create_proof: versionedRequest({
     v1: [StatementStoreCreateProofV1_request, StatementStoreCreateProofV1_response],
+  }),
+
+  statement_store_submit: versionedRequest({
+    v1: [StatementStoreSubmitV1_request, StatementStoreSubmitV1_response],
   }),
 
   // json rpc
@@ -290,4 +336,4 @@ export const hostApiProtocol: HostApiProtocol = {
   jsonrpc_message_subscribe: versionedSubscription({
     v1: [JsonRpcMessageSubscribeV1_start, JsonRpcMessageSubscribeV1_receive],
   }),
-};
+} as const;

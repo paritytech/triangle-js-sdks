@@ -18,8 +18,17 @@ import { toError } from '../../helpers/utils.js';
 
 const accountId = AccountId();
 
-export function createAliceVerifier(): DerivedSr25519Account {
+export function createSudoAliceVerifier(): DerivedSr25519Account {
   return deriveSr25519Account('bottom drive obey lake curtain smoke basket hold race lonely fit walk', '//Alice');
+}
+
+export function withRetry<T>(fn: () => Promise<T>, maxRetries = 1): Promise<T> {
+  return fn().catch(error => {
+    if (maxRetries > 0) {
+      return withRetry(fn, maxRetries - 1);
+    }
+    throw error;
+  });
 }
 
 export const createAttestationService = (lazyClient: LazyClient) => {
@@ -54,7 +63,7 @@ export const createAttestationService = (lazyClient: LazyClient) => {
           call: increaseAllowanceCall.decodedCall,
         });
 
-        return sudoCall.signAndSubmit(createPeopleSigner(verifier)).then(() => undefined);
+        return withRetry(() => sudoCall.signAndSubmit(createPeopleSigner(verifier)).then(() => undefined));
       }, toError);
 
       return verifierAllowance.andThen(verifierAllowance => (verifierAllowance > 0 ? okAsync() : getAllowance()));
@@ -142,7 +151,7 @@ export const createAttestationService = (lazyClient: LazyClient) => {
             },
           });
 
-          return fromPromise(
+          const submitAttestation = () =>
             new Promise<void>((resolve, reject) => {
               const subscription = attestCall.signSubmitAndWatch(createPeopleSigner(verifier)).subscribe({
                 next(event) {
@@ -166,9 +175,9 @@ export const createAttestationService = (lazyClient: LazyClient) => {
                 },
                 error: reject,
               });
-            }),
-            toError,
-          ).map<void>(() => undefined);
+            });
+
+          return fromPromise(withRetry(submitAttestation), toError).map<void>(() => undefined);
         })
         .andTee(() => console.log(`Attestation for ${accountId.dec(candidate.publicKey)} successfully passed.`));
     },

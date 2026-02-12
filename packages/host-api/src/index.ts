@@ -1,19 +1,8 @@
-export type { ConnectionStatus, Logger, Transport } from './types.js';
+export type { ConnectionStatus, Logger, Subscription, Transport } from './types.js';
 export type { Provider } from './provider.js';
-export {
-  assertEnumVariant,
-  createRequestId,
-  enumValue,
-  errResult,
-  fromHex,
-  isEnumVariant,
-  okResult,
-  toHex,
-  unwrapResultOrThrow,
-} from './helpers.js';
+export { createRequestId } from './helpers.js';
 
-export type { HexString } from './protocol/types.js';
-
+export type { HostApi } from './hostApi.js';
 export { createHostApi } from './hostApi.js';
 export { createTransport } from './transport.js';
 export { createDefaultLogger } from './logger.js';
@@ -24,20 +13,43 @@ export { hostApiProtocol } from './protocol/impl.js';
 // External reexports
 export type { Codec, CodecType } from 'scale-ts';
 
+export type { HexString } from '@novasamatech/scale';
+export {
+  assertEnumVariant,
+  enumValue,
+  fromHex,
+  isEnumVariant,
+  resultErr,
+  resultOk,
+  toHex,
+  unwrapResultOrThrow,
+} from '@novasamatech/scale';
+
 // Codecs
 
 export { GenericError } from './protocol/commonCodecs.js';
 export { CreateTransactionErr, VersionedPublicTxPayload } from './protocol/v1/createTransaction.js';
-export { Account, AccountId, CreateProofErr, ProductAccountId, RequestCredentialsErr } from './protocol/v1/accounts.js';
 export {
-  ChatContactRegistrationErr,
-  ChatContactRegistrationStatus,
-  ChatMessage,
+  Account,
+  AccountId,
+  CreateProofErr,
+  ProductAccountId,
+  RequestCredentialsErr,
+  RingLocation,
+} from './protocol/v1/accounts.js';
+export {
+  ChatActionPayload,
+  ChatBotRegistrationErr,
+  ChatBotRegistrationStatus,
+  ChatMessageContent,
   ChatMessagePostingErr,
+  ChatRoom,
+  ChatRoomRegistrationErr,
+  ChatRoomRegistrationResult,
+  ChatRoomRegistrationStatus,
   ReceivedChatAction,
 } from './protocol/v1/chat.js';
 export { HandshakeErr } from './protocol/v1/handshake.js';
-export { PermissionErr } from './protocol/v1/permission.js';
 export { SigningErr } from './protocol/v1/sign.js';
-export { StatementProofErr } from './protocol/v1/statementStore.js';
+export { SignedStatement, Statement, StatementProofErr, Topic } from './protocol/v1/statementStore.js';
 export { StorageErr } from './protocol/v1/storage.js';

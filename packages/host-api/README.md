@@ -29,7 +29,7 @@ Transport is a low-level wrapper around protocol and provider.
 It encapsulates serialization/deserialization and request/subscription logic.
 
 ```typescript
-import { createTransport, okResult } from '@novasamatech/host-api';
+import { createTransport, resultOk } from '@novasamatech/host-api';
 import { provider } from './custom-provider.js';
 
 const transport = createTransport(provider);
@@ -43,9 +43,9 @@ const response = await transport.request('storage_read', payload);
 const stop = transport.handleRequest('storage_read', async (payload) => {
   try {
     const result = await readFromStorage(payload);
-    return okResult(result);
+    return resultOk(result);
   } catch (e) {
-    return errResult(e);
+    return resultErr(e);
   }
 });
 

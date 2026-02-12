@@ -55,7 +55,7 @@ export default defineConfig([
       'import-x/order': [
         'error',
         {
-          named: true,
+          named: { enabled: true, types: 'types-first' },
           alphabetize: { order: 'asc', orderImportKind: 'asc' },
           groups: ['builtin', 'external', 'parent', ['sibling', 'index']],
           'newlines-between': 'always',

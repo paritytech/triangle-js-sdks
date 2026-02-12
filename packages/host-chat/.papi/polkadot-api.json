@@ -1,0 +1,15 @@
+{
+  "version": 0,
+  "descriptorPath": ".papi/descriptors",
+  "options": {
+    "noDescriptorsPackage": true
+  },
+  "entries": {
+    "people_lite": {
+      "wsUrl": "wss://pop3-testnet.parity-lab.parity.io:443/7912",
+      "metadata": ".papi/metadata/people_lite.scale",
+      "genesis": "0x41412e46623c200d788ab7ef1c507c43490fda2ca7b48c19f86ea9a46cf9caa8",
+      "codeHash": "0xe6895843ad86452552f9ec62c9793f457e04ab0c23ca1be6e8837c8b4b6d6be9"
+    }
+  }
+}

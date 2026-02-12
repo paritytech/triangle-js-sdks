@@ -1,3 +1,4 @@
+import { enumValue } from '@novasamatech/scale';
 import type { LazyClient, LocalSessionAccount, StatementStoreAdapter } from '@novasamatech/statement-store';
 import {
   createAccountId,
@@ -21,7 +22,7 @@ import type { UserSecretRepository } from '../userSecretRepository.js';
 import type { StoredUserSession, UserSessionRepository } from '../userSessionRepository.js';
 import { createStoredUserSession } from '../userSessionRepository.js';
 
-import { createAliceVerifier, createAttestationService } from './attestationService.js';
+import { createAttestationService, createSudoAliceVerifier } from './attestationService.js';
 import { HandshakeData, HandshakeResponsePayload, HandshakeResponseSensitiveData } from './scale/handshake.js';
 import type { AttestationStatus, PairingStatus } from './types.js';
 
@@ -51,7 +52,7 @@ export function createAuth({
   function attestAccount(account: DerivedSr25519Account, signal: AbortSignal) {
     const attestationService = createAttestationService(lazyClient);
 
-    const verifier = createAliceVerifier();
+    const verifier = createSudoAliceVerifier();
     const username = attestationService.claimUsername();
 
     attestationStatus.write({ step: 'attestation', username });
@@ -191,11 +192,7 @@ const createHandshakePayloadV1 = fromThrowable(
     encrPublicKey: EncrPublicKey;
     ssPublicKey: SsPublicKey;
     metadata: string;
-  }) =>
-    HandshakeData.enc({
-      tag: 'v1',
-      value: [ssPublicKey, encrPublicKey, metadata],
-    }),
+  }) => HandshakeData.enc(enumValue('v1', [ssPublicKey, encrPublicKey, metadata])),
   toError,
 );
 
@@ -204,10 +201,7 @@ function parseHandshakePayload(payload: Uint8Array) {
 
   switch (decoded.tag) {
     case 'v1':
-      return {
-        encrypted: decoded.value[0],
-        tmpKey: decoded.value[1],
-      };
+      return decoded.value;
     default:
       throw new Error('Unsupported handshake payload version');
   }

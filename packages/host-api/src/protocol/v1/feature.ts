@@ -1,6 +1,7 @@
+import { Enum } from '@novasamatech/scale';
 import { Result, bool } from 'scale-ts';
 
-import { Enum, GenericError, GenesisHash } from '../commonCodecs.js';
+import { GenericError, GenesisHash } from '../commonCodecs.js';
 
 export const Feature = Enum({
   Chain: GenesisHash,
