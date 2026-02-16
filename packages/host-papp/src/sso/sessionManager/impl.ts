@@ -84,7 +84,10 @@ export function createSsoSessionManager({
     disconnect(userSession: StoredUserSession) {
       const session = createSession(userSession, statementStore, storage, userSecretRepository);
 
-      return session.sendDisconnectMessage().andThen(() => disconnect(userSession));
+      return session
+        .sendDisconnectMessage()
+        .andThen(() => disconnect(userSession))
+        .andThen(() => userSecretRepository.clear(userSession.id));
     },
 
     dispose() {
