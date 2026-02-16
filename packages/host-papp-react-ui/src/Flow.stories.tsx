@@ -1,9 +1,11 @@
 import type { SignPayloadRequest, UserSession } from '@novasamatech/host-papp';
 import { createPappAdapter } from '@novasamatech/host-papp';
+import { Button } from '@novasamatech/tr-ui';
 import { AccountId } from '@polkadot-api/substrate-bindings';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 
 import { PairingModal } from './flow/PairingModal.js';
+import { PairingPopover } from './flow/PairingPopover.js';
 import { PappProvider } from './flow/PappProvider.js';
 import { useSessionIdentity } from './hooks/identity.js';
 import { useAuthentication } from './providers/AuthProvider.js';
@@ -46,7 +48,7 @@ const SignPayloadExample = ({ session }: { session: UserSession | null }) => {
   };
 
   return (
-    <button onClick={() => session.signPayload(payload).match(console.log, console.error)}>Example sign request</button>
+    <Button onClick={() => session.signPayload(payload).match(console.log, console.error)}>Example sign request</Button>
   );
 };
 
@@ -60,14 +62,21 @@ const ConnectButton = () => {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8, alignItems: 'flex-start' }}>
         <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
           <span>{identity?.fullUsername ?? identity?.liteUsername ?? (pending ? 'Loading...' : 'Unknown user')}</span>
-          <button onClick={() => auth.disconnect(session)}>Disconnect</button>
+          <Button onClick={() => auth.disconnect(session)}>Disconnect</Button>
         </div>
         <SignPayloadExample session={session} />
       </div>
     );
   }
 
-  return <button onClick={() => auth.authenticate()}>Connect Polkadot</button>;
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      <PairingPopover>
+        <Button onClick={() => auth.authenticate('popover')}>Open auth Popover</Button>
+      </PairingPopover>
+      <Button onClick={() => auth.authenticate('modal')}>Open auth Modal</Button>
+    </div>
+  );
 };
 
 const meta: Meta<typeof PappProvider> = {

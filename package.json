@@ -17,6 +17,7 @@
     "lint": "nx run-many -t lint && eslint ./__tests__",
     "lint:fix": "nx run-many -t lint --fix && eslint ./__tests__ --fix",
     "test": "vitest run",
+    "storybook:papp": "nx run host-papp-react-ui:storybook",
     "prepare": "husky"
   },
   "devDependencies": {

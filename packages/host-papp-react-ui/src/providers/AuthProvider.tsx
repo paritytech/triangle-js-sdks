@@ -4,11 +4,14 @@ import { createContext, useCallback, useContext, useDebugValue, useState, useSyn
 
 import { usePapp } from '../flow/PappProvider.js';
 
+export type AuthUIMode = 'popover' | 'modal' | null;
+
 type Auth = {
   pairingStatus: PairingStatus;
   attestationStatus: AttestationStatus;
   pending: boolean;
-  authenticate(): Promise<void>;
+  authUIMode: AuthUIMode;
+  authenticate(ui?: AuthUIMode): Promise<void>;
   abortAuthentication(): void;
   disconnect(session: UserSession): Promise<void>;
 };
@@ -17,6 +20,7 @@ const Context = createContext<Auth>({
   pairingStatus: { step: 'none' },
   attestationStatus: { step: 'none' },
   pending: false,
+  authUIMode: null,
   authenticate: () => Promise.resolve(),
   abortAuthentication() {
     /* empty */
@@ -53,20 +57,32 @@ const useAttestationStatus = () => {
 
 export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [pending, setPending] = useState(false);
+  const [authUIMode, setAuthUIMode] = useState<AuthUIMode>(null);
   const provider = usePapp();
 
   const pairingStatus = usePairingStatus();
   const attestationStatus = useAttestationStatus();
 
-  const authenticate = useCallback(() => {
-    setPending(true);
-    return new Promise<void>((resolve, reject) => {
-      provider.sso
-        .authenticate()
-        .andTee(() => setPending(false))
-        .orTee(() => setPending(false))
-        .match(() => resolve(), reject);
-    });
+  const authenticate = useCallback(
+    (ui?: AuthUIMode) => {
+      if (ui) {
+        setAuthUIMode(ui);
+      }
+      setPending(true);
+      return new Promise<void>((resolve, reject) => {
+        provider.sso
+          .authenticate()
+          .andTee(() => setPending(false))
+          .orTee(() => setPending(false))
+          .match(() => resolve(), reject);
+      });
+    },
+    [provider],
+  );
+
+  const abortAuthentication = useCallback(() => {
+    setAuthUIMode(null);
+    provider.sso.abortAuthentication();
   }, [provider]);
 
   const disconnect = useCallback(
@@ -80,8 +96,9 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     pending,
     pairingStatus,
     attestationStatus,
+    authUIMode,
     authenticate,
-    abortAuthentication: provider.sso.abortAuthentication,
+    abortAuthentication,
     disconnect,
   };
 

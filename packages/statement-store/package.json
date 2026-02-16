@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/novasamatech/spektr-sdk.git"
+    "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
   },
   "keywords": [
     "polkadot"

@@ -11,7 +11,7 @@
   z-index: 1000;
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: hsl(var(--general-background) / 0.3);
   opacity: 1;
   animation-name: fadeInOpacity;
   animation-iteration-count: 1;
@@ -33,14 +33,6 @@
   animation-timing-function: ease-in;
   animation-duration: 0.5s;
   text-rendering: geometricPrecision;
-}
-
-.modalLight {
-  background: white;
-  color: black;
-}
-
-.modalDark {
-  background: black;
-  color: white;
+  background: var(--color-surface-tertiary-inverse);
+  color: var(--color-text-foreground-inverse);
 }
