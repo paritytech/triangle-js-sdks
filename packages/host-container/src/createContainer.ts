@@ -12,7 +12,6 @@ import {
   SigningErr,
   StatementProofErr,
   StorageErr,
-  assertEnumVariant,
   createTransport,
   enumValue,
   isEnumVariant,
@@ -424,7 +423,12 @@ export function createContainer(provider: Provider): Container {
       // Follow subscription
       cleanups.push(
         transport.handleSubscription('remote_chain_head_follow', (params, send, interrupt) => {
-          assertEnumVariant(params, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(params, 'v1')) {
+            interrupt();
+            return () => {
+              /* unsupported version */
+            };
+          }
           const { genesisHash, withRuntime } = params.value;
 
           const entry = manager.getOrCreateChain(genesisHash);
@@ -450,7 +454,9 @@ export function createContainer(provider: Provider): Container {
       // Header request
       cleanups.push(
         transport.handleRequest('remote_chain_head_header', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const { genesisHash, hash } = message.value;
           const realSubId = manager.getChainFollowSubId(genesisHash);
 
@@ -470,7 +476,9 @@ export function createContainer(provider: Provider): Container {
       // Body request
       cleanups.push(
         transport.handleRequest('remote_chain_head_body', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const { genesisHash, hash } = message.value;
           const realSubId = manager.getChainFollowSubId(genesisHash);
 
@@ -490,7 +498,9 @@ export function createContainer(provider: Provider): Container {
       // Storage request
       cleanups.push(
         transport.handleRequest('remote_chain_head_storage', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const { genesisHash, hash, items, childTrie } = message.value;
           const realSubId = manager.getChainFollowSubId(genesisHash);
 
@@ -520,7 +530,9 @@ export function createContainer(provider: Provider): Container {
       // Call request
       cleanups.push(
         transport.handleRequest('remote_chain_head_call', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const params = message.value;
           const realSubId = manager.getChainFollowSubId(params.genesisHash);
 
@@ -545,7 +557,9 @@ export function createContainer(provider: Provider): Container {
       // Unpin request
       cleanups.push(
         transport.handleRequest('remote_chain_head_unpin', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const { genesisHash, hashes } = message.value;
           const realSubId = manager.getChainFollowSubId(genesisHash);
 
@@ -565,7 +579,9 @@ export function createContainer(provider: Provider): Container {
       // Continue request
       cleanups.push(
         transport.handleRequest('remote_chain_head_continue', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const { genesisHash, operationId } = message.value;
           const realSubId = manager.getChainFollowSubId(genesisHash);
 
@@ -585,7 +601,9 @@ export function createContainer(provider: Provider): Container {
       // StopOperation request
       cleanups.push(
         transport.handleRequest('remote_chain_head_stop_operation', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const { genesisHash, operationId } = message.value;
           const realSubId = manager.getChainFollowSubId(genesisHash);
 
@@ -605,7 +623,9 @@ export function createContainer(provider: Provider): Container {
       // ChainSpec: genesis hash
       cleanups.push(
         transport.handleRequest('remote_chain_spec_genesis_hash', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const genesisHash = message.value;
 
           const entry = manager.getOrCreateChain(genesisHash);
@@ -627,7 +647,9 @@ export function createContainer(provider: Provider): Container {
       // ChainSpec: chain name
       cleanups.push(
         transport.handleRequest('remote_chain_spec_chain_name', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const genesisHash = message.value;
 
           const entry = manager.getOrCreateChain(genesisHash);
@@ -649,7 +671,9 @@ export function createContainer(provider: Provider): Container {
       // ChainSpec: properties
       cleanups.push(
         transport.handleRequest('remote_chain_spec_properties', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const genesisHash = message.value;
 
           const entry = manager.getOrCreateChain(genesisHash);
@@ -671,7 +695,9 @@ export function createContainer(provider: Provider): Container {
       // Transaction broadcast
       cleanups.push(
         transport.handleRequest('remote_chain_transaction_broadcast', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const { genesisHash, transaction } = message.value;
 
           const entry = manager.getOrCreateChain(genesisHash);
@@ -693,7 +719,9 @@ export function createContainer(provider: Provider): Container {
       // Transaction stop
       cleanups.push(
         transport.handleRequest('remote_chain_transaction_stop', async message => {
-          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          if (!isEnumVariant(message, 'v1')) {
+            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+          }
           const { genesisHash, operationId } = message.value;
 
           const entry = manager.getOrCreateChain(genesisHash);

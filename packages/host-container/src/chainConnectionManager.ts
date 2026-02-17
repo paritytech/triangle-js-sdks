@@ -10,6 +10,7 @@ type PendingRequest = {
 type FollowSubscription = {
   chainSubId: string;
   eventListener: (event: unknown) => void;
+  pendingRequestId?: string;
 };
 
 type ChainEntry = {
@@ -103,24 +104,37 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
     genesisHash: HexString,
     withRuntime: boolean,
     onEvent: (event: unknown) => void,
-  ): { followId: string; chainSubIdPromise: Promise<string> } {
+  ): { followId: string } {
     const entry = chains.get(genesisHash);
     if (!entry) throw new Error(`No connection for chain ${genesisHash}`);
 
     const followId = getNextId();
+    const requestId = getNextId();
     const follow: FollowSubscription = {
-      chainSubId: '', // will be set when response arrives
+      chainSubId: '', // will be set synchronously when response arrives
       eventListener: onEvent,
+      pendingRequestId: requestId,
     };
     entry.followSubscriptions.set(followId, follow);
 
-    const chainSubIdPromise = sendRequest(genesisHash, 'chainHead_v1_follow', [withRuntime]).then(result => {
-      const subId = result as string;
-      follow.chainSubId = subId;
-      return subId;
+    // Bypass sendRequest to avoid Promise microtask deferral.
+    // The response handler sets chainSubId synchronously, so when the next
+    // message (the notification) is processed, chainSubId is already set.
+    entry.pendingRequests.set(requestId, {
+      resolve: result => {
+        follow.chainSubId = result as string;
+        follow.pendingRequestId = undefined;
+      },
+      reject: () => {
+        follow.pendingRequestId = undefined;
+        entry.followSubscriptions.delete(followId);
+      },
     });
+    entry.connection.send(
+      JSON.stringify({ jsonrpc: '2.0', id: requestId, method: 'chainHead_v1_follow', params: [withRuntime] }),
+    );
 
-    return { followId, chainSubIdPromise };
+    return { followId };
   }
 
   function stopFollow(genesisHash: HexString, followId: string): void {
@@ -137,6 +151,22 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
       entry.connection.send(
         JSON.stringify({ jsonrpc: '2.0', id, method: 'chainHead_v1_unfollow', params: [follow.chainSubId] }),
       );
+    } else if (follow.pendingRequestId) {
+      // Follow response hasn't arrived yet — replace the pending resolve to send unfollow when it does
+      entry.pendingRequests.set(follow.pendingRequestId, {
+        resolve: result => {
+          const chainSubId = result as string;
+          if (chainSubId) {
+            const unfollowId = getNextId();
+            entry.connection.send(
+              JSON.stringify({ jsonrpc: '2.0', id: unfollowId, method: 'chainHead_v1_unfollow', params: [chainSubId] }),
+            );
+          }
+        },
+        reject: () => {
+          /* follow already cleaned up */
+        },
+      });
     }
   }
 

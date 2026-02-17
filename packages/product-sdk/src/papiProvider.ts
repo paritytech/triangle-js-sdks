@@ -404,7 +404,14 @@ export function createPapiProvider(
         }
         activeFollows.clear();
         for (const operationId of activeBroadcasts) {
-          hostApi.chainTransactionStop(enumValue(version, { genesisHash, operationId }));
+          hostApi.chainTransactionStop(enumValue(version, { genesisHash, operationId })).match(
+            () => {
+              /* fire-and-forget on disconnect */
+            },
+            () => {
+              /* transport may already be torn down */
+            },
+          );
         }
         activeBroadcasts.clear();
       },
