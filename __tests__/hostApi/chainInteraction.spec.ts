@@ -32,7 +32,7 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -117,7 +117,7 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -211,7 +211,7 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -271,7 +271,7 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -381,7 +381,7 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -462,7 +462,7 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -519,7 +519,7 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -593,7 +593,7 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -644,7 +644,7 @@ describe('Host API: Chain Interaction', () => {
       const { container, hostApi } = setupDirect();
       const broadcastFn = vi.fn();
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -681,7 +681,7 @@ describe('Host API: Chain Interaction', () => {
     it('should handle broadcast returning null when limit reached', async () => {
       const { container, hostApi } = setupDirect();
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -717,7 +717,7 @@ describe('Host API: Chain Interaction', () => {
       const { container, hostApi } = setupDirect();
       const stopFn = vi.fn();
 
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
@@ -761,7 +761,7 @@ describe('Host API: Chain Interaction', () => {
 
       // Feature returns false - chain not supported
       container.handleFeatureSupported((_, { ok }) => ok(false));
-      container.handleChainInteraction(chain => {
+      container.handleChainConnection(chain => {
         if (chain === WellKnownChain.polkadotRelay) {
           return _onMessage => ({
             send() {

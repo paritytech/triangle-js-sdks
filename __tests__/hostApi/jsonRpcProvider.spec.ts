@@ -30,7 +30,7 @@ describe('Host API: JSON RPC provider', () => {
     container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
-    container.handleChainInteraction(chain => {
+    container.handleChainConnection(chain => {
       if (chain !== WellKnownChain.polkadotRelay) return null;
 
       return onMessage => {
@@ -75,7 +75,7 @@ describe('Host API: JSON RPC provider', () => {
 
     // Feature returns false - chain not supported
     container.handleFeatureSupported((_, { ok }) => ok(false));
-    container.handleChainInteraction(chain => {
+    container.handleChainConnection(chain => {
       if (chain !== WellKnownChain.polkadotRelay) return null;
 
       return onMessage => {
@@ -117,7 +117,7 @@ describe('Host API: JSON RPC provider', () => {
     container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
-    container.handleChainInteraction(chain => {
+    container.handleChainConnection(chain => {
       if (chain !== WellKnownChain.polkadotRelay) return null;
 
       return onMessage => {
@@ -159,7 +159,7 @@ describe('Host API: JSON RPC provider', () => {
     container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
-    container.handleChainInteraction(chain => {
+    container.handleChainConnection(chain => {
       if (chain === WellKnownChain.polkadotRelay) {
         return onMessage => ({
           send(message: string) {
