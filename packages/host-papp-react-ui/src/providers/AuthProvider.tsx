@@ -1,10 +1,20 @@
 import type { AttestationStatus, PairingStatus, UserSession } from '@novasamatech/host-papp';
+import { toastError } from '@novasamatech/tr-ui';
 import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useDebugValue, useState, useSyncExternalStore } from 'react';
 
 import { usePapp } from '../flow/PappProvider.js';
 
 export type AuthUIMode = 'popover' | 'modal' | null;
+
+export function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
+  return fn().catch(error => {
+    if (maxRetries > 0) {
+      return withRetry(fn, maxRetries - 1);
+    }
+    throw error;
+  });
+}
 
 type Auth = {
   pairingStatus: PairingStatus;
@@ -85,10 +95,17 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
     provider.sso.abortAuthentication();
   }, [provider]);
 
+  const createDisconnectPromise = (session: UserSession) =>
+    new Promise<void>((resolve, reject) => {
+      provider.sessions.disconnect(session).match(resolve, reject);
+    });
+
   const disconnect = useCallback(
-    (session: UserSession) => {
-      return new Promise<void>((resolve, reject) => provider.sessions.disconnect(session).match(resolve, reject));
-    },
+    (session: UserSession) =>
+      withRetry(() => createDisconnectPromise(session)).catch((error: Error) => {
+        toastError({ title: error.message });
+        throw error;
+      }),
     [provider],
   );
 
