@@ -1,3 +1,31 @@
+## 0.5.5 (2026-02-17)
+
+### 🚀 Features
+
+- papp integration ([#5](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/5))
+- Implemented correct Polkadot app pairing ui ([#6](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/6))
+- Support new statement store errors while submitting statements ([#8](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/8))
+- host api spec ([#7](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/7))
+- chat ([#9](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/9))
+- retry auth requests, add tests ([#12](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/12))
+- added clearAll method to localStorageAdapter ([#11](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/11))
+- add tr-ui, PairingPopover and theme support ([#10](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/10))
+- update sdk to 0.5 spec ([#13](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/13))
+- added a disconnect attempt and an error toast. PB-118 ([#15](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/15))
+- changes for 0.5 release ([55ba140](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/55ba140))
+
+### 🩹 Fixes
+
+- Explicitly set account type to sr25519 in extension injector ([c942974](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/c942974))
+- pairing ui logos and texts ([d99f67d](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/d99f67d))
+- added Preview People Chain ([#14](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/14))
+
+### ❤️ Thank You
+
+- Ilya Kalinin
+- Sergey Zhuravlev @johnthecat
+- Yanaty
+
 ## 0.5.4 (2026-02-05)
 
 ### 🚀 Features
