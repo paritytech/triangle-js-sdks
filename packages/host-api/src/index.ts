@@ -58,3 +58,16 @@ export { RemotePermissionRequest } from './protocol/v1/remotePermission.js';
 export { PushNotification } from './protocol/v1/notification.js';
 export { NavigateToErr } from './protocol/v1/navigation.js';
 export { PreimageKey, PreimageSubmitErr, PreimageValue } from './protocol/v1/preimage.js';
+export {
+  ChainHeadEvent,
+  ChainHeadFollowV1_start,
+  OperationStartedResult,
+  RuntimeType,
+  StorageQueryItem,
+  StorageQueryType,
+  StorageResultItem,
+  TransactionBroadcastV1_request,
+  TransactionBroadcastV1_response,
+  TransactionStopV1_request,
+  TransactionStopV1_response,
+} from './protocol/v1/chainInteraction.js';

@@ -1,4 +1,4 @@
-import type { ConnectionStatus, Provider } from '@novasamatech/host-api';
+import type { ConnectionStatus, HexString, Provider } from '@novasamatech/host-api';
 import {
   ChatBotRegistrationErr,
   ChatMessagePostingErr,
@@ -22,6 +22,7 @@ import {
 import type { Result } from 'neverthrow';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 
+import { createChainConnectionManager } from './chainConnectionManager.js';
 import type { Container } from './types.js';
 
 const UNSUPPORTED_MESSAGE_FORMAT_ERROR = 'Unsupported message format';
@@ -413,6 +414,501 @@ export function createContainer(provider: Provider): Container {
       });
     },
 
+    // chain interaction — individual handlers
+
+    handleChainHeadFollow(handler) {
+      init();
+      return transport.handleSubscription('remote_chain_head_follow', (params, send, interrupt) => {
+        const version = 'v1';
+
+        return guardVersion(params, version, null)
+          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
+          .orTee(interrupt)
+          .unwrapOr(() => {
+            /* empty */
+          });
+      });
+    },
+
+    handleChainHeadHeader(handler) {
+      init();
+      return transport.handleRequest('remote_chain_head_header', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+    handleChainHeadBody(handler) {
+      init();
+      return transport.handleRequest('remote_chain_head_body', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainHeadStorage(handler) {
+      init();
+      return transport.handleRequest('remote_chain_head_storage', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainHeadCall(handler) {
+      init();
+      return transport.handleRequest('remote_chain_head_call', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainHeadUnpin(handler) {
+      init();
+      return transport.handleRequest('remote_chain_head_unpin', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainHeadContinue(handler) {
+      init();
+      return transport.handleRequest('remote_chain_head_continue', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainHeadStopOperation(handler) {
+      init();
+      return transport.handleRequest('remote_chain_head_stop_operation', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainSpecGenesisHash(handler) {
+      init();
+      return transport.handleRequest('remote_chain_spec_genesis_hash', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainSpecChainName(handler) {
+      init();
+      return transport.handleRequest('remote_chain_spec_chain_name', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainSpecProperties(handler) {
+      init();
+      return transport.handleRequest('remote_chain_spec_properties', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainTransactionBroadcast(handler) {
+      init();
+      return transport.handleRequest('remote_chain_transaction_broadcast', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleChainTransactionStop(handler) {
+      init();
+      return transport.handleRequest('remote_chain_transaction_stop', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    // chain interaction — convenience method
+
+    handleChainInteraction(factory) {
+      init();
+      const manager = createChainConnectionManager(factory);
+      const cleanups: VoidFunction[] = [];
+
+      // Follow subscription
+      cleanups.push(
+        transport.handleSubscription('remote_chain_head_follow', (params, send, interrupt) => {
+          assertEnumVariant(params, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const { genesisHash, withRuntime } = params.value;
+
+          const entry = manager.getOrCreateChain(genesisHash);
+          if (!entry) {
+            interrupt();
+            return () => {
+              /* no chain provider available */
+            };
+          }
+
+          const { followId } = manager.startFollow(genesisHash, withRuntime, (event: unknown) => {
+            const typedEvent = manager.convertJsonRpcEventToTyped(event as Record<string, unknown>);
+            send(enumValue('v1', typedEvent) as any);
+          });
+
+          return () => {
+            manager.stopFollow(genesisHash, followId);
+            manager.releaseChain(genesisHash);
+          };
+        }),
+      );
+
+      // Header request
+      cleanups.push(
+        transport.handleRequest('remote_chain_head_header', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const { genesisHash, hash } = message.value;
+          const realSubId = manager.getChainFollowSubId(genesisHash);
+
+          if (!realSubId) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
+          }
+
+          try {
+            const result = await manager.sendRequest(genesisHash, 'chainHead_v1_header', [realSubId, hash]);
+            return enumValue('v1', resultOk(result as HexString | null));
+          } catch (e) {
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // Body request
+      cleanups.push(
+        transport.handleRequest('remote_chain_head_body', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const { genesisHash, hash } = message.value;
+          const realSubId = manager.getChainFollowSubId(genesisHash);
+
+          if (!realSubId) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
+          }
+
+          try {
+            const result = await manager.sendRequest(genesisHash, 'chainHead_v1_body', [realSubId, hash]);
+            return enumValue('v1', resultOk(manager.convertOperationStartedResult(result)));
+          } catch (e) {
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // Storage request
+      cleanups.push(
+        transport.handleRequest('remote_chain_head_storage', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const { genesisHash, hash, items, childTrie } = message.value;
+          const realSubId = manager.getChainFollowSubId(genesisHash);
+
+          if (!realSubId) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
+          }
+
+          const jsonRpcItems = items.map((item: { key: HexString; type: string }) => ({
+            key: item.key,
+            type: manager.convertStorageQueryTypeToJsonRpc(item.type),
+          }));
+
+          try {
+            const result = await manager.sendRequest(genesisHash, 'chainHead_v1_storage', [
+              realSubId,
+              hash,
+              jsonRpcItems,
+              childTrie,
+            ]);
+            return enumValue('v1', resultOk(manager.convertOperationStartedResult(result)));
+          } catch (e) {
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // Call request
+      cleanups.push(
+        transport.handleRequest('remote_chain_head_call', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const params = message.value;
+          const realSubId = manager.getChainFollowSubId(params.genesisHash);
+
+          if (!realSubId) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
+          }
+
+          try {
+            const result = await manager.sendRequest(params.genesisHash, 'chainHead_v1_call', [
+              realSubId,
+              params.hash,
+              params.function,
+              params.callParameters,
+            ]);
+            return enumValue('v1', resultOk(manager.convertOperationStartedResult(result)));
+          } catch (e) {
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // Unpin request
+      cleanups.push(
+        transport.handleRequest('remote_chain_head_unpin', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const { genesisHash, hashes } = message.value;
+          const realSubId = manager.getChainFollowSubId(genesisHash);
+
+          if (!realSubId) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
+          }
+
+          try {
+            await manager.sendRequest(genesisHash, 'chainHead_v1_unpin', [realSubId, hashes]);
+            return enumValue('v1', resultOk(undefined));
+          } catch (e) {
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // Continue request
+      cleanups.push(
+        transport.handleRequest('remote_chain_head_continue', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const { genesisHash, operationId } = message.value;
+          const realSubId = manager.getChainFollowSubId(genesisHash);
+
+          if (!realSubId) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
+          }
+
+          try {
+            await manager.sendRequest(genesisHash, 'chainHead_v1_continue', [realSubId, operationId]);
+            return enumValue('v1', resultOk(undefined));
+          } catch (e) {
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // StopOperation request
+      cleanups.push(
+        transport.handleRequest('remote_chain_head_stop_operation', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const { genesisHash, operationId } = message.value;
+          const realSubId = manager.getChainFollowSubId(genesisHash);
+
+          if (!realSubId) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
+          }
+
+          try {
+            await manager.sendRequest(genesisHash, 'chainHead_v1_stopOperation', [realSubId, operationId]);
+            return enumValue('v1', resultOk(undefined));
+          } catch (e) {
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // ChainSpec: genesis hash
+      cleanups.push(
+        transport.handleRequest('remote_chain_spec_genesis_hash', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const genesisHash = message.value;
+
+          const entry = manager.getOrCreateChain(genesisHash);
+          if (!entry) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
+          }
+
+          try {
+            const result = await manager.sendRequest(genesisHash, 'chainSpec_v1_genesisHash', []);
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultOk(result as HexString));
+          } catch (e) {
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // ChainSpec: chain name
+      cleanups.push(
+        transport.handleRequest('remote_chain_spec_chain_name', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const genesisHash = message.value;
+
+          const entry = manager.getOrCreateChain(genesisHash);
+          if (!entry) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
+          }
+
+          try {
+            const result = await manager.sendRequest(genesisHash, 'chainSpec_v1_chainName', []);
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultOk(result as string));
+          } catch (e) {
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // ChainSpec: properties
+      cleanups.push(
+        transport.handleRequest('remote_chain_spec_properties', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const genesisHash = message.value;
+
+          const entry = manager.getOrCreateChain(genesisHash);
+          if (!entry) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
+          }
+
+          try {
+            const result = await manager.sendRequest(genesisHash, 'chainSpec_v1_properties', []);
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultOk(typeof result === 'string' ? result : JSON.stringify(result)));
+          } catch (e) {
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // Transaction broadcast
+      cleanups.push(
+        transport.handleRequest('remote_chain_transaction_broadcast', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const { genesisHash, transaction } = message.value;
+
+          const entry = manager.getOrCreateChain(genesisHash);
+          if (!entry) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
+          }
+
+          try {
+            const result = await manager.sendRequest(genesisHash, 'transaction_v1_broadcast', [transaction]);
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultOk((result as string) ?? null));
+          } catch (e) {
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      // Transaction stop
+      cleanups.push(
+        transport.handleRequest('remote_chain_transaction_stop', async message => {
+          assertEnumVariant(message, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
+          const { genesisHash, operationId } = message.value;
+
+          const entry = manager.getOrCreateChain(genesisHash);
+          if (!entry) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
+          }
+
+          try {
+            await manager.sendRequest(genesisHash, 'transaction_v1_stop', [operationId]);
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultOk(undefined));
+          } catch (e) {
+            manager.releaseChain(genesisHash);
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          }
+        }),
+      );
+
+      const unsubscribeDestroy = transport.onDestroy(() => {
+        unsubscribeDestroy();
+        cleanups.forEach(fn => fn());
+        manager.dispose();
+      });
+
+      return () => {
+        unsubscribeDestroy();
+        cleanups.forEach(fn => fn());
+        manager.dispose();
+      };
+    },
+
+    /** @deprecated Use handleChainInteraction instead */
     handleChainConnection(factory) {
       init();
       return transport.handleSubscription('host_jsonrpc_message_subscribe', (params, send) => {

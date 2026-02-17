@@ -112,7 +112,26 @@ export type Container = {
   handlePreimageLookupSubscribe: InferHandler<'v1', HostApiProtocol['remote_preimage_lookup_subscribe']>;
   handlePreimageSubmit: InferHandler<'v1', HostApiProtocol['remote_preimage_submit']>;
 
+  // chain interaction
+
+  handleChainHeadFollow: InferHandler<'v1', HostApiProtocol['remote_chain_head_follow']>;
+  handleChainHeadHeader: InferHandler<'v1', HostApiProtocol['remote_chain_head_header']>;
+  handleChainHeadBody: InferHandler<'v1', HostApiProtocol['remote_chain_head_body']>;
+  handleChainHeadStorage: InferHandler<'v1', HostApiProtocol['remote_chain_head_storage']>;
+  handleChainHeadCall: InferHandler<'v1', HostApiProtocol['remote_chain_head_call']>;
+  handleChainHeadUnpin: InferHandler<'v1', HostApiProtocol['remote_chain_head_unpin']>;
+  handleChainHeadContinue: InferHandler<'v1', HostApiProtocol['remote_chain_head_continue']>;
+  handleChainHeadStopOperation: InferHandler<'v1', HostApiProtocol['remote_chain_head_stop_operation']>;
+  handleChainSpecGenesisHash: InferHandler<'v1', HostApiProtocol['remote_chain_spec_genesis_hash']>;
+  handleChainSpecChainName: InferHandler<'v1', HostApiProtocol['remote_chain_spec_chain_name']>;
+  handleChainSpecProperties: InferHandler<'v1', HostApiProtocol['remote_chain_spec_properties']>;
+  handleChainTransactionBroadcast: InferHandler<'v1', HostApiProtocol['remote_chain_transaction_broadcast']>;
+  handleChainTransactionStop: InferHandler<'v1', HostApiProtocol['remote_chain_transaction_stop']>;
+
+  /** @deprecated Use handleChainInteraction instead */
   handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
+
+  handleChainInteraction: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
 
   isReady(): Promise<boolean>;
   dispose(): void;

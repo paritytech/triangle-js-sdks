@@ -591,5 +591,263 @@ export function createHostApi(transport: Transport): HostApi {
     jsonrpcMessageSubscribe(args, callback) {
       return transport.subscribe('host_jsonrpc_message_subscribe', args, callback);
     },
+
+    // chain interaction
+
+    chainHeadFollow(args, callback) {
+      return transport.subscribe('remote_chain_head_follow', args, callback);
+    },
+
+    chainHeadHeader(payload) {
+      const response = fromPromise(transport.request('remote_chain_head_header', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainHeadBody(payload) {
+      const response = fromPromise(transport.request('remote_chain_head_body', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainHeadStorage(payload) {
+      const response = fromPromise(transport.request('remote_chain_head_storage', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainHeadCall(payload) {
+      const response = fromPromise(transport.request('remote_chain_head_call', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainHeadUnpin(payload) {
+      const response = fromPromise(transport.request('remote_chain_head_unpin', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainHeadContinue(payload) {
+      const response = fromPromise(transport.request('remote_chain_head_continue', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainHeadStopOperation(payload) {
+      const response = fromPromise(transport.request('remote_chain_head_stop_operation', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainSpecGenesisHash(payload) {
+      const response = fromPromise(transport.request('remote_chain_spec_genesis_hash', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainSpecChainName(payload) {
+      const response = fromPromise(transport.request('remote_chain_spec_chain_name', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainSpecProperties(payload) {
+      const response = fromPromise(transport.request('remote_chain_spec_properties', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainTransactionBroadcast(payload) {
+      const response = fromPromise(transport.request('remote_chain_transaction_broadcast', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    chainTransactionStop(payload) {
+      const response = fromPromise(transport.request('remote_chain_transaction_stop', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
   };
 }
