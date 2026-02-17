@@ -6,6 +6,8 @@ import {
   CreateProofErr,
   CreateTransactionErr,
   GenericError,
+  NavigateToErr,
+  PreimageSubmitErr,
   RequestCredentialsErr,
   SigningErr,
   StatementProofErr,
@@ -75,11 +77,39 @@ export function createContainer(provider: Provider): Container {
       });
     },
 
+    handlePermission(handler) {
+      init();
+      return transport.handleRequest('remote_permission', async message => {
+        const version = 'v1';
+        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
     handlePushNotification(handler) {
       init();
       return transport.handleRequest('host_push_notification', async message => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleNavigateTo(handler) {
+      init();
+      return transport.handleRequest('host_navigate_to', async message => {
+        const version = 'v1';
+        const error = new NavigateToErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
         return guardVersion(message, version, error)
           .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
@@ -313,20 +343,6 @@ export function createContainer(provider: Provider): Container {
       });
     },
 
-    handleStatementStoreQuery(handler) {
-      init();
-      return transport.handleRequest('remote_statement_store_query', async params => {
-        const version = 'v1';
-        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
-    },
-
     handleStatementStoreSubscribe(handler) {
       init();
       return transport.handleSubscription('remote_statement_store_subscribe', (params, send, interrupt) => {
@@ -360,6 +376,34 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('remote_statement_store_submit', async params => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handlePreimageLookupSubscribe(handler) {
+      init();
+      return transport.handleSubscription('remote_preimage_lookup_subscribe', (params, send, interrupt) => {
+        const version = 'v1';
+
+        return guardVersion(params, version, null)
+          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
+          .orTee(interrupt)
+          .unwrapOr(() => {
+            /* empty */
+          });
+      });
+    },
+
+    handlePreimageSubmit(handler) {
+      init();
+      return transport.handleRequest('remote_preimage_submit', async params => {
+        const version = 'v1';
+        const error = new PreimageSubmitErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
         return guardVersion(params, version, error)
           .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))

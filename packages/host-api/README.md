@@ -90,7 +90,7 @@ const hostApi = createHostApi(transport);
 
 // requesting data
 
-const storageValue = hostApi.storage_read(payload);
+const storageValue = hostApi.localStorageRead(payload);
 
 storageValue.match(
   (data) => console.log('success:', data),
@@ -99,7 +99,7 @@ storageValue.match(
 
 // subscribing to events
 
-const subscription = hostApi.chat_action_subscribe(params, (action) => {
+const subscription = hostApi.chatActionSubscribe(params, (action) => {
   console.log('action received:', action);
 });
 

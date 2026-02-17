@@ -58,10 +58,7 @@ export const SignedStatement = Struct({
   data: Option(Bytes()),
 });
 
-// query
-
-export const StatementStoreQueryV1_request = Vector(Topic);
-export const StatementStoreQueryV1_response = Result(Vector(SignedStatement), GenericError);
+// subscription
 
 export const StatementStoreSubscribeV1_start = Vector(Topic);
 export const StatementStoreSubscribeV1_receive = Vector(SignedStatement);

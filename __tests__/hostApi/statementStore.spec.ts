@@ -60,22 +60,6 @@ function createMockAccountId(): ProductAccountId {
 }
 
 describe('Host API: StatementStore', () => {
-  it('should query statements by topics', async () => {
-    const { container, statementStore } = setup();
-    const topics = [createTopic(1), createTopic(2)];
-    const expectedStatements = [createMockSignedStatement(1), createMockSignedStatement(2)];
-
-    const handler = vi.fn<Parameters<typeof container.handleStatementStoreQuery>[0]>((_, { ok }) =>
-      ok(expectedStatements),
-    );
-    container.handleStatementStoreQuery(handler);
-
-    const result = await statementStore.query(topics);
-
-    expect(handler).toBeCalledWith(topics, { ok: expect.any(Function), err: expect.any(Function) });
-    expect(result).toEqual(expectedStatements);
-  });
-
   it('should subscribe to statement updates', async () => {
     const { container, statementStore } = setup();
     const topics = [createTopic(1)];
@@ -130,16 +114,6 @@ describe('Host API: StatementStore', () => {
     await statementStore.submit(signedStatement);
 
     expect(handler).toBeCalledWith(signedStatement, { ok: expect.any(Function), err: expect.any(Function) });
-  });
-
-  it('should handle query error', async () => {
-    const { container, statementStore } = setup();
-    const topics = [createTopic(1)];
-    const error = new GenericError({ reason: 'Query failed' });
-
-    container.handleStatementStoreQuery((_, { err }) => err(error));
-
-    await expect(statementStore.query(topics)).rejects.toEqual(error);
   });
 
   it('should handle createProof error when account is unknown', async () => {

@@ -52,6 +52,9 @@ export {
 export { HandshakeErr } from './protocol/v1/handshake.js';
 export { SigningErr } from './protocol/v1/sign.js';
 export { SignedStatement, Statement, StatementProofErr, Topic } from './protocol/v1/statementStore.js';
-export { StorageErr } from './protocol/v1/storage.js';
+export { StorageErr } from './protocol/v1/localStorage.js';
 export { DevicePermissionRequest } from './protocol/v1/devicePermission.js';
+export { RemotePermissionRequest } from './protocol/v1/remotePermission.js';
 export { PushNotification } from './protocol/v1/notification.js';
+export { NavigateToErr } from './protocol/v1/navigation.js';
+export { PreimageKey, PreimageSubmitErr, PreimageValue } from './protocol/v1/preimage.js';

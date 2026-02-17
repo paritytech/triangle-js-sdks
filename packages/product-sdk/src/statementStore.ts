@@ -20,22 +20,6 @@ export const createStatementStore = (transport: Transport = sandboxTransport) =>
   const hostApi = createHostApi(transport);
 
   return {
-    async query(topics: Topic[]): Promise<SignedStatement[]> {
-      const result = await hostApi.statementStoreQuery(enumValue('v1', topics));
-
-      return result.match(
-        payload => {
-          if (payload.tag === 'v1') {
-            return payload.value;
-          }
-          throw new Error(`Unknown response version ${payload.tag}`);
-        },
-        err => {
-          throw err.value;
-        },
-      );
-    },
-
     subscribe(topics: Topic[], callback: (statements: SignedStatement[]) => void) {
       return hostApi.statementStoreSubscribe(enumValue('v1', topics), payload => {
         if (payload.tag === 'v1') {

@@ -9,9 +9,11 @@ import { CreateProofErr, RequestCredentialsErr } from './protocol/v1/accounts.js
 import { ChatBotRegistrationErr, ChatMessagePostingErr, ChatRoomRegistrationErr } from './protocol/v1/chat.js';
 import { CreateTransactionErr } from './protocol/v1/createTransaction.js';
 import { HandshakeErr } from './protocol/v1/handshake.js';
+import { StorageErr } from './protocol/v1/localStorage.js';
+import { NavigateToErr } from './protocol/v1/navigation.js';
+import { PreimageSubmitErr } from './protocol/v1/preimage.js';
 import { SigningErr } from './protocol/v1/sign.js';
 import { StatementProofErr } from './protocol/v1/statementStore.js';
-import { StorageErr } from './protocol/v1/storage.js';
 import type { Subscription, Transport } from './types.js';
 
 type SnakeToCamelCase<S extends string> = S extends `${infer T}_${infer U}`
@@ -126,10 +128,52 @@ export function createHostApi(transport: Transport): HostApi {
       });
     },
 
+    permission(payload) {
+      const response = fromPromise(transport.request('remote_permission', payload), e => ({
+        tag: payload.tag,
+        value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
     pushNotification(payload) {
       const response = fromPromise(transport.request('host_push_notification', payload), e => ({
         tag: payload.tag,
         value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    navigateTo(payload) {
+      const response = fromPromise(transport.request('host_navigate_to', payload), e => ({
+        tag: payload.tag,
+        value: new NavigateToErr.Unknown({ reason: extractErrorMessage(e) }),
       }));
 
       return response.andThen(response => {
@@ -452,27 +496,6 @@ export function createHostApi(transport: Transport): HostApi {
       return transport.subscribe('host_chat_action_subscribe', args, callback);
     },
 
-    statementStoreQuery(payload) {
-      const response = fromPromise(transport.request('remote_statement_store_query', payload), e => ({
-        tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
-      }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
-    },
-
     statementStoreSubscribe(args, callback) {
       return transport.subscribe('remote_statement_store_subscribe', args, callback);
     },
@@ -502,6 +525,31 @@ export function createHostApi(transport: Transport): HostApi {
       const response = fromPromise(transport.request('remote_statement_store_submit', payload), e => ({
         tag: payload.tag,
         value: new GenericError({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    preimageLookupSubscribe(args, callback) {
+      return transport.subscribe('remote_preimage_lookup_subscribe', args, callback);
+    },
+
+    preimageSubmit(payload) {
+      const response = fromPromise(transport.request('remote_preimage_submit', payload), e => ({
+        tag: payload.tag,
+        value: new PreimageSubmitErr.Unknown({ reason: extractErrorMessage(e) }),
       }));
 
       return response.andThen(response => {

@@ -66,7 +66,9 @@ export type Container = {
 
   handleFeatureSupported: InferHandler<'v1', HostApiProtocol['host_feature_supported']>;
   handleDevicePermission: InferHandler<'v1', HostApiProtocol['host_device_permission']>;
+  handlePermission: InferHandler<'v1', HostApiProtocol['remote_permission']>;
   handlePushNotification: InferHandler<'v1', HostApiProtocol['host_push_notification']>;
+  handleNavigateTo: InferHandler<'v1', HostApiProtocol['host_navigate_to']>;
 
   // storage
 
@@ -101,10 +103,14 @@ export type Container = {
 
   // statement store
 
-  handleStatementStoreQuery: InferHandler<'v1', HostApiProtocol['remote_statement_store_query']>;
   handleStatementStoreSubscribe: InferHandler<'v1', HostApiProtocol['remote_statement_store_subscribe']>;
   handleStatementStoreCreateProof: InferHandler<'v1', HostApiProtocol['remote_statement_store_create_proof']>;
   handleStatementStoreSubmit: InferHandler<'v1', HostApiProtocol['remote_statement_store_submit']>;
+
+  // preimage
+
+  handlePreimageLookupSubscribe: InferHandler<'v1', HostApiProtocol['remote_preimage_lookup_subscribe']>;
+  handlePreimageSubmit: InferHandler<'v1', HostApiProtocol['remote_preimage_submit']>;
 
   handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
 

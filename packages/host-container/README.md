@@ -49,14 +49,56 @@ document.body.appendChild(webview);
 
 ## API reference
 
-### handleFeature
+### handleFeatureSupported
 
 ```ts
-container.handleFeature((params, { ok, err }) => {
+container.handleFeatureSupported((params, { ok, err }) => {
   if (params.tag === 'Chat') {
     return ok(supportedChains.has(params.value));
   }
   return ok(false);
+});
+```
+
+### handleDevicePermission
+
+```ts
+container.handleDevicePermission(async (request, { ok, err }) => {
+  const granted = await requestDevicePermission(request);
+  return ok(granted);
+});
+```
+
+### handlePermission
+
+```ts
+container.handlePermission(async (request, { ok, err }) => {
+  if (request.tag === 'ExternalRequest') {
+    const allowed = await checkExternalRequestPermission(request.value);
+    return ok(allowed);
+  }
+  if (request.tag === 'TransactionSubmit') {
+    return ok(true);
+  }
+  return ok(false);
+});
+```
+
+### handlePushNotification
+
+```ts
+container.handlePushNotification(async (notification, { ok, err }) => {
+  await showNotification(notification);
+  return ok(undefined);
+});
+```
+
+### handleNavigateTo
+
+```ts
+container.handleNavigateTo(async (url, { ok, err }) => {
+  await navigate(url);
+  return ok(undefined);
 });
 ```
 
@@ -198,7 +240,14 @@ container.handleChatCreateRoom(async (room, { ok, err }) => {
 });
 ```
 
-## handleChatBotRegistration
+### handleChatBotRegistration
+
+```ts
+container.handleChatBotRegistration(async (bot, { ok, err }) => {
+  await chatService.registerBot(bot);
+  return ok(undefined);
+});
+```
 
 ### handleChatListSubscribe
 
@@ -226,15 +275,6 @@ container.handleChatActionSubscribe((_, send, interrupt) => {
   const listener = (action) => send(action);
   chatService.on('action', listener);
   return () => chatService.off('action', listener);
-});
-```
-
-### handleStatementStoreQuery
-
-```ts
-container.handleStatementStoreQuery(async (query, { ok, err }) => {
-  const statements = await statementStore.query(query);
-  return ok(statements);
 });
 ```
 
@@ -268,6 +308,29 @@ container.handleStatementStoreSubmit(async (statement, { ok, err }) => {
   try {
     await statementStore.submit(statement);
     return ok(undefined);
+  } catch (e) {
+    return err({ tag: 'Unknown', value: { reason: e.message } });
+  }
+});
+```
+
+### handlePreimageLookupSubscribe
+
+```ts
+container.handlePreimageLookupSubscribe((key, send, interrupt) => {
+  const listener = (value) => send(value);
+  preimageService.subscribe(key, listener);
+  return () => preimageService.unsubscribe(key, listener);
+});
+```
+
+### handlePreimageSubmit
+
+```ts
+container.handlePreimageSubmit(async (preimage, { ok, err }) => {
+  try {
+    const key = await preimageService.submit(preimage);
+    return ok(key);
   } catch (e) {
     return err({ tag: 'Unknown', value: { reason: e.message } });
   }

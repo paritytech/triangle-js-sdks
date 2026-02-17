@@ -12,6 +12,8 @@ Core features:
 - Accounts provider for product accounts and signing
 - Redirect [PAPI](https://papi.how/) requests to host application
 - Receive additional information from host application - supported chains, theme, etc.
+- Local storage for persisting data in the host application
+- Preimage manager for looking up and submitting preimages
 
 ## Installation
 
@@ -149,9 +151,6 @@ const statementStore = createStatementStore();
 // Define topics (32-byte identifiers) to categorize statements
 const topic: Topic = new Uint8Array(32);
 
-// Query existing statements by topics
-const statements: SignedStatement[] = await statementStore.query([topic]);
-
 // Subscribe to statement updates for specific topics
 const subscription = statementStore.subscribe([topic], (statements) => {
   console.log('Received statement updates:', statements);
@@ -230,5 +229,63 @@ const nonProductSigner = accountsProvider.getNonProductAccountSigner(account);
 
 const productAccountSignedTx = await tx.signAndSubmit(signer);
 const nonProductAccountSignedTx = await tx.signAndSubmit(nonProductSigner);
+```
+
+### Local Storage
+
+The Local Storage module provides a way to persist data in the host application's storage.
+
+```ts
+import { hostLocalStorage, createLocalStorage } from '@novasamatech/product-sdk';
+
+// Use the default instance
+const storage = hostLocalStorage;
+
+// Or create a custom instance with a different transport
+// const storage = createLocalStorage(customTransport);
+
+// Write and read raw bytes
+await storage.writeBytes('key', new Uint8Array([1, 2, 3]));
+const bytes = await storage.readBytes('key');
+
+// Write and read strings
+await storage.writeString('greeting', 'Hello, World!');
+const greeting = await storage.readString('greeting');
+
+// Write and read JSON
+await storage.writeJSON('config', { theme: 'dark', fontSize: 14 });
+const config = await storage.readJSON('config');
+
+// Clear a key
+await storage.clear('key');
+```
+
+### Preimage Manager
+
+The Preimage Manager allows you to lookup and submit preimages to the host application.
+
+```ts
+import { preimageManager, createPreimageManager } from '@novasamatech/product-sdk';
+
+// Use the default instance
+const manager = preimageManager;
+
+// Or create a custom instance with a different transport
+// const manager = createPreimageManager(customTransport);
+
+// Lookup a preimage by its hash key
+const subscription = manager.lookup('0x1234...', (preimage) => {
+  if (preimage) {
+    console.log('Preimage found:', preimage);
+  } else {
+    console.log('Preimage not found');
+  }
+});
+
+// Unsubscribe when done
+subscription.unsubscribe();
+
+// Submit a preimage
+const preimageKey = await manager.submit(new Uint8Array([1, 2, 3, 4]));
 ```
 
