@@ -387,8 +387,7 @@ export function createPapiProvider(
         }
 
         default: {
-          // For unrecognized methods, fall through to legacy JSON RPC if available
-          sendJsonRpcError(id, -32601, `Method not found: ${method}`);
+          sendJsonRpcError(id, -32601, `Method "${method}" is not supported by HostAPI`);
           break;
         }
       }
