@@ -8,8 +8,12 @@ export function createHostApiProviders() {
   const bus = createNanoEvents<Record<Events, (v: Uint8Array) => void>>();
 
   function createProvider(listenTo: Events, postTo: Events): Provider {
+    const defaultLogger = createDefaultLogger();
+
     return {
-      logger: createDefaultLogger(),
+      logger: defaultLogger,
+      defaultLogger,
+      getLogger: options => createDefaultLogger(options.msgPrefix),
       isCorrectEnvironment: () => true,
       dispose: () => delete bus.events[listenTo],
       subscribe: callback => bus.on(listenTo, callback),

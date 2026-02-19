@@ -71,8 +71,12 @@ export function createIframeProvider({ iframe, url, logger }: Params): Provider 
     window.addEventListener('message', messageHandler);
   }
 
+  const defaultLogger = logger ?? createDefaultLogger();
+
   return {
-    logger: logger ?? createDefaultLogger(),
+    logger: defaultLogger,
+    defaultLogger,
+    getLogger: options => createDefaultLogger(options.msgPrefix),
 
     isCorrectEnvironment() {
       return hasWindow();
