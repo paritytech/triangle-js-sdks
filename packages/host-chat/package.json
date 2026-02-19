@@ -18,6 +18,7 @@
   "exports": {
     "./package.json": "./package.json",
     ".": {
+      "@novasamatech/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
     }

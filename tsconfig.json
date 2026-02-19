@@ -11,6 +11,7 @@
     "moduleResolution": "nodenext",
     "verbatimModuleSyntax": true,
     "moduleDetection": "force",
+    "customConditions": ["@novasamatech/source"],
     "strict": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
