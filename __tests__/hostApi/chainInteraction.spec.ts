@@ -627,6 +627,7 @@ describe('Host API: Chain Interaction', () => {
       await delay(50);
 
       // The product SDK should have unsubscribed, triggering unfollow on the chain
+      expect(unfollowFn).toHaveBeenCalledWith('sub_1');
       expect(disconnectFn).toHaveBeenCalled();
     });
   });
@@ -751,6 +752,189 @@ describe('Host API: Chain Interaction', () => {
         },
       );
       expect(stopFn).toHaveBeenCalledWith('tx_op_1');
+    });
+  });
+
+  describe('multi-product chain sharing', () => {
+    it('should not collide request IDs when two products share the same chain backend', async () => {
+      const chainId = WellKnownChain.polkadotRelay;
+
+      // Shared broadcasting chain backend — simulates BranchedProvider behavior
+      // where ALL responses from the single RPC connection are broadcast to ALL branches
+      const allBranches: ((msg: string) => void)[] = [];
+      let subCounter = 0;
+
+      function broadcastingChainFactory(chain: HexString) {
+        if (chain !== chainId) return null;
+
+        return (onMessage: (msg: string) => void) => {
+          allBranches.push(onMessage);
+
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                subCounter++;
+                const subId = `sub_${subCounter}`;
+                const response = JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: subId });
+                // Broadcast to ALL branches (simulating BranchedProvider)
+                for (const branch of allBranches) {
+                  branch(response);
+                }
+                // Send initialized event after a tick (also broadcast)
+                // Use valid hex strings — invalid hex gets mangled by SCALE encoding roundtrip
+                const blockHash = subCounter === 1 ? '0xaa00000000000001' : '0xbb00000000000002';
+                setTimeout(() => {
+                  const event = JSON.stringify({
+                    jsonrpc: '2.0',
+                    method: 'chainHead_v1_followEvent',
+                    params: {
+                      subscription: subId,
+                      result: {
+                        event: 'initialized',
+                        finalizedBlockHashes: [blockHash],
+                        finalizedBlockRuntime: null,
+                      },
+                    },
+                  });
+                  for (const branch of allBranches) {
+                    branch(event);
+                  }
+                }, 10);
+              } else if (parsed.method === 'chainHead_v1_unfollow') {
+                const response = JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null });
+                for (const branch of allBranches) {
+                  branch(response);
+                }
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
+          };
+        };
+      }
+
+      // Two separate product setups — each with own transport + container
+      const providers1 = createHostApiProviders();
+      const providers2 = createHostApiProviders();
+
+      const container1 = createContainer(providers1.host);
+      const container2 = createContainer(providers2.host);
+
+      container1.handleFeatureSupported((params, { ok }) => ok(params.tag === 'Chain' && params.value === chainId));
+      container2.handleFeatureSupported((params, { ok }) => ok(params.tag === 'Chain' && params.value === chainId));
+
+      container1.handleChainConnection(broadcastingChainFactory);
+      container2.handleChainConnection(broadcastingChainFactory);
+
+      const sdkTransport1 = createTransport(providers1.sdk);
+      const sdkTransport2 = createTransport(providers2.sdk);
+
+      const papiProvider1 = createPapiProvider(chainId, undefined, { transport: sdkTransport1 });
+      const papiProvider2 = createPapiProvider(chainId, undefined, { transport: sdkTransport2 });
+
+      const messages1: string[] = [];
+      const messages2: string[] = [];
+
+      const conn1 = papiProvider1(msg => messages1.push(msg));
+      const conn2 = papiProvider2(msg => messages2.push(msg));
+
+      // Both products start follow simultaneously
+      conn1.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [true] }));
+      conn2.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [true] }));
+
+      await delay(200);
+
+      // Each product should get exactly one follow response
+      const followResp1 = messages1.filter(m => {
+        const p = JSON.parse(m);
+        return p.id === 1 && typeof p.result === 'string';
+      });
+      const followResp2 = messages2.filter(m => {
+        const p = JSON.parse(m);
+        return p.id === 1 && typeof p.result === 'string';
+      });
+
+      expect(followResp1.length).toBe(1);
+      expect(followResp2.length).toBe(1);
+
+      // Each product should receive exactly one initialized event
+      const initEvents1 = messages1
+        .map(m => JSON.parse(m))
+        .filter(m => m.method === 'chainHead_v1_followEvent' && m.params?.result?.event === 'initialized');
+      const initEvents2 = messages2
+        .map(m => JSON.parse(m))
+        .filter(m => m.method === 'chainHead_v1_followEvent' && m.params?.result?.event === 'initialized');
+
+      expect(initEvents1.length).toBe(1);
+      expect(initEvents2.length).toBe(1);
+
+      // Each product should receive initialized events with DIFFERENT block data
+      // (sub_1 gets 0xblock_1, sub_2 gets 0xblock_2 from the chain backend).
+      // Without the ID collision fix, both would receive 0xblock_1 because both
+      // managers would resolve with the same chain subscription ID.
+      const blocks1 = initEvents1[0].params.result.finalizedBlockHashes;
+      const blocks2 = initEvents2[0].params.result.finalizedBlockHashes;
+
+      expect(blocks1).not.toEqual(blocks2);
+      expect([blocks1[0], blocks2[0]].sort()).toEqual(['0xaa00000000000001', '0xbb00000000000002']);
+    });
+  });
+
+  describe('container disposal', () => {
+    it('should send unfollow on container dispose before disconnecting', async () => {
+      const { container, provider } = setup(WellKnownChain.polkadotRelay);
+      const unfollowFn = vi.fn();
+      const disconnectFn = vi.fn();
+      const callOrder: string[] = [];
+
+      container.handleFeatureSupported((params, { ok }) =>
+        ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
+      );
+
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
+
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              } else if (parsed.method === 'chainHead_v1_unfollow') {
+                unfollowFn(parsed.params[0]);
+                callOrder.push('unfollow');
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              disconnectFn();
+              callOrder.push('disconnect');
+            },
+          };
+        };
+      });
+
+      const sdkConnection = provider(() => {
+        /* ignore */
+      });
+
+      // Establish a follow subscription
+      sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] }));
+
+      await delay(50);
+
+      // Dispose the container — should send unfollow before disconnect
+      container.dispose();
+
+      await delay(50);
+
+      expect(unfollowFn).toHaveBeenCalledWith('sub_1');
+      expect(disconnectFn).toHaveBeenCalled();
+      expect(callOrder.indexOf('unfollow')).toBeLessThan(callOrder.indexOf('disconnect'));
     });
   });
 
