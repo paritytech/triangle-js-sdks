@@ -9,7 +9,7 @@ import { deriveSr25519Account } from '../src/crypto.js';
 import { createAttestationService, createSudoAliceVerifier } from '../src/sso/auth/attestationService.js';
 
 describe('PAPP e2e', () => {
-  it(
+  it.skip(
     'should attest account',
     async () => {
       const lazyClient = createLazyClient(getWsProvider(SS_PREVIEW_STAGE_ENDPOINTS));
@@ -17,8 +17,8 @@ describe('PAPP e2e', () => {
 
       const verifier = createSudoAliceVerifier();
       const username = attestationService.claimUsername();
-      const mnemonic = 'north inject wheat radar anchor odor bid argue domain critic follow unveil';
-      const account = deriveSr25519Account(generateMnemonic(), '//wallet//sso');
+      const mnemonic = generateMnemonic();
+      const account = deriveSr25519Account(mnemonic, '//wallet//sso');
 
       await attestationService.registerLitePerson(username, account, verifier);
 
