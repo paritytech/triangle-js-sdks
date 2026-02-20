@@ -161,6 +161,20 @@ export function createContainer(provider: Provider): Container {
       });
     },
 
+    handleAccountConnectionStatusSubscribe(handler) {
+      init();
+      return transport.handleSubscription('host_account_connection_status_subscribe', (params, send, interrupt) => {
+        const version = 'v1';
+
+        return guardVersion(params, version, null)
+          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
+          .orTee(interrupt)
+          .unwrapOr(() => {
+            /* empty */
+          });
+      });
+    },
+
     handleAccountGet(handler) {
       init();
       return transport.handleRequest('host_account_get', async params => {

@@ -1,4 +1,9 @@
-import type { CodecType, HexString, Transport } from '@novasamatech/host-api';
+import type {
+  AccountConnectionStatus as AccountConnectionStatusCodec,
+  CodecType,
+  HexString,
+  Transport,
+} from '@novasamatech/host-api';
 import {
   CreateProofErr,
   RequestCredentialsErr,
@@ -21,6 +26,8 @@ export type ProductAccount = {
   derivationIndex: number;
   publicKey: Uint8Array;
 };
+
+export type AccountConnectionStatus = CodecType<typeof AccountConnectionStatusCodec>;
 
 const UNSUPPORTED_VERSION_ERROR = 'Unsupported message version';
 
@@ -152,6 +159,13 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           );
         },
       );
+    },
+    subscribeAccountConnectionStatus(callback: (status: AccountConnectionStatus) => void) {
+      return hostApi.accountConnectionStatusSubscribe(enumValue('v1', undefined), status => {
+        if (status.tag === 'v1') {
+          callback(status.value);
+        }
+      });
     },
     getNonProductAccountSigner(account: ProductAccount): PolkadotSigner {
       return getPolkadotSignerFromPjs(
