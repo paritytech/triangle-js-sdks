@@ -22,12 +22,15 @@ type ChainEntry = {
 
 export type ChainConnectionManager = ReturnType<typeof createChainConnectionManager>;
 
+let instanceCounter = 0;
+
 export function createChainConnectionManager(factory: (genesisHash: HexString) => JsonRpcProvider | null) {
   const chains = new Map<HexString, ChainEntry>();
+  const instanceId = instanceCounter++;
   let nextId = 0;
 
   function getNextId() {
-    return `ccm_${nextId++}`;
+    return `ccm_${instanceId}_${nextId++}`;
   }
 
   function getOrCreateChain(genesisHash: HexString): ChainEntry | null {
@@ -187,6 +190,15 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
 
     entry.refCount--;
     if (entry.refCount <= 0) {
+      for (const follow of entry.followSubscriptions.values()) {
+        if (follow.chainSubId) {
+          const id = getNextId();
+          entry.connection.send(
+            JSON.stringify({ jsonrpc: '2.0', id, method: 'chainHead_v1_unfollow', params: [follow.chainSubId] }),
+          );
+        }
+      }
+      entry.followSubscriptions.clear();
       entry.connection.disconnect();
       chains.delete(genesisHash);
     }
@@ -194,6 +206,15 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
 
   function dispose(): void {
     for (const entry of chains.values()) {
+      for (const follow of entry.followSubscriptions.values()) {
+        if (follow.chainSubId) {
+          const id = getNextId();
+          entry.connection.send(
+            JSON.stringify({ jsonrpc: '2.0', id, method: 'chainHead_v1_unfollow', params: [follow.chainSubId] }),
+          );
+        }
+      }
+      entry.followSubscriptions.clear();
       entry.connection.disconnect();
     }
     chains.clear();
