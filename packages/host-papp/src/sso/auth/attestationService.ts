@@ -9,7 +9,7 @@ import { AccountId, Binary } from 'polkadot-api';
 import type { PolkadotSigner } from 'polkadot-api/signer';
 import { getPolkadotSigner } from 'polkadot-api/signer';
 import { Bytes, Option, Tuple, str } from 'scale-ts';
-import { member_from_entropy, sign } from 'verifiablejs/nodejs';
+import { member_from_entropy, sign } from 'verifiablejs/bundler';
 
 import type { People_lite } from '../../../.papi/descriptors/dist/index.js';
 import type { DerivedSr25519Account, EncrSecret } from '../../crypto.js';
