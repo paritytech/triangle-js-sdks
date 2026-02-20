@@ -1,7 +1,11 @@
+export { lazy } from './lazy.js';
+
 export type { HexString } from './hex.js';
 export { Hex } from './hex.js';
 
 export { Nullable } from './nullable.js';
+
+export { Record } from './record.js';
 
 export { Status } from './status.js';
 

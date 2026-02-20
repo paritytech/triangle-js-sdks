@@ -7,7 +7,7 @@ import type {
   ReceivedChatAction as ReceivedChatActionCodec,
   Transport,
 } from '@novasamatech/host-api';
-import { createHostApi, enumValue } from '@novasamatech/host-api';
+import { CustomRendererNode, createHostApi, enumValue } from '@novasamatech/host-api';
 
 import { sandboxTransport } from './sandboxTransport.js';
 
@@ -105,6 +105,25 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
           default:
             console.error(`Unknown message version ${action.tag}`);
         }
+      });
+    },
+
+    onCustomMessageRenderingRequest(
+      callback: (
+        messageType: string,
+        payload: Uint8Array,
+        render: (node: CodecType<typeof CustomRendererNode>) => void,
+      ) => VoidFunction,
+    ) {
+      return transport.handleSubscription('product_chat_custom_message_render_subscribe', (params, send, interrupt) => {
+        if (params.tag === 'v1') {
+          return callback(params.value.messageType, params.value.payload, node => send(enumValue('v1', node)));
+        }
+        // unsupported version
+        interrupt();
+        return () => {
+          /* empty */
+        };
       });
     },
   };

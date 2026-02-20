@@ -3,6 +3,8 @@ import { Enum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
 
 import {
+  AccountConnectionStatusV1_receive,
+  AccountConnectionStatusV1_start,
   AccountCreateProofV1_request,
   AccountCreateProofV1_response,
   AccountGetAliasV1_request,
@@ -17,6 +19,8 @@ import {
   ChatActionSubscribeV1_start,
   ChatCreateRoomV1_request,
   ChatCreateRoomV1_response,
+  ChatCustomMessageRenderingV1_receive,
+  ChatCustomMessageRenderingV1_start,
   ChatListSubscribeV1_receive,
   ChatListSubscribeV1_start,
   ChatPostMessageV1_request,
@@ -164,6 +168,10 @@ export const hostApiProtocol = {
 
   // Account management
 
+  host_account_connection_status_subscribe: versionedSubscription({
+    v1: [AccountConnectionStatusV1_start, AccountConnectionStatusV1_receive],
+  }),
+
   host_account_get: versionedRequest({
     v1: [AccountGetV1_request, AccountGetV1_response],
   }),
@@ -218,6 +226,10 @@ export const hostApiProtocol = {
 
   host_chat_action_subscribe: versionedSubscription({
     v1: [ChatActionSubscribeV1_start, ChatActionSubscribeV1_receive],
+  }),
+
+  product_chat_custom_message_render_subscribe: versionedSubscription({
+    v1: [ChatCustomMessageRenderingV1_start, ChatCustomMessageRenderingV1_receive],
   }),
 
   // Statement store (remote namespace)

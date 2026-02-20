@@ -267,6 +267,7 @@ export function createTransport(provider: Provider): Transport {
 
       const unsubStart = transport.listenMessages(startAction, (requestId, payload) => {
         if (subscriptions.has(requestId)) return;
+        let interrupted = false;
 
         const unsubscribe = handler(
           payload.value as never,
@@ -277,6 +278,8 @@ export function createTransport(provider: Provider): Transport {
             transport.postMessage(requestId, receivePayload);
           },
           () => {
+            interrupted = true;
+            subscriptions.delete(requestId);
             transport.postMessage(
               requestId,
               enumValue(interruptAction, undefined) as never as PickMessagePayload<
@@ -286,7 +289,11 @@ export function createTransport(provider: Provider): Transport {
           },
         );
 
-        subscriptions.set(requestId, unsubscribe);
+        if (interrupted) {
+          unsubscribe();
+        } else {
+          subscriptions.set(requestId, unsubscribe);
+        }
       });
 
       const unsubStop = transport.listenMessages(stopAction, requestId => {

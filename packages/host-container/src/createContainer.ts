@@ -343,6 +343,19 @@ export function createContainer(provider: Provider): Container {
       });
     },
 
+    renderChatCustomMessage(messageType, payload, callback) {
+      init();
+      return transport.subscribe(
+        'product_chat_custom_message_render_subscribe',
+        enumValue('v1', { messageType, payload }),
+        value => {
+          if (value.tag === 'v1') {
+            callback(value.value);
+          }
+        },
+      );
+    },
+
     handleStatementStoreSubscribe(handler) {
       init();
       return transport.handleSubscription('remote_statement_store_subscribe', (params, send, interrupt) => {
