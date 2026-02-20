@@ -1,26 +1,47 @@
+## 0.6.1 (2026-02-20)
+
+### 🩹 Fixes
+
+- correct import of verifible js ([524b297](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/524b297))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.0 (2026-02-20)
 
 ### 🚀 Features
 
-- papp integration ([#5](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/5))
-- Implemented correct Polkadot app pairing ui ([#6](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/6))
-- Support new statement store errors while submitting statements ([#8](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/8))
-- host api spec ([#7](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/7))
-- chat ([#9](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/9))
-- retry auth requests, add tests ([#12](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/12))
-- added clearAll method to localStorageAdapter ([#11](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/11))
-- add tr-ui, PairingPopover and theme support ([#10](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/10))
-- update sdk to 0.5 spec ([#13](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/13))
-- added a disconnect attempt and an error toast. PB-118 ([#15](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/15))
-- changes for 0.5 release ([#16](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/16))
-- changes for 0.6 release ([488bd0d](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/488bd0d))
-- changes for 0.6 release ([2772b2c](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/2772b2c))
+Host API
+- Implemented `host_account_connection_status_subscribe` method for receiving current sign in status of the host.
+- Implemented `product_chat_custom_message_render_subscribe` method with initial implementation of custom renderer.
 
-### 🩹 Fixes
+PAPP integration
+- Added support of `sign raw` method
+  ⚠️ BREAKING CHANGE
 
-- Explicitly set account type to sr25519 in extension injector ([c942974](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/c942974))
-- pairing ui logos and texts ([d99f67d](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/d99f67d))
-- added Preview People Chain ([#14](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/14))
+Product SDK
+- Implemented new method for custom message renderer in chat `productChat.onCustomMessageRenderingRequest`
+- Implemented new method for Account status subscription `accountsProvider.subscribeAccountConnectionStatus`
+
+Scale
+- New `Record` codec
+  ```ts
+  const record = Record(u8); // <= Codec<{ [K: string]: number }>
+  ```
+- New `lazy` codec for recursive types
+  ```ts
+  type NodeType = { c: NodeType | void }
+
+  const Node: Codec<NodeType> = Struct({
+    c: Option(lazy(() => Node)),
+  });
+  ```
+
+Chore:
+- More e2e tests for Host API
+- Codebase cleanup
+
 
 ### ❤️ Thank You
 
