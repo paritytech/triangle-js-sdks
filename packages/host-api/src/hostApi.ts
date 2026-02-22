@@ -254,6 +254,10 @@ export function createHostApi(transport: Transport): HostApi {
       });
     },
 
+    accountConnectionStatusSubscribe(args, callback) {
+      return transport.subscribe('host_account_connection_status_subscribe', args, callback);
+    },
+
     accountGet(payload) {
       const response = fromPromise(transport.request('host_account_get', payload), e => ({
         tag: payload.tag,
@@ -494,6 +498,10 @@ export function createHostApi(transport: Transport): HostApi {
 
     chatActionSubscribe(args, callback) {
       return transport.subscribe('host_chat_action_subscribe', args, callback);
+    },
+
+    productChatCustomMessageRenderSubscribe(args, callback) {
+      return transport.subscribe('product_chat_custom_message_render_subscribe', args, callback);
     },
 
     statementStoreSubscribe(args, callback) {

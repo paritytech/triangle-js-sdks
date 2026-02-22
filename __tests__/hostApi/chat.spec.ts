@@ -1,7 +1,9 @@
+import type { CodecType } from '@novasamatech/host-api';
 import {
   ChatBotRegistrationErr,
   ChatMessagePostingErr,
   ChatRoomRegistrationErr,
+  CustomRendererNode,
   createTransport,
   enumValue,
 } from '@novasamatech/host-api';
@@ -106,6 +108,61 @@ describe('Host API: Chat', () => {
       await chat.registerRoom(registrationInfo);
 
       await expect(chat.sendMessage('test', message)).rejects.toEqual(error);
+    });
+  });
+
+  describe('custom message rendering', () => {
+    const textNode: CodecType<typeof CustomRendererNode> = {
+      tag: 'Text',
+      value: {
+        modifiers: undefined,
+        props: { style: undefined, color: undefined },
+        children: [{ tag: 'String', value: 'hello' }],
+      },
+    };
+
+    it('should deliver render request to product and receive rendered node', async () => {
+      const { container, chat } = setup();
+      const messageType = 'my-type';
+      const payload = new Uint8Array([1, 2, 3]);
+
+      chat.onCustomMessageRenderingRequest((receivedType, receivedPayload, render) => {
+        expect(receivedType).toBe(messageType);
+        expect(receivedPayload).toEqual(payload);
+        render(textNode);
+        return () => {
+          /* cleanup */
+        };
+      });
+
+      const callback = vi.fn();
+      const subscription = container.renderChatCustomMessage(messageType, payload, callback);
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(callback).toHaveBeenCalledWith(textNode);
+
+      subscription.unsubscribe();
+    });
+
+    it('should call product cleanup on unsubscribe', async () => {
+      const { container, chat } = setup();
+      const cleanupFn = vi.fn();
+
+      chat.onCustomMessageRenderingRequest((_type, _payload, render) => {
+        render(textNode);
+        return cleanupFn;
+      });
+
+      const subscription = container.renderChatCustomMessage('type', new Uint8Array(), vi.fn());
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      subscription.unsubscribe();
+
+      await new Promise(resolve => setTimeout(resolve, 10));
+
+      expect(cleanupFn).toHaveBeenCalledOnce();
     });
   });
 

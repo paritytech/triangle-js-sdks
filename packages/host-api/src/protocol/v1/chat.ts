@@ -1,7 +1,11 @@
 import { Enum, ErrEnum, Status } from '@novasamatech/scale';
+import type { Codec } from 'scale-ts';
 import { Bytes, Option, Result, Struct, Vector, _void, str, u64 } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
+
+import type { CustomRendererNodeType } from './customRenderer.js';
+import { CustomRendererNode } from './customRenderer.js';
 
 // room registration
 
@@ -96,6 +100,11 @@ export const ChatReaction = Struct({
   emoji: str,
 });
 
+export const ChatCustomMessage = Struct({
+  messageType: str,
+  payload: Bytes(),
+});
+
 export const ChatMessageContent = Enum({
   Text: str,
   RichText: ChatRichText,
@@ -103,6 +112,7 @@ export const ChatMessageContent = Enum({
   File: ChatFile,
   Reaction: ChatReaction,
   ReactionRemoved: ChatReaction,
+  Custom: ChatCustomMessage,
 });
 
 // sending message
@@ -149,3 +159,8 @@ export const ReceivedChatAction = Struct({
 
 export const ChatActionSubscribeV1_start = _void;
 export const ChatActionSubscribeV1_receive = ReceivedChatAction;
+
+// custom message rendering
+
+export const ChatCustomMessageRenderingV1_start = Struct({ messageType: str, payload: Bytes() });
+export const ChatCustomMessageRenderingV1_receive: Codec<CustomRendererNodeType> = CustomRendererNode;

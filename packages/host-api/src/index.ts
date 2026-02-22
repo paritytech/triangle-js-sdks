@@ -31,6 +31,7 @@ export { GenericError } from './protocol/commonCodecs.js';
 export { CreateTransactionErr, VersionedPublicTxPayload } from './protocol/v1/createTransaction.js';
 export {
   Account,
+  AccountConnectionStatus,
   AccountId,
   CreateProofErr,
   ProductAccountId,
@@ -58,6 +59,7 @@ export { RemotePermissionRequest } from './protocol/v1/remotePermission.js';
 export { PushNotification } from './protocol/v1/notification.js';
 export { NavigateToErr } from './protocol/v1/navigation.js';
 export { PreimageKey, PreimageSubmitErr, PreimageValue } from './protocol/v1/preimage.js';
+export { CustomRendererNode } from './protocol/v1/customRenderer.js';
 export {
   ChainHeadEvent,
   ChainHeadFollowV1_start,
