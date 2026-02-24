@@ -1,10 +1,10 @@
-import { enumValue } from '@novasamatech/scale';
+import type { HexString } from '@novasamatech/scale';
+import { enumValue, toHex } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { fieldListView } from '@novasamatech/storage-adapter';
 import { AccountId } from '@polkadot-api/substrate-bindings';
-import { toHex } from '@polkadot-api/utils';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
 import type { CodecType } from 'scale-ts';
@@ -47,6 +47,8 @@ export function createUserSession({
   storage: StorageAdapter;
   prover: StatementProver;
 }): UserSession {
+  const accountId = AccountId();
+
   const session = createSession({
     localAccount: userSession.localAccount,
     remoteAccount: userSession.remoteAccount,
@@ -54,6 +56,7 @@ export function createUserSession({
     encryption,
     prover,
   });
+
   const processedMessages = fieldListView<string>({
     storage,
     key: `sso_processed_${userSession.id}`,
@@ -61,22 +64,43 @@ export function createUserSession({
     to: JSON.stringify,
   });
 
+  function toAccountId(address: string) {
+    // already account id
+    if (address.startsWith('0x') && address.length === 64 + 2) {
+      return address as HexString;
+    }
+
+    return toHex(accountId.enc(address));
+  }
+
+  function toAddress(account: HexString) {
+    return accountId.dec(account);
+  }
+
   return {
     id: userSession.id,
     localAccount: userSession.localAccount,
     remoteAccount: userSession.remoteAccount,
 
     signPayload(payload) {
-      const accountId = AccountId();
-
-      if (toHex(accountId.enc(payload.address)) !== toHex(userSession.remoteAccount.accountId)) {
+      const accountId = toAccountId(payload.address);
+      if (accountId !== toHex(userSession.remoteAccount.accountId)) {
         return errAsync(new Error(`Invalid address, got ${payload.address}`));
       }
 
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
-        data: enumValue('v1', enumValue('SignRequest', enumValue('payload', payload))),
+        data: enumValue(
+          'v1',
+          enumValue(
+            'SignRequest',
+            enumValue('Payload', {
+              ...payload,
+              address: toAddress(accountId),
+            }),
+          ),
+        ),
       });
 
       const responseFilter = (message: RemoteMessage) => {
@@ -101,16 +125,24 @@ export function createUserSession({
     },
 
     signRaw(payload) {
-      const accountId = AccountId();
-
-      if (toHex(accountId.enc(payload.address)) !== toHex(userSession.remoteAccount.accountId)) {
+      const accountId = toAccountId(payload.address);
+      if (accountId !== toHex(userSession.remoteAccount.accountId)) {
         return errAsync(new Error(`Invalid address, got ${payload.address}`));
       }
 
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
-        data: enumValue('v1', enumValue('SignRequest', enumValue('raw', payload))),
+        data: enumValue(
+          'v1',
+          enumValue(
+            'SignRequest',
+            enumValue('Raw', {
+              ...payload,
+              address: toAddress(accountId),
+            }),
+          ),
+        ),
       });
 
       const responseFilter = (message: RemoteMessage) => {

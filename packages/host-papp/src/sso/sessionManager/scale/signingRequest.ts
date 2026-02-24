@@ -32,6 +32,6 @@ export const SigningRawRequestCodec = Struct({
 });
 
 export const SigningRequestCodec = Enum({
-  payload: SigningPayloadRequestCodec,
-  raw: SigningRawRequestCodec,
+  Payload: SigningPayloadRequestCodec,
+  Raw: SigningRawRequestCodec,
 });

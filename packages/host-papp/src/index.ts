@@ -8,5 +8,5 @@ export type { UserSession } from './sso/sessionManager/userSession.js';
 export type { StoredUserSession } from './sso/userSessionRepository.js';
 export type { Identity } from './identity/types.js';
 
-export type { SignPayloadRequest } from './sso/sessionManager/scale/signingRequest.js';
+export type { SignPayloadRequest, SigningRawRequest } from './sso/sessionManager/scale/signingRequest.js';
 export type { SignPayloadResponse } from './sso/sessionManager/scale/signingResponse.js';
