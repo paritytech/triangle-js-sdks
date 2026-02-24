@@ -19,27 +19,27 @@ import {
   resultErr,
   resultOk,
 } from '@novasamatech/host-api';
-import { toastError } from '@novasamatech/tr-ui';
 import type { Result } from 'neverthrow';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 
-import type { RateLimiterConfig, TokenBucketRateLimiter } from './rateLimiter.js';
-import { RateLimiterError, createTokenBucketRateLimiter } from './rateLimiter.js';
 import type { Container } from './types.js';
 
 const UNSUPPORTED_MESSAGE_FORMAT_ERROR = 'Unsupported message format';
-const RATE_LIMITED_ERROR_REASON = 'Request rate limited';
-const RATE_LIMITER_QUEUE_TIMEOUT_REASON = 'Request timed out in rate limiter queue';
 
-const RATE_LIMITER_CONFIG: RateLimiterConfig = {
-  maxRequestsPerInterval: 20,
-  intervalMs: 1000,
-  maxQueuedRequests: 100,
-  maxQueueDelayMs: 10000,
-};
+const STORAGE_READ_FALLBACK = 'Failed to read from storage';
+const STORAGE_WRITE_FALLBACK = 'Failed to write to storage';
+const STORAGE_CLEAR_FALLBACK = 'Failed to clear storage';
 
-function getRateLimiterErrorReason(e: RateLimiterError): string {
-  return e.code === 'rate_limited' ? RATE_LIMITED_ERROR_REASON : RATE_LIMITER_QUEUE_TIMEOUT_REASON;
+function extractReasonFromError(e: unknown): string | null {
+  if (e == null || typeof e !== 'object') return null;
+  const o = e as Record<string, unknown>;
+  if (typeof o['reason'] === 'string') return o['reason'];
+  const payload = o['payload'];
+  if (payload != null && typeof payload === 'object') {
+    const r = (payload as Record<string, unknown>)['reason'];
+    if (typeof r === 'string') return r;
+  }
+  return null;
 }
 
 function guardVersion<const Enum extends { tag: string; value: unknown }, const Tag extends Enum['tag'], const Err>(
@@ -59,17 +59,6 @@ export function createContainer(provider: Provider): Container {
     throw new Error('Transport is not available: dapp provider has incorrect environment');
   }
 
-  const rateLimiters = new Map<string, TokenBucketRateLimiter>();
-
-  function getRateLimiter(method: string): TokenBucketRateLimiter {
-    let limiter = rateLimiters.get(method);
-    if (!limiter) {
-      limiter = createTokenBucketRateLimiter(RATE_LIMITER_CONFIG);
-      rateLimiters.set(method, limiter);
-    }
-    return limiter;
-  }
-
   function init() {
     // init status subscription
     transport.isReady();
@@ -81,23 +70,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_feature_supported', async message => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_feature_supported').schedule(() =>
-            guardVersion(message, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new GenericError({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -106,23 +83,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_device_permission', async message => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_device_permission').schedule(() =>
-            guardVersion(message, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new GenericError({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -131,23 +96,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('remote_permission', async message => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('remote_permission').schedule(() =>
-            guardVersion(message, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new GenericError({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -156,23 +109,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_push_notification', async message => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_push_notification').schedule(() =>
-            guardVersion(message, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new GenericError({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -181,23 +122,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_navigate_to', async message => {
         const version = 'v1';
         const error = new NavigateToErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_navigate_to').schedule(() =>
-            guardVersion(message, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new NavigateToErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -206,23 +135,17 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_local_storage_read', async message => {
         const version = 'v1';
         const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_local_storage_read').schedule(() =>
-            guardVersion(message, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new StorageErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(message, version, error)
+          .asyncMap(async params => {
+            try {
+              return await handler(params, { ok: okAsync<any>, err: errAsync<never, any> });
+            } catch (e) {
+              return err(new StorageErr.Unknown({ reason: extractReasonFromError(e) ?? STORAGE_READ_FALLBACK }));
+            }
+          })
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -231,23 +154,17 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_local_storage_write', async message => {
         const version = 'v1';
         const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_local_storage_write').schedule(() =>
-            guardVersion(message, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new StorageErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(message, version, error)
+          .asyncMap(async params => {
+            try {
+              return await handler(params, { ok: okAsync<any>, err: errAsync<never, any> });
+            } catch (e) {
+              return err(new StorageErr.Unknown({ reason: extractReasonFromError(e) ?? STORAGE_WRITE_FALLBACK }));
+            }
+          })
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -256,23 +173,17 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_local_storage_clear', async params => {
         const version = 'v1';
         const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_local_storage_clear').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new StorageErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => {
+            try {
+              return await handler(params, { ok: okAsync<any>, err: errAsync<never, any> });
+            } catch (e) {
+              return err(new StorageErr.Unknown({ reason: extractReasonFromError(e) ?? STORAGE_CLEAR_FALLBACK }));
+            }
+          })
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -281,23 +192,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_account_get', async params => {
         const version = 'v1';
         const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_account_get').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new RequestCredentialsErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -306,23 +205,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_account_get_alias', async params => {
         const version = 'v1';
         const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_account_get_alias').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new RequestCredentialsErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -331,23 +218,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_account_create_proof', async params => {
         const version = 'v1';
         const error = new CreateProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_account_create_proof').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new CreateProofErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -356,23 +231,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_get_non_product_accounts', async params => {
         const version = 'v1';
         const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_get_non_product_accounts').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new RequestCredentialsErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -381,23 +244,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_create_transaction', async params => {
         const version = 'v1';
         const error = new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_create_transaction').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new CreateTransactionErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -406,23 +257,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_create_transaction_with_non_product_account', async params => {
         const version = 'v1';
         const error = new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_create_transaction_with_non_product_account').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new CreateTransactionErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -431,23 +270,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_sign_raw', async params => {
         const version = 'v1';
         const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_sign_raw').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new SigningErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -456,23 +283,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_sign_payload', async params => {
         const version = 'v1';
         const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_sign_payload').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new SigningErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -481,23 +296,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_chat_create_room', async params => {
         const version = 'v1';
         const error = new ChatRoomRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_chat_create_room').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new ChatRoomRegistrationErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -506,23 +309,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_chat_register_bot', async params => {
         const version = 'v1';
         const error = new ChatBotRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_chat_register_bot').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new ChatBotRegistrationErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -545,23 +336,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('host_chat_post_message', async params => {
         const version = 'v1';
         const error = new ChatMessagePostingErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('host_chat_post_message').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new ChatMessagePostingErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -598,23 +377,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('remote_statement_store_create_proof', async params => {
         const version = 'v1';
         const error = new StatementProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('remote_statement_store_create_proof').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new StatementProofErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -623,23 +390,11 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('remote_statement_store_submit', async params => {
         const version = 'v1';
         const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('remote_statement_store_submit').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new GenericError({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
@@ -662,28 +417,18 @@ export function createContainer(provider: Provider): Container {
       return transport.handleRequest('remote_preimage_submit', async params => {
         const version = 'v1';
         const error = new PreimageSubmitErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
-        try {
-          return await getRateLimiter('remote_preimage_submit').schedule(() =>
-            guardVersion(params, version, error)
-              .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-              .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-              .orElse(r => ok(enumValue(version, resultErr(r))))
-              .unwrapOr(enumValue(version, resultErr(error))),
-          );
-        } catch (e) {
-          if (e instanceof RateLimiterError) {
-            console.error(e.code);
-            const reason = getRateLimiterErrorReason(e);
-            toastError({ title: reason });
-            return enumValue(version, resultErr(new PreimageSubmitErr.Unknown({ reason })));
-          }
-          throw e;
-        }
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
       });
     },
 
-    handleChainConnection(factory) {
+    handleChainConnection(factory, options) {
       init();
+      const rateLimiter = options?.rateLimiter;
+
       return transport.handleSubscription('host_jsonrpc_message_subscribe', (params, send) => {
         assertEnumVariant(params, 'v1', UNSUPPORTED_MESSAGE_FORMAT_ERROR);
 
@@ -713,17 +458,18 @@ export function createContainer(provider: Provider): Container {
           }
 
           try {
-            return await getRateLimiter('host_jsonrpc_message_send').schedule(() => {
-              connection.send(payload);
-              return enumValue('v1', resultOk(undefined));
-            });
-          } catch (error) {
-            if (error instanceof RateLimiterError) {
-              const reason = getRateLimiterErrorReason(error);
-              return enumValue('v1', resultErr(new GenericError({ reason })));
+            if (rateLimiter) {
+              return await rateLimiter.schedule(() => {
+                connection.send(payload);
+                return enumValue('v1', resultOk(undefined));
+              });
             }
-
-            const reason = error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error';
+            connection.send(payload);
+            return enumValue('v1', resultOk(undefined));
+          } catch (error) {
+            const reason =
+              extractReasonFromError(error) ??
+              (error instanceof Error ? error.message : typeof error === 'string' ? error : 'Unknown error');
             return enumValue('v1', resultErr(new GenericError({ reason })));
           }
         });
@@ -749,8 +495,6 @@ export function createContainer(provider: Provider): Container {
     },
 
     dispose() {
-      rateLimiters.forEach(limiter => limiter.destroy());
-      rateLimiters.clear();
       transport.destroy();
     },
   };

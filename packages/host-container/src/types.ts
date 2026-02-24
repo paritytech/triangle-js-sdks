@@ -11,6 +11,8 @@ import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import type { ResultAsync, errAsync } from 'neverthrow';
 import { okAsync } from 'neverthrow';
 
+import type { RateLimiter } from './rateLimiter.js';
+
 type SuccessResponse<T> = T extends { success: true; value: infer U } ? U : never;
 type ErrorResponse<T> = T extends { success: false; value: infer U } ? U : never;
 
@@ -112,7 +114,10 @@ export type Container = {
   handlePreimageLookupSubscribe: InferHandler<'v1', HostApiProtocol['remote_preimage_lookup_subscribe']>;
   handlePreimageSubmit: InferHandler<'v1', HostApiProtocol['remote_preimage_submit']>;
 
-  handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
+  handleChainConnection: (
+    factory: (genesisHash: HexString) => JsonRpcProvider | null,
+    options?: { rateLimiter?: RateLimiter },
+  ) => VoidFunction;
 
   isReady(): Promise<boolean>;
   dispose(): void;
