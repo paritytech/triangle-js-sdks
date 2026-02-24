@@ -4,14 +4,14 @@ import type {
   ConnectionStatus,
   HexString,
   HostApiProtocol,
+  Subscription,
   VersionedProtocolRequest,
   VersionedProtocolSubscription,
 } from '@novasamatech/host-api';
+import { CustomRendererNode } from '@novasamatech/host-api';
 import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import type { ResultAsync, errAsync } from 'neverthrow';
 import { okAsync } from 'neverthrow';
-
-import type { RateLimiter } from './rateLimiter.js';
 
 type SuccessResponse<T> = T extends { success: true; value: infer U } ? U : never;
 type ErrorResponse<T> = T extends { success: false; value: infer U } ? U : never;
@@ -31,9 +31,9 @@ type UnwrapErrorResponse<V extends string, T> = T extends { tag: infer Tag; valu
 
 type UnwrapVersionedResult<V extends string, T> = T extends { tag: infer Tag; value: infer Value }
   ? ResultAsync<
-      WithVersion<V, { tag: Tag; value: SuccessResponse<Value> }>,
-      WithVersion<V, { tag: Tag; value: ErrorResponse<Value> }>
-    >
+    WithVersion<V, { tag: Tag; value: SuccessResponse<Value> }>,
+    WithVersion<V, { tag: Tag; value: ErrorResponse<Value> }>
+  >
   : never;
 
 type InferRequestHandler<V extends string, T extends VersionedProtocolRequest> = (
@@ -80,6 +80,10 @@ export type Container = {
 
   // accounts
 
+  handleAccountConnectionStatusSubscribe: InferHandler<
+    'v1',
+    HostApiProtocol['host_account_connection_status_subscribe']
+  >;
   handleAccountGet: InferHandler<'v1', HostApiProtocol['host_account_get']>;
   handleAccountGetAlias: InferHandler<'v1', HostApiProtocol['host_account_get_alias']>;
   handleAccountCreateProof: InferHandler<'v1', HostApiProtocol['host_account_create_proof']>;
@@ -103,6 +107,12 @@ export type Container = {
   handleChatPostMessage: InferHandler<'v1', HostApiProtocol['host_chat_post_message']>;
   handleChatActionSubscribe: InferHandler<'v1', HostApiProtocol['host_chat_action_subscribe']>;
 
+  renderChatCustomMessage(
+    messageType: string,
+    payload: Uint8Array,
+    callback: (node: CodecType<typeof CustomRendererNode>) => void,
+  ): Subscription;
+
   // statement store
 
   handleStatementStoreSubscribe: InferHandler<'v1', HostApiProtocol['remote_statement_store_subscribe']>;
@@ -114,10 +124,9 @@ export type Container = {
   handlePreimageLookupSubscribe: InferHandler<'v1', HostApiProtocol['remote_preimage_lookup_subscribe']>;
   handlePreimageSubmit: InferHandler<'v1', HostApiProtocol['remote_preimage_submit']>;
 
-  handleChainConnection: (
-    factory: (genesisHash: HexString) => JsonRpcProvider | null,
-    options?: { rateLimiter?: RateLimiter },
-  ) => VoidFunction;
+  // chain interaction
+
+  handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
 
   isReady(): Promise<boolean>;
   dispose(): void;

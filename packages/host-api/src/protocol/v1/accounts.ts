@@ -1,4 +1,4 @@
-import { ErrEnum, Hex } from '@novasamatech/scale';
+import { ErrEnum, Hex, Status } from '@novasamatech/scale';
 import { Bytes, Option, Result, Struct, Tuple, Vector, _void, str, u32 } from 'scale-ts';
 
 import { GenericErr, GenesisHash } from '../commonCodecs.js';
@@ -49,6 +49,13 @@ export const CreateProofErr = ErrEnum('CreateProofErr', {
   Rejected: [_void, 'CreateProof: rejected'],
   Unknown: [GenericErr, 'CreateProof: unknown error'],
 });
+
+// account connection status
+
+export const AccountConnectionStatus = Status('disconnected', 'connected');
+
+export const AccountConnectionStatusV1_start = _void;
+export const AccountConnectionStatusV1_receive = AccountConnectionStatus;
 
 // account_get
 
