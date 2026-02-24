@@ -31,9 +31,9 @@ type UnwrapErrorResponse<V extends string, T> = T extends { tag: infer Tag; valu
 
 type UnwrapVersionedResult<V extends string, T> = T extends { tag: infer Tag; value: infer Value }
   ? ResultAsync<
-    WithVersion<V, { tag: Tag; value: SuccessResponse<Value> }>,
-    WithVersion<V, { tag: Tag; value: ErrorResponse<Value> }>
-  >
+      WithVersion<V, { tag: Tag; value: SuccessResponse<Value> }>,
+      WithVersion<V, { tag: Tag; value: ErrorResponse<Value> }>
+    >
   : never;
 
 type InferRequestHandler<V extends string, T extends VersionedProtocolRequest> = (
