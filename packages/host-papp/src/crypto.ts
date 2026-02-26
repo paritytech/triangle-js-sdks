@@ -54,7 +54,7 @@ export type DerivedSr25519Account = {
   verify(message: Uint8Array, signature: Uint8Array): boolean;
 };
 
-export function deriveSr25519Account(mnemonic: string, derivation: string): DerivedSr25519Account {
+export function deriveSr25519Account(mnemonic: string, derivation?: string): DerivedSr25519Account {
   const entropy = mnemonicToEntropy(mnemonic);
   const secret = createSr25519Secret(entropy, derivation) as SsSecret;
   const publicKey = deriveSr25519PublicKey(secret) as SsPublicKey;

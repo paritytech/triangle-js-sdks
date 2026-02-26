@@ -113,20 +113,19 @@ export function createAuth({
         },
       );
 
-      const secretesSaved = pappResponse.andThen(({ id }) => {
-        return userSecretRepository.write(id, {
+      const sessionWithSecretsPayload = pappResponse.map(session => ({
+        session,
+        secretsPayload: {
+          id: session.id,
           ssSecret: account.secret,
           encrSecret: encrKeys.secret,
           entropy: account.entropy,
-        });
-      });
-      // secrets and sso session should be chained, or it can produce an incorrect state
-      const userCreated = secretesSaved.andThen(() => pappResponse.andThen(ssoSessionRepository.add));
-      const sessionReceived = ResultAsync.combine([userCreated, secretesSaved]).map(([session]) => session);
+        },
+      }));
 
-      return sessionReceived
-        .andTee(session => {
-          pairingStatus.write(session ? { step: 'finished', session } : { step: 'none' });
+      return sessionWithSecretsPayload
+        .andTee(({ session }) => {
+          pairingStatus.write({ step: 'finished', session });
         })
         .orTee(e => {
           if (!(e instanceof AbortError)) {
@@ -150,7 +149,18 @@ export function createAuth({
       const account = deriveSr25519Account(generateMnemonic(), '//wallet//sso');
 
       authResult = ResultAsync.combine([handshake(account, abort.signal), attestAccount(account, abort.signal)])
-        .map(([session]) => session)
+        .andThen(([handshakeResult]) => {
+          // Save secrets and sso session only after attestation has finished
+          const { session, secretsPayload } = handshakeResult;
+          return userSecretRepository
+            .write(secretsPayload.id, {
+              ssSecret: secretsPayload.ssSecret,
+              encrSecret: secretsPayload.encrSecret,
+              entropy: secretsPayload.entropy,
+            })
+            .andThen(() => ssoSessionRepository.add(session))
+            .map(() => session);
+        })
         .orElse(e => (e instanceof AbortError ? ok(null) : err(e)))
         .andTee(() => {
           abort = null;

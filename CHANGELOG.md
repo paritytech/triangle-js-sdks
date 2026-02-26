@@ -1,3 +1,54 @@
+## 0.6.1 (2026-02-20)
+
+### 🩹 Fixes
+
+- correct import of verifible js ([524b297](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/524b297))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
+## 0.6.0 (2026-02-20)
+
+### 🚀 Features
+
+Host API
+- Implemented `host_account_connection_status_subscribe` method for receiving current sign in status of the host.
+- Implemented `product_chat_custom_message_render_subscribe` method with initial implementation of custom renderer.
+
+PAPP integration
+- Added support of `sign raw` method
+  ⚠️ BREAKING CHANGE
+
+Product SDK
+- Implemented new method for custom message renderer in chat `productChat.onCustomMessageRenderingRequest`
+- Implemented new method for Account status subscription `accountsProvider.subscribeAccountConnectionStatus`
+
+Scale
+- New `Record` codec
+  ```ts
+  const record = Record(u8); // <= Codec<{ [K: string]: number }>
+  ```
+- New `lazy` codec for recursive types
+  ```ts
+  type NodeType = { c: NodeType | void }
+
+  const Node: Codec<NodeType> = Struct({
+    c: Option(lazy(() => Node)),
+  });
+  ```
+
+Chore:
+- More e2e tests for Host API
+- Codebase cleanup
+
+
+### ❤️ Thank You
+
+- Ilya Kalinin
+- Sergey Zhuravlev @johnthecat
+- Yanaty
+
 ## 0.5.5 (2026-02-17)
 
 ### 🚀 Features

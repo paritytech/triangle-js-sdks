@@ -3,6 +3,8 @@ import { Enum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
 
 import {
+  AccountConnectionStatusV1_receive,
+  AccountConnectionStatusV1_start,
   AccountCreateProofV1_request,
   AccountCreateProofV1_response,
   AccountGetAliasV1_request,
@@ -13,10 +15,40 @@ import {
   GetNonProductAccountsV1_response,
 } from './v1/accounts.js';
 import {
+  ChainHeadBodyV1_request,
+  ChainHeadBodyV1_response,
+  ChainHeadCallV1_request,
+  ChainHeadCallV1_response,
+  ChainHeadContinueV1_request,
+  ChainHeadContinueV1_response,
+  ChainHeadFollowV1_receive,
+  ChainHeadFollowV1_start,
+  ChainHeadHeaderV1_request,
+  ChainHeadHeaderV1_response,
+  ChainHeadStopOperationV1_request,
+  ChainHeadStopOperationV1_response,
+  ChainHeadStorageV1_request,
+  ChainHeadStorageV1_response,
+  ChainHeadUnpinV1_request,
+  ChainHeadUnpinV1_response,
+  ChainSpecChainNameV1_request,
+  ChainSpecChainNameV1_response,
+  ChainSpecGenesisHashV1_request,
+  ChainSpecGenesisHashV1_response,
+  ChainSpecPropertiesV1_request,
+  ChainSpecPropertiesV1_response,
+  TransactionBroadcastV1_request,
+  TransactionBroadcastV1_response,
+  TransactionStopV1_request,
+  TransactionStopV1_response,
+} from './v1/chainInteraction.js';
+import {
   ChatActionSubscribeV1_receive,
   ChatActionSubscribeV1_start,
   ChatCreateRoomV1_request,
   ChatCreateRoomV1_response,
+  ChatCustomMessageRenderingV1_receive,
+  ChatCustomMessageRenderingV1_start,
   ChatListSubscribeV1_receive,
   ChatListSubscribeV1_start,
   ChatPostMessageV1_request,
@@ -164,6 +196,10 @@ export const hostApiProtocol = {
 
   // Account management
 
+  host_account_connection_status_subscribe: versionedSubscription({
+    v1: [AccountConnectionStatusV1_start, AccountConnectionStatusV1_receive],
+  }),
+
   host_account_get: versionedRequest({
     v1: [AccountGetV1_request, AccountGetV1_response],
   }),
@@ -220,6 +256,10 @@ export const hostApiProtocol = {
     v1: [ChatActionSubscribeV1_start, ChatActionSubscribeV1_receive],
   }),
 
+  product_chat_custom_message_render_subscribe: versionedSubscription({
+    v1: [ChatCustomMessageRenderingV1_start, ChatCustomMessageRenderingV1_receive],
+  }),
+
   // Statement store (remote namespace)
 
   remote_statement_store_subscribe: versionedSubscription({
@@ -244,7 +284,7 @@ export const hostApiProtocol = {
     v1: [PreimageSubmitV1_request, PreimageSubmitV1_response],
   }),
 
-  // json rpc (temporary, kept until chain methods are added)
+  // json rpc (deprecated: use remote_chain_* methods instead)
 
   host_jsonrpc_message_send: versionedRequest({
     v1: [JsonRpcMessageSendV1_request, JsonRpcMessageSendV1_response],
@@ -252,5 +292,59 @@ export const hostApiProtocol = {
 
   host_jsonrpc_message_subscribe: versionedSubscription({
     v1: [JsonRpcMessageSubscribeV1_start, JsonRpcMessageSubscribeV1_receive],
+  }),
+
+  // chain interaction (remote namespace)
+
+  remote_chain_head_follow: versionedSubscription({
+    v1: [ChainHeadFollowV1_start, ChainHeadFollowV1_receive],
+  }),
+
+  remote_chain_head_header: versionedRequest({
+    v1: [ChainHeadHeaderV1_request, ChainHeadHeaderV1_response],
+  }),
+
+  remote_chain_head_body: versionedRequest({
+    v1: [ChainHeadBodyV1_request, ChainHeadBodyV1_response],
+  }),
+
+  remote_chain_head_storage: versionedRequest({
+    v1: [ChainHeadStorageV1_request, ChainHeadStorageV1_response],
+  }),
+
+  remote_chain_head_call: versionedRequest({
+    v1: [ChainHeadCallV1_request, ChainHeadCallV1_response],
+  }),
+
+  remote_chain_head_unpin: versionedRequest({
+    v1: [ChainHeadUnpinV1_request, ChainHeadUnpinV1_response],
+  }),
+
+  remote_chain_head_continue: versionedRequest({
+    v1: [ChainHeadContinueV1_request, ChainHeadContinueV1_response],
+  }),
+
+  remote_chain_head_stop_operation: versionedRequest({
+    v1: [ChainHeadStopOperationV1_request, ChainHeadStopOperationV1_response],
+  }),
+
+  remote_chain_spec_genesis_hash: versionedRequest({
+    v1: [ChainSpecGenesisHashV1_request, ChainSpecGenesisHashV1_response],
+  }),
+
+  remote_chain_spec_chain_name: versionedRequest({
+    v1: [ChainSpecChainNameV1_request, ChainSpecChainNameV1_response],
+  }),
+
+  remote_chain_spec_properties: versionedRequest({
+    v1: [ChainSpecPropertiesV1_request, ChainSpecPropertiesV1_response],
+  }),
+
+  remote_chain_transaction_broadcast: versionedRequest({
+    v1: [TransactionBroadcastV1_request, TransactionBroadcastV1_response],
+  }),
+
+  remote_chain_transaction_stop: versionedRequest({
+    v1: [TransactionStopV1_request, TransactionStopV1_response],
   }),
 } as const;
