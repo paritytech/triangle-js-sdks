@@ -10,7 +10,9 @@ import type { Provider } from './provider.js';
 
 export type HostApiMethod = keyof HostApiProtocol;
 
-export type Logger = Record<'info' | 'warn' | 'error' | 'log', (...args: unknown[]) => void>;
+export type Logger = Record<'info' | 'warn' | 'error' | 'log', (...args: unknown[]) => void> & {
+  withPrefix(prefix: string): Logger;
+};
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 

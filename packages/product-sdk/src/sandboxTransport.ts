@@ -83,12 +83,8 @@ function createDefaultSdkProvider(): Provider {
     getWebviewPort().then(port => (port.onmessage = handleWebviewMessage));
   }
 
-  const defaultLogger = createDefaultLogger();
-
   return {
-    logger: defaultLogger,
-    defaultLogger,
-    getLogger: options => createDefaultLogger(options.msgPrefix),
+    logger: createDefaultLogger(),
     isCorrectEnvironment() {
       return isIframe() || isWebview();
     },

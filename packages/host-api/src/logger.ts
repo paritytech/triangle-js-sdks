@@ -8,5 +8,6 @@ export function createDefaultLogger(msgPrefix?: string): Logger {
     error: (...args) => console.error(prefix, ...args),
     warn: (...args) => console.warn(prefix, ...args),
     log: (...args) => console.log(prefix, ...args),
+    withPrefix: (newPrefix: string) => createDefaultLogger(newPrefix),
   };
 }

@@ -83,12 +83,8 @@ export function createWebviewProvider({ webview, logger, openDevTools }: Params)
     }
   };
 
-  const defaultLogger = logger ?? createDefaultLogger();
-
   return {
-    logger: defaultLogger,
-    defaultLogger,
-    getLogger: options => createDefaultLogger(options.msgPrefix),
+    logger: logger ?? createDefaultLogger(),
 
     isCorrectEnvironment() {
       return hasWindow();
