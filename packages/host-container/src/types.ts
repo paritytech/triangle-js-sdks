@@ -4,9 +4,11 @@ import type {
   ConnectionStatus,
   HexString,
   HostApiProtocol,
+  Subscription,
   VersionedProtocolRequest,
   VersionedProtocolSubscription,
 } from '@novasamatech/host-api';
+import { CustomRendererNode } from '@novasamatech/host-api';
 import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import type { ResultAsync, errAsync } from 'neverthrow';
 import { okAsync } from 'neverthrow';
@@ -78,6 +80,10 @@ export type Container = {
 
   // accounts
 
+  handleAccountConnectionStatusSubscribe: InferHandler<
+    'v1',
+    HostApiProtocol['host_account_connection_status_subscribe']
+  >;
   handleAccountGet: InferHandler<'v1', HostApiProtocol['host_account_get']>;
   handleAccountGetAlias: InferHandler<'v1', HostApiProtocol['host_account_get_alias']>;
   handleAccountCreateProof: InferHandler<'v1', HostApiProtocol['host_account_create_proof']>;
@@ -101,6 +107,12 @@ export type Container = {
   handleChatPostMessage: InferHandler<'v1', HostApiProtocol['host_chat_post_message']>;
   handleChatActionSubscribe: InferHandler<'v1', HostApiProtocol['host_chat_action_subscribe']>;
 
+  renderChatCustomMessage(
+    messageType: string,
+    payload: Uint8Array,
+    callback: (node: CodecType<typeof CustomRendererNode>) => void,
+  ): Subscription;
+
   // statement store
 
   handleStatementStoreSubscribe: InferHandler<'v1', HostApiProtocol['remote_statement_store_subscribe']>;
@@ -111,6 +123,8 @@ export type Container = {
 
   handlePreimageLookupSubscribe: InferHandler<'v1', HostApiProtocol['remote_preimage_lookup_subscribe']>;
   handlePreimageSubmit: InferHandler<'v1', HostApiProtocol['remote_preimage_submit']>;
+
+  // chain interaction
 
   handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
 

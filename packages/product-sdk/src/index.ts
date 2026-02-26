@@ -21,7 +21,7 @@ export { createProductChatManager } from './chat.js';
 export type { ProductAccountId, SignedStatement, Statement, Topic } from './statementStore.js';
 export { createStatementStore } from './statementStore.js';
 
-export type { ProductAccount } from './accounts.js';
+export type { AccountConnectionStatus, ProductAccount } from './accounts.js';
 export { createAccountsProvider } from './accounts.js';
 
 export { createLocalStorage, hostLocalStorage } from './localStorage.js';

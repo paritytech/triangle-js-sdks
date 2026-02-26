@@ -109,3 +109,28 @@ subscription.onInterrupt(() => {
 
 subscription.unsubscribe();
 ```
+
+### Custom Renderer
+
+The protocol includes a custom renderer system for building UI component trees that can be serialized and sent across the transport. This is used for rendering custom chat messages.
+
+Available components: `Box`, `Column`, `Row`, `Spacer`, `Text`, `Button`, `TextField`. Each component supports optional `Modifiers` (margin, padding, background, border, dimensions) and can contain children.
+
+```typescript
+import { CustomRendererNode } from '@novasamatech/host-api';
+```
+
+### Account Connection Status
+
+Products can subscribe to account connection status changes:
+
+```typescript
+const subscription = hostApi.accountConnectionStatusSubscribe(undefined, (status) => {
+  // status: 'connected' | 'disconnected'
+  console.log('connection status:', status);
+});
+```
+
+### Custom Chat Messages
+
+Chat messages now support a `Custom` content type that carries an arbitrary payload identified by `messageType`. Products can handle rendering of custom messages via the `productChatCustomMessageRenderSubscribe` subscription, which receives the message type and payload and expects a `CustomRendererNode` tree in response.

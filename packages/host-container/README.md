@@ -133,6 +133,16 @@ container.handleLocalStorageClear(async (key, { ok, err }) => {
 });
 ```
 
+### handleAccountConnectionStatusSubscribe
+
+```ts
+container.handleAccountConnectionStatusSubscribe((_, send, interrupt) => {
+  const listener = (status) => send(status);
+  accountService.on('connectionStatusChange', listener);
+  return () => accountService.off('connectionStatusChange', listener);
+});
+```
+
 ### handleAccountGet
 
 ```ts
@@ -276,6 +286,18 @@ container.handleChatActionSubscribe((_, send, interrupt) => {
   chatService.on('action', listener);
   return () => chatService.off('action', listener);
 });
+```
+
+### renderChatCustomMessage
+
+```ts
+const subscription = container.renderChatCustomMessage('my-custom-type', payload, (node) => {
+  // node is a CustomRendererNode tree describing the UI to render
+  console.log('Render custom message:', node);
+});
+
+// Unsubscribe when done
+subscription.unsubscribe();
 ```
 
 ### handleStatementStoreSubscribe

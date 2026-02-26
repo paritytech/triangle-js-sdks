@@ -132,6 +132,29 @@ const subscriber = chat.subscribeAction((action) => {
 const chatListSubscriber = chat.subscribeChatList((rooms) => {
   console.log('Chat rooms updated:', rooms);
 });
+
+// Sending a custom message
+await chat.sendMessage('my-product-room', {
+  tag: 'Custom',
+  value: { messageType: 'my-custom-type', payload: new Uint8Array([/* ... */]) }
+});
+
+// Handling custom message rendering requests from host
+const unsubscribeRenderer = chat.onCustomMessageRenderingRequest((messageType, payload, render) => {
+  // Build a CustomRendererNode tree and pass it to render()
+  render({
+    tag: 'Text',
+    value: {
+      modifiers: undefined,
+      props: { style: undefined, color: undefined },
+      children: [{ tag: 'String', value: 'Custom message content' }],
+    },
+  });
+
+  return () => {
+    // cleanup when subscription ends
+  };
+});
 ```
 
 **Note:** Messages sent before registration will be queued and sent automatically after successful registration.
@@ -213,6 +236,12 @@ const nonProductAccountsResult = await accountsProvider.getNonProductAccounts();
 if (nonProductAccountsResult.isOk()) {
   console.log('Non-product accounts:', nonProductAccountsResult.value);
 }
+
+// Subscribe to account connection status changes
+const unsubscribe = accountsProvider.subscribeAccountConnectionStatus((status) => {
+  // status: 'connected' | 'disconnected'
+  console.log('Account connection status:', status);
+});
 
 // Create a signer for a product account (for use with PAPI)
 const account: ProductAccount = {

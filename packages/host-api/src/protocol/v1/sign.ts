@@ -19,12 +19,14 @@ export const SigningResult = Struct({
 
 // sign raw
 
+const RawPayload = Enum({
+  Bytes: Bytes(),
+  Payload: str,
+});
+
 const SigningRawPayload = Struct({
   address: str,
-  data: Enum({
-    Bytes: Bytes(),
-    Payload: str,
-  }),
+  data: RawPayload,
 });
 
 export const SignRawV1_request = SigningRawPayload;

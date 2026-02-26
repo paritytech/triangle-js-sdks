@@ -7,8 +7,8 @@ export const SignPayloadResponseDataCodec = Struct({
   signedTransaction: Option(Bytes()),
 });
 
-export type SignPayloadResponse = CodecType<typeof SignPayloadResponseCodec>;
-export const SignPayloadResponseCodec = Struct({
+export type SignPayloadResponse = CodecType<typeof SigningResponseCodec>;
+export const SigningResponseCodec = Struct({
   // referencing to RemoteMessage.messageId
   respondingTo: str,
   payload: Result(SignPayloadResponseDataCodec, str),

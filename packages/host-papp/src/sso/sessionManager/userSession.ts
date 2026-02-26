@@ -14,8 +14,8 @@ import type { StoredUserSession } from '../userSessionRepository.js';
 
 import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
-import type { SignPayloadRequest } from './scale/signPayloadRequest.js';
-import type { SignPayloadResponseData } from './scale/signPayloadResponse.js';
+import type { SignPayloadRequest, SigningRawRequest } from './scale/signingRequest.js';
+import type { SignPayloadResponseData } from './scale/signingResponse.js';
 
 type ProcessedMessage =
   | {
@@ -29,6 +29,7 @@ type ProcessedMessage =
 export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
   signPayload(payload: SignPayloadRequest): ResultAsync<SignPayloadResponseData, Error>;
+  signRaw(payload: SigningRawRequest): ResultAsync<SignPayloadResponseData, Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
 };
@@ -75,7 +76,41 @@ export function createUserSession({
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
-        data: enumValue('v1', enumValue('SignRequest', payload)),
+        data: enumValue('v1', enumValue('SignRequest', enumValue('payload', payload))),
+      });
+
+      const responseFilter = (message: RemoteMessage) => {
+        if (
+          message.data.tag === 'v1' &&
+          message.data.value.tag === 'SignResponse' &&
+          message.data.value.value.respondingTo === messageId
+        ) {
+          return message.data.value.value.payload;
+        }
+      };
+
+      return request
+        .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+        .andThen(message => {
+          if (message.success) {
+            return ok(message.value);
+          } else {
+            return err(new Error(message.value));
+          }
+        });
+    },
+
+    signRaw(payload) {
+      const accountId = AccountId();
+
+      if (toHex(accountId.enc(payload.address)) !== toHex(userSession.remoteAccount.accountId)) {
+        return errAsync(new Error(`Invalid address, got ${payload.address}`));
+      }
+
+      const messageId = nanoid();
+      const request = session.request(RemoteMessageCodec, {
+        messageId,
+        data: enumValue('v1', enumValue('SignRequest', enumValue('raw', payload))),
       });
 
       const responseFilter = (message: RemoteMessage) => {
