@@ -70,6 +70,10 @@
     "lint": {
       "dependsOn": ["^build", "default", "{workspaceRoot}/eslint.config.js"],
       "inputs": ["default"]
+    },
+    "rollup-dts": {
+      "cache": false,
+      "dependsOn": ["build", "^rollup-dts"]
     }
   }
 }

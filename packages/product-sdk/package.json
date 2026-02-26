@@ -32,6 +32,9 @@
     "@polkadot-api/json-rpc-provider-proxy": "^0.2.7",
     "@novasamatech/host-api": "0.6.1"
   },
+  "scripts": {
+    "rollup-dts": "api-extractor run --local && find dist -name \"*.d.ts\" ! -name \"_rollup.d.ts\" -delete && mv dist/_rollup.d.ts dist/index.d.ts && find dist -type d -empty -delete"
+  },
   "publishConfig": {
     "access": "public"
   }

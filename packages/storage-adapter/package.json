@@ -27,6 +27,9 @@
     "nanoevents": "^9.1.0",
     "neverthrow": "^8.2.0"
   },
+  "scripts": {
+    "rollup-dts": "api-extractor run --local && find dist -name \"*.d.ts\" ! -name \"_rollup.d.ts\" -delete && mv dist/_rollup.d.ts dist/index.d.ts && find dist -type d -empty -delete"
+  },
   "publishConfig": {
     "access": "public"
   }

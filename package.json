@@ -11,7 +11,8 @@
     "release": "nx release",
     "build:lib": "nx run-many -t build --exclude host-papp-react-ui",
     "build:ui": "nx run build-vite --project host-papp-react-ui",
-    "build": "npm run build:lib && npm run build:ui",
+    "rollup-dts": "nx run-many -t rollup-dts --exclude host-papp-react-ui",
+    "build": "npm run build:lib && npm run rollup-dts && npm run build:ui",
     "build:watch": "nx watch --all -- nx run \\$NX_PROJECT_NAME:build",
     "typecheck": "nx run-many -t typecheck",
     "lint": "nx run-many -t lint && eslint ./__tests__",
@@ -22,6 +23,7 @@
   },
   "devDependencies": {
     "@eslint/js": "9.39.2",
+    "@microsoft/api-extractor": "^7.57.6",
     "@nx/eslint": "22.5.1",
     "@nx/eslint-plugin": "22.5.1",
     "@nx/js": "22.5.1",
