@@ -1,4 +1,4 @@
-import type { SignedStatement, Statement } from '@polkadot-api/sdk-statement';
+import type { SignedStatement, Statement } from '@novasamatech/sdk-statement';
 import type { ResultAsync } from 'neverthrow';
 
 export type StatementStoreAdapter = {
@@ -9,12 +9,16 @@ export type StatementStoreAdapter = {
   ): ResultAsync<
     void,
     | DataTooLargeError
-    | PriorityTooLowError
+    | ExpiryTooLowError
     | AccountFullError
     | StorageFullError
     | NoProofError
     | BadProofError
     | EncodingTooLargeError
+    | NoAllowanceError
+    | AlreadyExpiredError
+    | KnownExpiredError
+    | InternalStoreError
     | Error
   >;
 };
@@ -29,19 +33,23 @@ export class DataTooLargeError extends Error {
   }
 }
 
-export class PriorityTooLowError extends Error {
-  public readonly submitted: number;
-  public readonly min: number;
-  constructor(submitted: number, min: number) {
-    super(`Submit failed, priority too low: ${submitted} > ${min}`);
+export class ExpiryTooLowError extends Error {
+  public readonly submitted: bigint;
+  public readonly min: bigint;
+  constructor(submitted: bigint, min: bigint) {
+    super(`Submit failed, expiry too low: ${submitted} < ${min}`);
     this.submitted = submitted;
     this.min = min;
   }
 }
 
 export class AccountFullError extends Error {
-  constructor() {
-    super(`Submit failed, account full`);
+  public readonly submitted: bigint;
+  public readonly min: bigint;
+  constructor(submitted: bigint, min: bigint) {
+    super(`Submit failed, account full: submitted expiry ${submitted} < min ${min}`);
+    this.submitted = submitted;
+    this.min = min;
   }
 }
 
@@ -70,5 +78,29 @@ export class EncodingTooLargeError extends Error {
     super(`Submit failed, encoding too large`);
     this.submitted = submitted;
     this.max = max;
+  }
+}
+
+export class NoAllowanceError extends Error {
+  constructor() {
+    super(`Submit failed, no allowance set for account`);
+  }
+}
+
+export class AlreadyExpiredError extends Error {
+  constructor() {
+    super(`Submit failed, statement already expired`);
+  }
+}
+
+export class KnownExpiredError extends Error {
+  constructor() {
+    super(`Submit failed, statement was known but has expired`);
+  }
+}
+
+export class InternalStoreError extends Error {
+  constructor(detail: string) {
+    super(`Submit failed, internal store error: ${detail}`);
   }
 }

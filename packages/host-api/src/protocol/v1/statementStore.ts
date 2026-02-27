@@ -1,5 +1,5 @@
 import { Enum, ErrEnum } from '@novasamatech/scale';
-import { Bytes, Option, Result, Struct, Tuple, Vector, _void, u32, u64 } from 'scale-ts';
+import { Bytes, Option, Result, Struct, Tuple, Vector, _void, u64 } from 'scale-ts';
 
 import { GenericErr, GenericError } from '../commonCodecs.js';
 
@@ -43,7 +43,7 @@ const StatementProof = Enum({
 export const Statement = Struct({
   proof: Option(StatementProof),
   decryptionKey: Option(DecryptionKey),
-  priority: Option(u32),
+  expiry: Option(u64),
   channel: Option(Channel),
   topics: Vector(Topic),
   data: Option(Bytes()),
@@ -52,7 +52,7 @@ export const Statement = Struct({
 export const SignedStatement = Struct({
   proof: StatementProof,
   decryptionKey: Option(DecryptionKey),
-  priority: Option(u32),
+  expiry: Option(u64),
   channel: Option(Channel),
   topics: Vector(Topic),
   data: Option(Bytes()),

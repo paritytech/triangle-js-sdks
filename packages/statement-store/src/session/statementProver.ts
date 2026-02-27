@@ -1,8 +1,9 @@
-import type { SignedStatement, Statement } from '@polkadot-api/sdk-statement';
-import { getStatementSigner, statementCodec } from '@polkadot-api/sdk-statement';
+import type { SignedStatement, Statement } from '@novasamatech/sdk-statement';
+import { getStatementSigner, statementCodec } from '@novasamatech/sdk-statement';
+import { compact } from '@polkadot-api/substrate-bindings';
+import { fromHex } from '@polkadot-api/utils';
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, fromPromise, fromThrowable, okAsync } from 'neverthrow';
-import { compact } from 'scale-ts';
 
 import { deriveSr25519PublicKey, signWithSr25519Secret, verifySr25519Signature } from '../crypto.js';
 import { toError } from '../helpers.js';
@@ -37,8 +38,8 @@ export function createSr25519Prover(secret: Uint8Array): StatementProver {
         case 'sr25519':
           return verify(
             encoded.slice(compactLen),
-            proof.value.signature.asBytes(),
-            proof.value.signer.asBytes(),
+            fromHex(proof.value.signature),
+            fromHex(proof.value.signer),
           ).asyncAndThen(x => okAsync(x));
         default:
           return errAsync(new Error(`Proof type ${proof.type} is not supported.`));

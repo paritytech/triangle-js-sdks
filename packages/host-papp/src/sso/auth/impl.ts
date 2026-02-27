@@ -1,5 +1,5 @@
 import { enumValue } from '@novasamatech/scale';
-import type { LazyClient, LocalSessionAccount, StatementStoreAdapter } from '@novasamatech/statement-store';
+import type { LazyClient, LocalSessionAccount, Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
 import {
   createAccountId,
   createEncryption,
@@ -7,7 +7,6 @@ import {
   createRemoteSessionAccount,
   khash,
 } from '@novasamatech/statement-store';
-import type { Statement } from '@polkadot-api/sdk-statement';
 import { mergeUint8, toHex } from '@polkadot-api/utils';
 import { generateMnemonic } from '@polkadot-labs/hdkd-helpers';
 import { Result, ResultAsync, err, fromPromise, fromThrowable, ok } from 'neverthrow';
@@ -102,7 +101,7 @@ export function createAuth({
             const session = retrieveSession({
               localAccount,
               encrSecret: encrKeys.secret,
-              payload: statement.data.asBytes(),
+              payload: statement.data,
             }).unwrapOr(null);
 
             if (session) {
