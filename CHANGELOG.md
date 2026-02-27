@@ -1,3 +1,17 @@
+## 0.6.4 (2026-02-27)
+
+### 🚀 Features
+
+- OptionBool codec
+
+### 🩹 Fixes
+
+- Small custom renderer api changes ([ce7961c](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/ce7961c))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.3 (2026-02-27)
 
 ### 🩹 Fixes
