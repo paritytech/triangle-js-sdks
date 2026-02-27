@@ -1,3 +1,15 @@
+## 0.6.3 (2026-02-27)
+
+### 🩹 Fixes
+
+- Fix codec for custom renderer's Button and Text 
+- Pass message id to chat custom renderer
+- Remove Error throw inside PAPI adapter if chain is not supported.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.1 (2026-02-20)
 
 ### 🩹 Fixes
