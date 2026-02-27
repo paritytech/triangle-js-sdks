@@ -123,12 +123,14 @@ describe('Host API: Chat', () => {
 
     it('should deliver render request to product and receive rendered node', async () => {
       const { container, chat } = setup();
-      const messageType = 'my-type';
-      const payload = new Uint8Array([1, 2, 3]);
+      const expectedMessageId = '1';
+      const expectedMessageType = 'my-type';
+      const expectedPayload = new Uint8Array([1, 2, 3]);
 
-      chat.onCustomMessageRenderingRequest((receivedType, receivedPayload, render) => {
-        expect(receivedType).toBe(messageType);
-        expect(receivedPayload).toEqual(payload);
+      chat.onCustomMessageRenderingRequest(({ messageId, messageType, payload }, render) => {
+        expect(messageId).toBe(expectedMessageId);
+        expect(messageType).toBe(expectedMessageType);
+        expect(payload).toEqual(expectedPayload);
         render(textNode);
         return () => {
           /* cleanup */
@@ -136,7 +138,10 @@ describe('Host API: Chat', () => {
       });
 
       const callback = vi.fn();
-      const subscription = container.renderChatCustomMessage({ messageId: '0', messageType, payload }, callback);
+      const subscription = container.renderChatCustomMessage(
+        { messageId: expectedMessageId, messageType: expectedMessageType, payload: expectedPayload },
+        callback,
+      );
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -149,7 +154,7 @@ describe('Host API: Chat', () => {
       const { container, chat } = setup();
       const cleanupFn = vi.fn();
 
-      chat.onCustomMessageRenderingRequest((_type, _payload, render) => {
+      chat.onCustomMessageRenderingRequest((_params, render) => {
         render(textNode);
         return cleanupFn;
       });

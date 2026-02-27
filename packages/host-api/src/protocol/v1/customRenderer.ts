@@ -1,4 +1,4 @@
-import { Enum, Status, lazy } from '@novasamatech/scale';
+import { Enum, OptionBool, Status, lazy } from '@novasamatech/scale';
 import type { Codec, CodecType } from 'scale-ts';
 import { Option, Struct, Tuple, Vector, _void, bool, compact, str } from 'scale-ts';
 
@@ -101,8 +101,8 @@ export const TextProps = Struct({
 export const ButtonProps = Struct({
   text: str,
   variant: Option(ButtonVariant),
-  enabled: Option(bool),
-  loading: Option(bool),
+  enabled: OptionBool,
+  loading: OptionBool,
   clickAction: Option(str),
 });
 
@@ -110,7 +110,7 @@ export const TextFieldProps = Struct({
   text: str,
   placeholder: Option(str),
   label: Option(str),
-  enabled: Option(bool),
+  enabled: OptionBool,
   valueChangeAction: Option(str),
 });
 

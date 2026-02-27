@@ -1,4 +1,4 @@
-import type { SignPayloadRequest, UserSession } from '@novasamatech/host-papp';
+import type { SigningPayloadRequest, UserSession } from '@novasamatech/host-papp';
 import { createPappAdapter } from '@novasamatech/host-papp';
 import { Button } from '@novasamatech/tr-ui';
 import { AccountId } from '@polkadot-api/substrate-bindings';
@@ -16,7 +16,7 @@ const SignPayloadExample = ({ session }: { session: UserSession | null }) => {
     return null;
   }
 
-  const payload: SignPayloadRequest = {
+  const payload: SigningPayloadRequest = {
     address: AccountId().dec(session.remoteAccount.accountId),
     blockHash:
       '0x307834313431326534363632336332303064373838616237656631633530376334333439306664613263613762343863313966383665613961343663663963616138',

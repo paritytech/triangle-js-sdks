@@ -110,14 +110,13 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
 
     onCustomMessageRenderingRequest(
       callback: (
-        messageType: string,
-        payload: Uint8Array,
+        params: { messageId: string; messageType: string; payload: Uint8Array },
         render: (node: CodecType<typeof CustomRendererNode>) => void,
       ) => VoidFunction,
     ) {
       return transport.handleSubscription('product_chat_custom_message_render_subscribe', (params, send, interrupt) => {
         if (params.tag === 'v1') {
-          return callback(params.value.messageType, params.value.payload, node => send(enumValue('v1', node)));
+          return callback(params.value, node => send(enumValue('v1', node)));
         }
         // unsupported version
         interrupt();

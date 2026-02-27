@@ -14,8 +14,8 @@ import type { StoredUserSession } from '../userSessionRepository.js';
 
 import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
-import type { SignPayloadRequest, SigningRawRequest } from './scale/signingRequest.js';
-import type { SignPayloadResponseData } from './scale/signingResponse.js';
+import type { SigningPayloadRequest, SigningRawRequest } from './scale/signingRequest.js';
+import type { SigningPayloadResponseData } from './scale/signingResponse.js';
 
 type ProcessedMessage =
   | {
@@ -28,8 +28,8 @@ type ProcessedMessage =
 
 export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
-  signPayload(payload: SignPayloadRequest): ResultAsync<SignPayloadResponseData, Error>;
-  signRaw(payload: SigningRawRequest): ResultAsync<SignPayloadResponseData, Error>;
+  signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
+  signRaw(payload: SigningRawRequest): ResultAsync<SigningPayloadResponseData, Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
 };
