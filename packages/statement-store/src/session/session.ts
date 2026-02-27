@@ -1,5 +1,6 @@
-import type { Statement } from '@polkadot-api/sdk-statement';
-import { Binary } from '@polkadot-api/substrate-bindings';
+import type { Statement } from '@novasamatech/sdk-statement';
+import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
+import { toHex } from '@polkadot-api/utils';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, fromPromise, fromThrowable, ok, okAsync } from 'neverthrow';
 import type { Codec } from 'scale-ts';
@@ -42,13 +43,10 @@ export function createSession({
     return encryption
       .encrypt(data)
       .map<Statement>(data => ({
-        priority: getPriority(now()),
-        // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
-        channel: Binary.fromBytes(channel),
-        // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
-        topics: [Binary.fromBytes(sessionId)],
-        // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
-        data: Binary.fromBytes(data),
+        expiry: getExpiry(),
+        channel: toHex(channel) as `0x${string}`,
+        topics: [toHex(sessionId) as `0x${string}`],
+        data,
       }))
       .asyncAndThen(prover.generateMessageProof)
       .andThen(statementStore.submitStatement);
@@ -131,7 +129,7 @@ export function createSession({
       function processStatement(statement: Statement) {
         if (!statement.data) return okAsync(null);
 
-        const data = statement.data.asBytes();
+        const data = statement.data;
 
         return prover
           .verifyMessageProof(statement)
@@ -183,22 +181,10 @@ function mapResponseCode(responseCode: ResponseStatus) {
   }
 }
 
-function now() {
-  const d1 = new Date();
-  const d2 = new Date(
-    d1.getUTCFullYear(),
-    d1.getUTCMonth(),
-    d1.getUTCDate(),
-    d1.getUTCHours(),
-    d1.getUTCMinutes(),
-    d1.getUTCSeconds(),
-  );
-  return d2.getTime();
-}
+const DEFAULT_EXPIRY_DURATION_SECS = 7 * 24 * 60 * 60; // 7 days
 
-function getPriority(timestamp: number) {
-  // time - (November 15, 2025)
-  return Math.floor((timestamp - 1763154000000) / 1000);
+function getExpiry(): bigint {
+  return createExpiryFromDuration(DEFAULT_EXPIRY_DURATION_SECS);
 }
 
 function createRequestChannel(sessionId: Uint8Array) {

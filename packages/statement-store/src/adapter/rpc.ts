@@ -1,8 +1,6 @@
-import type { Statement } from '@polkadot-api/sdk-statement';
-import { createStatementSdk } from '@polkadot-api/sdk-statement';
-import { Binary } from '@polkadot-api/substrate-bindings';
+import type { Statement, TopicFilter } from '@novasamatech/sdk-statement';
+import { createStatementSdk } from '@novasamatech/sdk-statement';
 import { toHex } from '@polkadot-api/utils';
-import type { ResultAsync } from 'neverthrow';
 import { errAsync, fromPromise, okAsync } from 'neverthrow';
 
 import { toError } from '../helpers.js';
@@ -11,111 +9,135 @@ import type { LazyClient } from './lazyClient.js';
 import type { StatementStoreAdapter } from './types.js';
 import {
   AccountFullError,
+  AlreadyExpiredError,
   BadProofError,
   DataTooLargeError,
   EncodingTooLargeError,
+  ExpiryTooLowError,
+  InternalStoreError,
+  KnownExpiredError,
+  NoAllowanceError,
   NoProofError,
-  PriorityTooLowError,
   StorageFullError,
 } from './types.js';
-
-const POLLING_INTERVAL = 1500;
 
 function createKey(topics: Uint8Array[]): string {
   return topics.map(toHex).sort().join('');
 }
 
+function toTopicFilter(topics: Uint8Array[]): TopicFilter {
+  if (topics.length === 0) return 'any';
+  return { matchAll: topics.map(t => toHex(t) as `0x${string}`) };
+}
+
 export function createPapiStatementStoreAdapter(lazyClient: LazyClient): StatementStoreAdapter {
   type StatementsCallback = (statements: Statement[]) => unknown;
 
-  const sdk = createStatementSdk((method, params) => {
-    const client = lazyClient.getClient();
-    return client._request(method, params);
-  });
+  const sdk = createStatementSdk(lazyClient.getRequestFn(), lazyClient.getSubscribeFn());
 
-  const pollings = new Map<string, VoidFunction>();
-  const subscriptions = new Map<string, StatementsCallback[]>();
+  const activeSubscriptions = new Map<string, VoidFunction>();
+  const callbacks = new Map<string, StatementsCallback[]>();
 
-  function addSubscription(key: string, subscription: StatementsCallback) {
-    let subs = subscriptions.get(key);
-    if (!subs) {
-      subs = [];
-      subscriptions.set(key, subs);
+  function addCallback(key: string, callback: StatementsCallback) {
+    let list = callbacks.get(key);
+    if (!list) {
+      list = [];
+      callbacks.set(key, list);
     }
-
-    subs.push(subscription);
-    return subs;
+    list.push(callback);
+    return list;
   }
 
-  function removeSubscription(key: string, subscription: StatementsCallback) {
-    let subs = subscriptions.get(key);
-    if (!subs) {
-      return [];
+  function removeCallback(key: string, callback: StatementsCallback) {
+    let list = callbacks.get(key);
+    if (!list) return [];
+    list = list.filter(x => x !== callback);
+    if (list.length === 0) {
+      callbacks.delete(key);
+    } else {
+      callbacks.set(key, list);
     }
-
-    subs = subs.filter(x => x !== subscription);
-    return subs;
+    return list;
   }
 
-  const transportProvider: StatementStoreAdapter = {
-    queryStatements(topics, destination) {
-      return fromPromise(
-        sdk.getStatements({
-          // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
-          topics: topics.map(t => Binary.fromBytes(t)),
-          // @ts-expect-error unmatched types of @polkadot-api/sdk-statement and @polkadot-api/substrate-bindings
-          dest: destination ? Binary.fromBytes(destination) : null,
-        }),
-        toError,
-      );
+  const adapter: StatementStoreAdapter = {
+    queryStatements(topics) {
+      const filter = toTopicFilter(topics);
+      return fromPromise(sdk.getStatements(filter), toError);
     },
+
     subscribeStatements(topics, callback) {
       const key = createKey(topics);
-      const callbacks = addSubscription(key, callback);
+      const list = addCallback(key, callback);
 
-      if (callbacks.length === 1) {
-        const unsub = polling(
-          POLLING_INTERVAL,
-          () => transportProvider.queryStatements(topics),
-          statements => {
-            const list = subscriptions.get(key);
-            if (list) {
-              for (const fn of list) {
-                fn(statements);
-              }
+      if (list.length === 1) {
+        const filter = toTopicFilter(topics);
+        let batch: Statement[] = [];
+        let flushScheduled = false;
+
+        const flush = () => {
+          flushScheduled = false;
+          if (batch.length === 0) return;
+          const statements = batch;
+          batch = [];
+          const currentCallbacks = callbacks.get(key);
+          if (currentCallbacks) {
+            for (const fn of currentCallbacks) {
+              fn(statements);
             }
+          }
+        };
+
+        const unsub = sdk.subscribeStatements(
+          filter,
+          statement => {
+            batch.push(statement);
+            if (!flushScheduled) {
+              flushScheduled = true;
+              setTimeout(flush, 0);
+            }
+          },
+          error => {
+            console.error('Statement subscription error:', error);
           },
         );
 
-        pollings.set(key, unsub);
+        activeSubscriptions.set(key, unsub);
       }
 
       return () => {
-        const callbacks = removeSubscription(key, callback);
+        const remaining = removeCallback(key, callback);
 
-        if (callbacks.length === 0) {
-          const stopPolling = pollings.get(key);
-          stopPolling?.();
-          pollings.delete(key);
+        if (remaining.length === 0) {
+          const unsub = activeSubscriptions.get(key);
+          unsub?.();
+          activeSubscriptions.delete(key);
         }
       };
     },
+
     submitStatement(statement) {
       return fromPromise(sdk.submit(statement), toError).andThen(result => {
         switch (result.status) {
           case 'new':
           case 'known':
             return okAsync(undefined);
+          case 'knownExpired':
+            return errAsync(new KnownExpiredError());
+          case 'internalError':
+            return errAsync(new InternalStoreError(result.error));
           case 'rejected':
             switch (result.reason) {
               case 'dataTooLarge':
                 return errAsync(new DataTooLargeError(result.submitted_size, result.available_size));
               case 'channelPriorityTooLow':
-                return errAsync(new PriorityTooLowError(result.submitted_priority, result.min_priority));
+                return errAsync(new ExpiryTooLowError(result.submitted_expiry, result.min_expiry));
               case 'accountFull':
-                return errAsync(new AccountFullError());
+                return errAsync(new AccountFullError(result.submitted_expiry, result.min_expiry));
               case 'storeFull':
                 return errAsync(new StorageFullError());
+              case 'noAllowance':
+                return errAsync(new NoAllowanceError());
               default:
                 return errAsync(new Error('Unknown rejection reason'));
             }
@@ -127,6 +149,8 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
                 return errAsync(new BadProofError());
               case 'encodingTooLarge':
                 return errAsync(new EncodingTooLargeError(result.submitted_size, result.max_size));
+              case 'alreadyExpired':
+                return errAsync(new AlreadyExpiredError());
               default:
                 return errAsync(new Error('Unknown rejection reason: invalid'));
             }
@@ -137,40 +161,5 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
     },
   };
 
-  return transportProvider;
-}
-
-function polling<R>(
-  interval: number,
-  request: () => ResultAsync<R, Error>,
-  callback: (response: R) => void,
-): VoidFunction {
-  let active = true;
-  let tm: NodeJS.Timeout | null = null;
-  function createCycle() {
-    tm = setTimeout(() => {
-      if (!active) {
-        return;
-      }
-
-      request().match(
-        data => {
-          callback(data);
-          createCycle();
-        },
-        () => {
-          createCycle();
-        },
-      );
-    }, interval);
-  }
-
-  createCycle();
-
-  return () => {
-    active = false;
-    if (tm !== null) {
-      clearTimeout(tm);
-    }
-  };
+  return adapter;
 }
