@@ -162,5 +162,5 @@ export const ChatActionSubscribeV1_receive = ReceivedChatAction;
 
 // custom message rendering
 
-export const ChatCustomMessageRenderingV1_start = Struct({ messageType: str, payload: Bytes() });
+export const ChatCustomMessageRenderingV1_start = Struct({ messageId: str, messageType: str, payload: Bytes() });
 export const ChatCustomMessageRenderingV1_receive: Codec<CustomRendererNodeType> = CustomRendererNode;

@@ -357,11 +357,11 @@ export function createContainer(provider: Provider): Container {
       });
     },
 
-    renderChatCustomMessage(messageType, payload, callback) {
+    renderChatCustomMessage({ messageId, messageType, payload }, callback) {
       init();
       return transport.subscribe(
         'product_chat_custom_message_render_subscribe',
-        enumValue('v1', { messageType, payload }),
+        enumValue('v1', { messageId, messageType, payload }),
         value => {
           if (value.tag === 'v1') {
             callback(value.value);

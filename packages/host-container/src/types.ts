@@ -108,8 +108,7 @@ export type Container = {
   handleChatActionSubscribe: InferHandler<'v1', HostApiProtocol['host_chat_action_subscribe']>;
 
   renderChatCustomMessage(
-    messageType: string,
-    payload: Uint8Array,
+    params: { messageId: string; messageType: string; payload: Uint8Array },
     callback: (node: CodecType<typeof CustomRendererNode>) => void,
   ): Subscription;
 

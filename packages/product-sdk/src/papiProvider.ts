@@ -443,7 +443,19 @@ export function createPapiProvider(
     checkIfReady().then(ready => {
       if (ready) return typedProvider;
       if (__fallback) return __fallback;
-      throw new Error(`Chain ${genesisHash} not supported by host`);
+
+      return () => {
+        return {
+          send() {
+            transport.provider.logger.error(
+              `Provider for chain ${genesisHash} was not started because Host doesn't support it`,
+            );
+          },
+          disconnect() {
+            /* empty */
+          },
+        };
+      };
     }),
   );
 }

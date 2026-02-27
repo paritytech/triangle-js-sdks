@@ -115,7 +115,7 @@ describe('Host API: Chat', () => {
     const textNode: CodecType<typeof CustomRendererNode> = {
       tag: 'Text',
       value: {
-        modifiers: undefined,
+        modifiers: [],
         props: { style: undefined, color: undefined },
         children: [{ tag: 'String', value: 'hello' }],
       },
@@ -136,7 +136,7 @@ describe('Host API: Chat', () => {
       });
 
       const callback = vi.fn();
-      const subscription = container.renderChatCustomMessage(messageType, payload, callback);
+      const subscription = container.renderChatCustomMessage({ messageId: '0', messageType, payload }, callback);
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
@@ -154,7 +154,10 @@ describe('Host API: Chat', () => {
         return cleanupFn;
       });
 
-      const subscription = container.renderChatCustomMessage('type', new Uint8Array(), vi.fn());
+      const subscription = container.renderChatCustomMessage(
+        { messageId: '0', messageType: 'type', payload: new Uint8Array() },
+        vi.fn(),
+      );
 
       await new Promise(resolve => setTimeout(resolve, 10));
 
