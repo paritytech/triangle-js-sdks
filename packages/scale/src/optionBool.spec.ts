@@ -12,4 +12,10 @@ describe('OptionBool', () => {
     expect(OptionBool.dec(new Uint8Array([1]))).toEqual(false);
     expect(OptionBool.dec(new Uint8Array([2]))).toEqual(true);
   });
+
+  it('should throw in bytes has incorrect value', () => {
+    expect(() => OptionBool.dec(new Uint8Array([3]))).toThrowErrorMatchingInlineSnapshot(
+      `[Error: Unknown value for optionBool: 3. Should be ether 0, 1 or 2.]`,
+    );
+  });
 });

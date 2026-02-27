@@ -20,7 +20,7 @@ export const OptionBool = enhanceCodec<number, boolean | void>(
       case 2:
         return true;
       default:
-        throw new Error(`Unknown value for optionBool: ${v}. Should be eather 0, 1 or 2.`);
+        throw new Error(`Unknown value for optionBool: ${v}. Should be ether 0, 1 or 2.`);
     }
   },
 );
