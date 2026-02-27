@@ -1,3 +1,10 @@
+## 0.6.5 (2026-02-27)
+
+### 🚀 Features
+
+- Support updated statement store api ([#33](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/33))
+
+
 ## 0.6.4 (2026-02-27)
 
 ### 🚀 Features
