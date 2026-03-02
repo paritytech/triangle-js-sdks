@@ -1,8 +1,8 @@
-import { Enum, Hex } from '@novasamatech/scale';
+import { Enum, Hex, OptionBool } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Option, Struct, Vector, bool, str, u32 } from 'scale-ts';
+import { Bytes, Option, Struct, Vector, str, u32 } from 'scale-ts';
 
-export type SignPayloadRequest = CodecType<typeof SigningPayloadRequestCodec>;
+export type SigningPayloadRequest = CodecType<typeof SigningPayloadRequestCodec>;
 export const SigningPayloadRequestCodec = Struct({
   address: str,
   blockHash: Hex(),
@@ -19,7 +19,7 @@ export const SigningPayloadRequestCodec = Struct({
   assetId: Option(Hex()),
   metadataHash: Option(Hex()),
   mode: Option(u32),
-  withSignedTransaction: Option(bool),
+  withSignedTransaction: OptionBool,
 });
 
 export type SigningRawRequest = CodecType<typeof SigningRawRequestCodec>;
@@ -31,6 +31,7 @@ export const SigningRawRequestCodec = Struct({
   }),
 });
 
+export type SigningRequest = CodecType<typeof SigningRequestCodec>;
 export const SigningRequestCodec = Enum({
   Payload: SigningPayloadRequestCodec,
   Raw: SigningRawRequestCodec,

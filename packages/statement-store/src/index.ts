@@ -1,4 +1,4 @@
-export type { Statement } from '@polkadot-api/sdk-statement';
+export type { Statement } from '@novasamatech/sdk-statement';
 
 export type { SessionId } from './model/session.js';
 export { SessionIdCodec, createSessionId } from './model/session.js';
@@ -28,6 +28,19 @@ export { DecodingError, DecryptionError, UnknownError } from './session/error.js
 export type { LazyClient } from './adapter/lazyClient.js';
 export { createLazyClient } from './adapter/lazyClient.js';
 export type { StatementStoreAdapter } from './adapter/types.js';
+export {
+  AccountFullError,
+  AlreadyExpiredError,
+  BadProofError,
+  DataTooLargeError,
+  EncodingTooLargeError,
+  ExpiryTooLowError,
+  InternalStoreError,
+  KnownExpiredError,
+  NoAllowanceError,
+  NoProofError,
+  StorageFullError,
+} from './adapter/types.js';
 export { createPapiStatementStoreAdapter } from './adapter/rpc.js';
 
 export {

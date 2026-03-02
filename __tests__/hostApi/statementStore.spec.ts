@@ -35,7 +35,7 @@ function createMockSignedStatement(topicSeed: number): SignedStatement {
       signer: new Uint8Array(32).fill(2),
     }),
     decryptionKey: undefined,
-    priority: undefined,
+    expiry: undefined,
     channel: undefined,
     topics: [createTopic(topicSeed)],
     data: new Uint8Array([1, 2, 3]),
@@ -47,7 +47,7 @@ function createMockStatement(topicSeed: number): Statement {
   return {
     proof: undefined,
     decryptionKey: undefined,
-    priority: undefined,
+    expiry: undefined,
     channel: undefined,
     topics: [createTopic(topicSeed)],
     data: new Uint8Array([1, 2, 3]),

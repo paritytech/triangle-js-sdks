@@ -7,6 +7,8 @@ export { Nullable } from './nullable.js';
 
 export { Record } from './record.js';
 
+export { OptionBool } from './optionBool.js';
+
 export { Status } from './status.js';
 
 export type { EnumCodec } from './enum.js';

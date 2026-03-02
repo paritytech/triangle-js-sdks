@@ -1,4 +1,4 @@
-import { Enum, Status, lazy } from '@novasamatech/scale';
+import { Enum, OptionBool, Status, lazy } from '@novasamatech/scale';
 import type { Codec, CodecType } from 'scale-ts';
 import { Option, Struct, Tuple, Vector, _void, bool, compact, str } from 'scale-ts';
 
@@ -50,22 +50,20 @@ export const BorderStyle = Struct({
   shape: Option(Shape),
 });
 
-export const Modifiers = Struct({
-  margin: Option(Dimensions),
-  padding: Option(Dimensions),
-  background: Option(
-    Struct({
-      color: ColorToken,
-      shape: Option(Shape),
-    }),
-  ),
-  border: Option(BorderStyle),
-  height: Option(Size),
-  width: Option(Size),
-  minWidth: Option(Size),
-  minHeight: Option(Size),
-  fillWidth: Option(bool),
-  fillHeight: Option(bool),
+export const Modifier = Enum({
+  margin: Dimensions,
+  padding: Dimensions,
+  background: Struct({
+    color: ColorToken,
+    shape: Option(Shape),
+  }),
+  border: BorderStyle,
+  height: Size,
+  width: Size,
+  minWidth: Size,
+  minHeight: Size,
+  fillWidth: bool,
+  fillHeight: bool,
 });
 
 type EnumVariants<T> = { [K in keyof T]: { tag: K; value: T[K] } }[keyof T];
@@ -75,7 +73,7 @@ const Children = lazy(() => CustomRendererNode);
 type ComponentType<Props extends Codec<any>> = CodecType<ReturnType<typeof Component<Props>>>;
 function Component<Props extends Codec<any>>(props: Props) {
   return Struct({
-    modifiers: Option(Modifiers),
+    modifiers: Vector(Modifier),
     props: props,
     children: Vector(Children),
   });
@@ -101,17 +99,18 @@ export const TextProps = Struct({
 });
 
 export const ButtonProps = Struct({
+  text: str,
   variant: Option(ButtonVariant),
-  enabled: Option(bool),
-  loading: Option(bool),
+  enabled: OptionBool,
+  loading: OptionBool,
   clickAction: Option(str),
 });
 
 export const TextFieldProps = Struct({
-  value: Option(str),
+  text: str,
   placeholder: Option(str),
   label: Option(str),
-  enabled: Option(bool),
+  enabled: OptionBool,
   valueChangeAction: Option(str),
 });
 
