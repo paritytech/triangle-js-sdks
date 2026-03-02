@@ -9,7 +9,7 @@ export const SigningErr = ErrEnum('SigningErr', {
   FailedToDecode: [_void, 'Failed to decode'],
   Rejected: [_void, 'Rejected'],
   PermissionDenied: [_void, 'Permission denied'],
-  Unknown: [GenericErr, 'Unknown error'],
+  Unknown: [GenericErr, ({ reason }) => reason || 'Unknown error'],
 });
 
 export const SigningResult = Struct({
