@@ -27,8 +27,15 @@ import type { AttestationStatus, PairingStatus } from './types.js';
 
 export type AuthComponent = ReturnType<typeof createAuth>;
 
+export type HostMetadata = {
+  hostVersion?: string;
+  osType?: string;
+  osVersion?: string;
+};
+
 type Params = {
   metadata: string;
+  hostMetadata?: HostMetadata;
   statementStore: StatementStoreAdapter;
   ssoSessionRepository: UserSessionRepository;
   userSecretRepository: UserSecretRepository;
@@ -37,6 +44,7 @@ type Params = {
 
 export function createAuth({
   metadata,
+  hostMetadata,
   statementStore,
   ssoSessionRepository,
   userSecretRepository,
@@ -82,6 +90,7 @@ export function createAuth({
         ssPublicKey: account.publicKey,
         encrPublicKey: publicKey,
         metadata,
+        hostMetadata,
       }),
     );
     const handshakeTopic = encrKeys.andThen(({ publicKey }) => createHandshakeTopic(localAccount, publicKey));
@@ -197,11 +206,18 @@ const createHandshakePayloadV1 = fromThrowable(
     encrPublicKey,
     ssPublicKey,
     metadata,
+    hostMetadata,
   }: {
     encrPublicKey: EncrPublicKey;
     ssPublicKey: SsPublicKey;
     metadata: string;
-  }) => HandshakeData.enc(enumValue('v1', [ssPublicKey, encrPublicKey, metadata])),
+    hostMetadata?: HostMetadata;
+  }) => {
+    const hostVersion = hostMetadata?.hostVersion;
+    const osType = hostMetadata?.osType;
+    const osVersion = hostMetadata?.osVersion;
+    return HandshakeData.enc(enumValue('v1', [ssPublicKey, encrPublicKey, metadata, hostVersion, osType, osVersion]));
+  },
   toError,
 );
 

@@ -8,7 +8,7 @@ import { SS_STABLE_STAGE_ENDPOINTS } from './constants.js';
 import { createIdentityRepository } from './identity/impl.js';
 import { createIdentityRpcAdapter } from './identity/rpcAdapter.js';
 import type { IdentityAdapter, IdentityRepository } from './identity/types.js';
-import type { AuthComponent } from './sso/auth/impl.js';
+import type { AuthComponent, HostMetadata } from './sso/auth/impl.js';
 import { createAuth } from './sso/auth/impl.js';
 import type { SsoSessionManager } from './sso/sessionManager/impl.js';
 import { createSsoSessionManager } from './sso/sessionManager/impl.js';
@@ -45,10 +45,15 @@ type Params = {
    * ```
    */
   metadata: string;
+  /**
+   * Optional host environment metadata for Sign-In confirmation screen.
+   * All fields are optional - absence must not break the pairing flow.
+   */
+  hostMetadata?: HostMetadata;
   adapters?: Partial<Adapters>;
 };
 
-export function createPappAdapter({ appId, metadata, adapters }: Params): PappAdapter {
+export function createPappAdapter({ appId, metadata, hostMetadata, adapters }: Params): PappAdapter {
   const lazyClient = adapters?.lazyClient ?? createLazyClient(getWsProvider(SS_STABLE_STAGE_ENDPOINTS));
 
   const statementStore = adapters?.statementStore ?? createPapiStatementStoreAdapter(lazyClient);
@@ -59,7 +64,14 @@ export function createPappAdapter({ appId, metadata, adapters }: Params): PappAd
   const userSecretRepository = createUserSecretRepository(appId, storage);
 
   return {
-    sso: createAuth({ metadata, statementStore, ssoSessionRepository, userSecretRepository, lazyClient }),
+    sso: createAuth({
+      metadata,
+      hostMetadata,
+      statementStore,
+      ssoSessionRepository,
+      userSecretRepository,
+      lazyClient,
+    }),
     sessions: createSsoSessionManager({ storage, statementStore, ssoSessionRepository, userSecretRepository }),
     identity: createIdentityRepository({ adapter: identities, storage }),
   };

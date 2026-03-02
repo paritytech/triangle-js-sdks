@@ -1,10 +1,12 @@
 import { Enum } from '@novasamatech/scale';
-import { Bytes, Struct, Tuple, str } from 'scale-ts';
+import { Bytes, Option, Struct, Tuple, str } from 'scale-ts';
 
 import { EncrPubKey, SsPubKey } from '../../../crypto.js';
 
+const optStr = Option(str);
+
 export const HandshakeData = Enum({
-  v1: Tuple(SsPubKey, EncrPubKey, str),
+  v1: Tuple(SsPubKey, EncrPubKey, str, optStr, optStr, optStr),
 });
 
 export const HandshakeResponsePayload = Enum({
