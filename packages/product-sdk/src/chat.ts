@@ -12,10 +12,22 @@ import { CustomRendererNode, createHostApi, enumValue } from '@novasamatech/host
 import { sandboxTransport } from './sandboxTransport.js';
 
 export type ChatMessageContent = CodecType<typeof ChatMessageContentCodec>;
-export type ReceivedChatAction = CodecType<typeof ReceivedChatActionCodec>;
+export type ChatReceivedAction = CodecType<typeof ReceivedChatActionCodec>;
 export type ChatRoomRegistrationResult = CodecType<typeof ChatRoomRegistrationStatusCodec>;
 export type ChatBotRegistrationResult = CodecType<typeof ChatBotRegistrationStatusCodec>;
 export type ChatRoom = CodecType<typeof ChatRoomCodec>;
+
+export type ChatCustomMessageRenderer = (
+  params: ChatCustomMessageRendererParams,
+  render: (node: CodecType<typeof CustomRendererNode>) => void,
+) => VoidFunction;
+
+export type ChatCustomMessageRendererParams<T = Uint8Array> = {
+  messageId: string;
+  messageType: string;
+  payload: T;
+  subscribeActions(callback: (actionId: string, payload: Uint8Array | undefined) => void): VoidFunction;
+};
 
 export const createProductChatManager = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
@@ -96,7 +108,7 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
         }
       });
     },
-    subscribeAction(callback: (action: ReceivedChatAction) => void) {
+    subscribeAction(callback: (action: ChatReceivedAction) => void) {
       return hostApi.chatActionSubscribe(enumValue('v1', undefined), action => {
         switch (action.tag) {
           case 'v1':
@@ -108,24 +120,55 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
       });
     },
 
-    onCustomMessageRenderingRequest(
-      callback: (
-        params: { messageId: string; messageType: string; payload: Uint8Array },
-        render: (node: CodecType<typeof CustomRendererNode>) => void,
-      ) => VoidFunction,
-    ) {
+    onCustomMessageRenderingRequest(callback: ChatCustomMessageRenderer) {
       return transport.handleSubscription('product_chat_custom_message_render_subscribe', (params, send, interrupt) => {
-        if (params.tag === 'v1') {
-          return callback(params.value, node => send(enumValue('v1', node)));
+        if (params.tag !== 'v1') {
+          // unsupported version
+          interrupt();
+          return () => {
+            /* empty */
+          };
         }
-        // unsupported version
-        interrupt();
-        return () => {
-          /* empty */
-        };
+
+        const { messageId, messageType, payload } = params.value;
+
+        return callback(
+          {
+            messageId,
+            messageType,
+            payload,
+            subscribeActions(callback) {
+              const actionsSubscription = hostApi.chatActionSubscribe(enumValue('v1', undefined), action => {
+                if (
+                  action.tag === 'v1' &&
+                  action.value.payload.tag === 'ActionTriggered' &&
+                  action.value.payload.value.messageId === messageId
+                ) {
+                  callback(action.value.payload.value.actionId, action.value.payload.value.payload);
+                }
+              });
+
+              return actionsSubscription.unsubscribe;
+            },
+          },
+          node => send(enumValue('v1', node)),
+        );
       });
     },
   };
 
   return chat;
 };
+
+export function matchChatCustomRenderers(map: Record<string, ChatCustomMessageRenderer>): ChatCustomMessageRenderer {
+  return (params, render) => {
+    const { messageType } = params;
+    const renderer = map[messageType];
+
+    if (!renderer) {
+      throw new Error(`Renderer for message type ${messageType} is not defined`);
+    }
+
+    return renderer(params, render);
+  };
+}

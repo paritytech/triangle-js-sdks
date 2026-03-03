@@ -1,8 +1,8 @@
 {
-  "name": "@novasamatech/host-container",
+  "name": "@novasamatech/product-react-renderer",
   "type": "module",
-  "version": "0.6.5",
-  "description": "Host container for hosting and managing products within the Polkadot ecosystem.",
+  "version": "0.6.4",
+  "description": "React wrapper for custom renderer format from product-sdk",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -24,13 +24,13 @@
     "README.md"
   ],
   "dependencies": {
-    "@polkadot-api/utils": "^0.2.0",
-    "@polkadot-api/json-rpc-provider": "^0.0.4",
     "@novasamatech/host-api": "0.6.5",
-    "nanoid": "5.1.6"
+    "@novasamatech/product-sdk": "0.6.5",
+    "scale-ts": "1.6.1",
+    "react-reconciler": "0.33.0"
   },
-  "devDependencies": {
-    "electron": "^40.1.0"
+  "peerDependencies": {
+    "react": "^19.0.0"
   },
   "publishConfig": {
     "access": "public"

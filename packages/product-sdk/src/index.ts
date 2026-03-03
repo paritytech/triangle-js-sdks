@@ -11,12 +11,14 @@ export { createPapiProvider } from './papiProvider.js';
 
 export type {
   ChatBotRegistrationResult,
+  ChatCustomMessageRenderer,
+  ChatCustomMessageRendererParams,
   ChatMessageContent,
+  ChatReceivedAction,
   ChatRoom,
   ChatRoomRegistrationResult,
-  ReceivedChatAction,
 } from './chat.js';
-export { createProductChatManager } from './chat.js';
+export { createProductChatManager, matchChatCustomRenderers } from './chat.js';
 
 export type { ProductAccountId, SignedStatement, Statement, Topic } from './statementStore.js';
 export { createStatementStore } from './statementStore.js';

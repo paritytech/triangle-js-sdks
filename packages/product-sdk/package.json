@@ -9,9 +9,7 @@
     "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
   },
   "keywords": [
-    "polkadot",
-    "spektr",
-    "dapp"
+    "polkadot"
   ],
   "main": "dist/index.js",
   "exports": {

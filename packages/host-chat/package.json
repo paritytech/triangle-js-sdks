@@ -10,9 +10,7 @@
     "url": "git+https://github.com/novasamatech/spektr-sdk.git"
   },
   "keywords": [
-    "polkadot",
-    "spektr",
-    "dapp"
+    "polkadot"
   ],
   "main": "dist/index.js",
   "exports": {

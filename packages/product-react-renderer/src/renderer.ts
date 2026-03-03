@@ -1,0 +1,53 @@
+import type { ReactNode } from 'react';
+import { createElement } from 'react';
+
+import type { RenderCallback, SubscribeAction } from './context.js';
+import { RendererProvider } from './context.js';
+import { noop } from './helpers.js';
+import { reconciler } from './reconciler.js';
+import type { TextInstance, WidgetInstance } from './serializer.js';
+
+interface Container {
+  onRender: RenderCallback;
+  children: (WidgetInstance | TextInstance)[];
+}
+
+function onError(error: Error): void {
+  console.error('[product-react-renderer]', error);
+}
+
+type RendererParams = {
+  onRender: RenderCallback;
+  subscribeActions: SubscribeAction;
+};
+
+export function createRenderer({ onRender, subscribeActions }: RendererParams) {
+  let unmounted = false;
+
+  const container: Container = { onRender, children: [] };
+  const fiberRoot = reconciler.createContainer(
+    container,
+    0, // LegacyRoot — synchronous rendering
+    null,
+    false,
+    null,
+    '',
+    onError,
+    onError,
+    onError,
+    noop,
+  );
+
+  return {
+    mount(node: ReactNode) {
+      if (unmounted) {
+        throw new Error('Renderer is already unmounted');
+      }
+      reconciler.updateContainer(createElement(RendererProvider, { subscribeActions }, node), fiberRoot);
+    },
+    unmount() {
+      unmounted = true;
+      reconciler.updateContainerSync(null, fiberRoot);
+    },
+  };
+}
