@@ -1,3 +1,41 @@
+## 0.6.5-0 (2026-03-03)
+
+### 🚀 Features
+
+- papp integration ([#5](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/5))
+- Implemented correct Polkadot app pairing ui ([#6](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/6))
+- Support new statement store errors while submitting statements ([#8](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/8))
+- host api spec ([#7](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/7))
+- chat ([#9](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/9))
+- retry auth requests, add tests ([#12](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/12))
+- added clearAll method to localStorageAdapter ([#11](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/11))
+- add tr-ui, PairingPopover and theme support ([#10](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/10))
+- update sdk to 0.5 spec ([#13](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/13))
+- added a disconnect attempt and an error toast. PB-118 ([#15](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/15))
+- changes for 0.5 release ([#16](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/16))
+- implement chain JSON RPC methods ([#17](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/17))
+- 0.6.0 ([#22](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/22))
+- save session only after attestation ([#24](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/24))
+- update stable stage endpoints ([#29](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/29))
+- support updated statement store api ([#33](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/33))
+- added rate limiter. PB-192 ([#20](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/20))
+- new react wrapper for custom renderer engine ([45c5f1a](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/45c5f1a))
+
+### 🩹 Fixes
+
+- Explicitly set account type to sr25519 in extension injector ([c942974](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/c942974))
+- pairing ui logos and texts ([d99f67d](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/d99f67d))
+- added Preview People Chain ([#14](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/14))
+- chain connection sharing across products ([#21](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/21))
+- address normalization in sso sessions sign requests ([#31](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/31))
+- correct error message for unknown signing error ([#36](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/36))
+
+### ❤️ Thank You
+
+- Ilya Kalinin
+- Sergey Zhuravlev @johnthecat
+- Yanaty
+
 ## 0.6.5 (2026-02-27)
 
 ### 🚀 Features
