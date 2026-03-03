@@ -14,8 +14,6 @@ import {
   VerticalAlignment as VerticalAlignmentCodec,
 } from '@novasamatech/host-api';
 
-export type WidgetType = 'box' | 'column' | 'row' | 'spacer' | 'text' | 'button' | 'textField';
-
 export type Modifier = CodecType<typeof ModifierCodec>;
 
 export type ColorToken = CodecType<typeof ColorTokenCodec>;

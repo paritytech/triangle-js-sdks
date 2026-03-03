@@ -8,8 +8,7 @@ export type ActionCallback = (actionId: string, payload: Uint8Array | void) => v
 
 export type SubscribeAction = (callback: ActionCallback) => VoidFunction;
 
-export type RenderContextValue = {
-  callbacks: Map<string, ActionCallback>;
+type RenderContextValue = {
   registerAction(id: string, action: ActionCallback): VoidFunction;
 };
 
@@ -17,10 +16,10 @@ type ProviderProps = PropsWithChildren<{
   subscribeActions: SubscribeAction;
 }>;
 
-export const RenderContext = createContext<RenderContextValue | null>(null);
+const RenderContext = createContext<RenderContextValue | null>(null);
 
 export const RendererProvider = ({ subscribeActions, children }: ProviderProps) => {
-  const callbacks = useRef<RenderContextValue['callbacks']>(new Map());
+  const callbacks = useRef<Map<string, ActionCallback>>(new Map());
 
   const registerAction: RenderContextValue['registerAction'] = useCallback((id, action) => {
     callbacks.current.set(id, action);
@@ -38,15 +37,10 @@ export const RendererProvider = ({ subscribeActions, children }: ProviderProps) 
     });
   }, [subscribeActions]);
 
-  const value: RenderContextValue = {
-    callbacks: callbacks.current,
-    registerAction,
-  };
-
-  return <RenderContext.Provider value={value}>{children}</RenderContext.Provider>;
+  return <RenderContext.Provider value={{ registerAction }}>{children}</RenderContext.Provider>;
 };
 
-export function useRenderer() {
+function useRenderer() {
   const context = useContext(RenderContext);
   if (!context) {
     throw new Error('useRenderer must be used within a RendererProvider');

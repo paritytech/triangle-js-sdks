@@ -3,13 +3,14 @@ import ReactReconciler from 'react-reconciler';
 import { DefaultEventPriority } from 'react-reconciler/constants.js';
 
 import type { RenderCallback } from './context.js';
+import { noop } from './helpers.js';
 import type { TextInstance, WidgetInstance } from './serializer.js';
 import { serializeAndRender } from './serializer.js';
 
-interface Container {
+export type Container = {
   onRender: RenderCallback;
   children: (WidgetInstance | TextInstance)[];
-}
+};
 
 const RESERVED_PROPS = new Set(['children', 'key', 'ref']);
 
@@ -35,10 +36,6 @@ function insertBefore(
   const idx = arr.indexOf(beforeChild);
   arr.splice(idx !== -1 ? idx : arr.length, 0, child);
 }
-
-/** No-op stub for unused reconciler API methods. */
-// eslint-disable-next-line @typescript-eslint/no-empty-function
-const noop = (): void => {};
 
 let currentUpdatePriority: number = DefaultEventPriority;
 

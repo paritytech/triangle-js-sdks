@@ -4,13 +4,8 @@ import { createElement } from 'react';
 import type { RenderCallback, SubscribeAction } from './context.js';
 import { RendererProvider } from './context.js';
 import { noop } from './helpers.js';
+import type { Container } from './reconciler.js';
 import { reconciler } from './reconciler.js';
-import type { TextInstance, WidgetInstance } from './serializer.js';
-
-interface Container {
-  onRender: RenderCallback;
-  children: (WidgetInstance | TextInstance)[];
-}
 
 function onError(error: Error): void {
   console.error('[product-react-renderer]', error);

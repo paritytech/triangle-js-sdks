@@ -32,10 +32,12 @@ function setup() {
   const sdkTransport = createTransport(providers.sdk);
   const chat = createProductChatManager(sdkTransport);
 
-  // Collect every action-send function the host receives — one per product
-  // chatActionSubscribe() call (each rendered message creates its own subscription).
-  // triggerAction fans out to all of them so the per-messageId filter inside
-  // subscribeActions can route each event to the correct renderer.
+  /**
+   * Collect every action-send function the host receives — one per product
+   * chatActionSubscribe() call (each rendered message creates its own subscription).
+   * triggerAction fans out to all of them so the per-messageId filter inside
+   * subscribeActions can route each event to the correct renderer.
+   */
   const sendActions: ((action: any) => void)[] = [];
   container.handleChatActionSubscribe((_, send) => {
     sendActions.push(send);
@@ -96,7 +98,6 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
                 Title
               </Text>
             </Box>
-
             {/* Box B: background as plain ColorToken, width/height/minWidth/minHeight */}
             <Box
               contentAlignment="center"
@@ -113,7 +114,6 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
                 fillMaxHeight
               />
             </Box>
-
             {/* Row: verticalAlignment, horizontalArrangement, margin; covers bodyM/bodyS/caption + success/warning/error */}
             <Row verticalAlignment="bottom" horizontalArrangement="spaceEvenly" margin={8}>
               <Text style="bodyM" color="success">
@@ -127,14 +127,11 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
                 Item C
               </Text>
             </Row>
-
             <Text style="headline" color="textPrimary">
               Balance: 100 DOT
             </Text>
-
             {/* Spacer with fillMaxHeight */}
             <Spacer fillMaxHeight />
-
             <Button
               text="Submit"
               variant="primary"
@@ -158,7 +155,6 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
                 /* empty */
               }}
             />
-
             <TextField
               value="initial"
               placeholder="Type here"
@@ -168,6 +164,9 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
                 /* empty */
               }}
             />
+            test string
+            {null}
+            {false}
           </Column>
         ),
       ),
@@ -188,8 +187,8 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     expect(colMods).toContainEqual({ tag: 'padding', value: [16, 16, undefined, undefined] });
     expect(colMods).toContainEqual({ tag: 'fillWidth', value: true });
 
-    const [boxA, boxB, rowNode, headlineText, topSpacer, btnPrimary, btnSecondary, btnText, tfNode] = node.value
-      .children as any[];
+    const [boxA, boxB, rowNode, headlineText, topSpacer, btnPrimary, btnSecondary, btnText, tfNode, textNode] = node
+      .value.children as any[];
 
     // Box A: contentAlignment, background with Rounded shape, border, fillMaxWidth
     expect(boxA.tag).toBe('Box');
@@ -306,6 +305,10 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     expect(tfNode.value.props.label).toBe('Amount');
     expect(tfNode.value.props.enabled).toBe(true);
     expect(typeof tfNode.value.props.valueChangeAction).toBe('string');
+
+    // Text
+    expect(textNode.tag).toBe('String');
+    expect(textNode.value).toBe('test string');
 
     await act(async () => {
       sub.unsubscribe();
