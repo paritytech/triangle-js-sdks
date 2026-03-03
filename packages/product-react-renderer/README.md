@@ -157,16 +157,194 @@ chat.onCustomMessageRenderingRequest(
 
 ---
 
+## Components
+
+All components accept the [shared layout props](#layout-props) in addition to their own props.
+
+### `<Text>`
+
+| Prop       | Type              | Description                  |
+|------------|-------------------|------------------------------|
+| `style`    | `TypographyStyle` | Font style                   |
+| `color`    | `ColorToken`      | Text color                   |
+| `children` | `ReactNode`       | Text content or nested nodes |
+
+**`TypographyStyle`**: `titleXL` · `headline` · `bodyM` · `bodyS` · `caption`
+
+```tsx
+<Text style="headline" color="textPrimary">Balance: 42 DOT</Text>
+```
+
+### `<Button>`
+
+| Prop      | Type            | Description             |
+|-----------|-----------------|-------------------------|
+| `text`    | `string`        | Label (required)        |
+| `onClick` | `() => void`    | Tap handler (required)  |
+| `variant` | `ButtonVariant` | Visual style            |
+| `enabled` | `boolean`       | Defaults to `true`      |
+| `loading` | `boolean`       | Shows loading indicator |
+
+**`ButtonVariant`**: `primary` · `secondary` · `text`
+
+```tsx
+<Button text="Send" variant="primary" onClick={handleSend} />
+```
+
+### `<TextField>`
+
+| Prop            | Type                      | Description               |
+|-----------------|---------------------------|---------------------------|
+| `value`         | `string`                  | Current value (required)  |
+| `onValueChange` | `(value: string) => void` | Change handler (required) |
+| `placeholder`   | `string`                  | Placeholder text          |
+| `label`         | `string`                  | Field label               |
+| `enabled`       | `boolean`                 | Defaults to `true`        |
+
+```tsx
+<TextField value={query} placeholder="Search…" onValueChange={setQuery} />
+```
+
+### `<Column>`
+
+Stacks children vertically.
+
+| Prop                  | Type                  | Description          |
+|-----------------------|-----------------------|----------------------|
+| `horizontalAlignment` | `HorizontalAlignment` | Cross-axis alignment |
+| `verticalArrangement` | `Arrangement`         | Main-axis spacing    |
+
+**`HorizontalAlignment`**: `start` · `center` · `end`
+**`Arrangement`**: `start` · `end` · `center` · `spaceBetween` · `spaceAround` · `spaceEvenly`
+
+```tsx
+<Column horizontalAlignment="center" verticalArrangement="spaceBetween" padding={16}>
+  <Text style="headline">Title</Text>
+  <Button text="OK" onClick={handleOk} />
+</Column>
+```
+
+### `<Row>`
+
+Stacks children horizontally.
+
+| Prop                    | Type                | Description          |
+|-------------------------|---------------------|----------------------|
+| `verticalAlignment`     | `VerticalAlignment` | Cross-axis alignment |
+| `horizontalArrangement` | `Arrangement`       | Main-axis spacing    |
+
+**`VerticalAlignment`**: `top` · `center` · `bottom`
+
+```tsx
+<Row verticalAlignment="center" horizontalArrangement="spaceBetween">
+  <Text>Label</Text>
+  <Text color="textSecondary">Value</Text>
+</Row>
+```
+
+### `<Box>`
+
+Single-child container with optional content alignment.
+
+| Prop               | Type               | Description                 |
+|--------------------|--------------------|-----------------------------|
+| `contentAlignment` | `ContentAlignment` | Alignment of the child node |
+
+**`ContentAlignment`**: `topStart` · `topCenter` · `topEnd` · `centerStart` · `center` · `centerEnd` · `bottomStart` · `bottomCenter` · `bottomEnd`
+
+```tsx
+<Box contentAlignment="center" background="backgroundSecondary" padding={8}>
+  <Text>Centered</Text>
+</Box>
+```
+
+### `<Spacer>`
+
+Flexible space element. Use `fillMaxWidth` / `fillMaxHeight` or explicit `width` / `height`.
+
+```tsx
+<Row>
+  <Text>Left</Text>
+  <Spacer fillMaxWidth />
+  <Text>Right</Text>
+</Row>
+```
+
+---
+
+## Layout props
+
+Every component accepts these props to control sizing, spacing, and appearance.
+
+### Spacing
+
+| Prop      | Type      | Description   |
+|-----------|-----------|---------------|
+| `padding` | `Padding` | Inner spacing |
+| `margin`  | `Padding` | Outer spacing |
+
+`Padding` is a single number (all sides) or `[top, bottom, start, end]` for individual sides.
+
+### Sizing
+
+| Prop            | Type      | Description                     |
+|-----------------|-----------|---------------------------------|
+| `width`         | `number`  | Fixed width                     |
+| `height`        | `number`  | Fixed height                    |
+| `minWidth`      | `number`  | Minimum width                   |
+| `minHeight`     | `number`  | Minimum height                  |
+| `fillMaxWidth`  | `boolean` | Expand to fill available width  |
+| `fillMaxHeight` | `boolean` | Expand to fill available height |
+
+### Background
+
+`background` accepts either a `ColorToken` string or a `BackgroundStyle` object:
+
+```tsx
+// Plain color
+<Box background="backgroundSecondary" />
+
+// Color + shape
+<Box background={{ color: 'backgroundSecondary', shape: { tag: 'Rounded', value: 8 } }} />
+<Box background={{ color: 'backgroundTertiary', shape: { tag: 'Circle' } }} />
+```
+
+### Border
+
+```tsx
+<Box border={{ width: 1, color: 'textTertiary' }} />
+// With a rounded corner
+<Box border={{ width: 1, color: 'success', shape: { tag: 'Rounded', value: 4 } }} />
+```
+
+---
+
+## Color tokens
+
+| Token                  | Description                 |
+|------------------------|-----------------------------|
+| `textPrimary`          | Primary text                |
+| `textSecondary`        | Secondary / supporting text |
+| `textTertiary`         | Tertiary / hint text        |
+| `backgroundPrimary`    | Primary surface             |
+| `backgroundSecondary`  | Secondary surface           |
+| `backgroundTertiary`   | Tertiary surface            |
+| `success`              | Positive / success state    |
+| `warning`              | Warning state               |
+| `error`                | Error / destructive state   |
+
+---
+
 ## `createRenderer`
 
 The low-level primitive that `registerChatMessageRenderer` is built on. Use it directly when you need to manage the renderer lifecycle yourself or integrate it into a custom pipeline outside of the chat system.
 
 `createRenderer` returns an object with two methods:
 
-| Method | Description |
-|--------|-------------|
-| `mount(node)` | Render (or re-render) the given React node |
-| `unmount()` | Tear down the React tree and release all resources |
+| Method        | Description                              |
+|---------------|------------------------------------------|
+| `mount(node)` | Mount or update the element tree         |
+| `unmount()`   | Tear down the tree and release resources |
 
 ### Basic usage
 
