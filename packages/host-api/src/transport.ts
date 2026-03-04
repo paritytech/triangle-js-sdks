@@ -1,4 +1,4 @@
-import { enumValue, isEnumVariant, resultErr, resultOk } from '@novasamatech/scale';
+import { enumValue, isEnumVariant, resultErr, resultOk, toHex } from '@novasamatech/scale';
 import { createNanoEvents } from 'nanoevents';
 
 import { HANDSHAKE_INTERVAL, HANDSHAKE_TIMEOUT, JAM_CODEC_PROTOCOL_ID } from './constants.js';
@@ -6,15 +6,40 @@ import { composeAction, createRequestId, delay, promiseWithResolvers } from './h
 import type {
   ComposeMessageAction,
   MessageAction,
+  MessagePayloadSchema,
   PickMessagePayload,
   PickMessagePayloadValue,
 } from './protocol/messageCodec.js';
-import { Message } from './protocol/messageCodec.js';
+import { Message, MessagePayload } from './protocol/messageCodec.js';
 import { HandshakeErr } from './protocol/v1/handshake.js';
 import type { Provider } from './provider.js';
-import type { ConnectionStatus, HostApiMethod, RequestHandler, SubscriptionHandler, Transport } from './types.js';
+import type {
+  ConnectionStatus,
+  HostApiMethod,
+  RequestHandler,
+  Subscription,
+  SubscriptionHandler,
+  Transport,
+} from './types.js';
 
-const isConnected = (status: ConnectionStatus) => status === 'connected';
+function isConnected(status: ConnectionStatus) {
+  return status === 'connected';
+}
+
+function getSubscriptionKey(method: string, payload: MessagePayloadSchema) {
+  return `${method}_${toHex(MessagePayload.enc(payload))}`;
+}
+
+type InternalListener = {
+  unsubscribe: VoidFunction;
+  call(payload: any): void;
+};
+
+type InternalSubscription = {
+  requestId: string;
+  kill(): void;
+  listeners: InternalListener[];
+};
 
 export function createTransport(provider: Provider): Transport {
   let codecVersion = JAM_CODEC_PROTOCOL_ID;
@@ -62,6 +87,9 @@ export function createTransport(provider: Provider): Transport {
     throwIfIncorrectEnvironment();
     throwIfInvalidCodecVersion();
   }
+
+  // subscriptions management (multiplexing)
+  const activeSubscriptions: Map<string, InternalSubscription> = new Map();
 
   const transport: Transport = {
     provider,
@@ -207,52 +235,95 @@ export function createTransport(provider: Provider): Transport {
 
       const events = createNanoEvents<{ interrupt: VoidFunction }>();
 
-      const requestId = createRequestId();
-
       const startAction = composeAction(method, 'start');
-      const stopAction = composeAction(method, 'stop');
-      const interruptAction = composeAction(method, 'interrupt');
-      const receiveAction = composeAction(method, 'receive');
-
-      const unsubscribeReceive = transport.listenMessages(receiveAction, (receivedId, data) => {
-        if (receivedId === requestId) {
-          callback(data.value as PickMessagePayloadValue<ComposeMessageAction<Method, 'receive'>>);
-        }
-      });
-
-      const unsubscribeInterrupt = transport.listenMessages(interruptAction, receivedId => {
-        if (receivedId === requestId) {
-          events.emit('interrupt');
-          stopSubscription();
-        }
-      });
-
-      const stopSubscription = () => {
-        unsubscribeReceive();
-        unsubscribeInterrupt();
-        events.events = {};
-      };
-
       const startPayload = enumValue(startAction, payload) as never as PickMessagePayload<
         ComposeMessageAction<Method, 'start'>
       >;
 
-      transport.postMessage(requestId, startPayload);
+      const subscriptionKey = getSubscriptionKey(method, startPayload);
+      let subscription = activeSubscriptions.get(subscriptionKey);
 
-      return {
-        unsubscribe() {
-          stopSubscription();
+      function unsub() {
+        const subscription = activeSubscriptions.get(subscriptionKey);
+        if (subscription) {
+          const newListeners = subscription.listeners.filter(listener => listener.call !== callback);
+          if (newListeners.length === 0) {
+            activeSubscriptions.delete(subscriptionKey);
+            subscription.kill();
+          } else {
+            subscription.listeners = newListeners;
+          }
+        }
+      }
 
-          const stopPayload = enumValue(stopAction, undefined) as PickMessagePayload<
-            ComposeMessageAction<Method, 'stop'>
-          >;
+      const listener: InternalListener = {
+        call: callback,
+        unsubscribe: unsub,
+      };
 
-          transport.postMessage(requestId, stopPayload);
-        },
+      const publicSubscription: Subscription = {
+        unsubscribe: unsub,
         onInterrupt(callback) {
           return events.on('interrupt', callback);
         },
       };
+
+      // wiring up a real subscription
+      if (!subscription) {
+        const requestId = createRequestId();
+
+        const stopAction = composeAction(method, 'stop');
+        const interruptAction = composeAction(method, 'interrupt');
+        const receiveAction = composeAction(method, 'receive');
+
+        const unsubscribeReceive = transport.listenMessages(receiveAction, (receivedId, data) => {
+          if (receivedId === requestId) {
+            const subscription = activeSubscriptions.get(subscriptionKey);
+            if (subscription) {
+              for (const listener of subscription.listeners) {
+                listener.call(data.value);
+              }
+            }
+          }
+        });
+
+        const unsubscribeInterrupt = transport.listenMessages(interruptAction, receivedId => {
+          if (receivedId === requestId) {
+            events.emit('interrupt');
+            stopSubscription();
+          }
+        });
+
+        const stopSubscription = () => {
+          unsubscribeReceive();
+          unsubscribeInterrupt();
+          events.events = {};
+        };
+
+        // creating subscription
+
+        subscription = {
+          requestId,
+          kill: () => {
+            stopSubscription();
+
+            const stopPayload = enumValue(stopAction, undefined) as PickMessagePayload<
+              ComposeMessageAction<Method, 'stop'>
+            >;
+
+            transport.postMessage(requestId, stopPayload);
+          },
+          listeners: [listener],
+        };
+
+        activeSubscriptions.set(subscriptionKey, subscription);
+
+        transport.postMessage(requestId, startPayload);
+      } else {
+        subscription.listeners.push(listener);
+      }
+
+      return publicSubscription;
     },
 
     handleSubscription<const Method extends HostApiMethod>(method: Method, handler: SubscriptionHandler<Method>) {

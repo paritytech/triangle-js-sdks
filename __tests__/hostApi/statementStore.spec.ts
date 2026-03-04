@@ -144,6 +144,7 @@ describe('Host API: StatementStore', () => {
     const cleanupFn = vi.fn();
 
     container.handleStatementStoreSubscribe((_, send) => {
+      console.log('Subscribing');
       // Send initial update
       send([statement]);
       return cleanupFn;
