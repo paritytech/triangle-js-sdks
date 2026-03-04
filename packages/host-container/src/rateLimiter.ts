@@ -133,16 +133,16 @@ function createDropStrategy(config: CreateRateLimiterConfig): RateLimiter {
     lastRefillTimestamp: Date.now(),
   };
 
-  const refillTokens = () => {
+  function refillTokens() {
     const now = Date.now();
     const elapsed = now - state.lastRefillTimestamp;
     if (elapsed >= config.intervalMs) {
       state.remainingTokens = config.maxRequestsPerInterval;
       state.lastRefillTimestamp = now;
     }
-  };
+  }
 
-  const schedule = <T>(execute: () => T | Promise<T>): Promise<T> => {
+  function schedule<T>(execute: () => T | Promise<T>): Promise<T> {
     refillTokens();
     if (state.remainingTokens > 0) {
       state.remainingTokens -= 1;
@@ -157,14 +157,13 @@ function createDropStrategy(config: CreateRateLimiterConfig): RateLimiter {
       }
     }
     return Promise.reject(config.onDrop?.() ?? new GenericError({ reason: RATE_LIMITED_MESSAGE }));
-  };
+  }
 
-  return {
-    schedule,
-    destroy: () => {
-      /* no-op: drop strategy has no timers or queue */
-    },
-  };
+  function destroy() {
+    /* no-op: drop strategy has no timers or queue */
+  }
+
+  return { schedule, destroy };
 }
 
 export function createRateLimiter(config: CreateRateLimiterConfig): RateLimiter {
