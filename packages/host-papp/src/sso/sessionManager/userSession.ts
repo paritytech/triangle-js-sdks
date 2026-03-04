@@ -1,3 +1,4 @@
+import type { ContextualAlias, ProductAccountId } from '@novasamatech/host-api';
 import type { HexString } from '@novasamatech/scale';
 import { enumValue, toHex } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
@@ -5,9 +6,12 @@ import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { fieldListView } from '@novasamatech/storage-adapter';
 import { AccountId } from '@polkadot-api/substrate-bindings';
+import { mergeUint8 } from '@polkadot-api/utils';
+import { blake2b256 } from '@polkadot-labs/hdkd-helpers';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
 import type { CodecType } from 'scale-ts';
+import { member_from_entropy } from 'verifiablejs/bundler';
 
 import type { Callback } from '../../types.js';
 import type { StoredUserSession } from '../userSessionRepository.js';
@@ -26,10 +30,14 @@ type ProcessedMessage =
       processed: false;
     };
 
+const aliasEntropyEncoder = new TextEncoder();
+const ALIAS_ENTROPY_PREFIX = aliasEntropyEncoder.encode('polkadot-desktop-alias-entropy');
+
 export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
   signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
   signRaw(payload: SigningRawRequest): ResultAsync<SigningPayloadResponseData, Error>;
+  getAlias(domain: ProductAccountId): ResultAsync<ContextualAlias, Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
 };
@@ -206,6 +214,35 @@ export function createUserSession({
           });
         });
       });
+    },
+
+    getAlias(domain) {
+      const [dotNsIdentifier] = domain;
+
+      if (!dotNsIdentifier.endsWith('.dot')) {
+        return errAsync(new Error('Invalid DotNS identifier'));
+      }
+
+      const withoutDot = dotNsIdentifier.slice(0, -4);
+      const parts = withoutDot.split('.');
+      const productId = parts[0] ?? '';
+      const subdomain = parts.length > 1 ? parts.slice(1).join('.') : '';
+      const contextString = `${productId}/${subdomain}`;
+      const context = blake2b256(new TextEncoder().encode(contextString));
+
+      try {
+        const baseEntropy = blake2b256(mergeUint8([ALIAS_ENTROPY_PREFIX, userSession.remoteAccount.accountId]));
+        const verifiableEntropy = blake2b256(mergeUint8([baseEntropy, context]));
+        const alias = member_from_entropy(verifiableEntropy);
+
+        return okAsync<ContextualAlias>({
+          context,
+          alias,
+        });
+      } catch (e) {
+        const error = e instanceof Error ? e : new Error(String(e));
+        return errAsync(error);
+      }
     },
 
     dispose() {

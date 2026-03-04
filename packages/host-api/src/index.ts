@@ -33,6 +33,7 @@ export {
   Account,
   AccountConnectionStatus,
   AccountId,
+  ContextualAlias,
   CreateProofErr,
   ProductAccountId,
   RequestCredentialsErr,
