@@ -1,3 +1,18 @@
+## 0.6.6-0 (2026-03-03)
+
+### 🚀 Features
+
+- new react wrapper for custom renderer engine ([45c5f1a](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/45c5f1a))
+
+### 🩹 Fixes
+
+- correct error message for unknown signing error ([#36](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/36))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- Yanaty
+
 ## 0.6.5 (2026-02-27)
 
 ### 🚀 Features

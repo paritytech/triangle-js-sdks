@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-container",
   "type": "module",
-  "version": "0.6.5",
+  "version": "0.6.6-0",
   "description": "Host container for hosting and managing products within the Polkadot ecosystem.",
   "license": "Apache-2.0",
   "repository": {
@@ -9,9 +9,7 @@
     "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
   },
   "keywords": [
-    "polkadot",
-    "spektr",
-    "dapp"
+    "polkadot"
   ],
   "main": "dist/index.js",
   "exports": {
@@ -28,7 +26,7 @@
   "dependencies": {
     "@polkadot-api/utils": "^0.2.0",
     "@polkadot-api/json-rpc-provider": "^0.0.4",
-    "@novasamatech/host-api": "0.6.5",
+    "@novasamatech/host-api": "0.6.6-0",
     "nanoid": "5.1.6"
   },
   "devDependencies": {
