@@ -216,7 +216,17 @@ const createHandshakePayloadV1 = fromThrowable(
     const hostVersion = hostMetadata?.hostVersion;
     const osType = hostMetadata?.osType;
     const osVersion = hostMetadata?.osVersion;
-    return HandshakeData.enc(enumValue('v1', [ssPublicKey, encrPublicKey, metadata, hostVersion, osType, osVersion]));
+
+    return HandshakeData.enc(
+      enumValue('v1', {
+        ssPublicKey,
+        encrPublicKey,
+        metadata,
+        hostVersion,
+        osType,
+        osVersion,
+      }),
+    );
   },
   toError,
 );

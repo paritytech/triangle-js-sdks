@@ -6,7 +6,14 @@ import { EncrPubKey, SsPubKey } from '../../../crypto.js';
 const optStr = Option(str);
 
 export const HandshakeData = Enum({
-  v1: Tuple(SsPubKey, EncrPubKey, str, optStr, optStr, optStr),
+  v1: Struct({
+    ssPublicKey: SsPubKey,
+    encrPublicKey: EncrPubKey,
+    metadata: str,
+    hostVersion: optStr,
+    osType: optStr,
+    osVersion: optStr,
+  }),
 });
 
 export const HandshakeResponsePayload = Enum({
