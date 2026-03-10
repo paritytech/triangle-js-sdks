@@ -31,9 +31,9 @@ export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
   signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
   signRaw(payload: SigningRawRequest): ResultAsync<SigningPayloadResponseData, Error>;
-  getAlias(domain: ProductAccountId): ResultAsync<ContextualAlias, Error>;
-  createProof(
-    domain: ProductAccountId,
+  getRingVrfAlias(productAccountId: ProductAccountId): ResultAsync<ContextualAlias, Error>;
+  createRingVrfProof(
+    productAccountId: ProductAccountId,
     ringLocation: RingLocation,
     message: Uint8Array,
   ): ResultAsync<Uint8Array, Error>;
@@ -215,15 +215,15 @@ export function createUserSession({
       });
     },
 
-    getAlias(domain) {
-      const [dotNsIdentifier, derivationIndex] = domain;
+    getRingVrfAlias(productAccountId) {
+      const [dotNsIdentifier, derivationIndex] = productAccountId;
 
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
         data: enumValue(
           'v1',
-          enumValue('AliasRequest', {
+          enumValue('RingVrfAliasRequest', {
             dotNsIdentifier,
             derivationIndex,
           }),
@@ -233,7 +233,7 @@ export function createUserSession({
       const responseFilter = (message: RemoteMessage) => {
         if (
           message.data.tag === 'v1' &&
-          message.data.value.tag === 'AliasResponse' &&
+          message.data.value.tag === 'RingVrfAliasResponse' &&
           message.data.value.value.respondingTo === messageId
         ) {
           return message.data.value.value.payload;
@@ -250,15 +250,15 @@ export function createUserSession({
         });
     },
 
-    createProof(domain, ringLocation, message) {
-      const [dotNsIdentifier, derivationIndex] = domain;
+    createRingVrfProof(productAccountId, ringLocation, message) {
+      const [dotNsIdentifier, derivationIndex] = productAccountId;
 
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
         data: enumValue(
           'v1',
-          enumValue('CreateProofRequest', {
+          enumValue('RingVrfCreateProofRequest', {
             dotNsIdentifier,
             derivationIndex,
             ringLocation,
@@ -270,7 +270,7 @@ export function createUserSession({
       const responseFilter = (message: RemoteMessage) => {
         if (
           message.data.tag === 'v1' &&
-          message.data.value.tag === 'CreateProofResponse' &&
+          message.data.value.tag === 'RingVrfCreateProofResponse' &&
           message.data.value.value.respondingTo === messageId
         ) {
           return message.data.value.value.payload;

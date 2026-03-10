@@ -5,24 +5,24 @@ import { Bytes, Enum, Result, Struct, _void, str, u32 } from 'scale-ts';
 import { SigningRequestCodec } from './signingRequest.js';
 import { SigningResponseCodec } from './signingResponse.js';
 
-const AliasRequestCodec = Struct({
+const RingVrfAliasRequestCodec = Struct({
   dotNsIdentifier: str,
   derivationIndex: u32,
 });
 
-const AliasResponseCodec = Struct({
+const RingVrfAliasResponseCodec = Struct({
   respondingTo: str,
   payload: Result(ContextualAlias, str),
 });
 
-const CreateProofRequestCodec = Struct({
+const RingVrfCreateProofRequestCodec = Struct({
   dotNsIdentifier: str,
   derivationIndex: u32,
   ringLocation: RingLocation,
   message: Bytes(),
 });
 
-const CreateProofResponseCodec = Struct({
+const RingVrfCreateProofResponseCodec = Struct({
   respondingTo: str,
   payload: Result(Bytes(), str),
 });
@@ -35,10 +35,10 @@ export const RemoteMessageCodec = Struct({
       Disconnected: _void,
       SignRequest: SigningRequestCodec,
       SignResponse: SigningResponseCodec,
-      AliasRequest: AliasRequestCodec,
-      AliasResponse: AliasResponseCodec,
-      CreateProofRequest: CreateProofRequestCodec,
-      CreateProofResponse: CreateProofResponseCodec,
+      RingVrfAliasRequest: RingVrfAliasRequestCodec,
+      RingVrfAliasResponse: RingVrfAliasResponseCodec,
+      RingVrfCreateProofRequest: RingVrfCreateProofRequestCodec,
+      RingVrfCreateProofResponse: RingVrfCreateProofResponseCodec,
     }),
   }),
 });
