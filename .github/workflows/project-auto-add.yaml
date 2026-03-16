@@ -14,5 +14,5 @@ jobs:
     steps:
       - uses: actions/add-to-project@v1
         with:
-          project-url: https://github.com/users/filvecchiato/projects/3
+          project-url: https://github.com/orgs/paritytech/projects/263
           github-token: ${{ secrets.PROJECT_PAT }}
