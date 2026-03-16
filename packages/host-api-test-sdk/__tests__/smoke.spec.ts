@@ -1,4 +1,4 @@
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { TestHostServer } from '../dist/index.js';
 import { createTestHostServer } from '../dist/index.js';
@@ -7,16 +7,21 @@ describe('host-api-test-sdk smoke', () => {
   let server: TestHostServer;
   let html: string;
 
-  it('should start the server and serve the host page', async () => {
+  beforeAll(async () => {
     server = await createTestHostServer({
       productUrl: 'http://localhost:3001',
       accounts: ['alice', 'bob'],
     });
 
     const res = await fetch(server.url);
-    html = await res.text();
-
     expect(res.status).toBe(200);
+    html = await res.text();
+  });
+
+  afterAll(async () => {
+    if (server) {
+      await server.close();
+    }
   });
 
   it('has iframe with correct sandbox attributes', () => {
@@ -26,7 +31,6 @@ describe('host-api-test-sdk smoke', () => {
 
   it('has config with correct structure', () => {
     expect(html).toContain('__TEST_HOST_CONFIG__');
-    // Extract the config JSON from the HTML
     const configMatch = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
     expect(configMatch).not.toBeNull();
     const config = JSON.parse(configMatch![1]);
@@ -60,11 +64,5 @@ describe('host-api-test-sdk smoke', () => {
 
   it('has test-host API', () => {
     expect(html).toContain('__TEST_HOST__');
-  });
-
-  afterAll(async () => {
-    if (server) {
-      await server.close();
-    }
   });
 });

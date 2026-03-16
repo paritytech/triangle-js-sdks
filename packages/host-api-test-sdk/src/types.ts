@@ -41,3 +41,14 @@ export interface SigningLogEntry {
   payload: unknown;
   timestamp: number;
 }
+
+/** Shape of window.__TEST_HOST__ — shared between browser bundle and Playwright fixture. */
+export interface TestHostAPI {
+  switchAccount(name: string): Promise<void>;
+  setAccounts(names: string[]): Promise<void>;
+  getSigningLog(): SigningLogEntry[];
+  clearSigningLog(): void;
+  getConnectionStatus(): string;
+  getChainStatus(): string;
+  dispose(): void;
+}

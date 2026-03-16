@@ -20,6 +20,8 @@ import { cryptoWaitReady } from '@polkadot/util-crypto';
 import { ResultAsync } from 'neverthrow';
 import { getWsProvider } from 'polkadot-api/ws-provider';
 
+import type { SigningLogEntry, TestHostAPI } from '../types.js';
+
 // ── Types ──────────────────────────────────────────────────────────
 
 interface AccountConfig {
@@ -37,22 +39,6 @@ interface HostConfig {
   productUrl: string;
   accounts: AccountConfig[];
   chain: ChainRuntimeConfig;
-}
-
-interface SigningLogEntry {
-  type: 'payload' | 'raw';
-  payload: unknown;
-  timestamp: number;
-}
-
-interface TestHostAPI {
-  switchAccount(name: string): Promise<void>;
-  setAccounts(names: string[]): Promise<void>;
-  getSigningLog(): SigningLogEntry[];
-  clearSigningLog(): void;
-  getConnectionStatus(): string;
-  getChainStatus(): string;
-  dispose(): void;
 }
 
 // ── Globals ────────────────────────────────────────────────────────
@@ -149,14 +135,14 @@ function setupContainer(
 
   // ── Chain connection ─────────────────────────────────────────
 
-  chainStatus = 'connecting';
+  chainStatus = 'idle';
   const chainProvider = getWsProvider(chainConfig.rpcUrl);
-  chainStatus = 'connected';
 
   container.handleChainConnection(requestedGenesisHash => {
     const requested = normalizeHash(requestedGenesisHash);
     const configured = normalizeHash(chainConfig.genesisHash);
     if (requested === configured) {
+      chainStatus = 'connected';
       console.log('[test-host] Chain connection established for', chainConfig.name);
       return chainProvider;
     }

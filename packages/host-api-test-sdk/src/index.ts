@@ -8,5 +8,6 @@ export type {
   DevAccountName,
   HexString,
   SigningLogEntry,
+  TestHostAPI,
   TestHostServer,
 } from './types.js';
