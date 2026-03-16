@@ -1,4 +1,4 @@
-import type { SigningPayloadRequest, UserSession } from '@novasamatech/host-papp';
+import type { HostMetadata, SigningPayloadRequest, UserSession } from '@novasamatech/host-papp';
 import { createPappAdapter } from '@novasamatech/host-papp';
 import { Button } from '@novasamatech/tr-ui';
 import { AccountId } from '@polkadot-api/substrate-bindings';
@@ -71,7 +71,7 @@ const ConnectButton = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <PairingPopover>
+      <PairingPopover size={210}>
         <Button onClick={() => auth.authenticate('popover')}>Open auth Popover</Button>
       </PairingPopover>
       <Button onClick={() => auth.authenticate('modal')}>Open auth Modal</Button>
@@ -86,6 +86,11 @@ const meta: Meta<typeof PappProvider> = {
     adapter: createPappAdapter({
       appId: 'https://test.com',
       metadata: 'https://shorturl.at/zGkir',
+      hostMetadata: {
+        hostVersion: '1.2.3',
+        osType: 'macOS',
+        osVersion: '14.4.1',
+      } satisfies HostMetadata,
     }),
   },
   render({ adapter }) {

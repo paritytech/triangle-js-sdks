@@ -12,9 +12,10 @@ import styles from './Pairing.module.css';
 
 type Props = {
   theme?: 'light' | 'dark';
+  size?: number;
 };
 
-export const PairingModal = memo(({ theme }: Props = {}) => {
+export const PairingModal = memo(({ theme, size = 280 }: Props = {}) => {
   const auth = useAuthentication();
   const { status } = useAuthStatus();
 
@@ -36,7 +37,7 @@ export const PairingModal = memo(({ theme }: Props = {}) => {
     <ThemeProvider theme={defaultTheme} defaultMode={theme ?? 'light'}>
       <Modal open={open} onOpenChange={toggleModal} width="fit-content">
         <div className={styles.container}>
-          {status.step === 'pairing' && <PairingStep payload={status.payload} />}
+          {status.step === 'pairing' && <PairingStep theme={theme} size={size} payload={status.payload} />}
           {status.step === 'pairingError' && <PairingErrorStep message={status.message} />}
           {status.step === 'attestation' && <LoadingStep />}
           {status.step === 'attestationError' && <PairingErrorStep message={status.message} />}
@@ -46,7 +47,7 @@ export const PairingModal = memo(({ theme }: Props = {}) => {
   );
 });
 
-const PairingStep = ({ payload }: { payload: string }) => {
+const PairingStep = ({ payload, size, theme }: { payload: string; size: number; theme?: 'light' | 'dark' }) => {
   const translation = useTranslations();
 
   return (
@@ -54,7 +55,7 @@ const PairingStep = ({ payload }: { payload: string }) => {
       <span className={styles.pairingHeader}>{translation.pairingHeader}</span>
       <span className={styles.scanCallToAction}>{translation.pairingScanCallToAction}</span>
       <div className={styles.qrContainer}>
-        <QrCode value={payload} size={280} theme="dark" />
+        <QrCode value={payload} size={size} theme={theme} />
       </div>
       <span className={styles.pairingDescription}>{translation.pairingDescription}</span>
     </div>
