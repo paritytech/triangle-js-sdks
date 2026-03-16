@@ -23,6 +23,7 @@ This is an Nx monorepo for the host-product integration SDKs — a set of TypeSc
 | `@novasamatech/scale` | `packages/scale` | Additional scale-ts codec bindings                  |
 | `@novasamatech/statement-store` | `packages/statement-store` | Blockchain statement store integration              |
 | `@novasamatech/storage-adapter` | `packages/storage-adapter` | Event-driven storage abstraction                    |
+| `@novasamatech/host-api-test-sdk` | `packages/host-api-test-sdk` | Test host for E2E testing with auto-signing          |
 
 ## Common Commands
 

@@ -1,0 +1,76 @@
+{
+  "name": "@novasamatech/host-api-test-sdk",
+  "type": "module",
+  "version": "0.6.6-0",
+  "description": "Lightweight test host for E2E testing — embeds dapps with auto-signing dev accounts, no Docker needed",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
+  },
+  "main": "dist/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "#/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./playwright": {
+      "#/source": "./src/playwright/index.ts",
+      "types": "./dist/playwright/index.d.ts",
+      "default": "./dist/playwright/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "peerDependencies": {
+    "@playwright/test": ">=1.0.0"
+  },
+  "peerDependenciesMeta": {
+    "@playwright/test": {
+      "optional": true
+    }
+  },
+  "dependencies": {
+    "@novasamatech/host-api": "0.6.6-0",
+    "@novasamatech/host-container": "0.6.6-0",
+    "@polkadot/keyring": "^14.0.0",
+    "@polkadot/types": "^16.0.0",
+    "@polkadot/util": "^14.0.0",
+    "@polkadot/util-crypto": "^14.0.0",
+    "neverthrow": "^8.2.0",
+    "polkadot-api": "^1.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.50.0",
+    "esbuild": "^0.25.0"
+  },
+  "scripts": {
+    "build:bundle": "node build.mjs",
+    "build": "node build.mjs && tsc"
+  },
+  "nx": {
+    "targets": {
+      "build": {
+        "executor": "nx:run-commands",
+        "options": {
+          "commands": [
+            "node build.mjs",
+            "tsc"
+          ],
+          "cwd": "packages/host-api-test-sdk",
+          "parallel": false
+        },
+        "dependsOn": ["^build"],
+        "inputs": ["{projectRoot}/**/*", "sharedGlobals"],
+        "outputs": ["{projectRoot}/dist"]
+      }
+    }
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
