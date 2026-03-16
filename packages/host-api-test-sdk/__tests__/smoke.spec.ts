@@ -31,9 +31,9 @@ describe('host-api-test-sdk smoke', () => {
 
   it('has config with correct structure', () => {
     expect(html).toContain('__TEST_HOST_CONFIG__');
-    const configMatch = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
-    expect(configMatch).not.toBeNull();
-    const config = JSON.parse(configMatch![1]);
+    const match = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
+    expect(match?.[1]).toBeDefined();
+    const config = JSON.parse(match![1]!) as Record<string, unknown>;
     expect(config).toHaveProperty('productUrl', 'http://localhost:3001');
     expect(config).toHaveProperty('accounts');
     expect(config).toHaveProperty('chain');
@@ -44,16 +44,16 @@ describe('host-api-test-sdk smoke', () => {
   });
 
   it('has Alice account with correct URI', () => {
-    const configMatch = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
-    const config = JSON.parse(configMatch![1]);
+    const match = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
+    const config = JSON.parse(match![1]!) as Record<string, unknown>;
     expect(config.accounts).toEqual(
       expect.arrayContaining([expect.objectContaining({ name: 'Alice', uri: '//Alice' })]),
     );
   });
 
   it('has Bob account with correct URI', () => {
-    const configMatch = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
-    const config = JSON.parse(configMatch![1]);
+    const match = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
+    const config = JSON.parse(match![1]!) as Record<string, unknown>;
     expect(config.accounts).toEqual(expect.arrayContaining([expect.objectContaining({ name: 'Bob', uri: '//Bob' })]));
   });
 

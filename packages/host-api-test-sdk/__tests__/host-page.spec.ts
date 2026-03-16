@@ -13,6 +13,18 @@ describe('host page generation', () => {
     return res.text();
   }
 
+  interface EmbeddedConfig {
+    productUrl: string;
+    accounts: Array<{ name: string; uri: string }>;
+    chain: { genesisHash: string; rpcUrl: string; name: string };
+  }
+
+  function extractConfig(html: string): EmbeddedConfig {
+    const match = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
+    if (!match?.[1]) throw new Error('Config not found in HTML');
+    return JSON.parse(match[1]) as EmbeddedConfig;
+  }
+
   afterAll(async () => {
     await Promise.all(servers.map(s => s.close()));
   });
@@ -24,17 +36,17 @@ describe('host page generation', () => {
         accounts: ['alice', 'bob', 'charlie', 'dave', 'eve', 'ferdie'],
       });
 
-      const configMatch = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
-      expect(configMatch).not.toBeNull();
-      const config = JSON.parse(configMatch![1]);
+      const config = extractConfig(html);
 
       expect(config.accounts).toHaveLength(6);
-      expect(config.accounts[0]).toEqual({ name: 'Alice', uri: '//Alice' });
-      expect(config.accounts[1]).toEqual({ name: 'Bob', uri: '//Bob' });
-      expect(config.accounts[2]).toEqual({ name: 'Charlie', uri: '//Charlie' });
-      expect(config.accounts[3]).toEqual({ name: 'Dave', uri: '//Dave' });
-      expect(config.accounts[4]).toEqual({ name: 'Eve', uri: '//Eve' });
-      expect(config.accounts[5]).toEqual({ name: 'Ferdie', uri: '//Ferdie' });
+      expect(config.accounts).toEqual([
+        { name: 'Alice', uri: '//Alice' },
+        { name: 'Bob', uri: '//Bob' },
+        { name: 'Charlie', uri: '//Charlie' },
+        { name: 'Dave', uri: '//Dave' },
+        { name: 'Eve', uri: '//Eve' },
+        { name: 'Ferdie', uri: '//Ferdie' },
+      ]);
     });
 
     it('defaults to alice when no accounts specified', async () => {
@@ -42,11 +54,9 @@ describe('host page generation', () => {
         productUrl: 'http://localhost:3000',
       });
 
-      const configMatch = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
-      const config = JSON.parse(configMatch![1]);
+      const config = extractConfig(html);
 
-      expect(config.accounts).toHaveLength(1);
-      expect(config.accounts[0]).toEqual({ name: 'Alice', uri: '//Alice' });
+      expect(config.accounts).toEqual([{ name: 'Alice', uri: '//Alice' }]);
     });
   });
 
@@ -56,8 +66,7 @@ describe('host page generation', () => {
         productUrl: 'http://localhost:3000',
       });
 
-      const configMatch = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
-      const config = JSON.parse(configMatch![1]);
+      const config = extractConfig(html);
 
       expect(config.chain.genesisHash).toBe(PASEO_ASSET_HUB.genesisHash);
       expect(config.chain.rpcUrl).toBe(PASEO_ASSET_HUB.rpcUrl);
@@ -70,8 +79,7 @@ describe('host page generation', () => {
         chain: PREVIEWNET,
       });
 
-      const configMatch = html.match(/window\.__TEST_HOST_CONFIG__\s*=\s*({.*?});/);
-      const config = JSON.parse(configMatch![1]);
+      const config = extractConfig(html);
 
       expect(config.chain.genesisHash).toBe(PREVIEWNET.genesisHash);
       expect(config.chain.rpcUrl).toBe(PREVIEWNET.rpcUrl);
