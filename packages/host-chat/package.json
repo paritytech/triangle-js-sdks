@@ -29,7 +29,7 @@
     "@novasamatech/scale": "0.6.6-1",
     "@novasamatech/statement-store": "0.6.6-1",
     "@novasamatech/storage-adapter": "0.6.6-1",
-    "nanoid": "5.1.6",
+    "nanoid": "5.1.7",
     "neverthrow": "^8.2.0"
   },
   "publishConfig": {

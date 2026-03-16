@@ -38,7 +38,7 @@
     "@polkadot-labs/hdkd-helpers": "^0.0.27",
     "@scure/sr25519": "1.0.0",
     "nanoevents": "9.1.0",
-    "nanoid": "5.1.6",
+    "nanoid": "5.1.7",
     "neverthrow": "^8.2.0",
     "polkadot-api": "^1.23.3",
     "scale-ts": "1.6.1",

@@ -25,7 +25,7 @@
     "@novasamatech/scale": "0.6.6-1",
     "@polkadot-api/utils": "^0.2.0",
     "nanoevents": "9.1.0",
-    "nanoid": "5.1.6",
+    "nanoid": "5.1.7",
     "neverthrow": "^8.2.0",
     "scale-ts": "1.6.1"
   },

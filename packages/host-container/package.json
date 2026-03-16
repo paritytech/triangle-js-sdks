@@ -28,10 +28,10 @@
     "@polkadot-api/utils": "^0.2.0",
     "@polkadot-api/json-rpc-provider": "^0.0.4",
     "@novasamatech/host-api": "0.6.6-1",
-    "nanoid": "5.1.6"
+    "nanoid": "5.1.7"
   },
   "devDependencies": {
-    "electron": "^40.1.0"
+    "electron": "^41.0.2"
   },
   "publishConfig": {
     "access": "public"
