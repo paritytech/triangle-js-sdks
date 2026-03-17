@@ -243,7 +243,7 @@ export function createTransport(provider: Provider): Transport {
       const subscriptionKey = getSubscriptionKey(method, startPayload);
       let subscription = activeSubscriptions.get(subscriptionKey);
 
-      function unsub() {
+      function unsubscribeListener() {
         const subscription = activeSubscriptions.get(subscriptionKey);
         if (subscription) {
           const newListeners = subscription.listeners.filter(listener => listener.call !== callback);
@@ -258,11 +258,11 @@ export function createTransport(provider: Provider): Transport {
 
       const listener: InternalListener = {
         call: callback,
-        unsubscribe: unsub,
+        unsubscribe: unsubscribeListener,
       };
 
       const publicSubscription: Subscription = {
-        unsubscribe: unsub,
+        unsubscribe: unsubscribeListener,
         onInterrupt(callback) {
           return events.on('interrupt', callback);
         },

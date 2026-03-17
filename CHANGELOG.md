@@ -1,16 +1,27 @@
-## 0.6.6-0 (2026-03-03)
+## 0.6.6 (2026-03-17)
 
 ### 🚀 Features
 
-- new react wrapper for custom renderer engine ([45c5f1a](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/45c5f1a))
+- product-react-renderer package with chat adapter integration ([#38](https://github.com/paritytech/triangle-js-sdks/pull/38))
+- add Paseo stable stage endpoint ([#43](https://github.com/paritytech/triangle-js-sdks/pull/43))
+- make logger configurable ([#19](https://github.com/paritytech/triangle-js-sdks/pull/19))
+- add hostMetadata to sign-in payload. PB-293 ([#37](https://github.com/paritytech/triangle-js-sdks/pull/37))
 
 ### 🩹 Fixes
 
-- correct error message for unknown signing error ([#36](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/36))
+- correct error message for unknown signing error ([#36](https://github.com/paritytech/triangle-js-sdks/pull/36))
+- qr styles ([#59](https://github.com/paritytech/triangle-js-sdks/pull/59))
+
+### Chore
+
+- RFC/features by .md files ([#57](https://github.com/paritytech/triangle-js-sdks/pull/57))
 
 ### ❤️ Thank You
 
-- Sergey Zhuravlev @johnthecat
+- Filippo
+- Ilya Kalinin
+- Ryan Lee
+- Sergey Zhuravlev
 - Yanaty
 
 ## 0.6.5 (2026-02-27)

@@ -144,7 +144,6 @@ describe('Host API: StatementStore', () => {
     const cleanupFn = vi.fn();
 
     container.handleStatementStoreSubscribe((_, send) => {
-      console.log('Subscribing');
       // Send initial update
       send([statement]);
       return cleanupFn;
@@ -153,16 +152,11 @@ describe('Host API: StatementStore', () => {
     const callback = vi.fn();
     const subscription = statementStore.subscribe(topics, callback);
 
-    // Wait for async message passing
-    await new Promise(resolve => setTimeout(resolve, 10));
-
     expect(callback).toHaveBeenCalledTimes(1);
 
     // Unsubscribe
     subscription.unsubscribe();
 
-    // Wait a bit and verify cleanup was called
-    await new Promise(resolve => setTimeout(resolve, 10));
     expect(cleanupFn).toHaveBeenCalled();
   });
 });

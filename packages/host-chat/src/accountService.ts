@@ -96,7 +96,7 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
         if (!raw) return null;
 
         const credibility: Credibility =
-          raw.credibility.type == 'Lite'
+          raw.credibility.type === 'Lite'
             ? {
                 type: 'Lite',
               }

@@ -290,7 +290,7 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
     }
   }
 
-  function convertRuntime(runtime: unknown): unknown | undefined {
+  function convertRuntime(runtime: unknown): unknown {
     if (!runtime || typeof runtime !== 'object') return undefined;
 
     const rt = runtime as Record<string, unknown>;
