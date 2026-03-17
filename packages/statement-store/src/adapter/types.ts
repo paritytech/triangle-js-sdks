@@ -4,6 +4,7 @@ import type { ResultAsync } from 'neverthrow';
 export type StatementStoreAdapter = {
   queryStatements(topics: Uint8Array[], destination?: Uint8Array): ResultAsync<Statement[], Error>;
   subscribeStatements(topics: Uint8Array[], callback: (statements: Statement[]) => unknown): VoidFunction;
+  reconnect(): void;
   submitStatement(
     statement: SignedStatement,
   ): ResultAsync<

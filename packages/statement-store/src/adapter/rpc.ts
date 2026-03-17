@@ -36,6 +36,7 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
   const sdk = createStatementSdk(lazyClient.getRequestFn(), lazyClient.getSubscribeFn());
 
   const activeSubscriptions = new Map<string, VoidFunction>();
+  const activeTopics = new Map<string, Uint8Array[]>();
   const callbacks = new Map<string, StatementsCallback[]>();
 
   function addCallback(key: string, callback: StatementsCallback) {
@@ -60,6 +61,41 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
     return list;
   }
 
+  function createSubscription(key: string, topics: Uint8Array[]) {
+    const filter = toTopicFilter(topics);
+    let batch: Statement[] = [];
+    let flushScheduled = false;
+
+    const flush = () => {
+      flushScheduled = false;
+      if (batch.length === 0) return;
+      const statements = batch;
+      batch = [];
+      const currentCallbacks = callbacks.get(key);
+      if (currentCallbacks) {
+        for (const fn of currentCallbacks) {
+          fn(statements);
+        }
+      }
+    };
+
+    const unsub = sdk.subscribeStatements(
+      filter,
+      statement => {
+        batch.push(statement);
+        if (!flushScheduled) {
+          flushScheduled = true;
+          setTimeout(flush, 0);
+        }
+      },
+      error => {
+        console.error('Statement subscription error:', error);
+      },
+    );
+
+    activeSubscriptions.set(key, unsub);
+  }
+
   const adapter: StatementStoreAdapter = {
     queryStatements(topics) {
       const filter = toTopicFilter(topics);
@@ -69,40 +105,10 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
     subscribeStatements(topics, callback) {
       const key = createKey(topics);
       const list = addCallback(key, callback);
+      activeTopics.set(key, topics);
 
       if (list.length === 1) {
-        const filter = toTopicFilter(topics);
-        let batch: Statement[] = [];
-        let flushScheduled = false;
-
-        const flush = () => {
-          flushScheduled = false;
-          if (batch.length === 0) return;
-          const statements = batch;
-          batch = [];
-          const currentCallbacks = callbacks.get(key);
-          if (currentCallbacks) {
-            for (const fn of currentCallbacks) {
-              fn(statements);
-            }
-          }
-        };
-
-        const unsub = sdk.subscribeStatements(
-          filter,
-          statement => {
-            batch.push(statement);
-            if (!flushScheduled) {
-              flushScheduled = true;
-              setTimeout(flush, 0);
-            }
-          },
-          error => {
-            console.error('Statement subscription error:', error);
-          },
-        );
-
-        activeSubscriptions.set(key, unsub);
+        createSubscription(key, topics);
       }
 
       return () => {
@@ -112,8 +118,24 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
           const unsub = activeSubscriptions.get(key);
           unsub?.();
           activeSubscriptions.delete(key);
+          activeTopics.delete(key);
         }
       };
+    },
+
+    reconnect() {
+      for (const unsub of activeSubscriptions.values()) {
+        unsub();
+      }
+      activeSubscriptions.clear();
+
+      for (const [key, topics] of activeTopics) {
+        if (!callbacks.has(key)) {
+          activeTopics.delete(key);
+          continue;
+        }
+        createSubscription(key, topics);
+      }
     },
 
     submitStatement(statement) {
