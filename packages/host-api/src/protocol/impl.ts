@@ -107,6 +107,7 @@ import {
   StatementStoreSubscribeV1_receive,
   StatementStoreSubscribeV1_start,
 } from './v1/statementStore.js';
+import { ThemeSubscribeV1_receive, ThemeSubscribeV1_start } from './v1/theme.js';
 
 // helpers
 
@@ -212,6 +213,10 @@ export const hostApiProtocol = {
 
   host_account_connection_status_subscribe: versionedSubscription({
     v1: [AccountConnectionStatusV1_start, AccountConnectionStatusV1_receive],
+  }),
+
+  host_theme_subscribe: versionedSubscription({
+    v1: [ThemeSubscribeV1_start, ThemeSubscribeV1_receive],
   }),
 
   host_account_get: versionedRequest({

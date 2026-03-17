@@ -136,6 +136,10 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
+    themeSubscribe(args, callback) {
+      return transport.subscribe('host_theme_subscribe', args, callback);
+    },
+
     accountConnectionStatusSubscribe(args, callback) {
       return transport.subscribe('host_account_connection_status_subscribe', args, callback);
     },

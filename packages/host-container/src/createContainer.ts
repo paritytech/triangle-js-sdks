@@ -389,6 +389,20 @@ export function createContainer(provider: Provider): Container {
       );
     },
 
+    handleThemeSubscribe(handler) {
+      init();
+      return transport.handleSubscription('host_theme_subscribe', (params, send, interrupt) => {
+        const version = 'v1';
+
+        return guardVersion(params, version, null)
+          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
+          .orTee(interrupt)
+          .unwrapOr(() => {
+            /* empty */
+          });
+      });
+    },
+
     handleAccountConnectionStatusSubscribe(handler) {
       return handleV1Subscription(handleAccountConnectionStatusSubscribeSlot, handler);
     },
