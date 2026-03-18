@@ -54,7 +54,9 @@ type Params = {
 };
 
 export function createPappAdapter({ appId, metadata, hostMetadata, adapters }: Params): PappAdapter {
-  const lazyClient = adapters?.lazyClient ?? createLazyClient(getWsProvider(SS_STABLE_STAGE_ENDPOINTS));
+  const lazyClient =
+    adapters?.lazyClient ??
+    createLazyClient(getWsProvider(SS_STABLE_STAGE_ENDPOINTS, { heartbeatTimeout: Number.POSITIVE_INFINITY }));
 
   const statementStore = adapters?.statementStore ?? createPapiStatementStoreAdapter(lazyClient);
   const identities = adapters?.identities ?? createIdentityRpcAdapter(lazyClient);
