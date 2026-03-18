@@ -1,0 +1,35 @@
+{
+  "name": "@novasamatech/worker-sandbox",
+  "type": "module",
+  "version": "0.6.6-0",
+  "description": "QuickJS-based sandbox for running product worker code with Triangle Host API.",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
+  },
+  "keywords": [
+    "polkadot"
+  ],
+  "main": "dist/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "#/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "@novasamatech/host-api": "0.6.6-0",
+    "@novasamatech/host-container": "0.6.6-0",
+    "quickjs-emscripten": "0.32.0"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
