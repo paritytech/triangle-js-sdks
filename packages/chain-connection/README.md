@@ -11,44 +11,51 @@ npm install @novasamatech/chain-connection
 ## Quick start
 
 ```ts
-import { createChainConnection, createMetadataCache } from '@novasamatech/chain-connection';
-
-const cache = createMetadataCache();
+import { createChainConnection, createWsJsonRpcProvider } from '@novasamatech/chain-connection';
 
 const chains = createChainConnection<MyChain>({
-  createProvider: (chain, onStatus) =>
-    createWsJsonRpcProvider({ endpoints: chain.nodes.map(n => n.url), onStatus }),
-  clientOptions: chain => cache.forChain(chain.chainId),
+  createProvider: (chain, onStatusChanged) =>
+    createWsJsonRpcProvider({
+      endpoints: chain.nodes.map(n => n.url),
+      onStatusChanged,
+    }),
 });
 
 // One-shot query — connection auto-released:
-const balance = await chains.use(polkadot, async client => {
+const balance = await chains.requestApi(polkadot, async client => {
   const api = client.getTypedApi(dot);
   return api.query.System.Account.getValue(address);
 });
 ```
 
-## `use` — one-shot requests
+## `requestApi` — one-shot requests
+
+Connection is locked before the callback and unlocked when it resolves or throws.
 
 ```ts
-const balance = await chains.use(polkadot, async client => {
+const balance = await chains.requestApi(polkadot, async client => {
   return client.getTypedApi(dot).query.System.Account.getValue(address);
 });
 ```
 
-## `acquire` — long-lived connections
+## `lockApi` — long-lived connections
+
+For subscriptions and multi-step flows. Call `unlock()` when done.
 
 ```ts
-const { client, release } = await chains.acquire(polkadot);
+const { api, unlock } = await chains.lockApi(polkadot);
 try {
-  client.getTypedApi(dot).query.System.Events.watchValue('best').subscribe(handleEvents);
+  const typedApi = api.getTypedApi(dot);
+  typedApi.query.System.Events.watchValue('best').subscribe(handleEvents);
 } catch {
-  release();
+  unlock();
 }
-// call release() in cleanup
+// call unlock() in cleanup (e.g. component unmount)
 ```
 
 ## `getProvider` — iframe / product container
+
+Returns a `JsonRpcProvider` backed by the shared connection.
 
 ```ts
 const provider = chains.getProvider(polkadot);
@@ -58,13 +65,38 @@ const container = createContainer(provider);
 ## Status
 
 ```ts
-const status = chains.status(polkadot.chainId);
-const unsub = chains.onStatus(polkadot.chainId, s => console.log(s));
+const status = chains.status(polkadot.chainId); // 'connecting' | 'connected' | 'disconnected'
+
+const unsub = chains.onStatusChanged(polkadot.chainId, status => {
+  console.log('status changed:', status);
+});
+```
+
+## `resolve` — typed API resolution
+
+Pass a `resolve` callback to wrap the raw `PolkadotClient` in a typed API. The SDK caches and deduplicates resolution per chain.
+
+```ts
+const chains = createChainConnection<MyChain, TypedClient>({
+  createProvider: (chain, onStatusChanged) =>
+    createWsJsonRpcProvider({ endpoints: chain.nodes.map(n => n.url), onStatusChanged }),
+  resolve: async (chain, client) => {
+    const descriptor = getDescriptor(chain);
+    const api = client.getTypedApi(descriptor);
+    const codecs = await getTypedCodecs(descriptor);
+    return { api, codecs, client };
+  },
+});
+
+// requestApi/lockApi now return your resolved type:
+await chains.requestApi(polkadot, async ({ api }) => {
+  return api.query.System.Account.getValue(address);
+});
 ```
 
 ## Metadata cache
 
-Standalone building block for caching chain metadata. Works in-memory by default, optionally persists to storage.
+Standalone building block for caching chain metadata. In-memory by default, optionally persists to storage.
 
 ```ts
 import { createMetadataCache } from '@novasamatech/chain-connection';
@@ -78,15 +110,9 @@ const cache = createMetadataCache({
   storage: createLocalStorageAdapter('chain-metadata'),
 });
 
-// With build-time metadata fallback:
-const cache = createMetadataCache({
-  storage: createLocalStorageAdapter('chain-metadata'),
-  fallback: key => getMetadata(key), // from @polkadot-api/descriptors
-});
-
 // Wire into connection:
 const chains = createChainConnection<MyChain>({
-  createProvider: (chain, onStatus) => ...,
+  createProvider: (chain, onStatusChanged) => ...,
   clientOptions: chain => cache.forChain(chain.chainId),
 });
 
@@ -104,7 +130,7 @@ import { createWsJsonRpcProvider } from '@novasamatech/chain-connection';
 
 const provider = createWsJsonRpcProvider({
   endpoints: ['wss://rpc.polkadot.io'],
-  onStatus: status => console.log(status),
+  onStatusChanged: status => console.log(status),
 });
 ```
 
