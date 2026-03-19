@@ -8,33 +8,49 @@ Reference-counted `polkadot-api` client management. Connections are created on d
 npm install @novasamatech/chain-connection
 ```
 
-## Quick start
+## Full example
 
 ```ts
-import { createChainConnection, createWsJsonRpcProvider } from '@novasamatech/chain-connection';
+import { createChainConnection, createMetadataCache, createWsJsonRpcProvider } from '@novasamatech/chain-connection';
+import { createLocalStorageAdapter } from '@novasamatech/storage-adapter';
+import { dot } from 'polkadot-api';
 
-type MyChain = {
-  chainId: string;
-  nodes: { url: string }[];
-};
+// Metadata cache persists chain metadata across page reloads
+const metadataCache = createMetadataCache({
+  storage: createLocalStorageAdapter('chain-metadata'),
+});
 
-const chains = createChainConnection<MyChain>({
+const chains = createChainConnection({
   createProvider: (chain, onStatusChanged) =>
     createWsJsonRpcProvider({
       endpoints: chain.nodes.map(n => n.url),
       onStatusChanged,
     }),
+  clientOptions: chain => metadataCache.forChain(chain.chainId),
 });
 
-const polkadot: MyChain = {
+const polkadot = {
   chainId: 'polkadot',
   nodes: [{ url: 'wss://rpc.polkadot.io' }],
 };
 
-// One-shot query — connection auto-released:
+// One-shot query — connection locked for the callback, then released
 const balance = await chains.requestApi(polkadot, async client => {
   const api = client.getTypedApi(dot);
   return api.query.System.Account.getValue(address);
+});
+
+// Long-lived connection — call unlock() when done
+const { api: client, unlock } = await chains.lockApi(polkadot);
+const typedApi = client.getTypedApi(dot);
+const sub = typedApi.query.System.Events.watchValue('best').subscribe(handleEvents);
+
+sub.unsubscribe();
+unlock();
+
+// Connection status
+chains.onStatusChanged(polkadot.chainId, status => {
+  console.info('polkadot:', status); // 'connecting' | 'connected' | 'disconnected'
 });
 ```
 
@@ -126,9 +142,6 @@ const chains = createChainConnection<MyChain>({
   clientOptions: chain => cache.forChain(chain.chainId),
 });
 
-// Cache management:
-await cache.clear(chainId);  // clear one chain
-await cache.clearAll();       // clear everything
 ```
 
 ## `createWsJsonRpcProvider`

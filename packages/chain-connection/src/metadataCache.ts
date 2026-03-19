@@ -22,13 +22,10 @@ const base64ToBytes = (base64: string): Uint8Array => {
 
 export type MetadataCache = {
   forChain(chainId: string): ClientOptions;
-  clear(chainId: string): Promise<void>;
-  clearAll(): Promise<void>;
 };
 
 export const createMetadataCache = (options?: { storage?: StorageAdapter }): MetadataCache => {
   const memory = new Map<string, Uint8Array>();
-  const knownKeys = new Set<string>();
   const storage = options?.storage;
 
   const cacheKey = (chainId: string, key: string) => `${chainId}:${key}`;
@@ -47,7 +44,7 @@ export const createMetadataCache = (options?: { storage?: StorageAdapter }): Met
             if (result.isOk() && result.value) {
               const bytes = base64ToBytes(result.value);
               memory.set(k, bytes);
-              knownKeys.add(k);
+
               return bytes;
             }
           }
@@ -57,31 +54,9 @@ export const createMetadataCache = (options?: { storage?: StorageAdapter }): Met
         setMetadata(key, metadata) {
           const k = cacheKey(chainId, key);
           memory.set(k, metadata);
-          knownKeys.add(k);
           storage?.write(k, bytesToBase64(metadata));
         },
       };
-    },
-
-    async clear(chainId) {
-      const prefix = `${chainId}:`;
-      for (const key of [...knownKeys]) {
-        if (key.startsWith(prefix)) {
-          memory.delete(key);
-          knownKeys.delete(key);
-          if (storage) await storage.clear(key);
-        }
-      }
-    },
-
-    async clearAll() {
-      if (storage) {
-        for (const key of knownKeys) {
-          await storage.clear(key);
-        }
-      }
-      memory.clear();
-      knownKeys.clear();
     },
   };
 };
