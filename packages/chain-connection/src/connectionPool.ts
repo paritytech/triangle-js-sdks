@@ -31,7 +31,7 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
 
   // Resolve cache (when config.resolve is provided)
   const resolvedApis = new Map<string, { resolved: T; polkadotClient: PolkadotClient }>();
-  const pendingResolutions = new Map<string, Promise<T>>();
+  const pendingResolutions = new Map<string, { promise: Promise<T>; polkadotClient: PolkadotClient }>();
 
   const getOrCreateClient = (chain: C): PooledClient => {
     const existing = existingClients.get(chain.chainId);
@@ -84,7 +84,7 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     if (existing && existing.polkadotClient === polkadotClient) return existing.resolved;
 
     const pending = pendingResolutions.get(chain.chainId);
-    if (pending) return pending;
+    if (pending && pending.polkadotClient === polkadotClient) return pending.promise;
 
     const promise = (async () => {
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion -- guarded by early return above
@@ -93,7 +93,7 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
       return resolved;
     })();
 
-    pendingResolutions.set(chain.chainId, promise);
+    pendingResolutions.set(chain.chainId, { promise, polkadotClient });
     promise.finally(() => pendingResolutions.delete(chain.chainId));
     return promise;
   };

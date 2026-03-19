@@ -13,6 +13,11 @@ npm install @novasamatech/chain-connection
 ```ts
 import { createChainConnection, createWsJsonRpcProvider } from '@novasamatech/chain-connection';
 
+type MyChain = {
+  chainId: string;
+  nodes: { url: string }[];
+};
+
 const chains = createChainConnection<MyChain>({
   createProvider: (chain, onStatusChanged) =>
     createWsJsonRpcProvider({
@@ -20,6 +25,11 @@ const chains = createChainConnection<MyChain>({
       onStatusChanged,
     }),
 });
+
+const polkadot: MyChain = {
+  chainId: 'polkadot',
+  nodes: [{ url: 'wss://rpc.polkadot.io' }],
+};
 
 // One-shot query — connection auto-released:
 const balance = await chains.requestApi(polkadot, async client => {
