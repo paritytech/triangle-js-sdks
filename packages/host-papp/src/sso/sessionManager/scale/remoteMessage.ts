@@ -30,6 +30,7 @@ const RingVrfCreateProofResponseCodec = Struct({
 export type RemoteMessage = CodecType<typeof RemoteMessageCodec>;
 export const RemoteMessageCodec = Struct({
   messageId: str,
+  productDotNsIdentifier: str,
   data: Enum({
     v1: Enum({
       Disconnected: _void,

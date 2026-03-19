@@ -1,4 +1,4 @@
-import type { ContextualAlias, ProductAccountId, RingLocation } from '@novasamatech/host-api';
+import { ContextualAlias, ProductAccountId, RingLocation } from '@novasamatech/host-api';
 import type { HexString } from '@novasamatech/scale';
 import { enumValue, toHex } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
@@ -27,14 +27,21 @@ type ProcessedMessage =
       processed: false;
     };
 
+type ContextualAliasType = CodecType<typeof ContextualAlias>;
+type ProductAccountIdType = CodecType<typeof ProductAccountId>;
+type RingLocationType = CodecType<typeof RingLocation>;
+
 export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
-  signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
-  signRaw(payload: SigningRawRequest): ResultAsync<SigningPayloadResponseData, Error>;
-  getRingVrfAlias(productAccountId: ProductAccountId): ResultAsync<ContextualAlias, Error>;
+  signPayload(
+    payload: SigningPayloadRequest,
+    productDotNsIdentifier?: string,
+  ): ResultAsync<SigningPayloadResponseData, Error>;
+  signRaw(payload: SigningRawRequest, productDotNsIdentifier?: string): ResultAsync<SigningPayloadResponseData, Error>;
+  getRingVrfAlias(productAccountId: ProductAccountIdType): ResultAsync<ContextualAliasType, Error>;
   createRingVrfProof(
-    productAccountId: ProductAccountId,
-    ringLocation: RingLocation,
+    productAccountId: ProductAccountIdType,
+    ringLocation: RingLocationType,
     message: Uint8Array,
   ): ResultAsync<Uint8Array, Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
@@ -89,7 +96,7 @@ export function createUserSession({
     localAccount: userSession.localAccount,
     remoteAccount: userSession.remoteAccount,
 
-    signPayload(payload) {
+    signPayload(payload, productDotNsIdentifier = '') {
       const accountId = toAccountId(payload.address);
       if (accountId !== toHex(userSession.remoteAccount.accountId)) {
         return errAsync(new Error(`Invalid address, got ${payload.address}`));
@@ -98,6 +105,7 @@ export function createUserSession({
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
+        productDotNsIdentifier,
         data: enumValue(
           'v1',
           enumValue(
@@ -131,7 +139,7 @@ export function createUserSession({
         });
     },
 
-    signRaw(payload) {
+    signRaw(payload, productDotNsIdentifier = '') {
       const accountId = toAccountId(payload.address);
       if (accountId !== toHex(userSession.remoteAccount.accountId)) {
         return errAsync(new Error(`Invalid address, got ${payload.address}`));
@@ -140,6 +148,7 @@ export function createUserSession({
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
+        productDotNsIdentifier,
         data: enumValue(
           'v1',
           enumValue(
@@ -177,6 +186,7 @@ export function createUserSession({
       return session
         .submitRequestMessage(RemoteMessageCodec, {
           messageId: nanoid(),
+          productDotNsIdentifier: '',
           data: enumValue('v1', enumValue('Disconnected', undefined)),
         })
         .map(() => undefined);
@@ -221,6 +231,7 @@ export function createUserSession({
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
+        productDotNsIdentifier: dotNsIdentifier,
         data: enumValue(
           'v1',
           enumValue('RingVrfAliasRequest', {
@@ -244,7 +255,7 @@ export function createUserSession({
         .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
         .andThen(result => {
           if (result.success) {
-            return ok(result.value as ContextualAlias);
+            return ok(result.value as ContextualAliasType);
           }
           return err(new Error(result.value));
         });
@@ -256,6 +267,7 @@ export function createUserSession({
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
+        productDotNsIdentifier: dotNsIdentifier,
         data: enumValue(
           'v1',
           enumValue('RingVrfCreateProofRequest', {
