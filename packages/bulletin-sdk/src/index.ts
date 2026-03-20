@@ -44,8 +44,3 @@ export * from './mock-client.js';
 export * from './preparer.js';
 export * from './types.js';
 export * from './utils.js';
-
-/**
- * SDK version
- */
-export const VERSION = '0.1.0';
