@@ -3,8 +3,8 @@
  */
 
 import type { CID } from 'multiformats/cid';
-import type { ResultAsync } from 'neverthrow';
-import { errAsync, fromPromise, okAsync } from 'neverthrow';
+import type { Result, ResultAsync } from 'neverthrow';
+import { err, errAsync, fromPromise, ok, okAsync } from 'neverthrow';
 import type { PolkadotSigner } from 'polkadot-api';
 import { Binary } from 'polkadot-api';
 
@@ -367,7 +367,7 @@ function extractStoredIndex(events?: RuntimeEvent[]): number | undefined {
  * ```typescript
  * import { createClient } from 'polkadot-api';
  * import { getWsProvider } from 'polkadot-api/ws-provider/web';
- * import { AsyncBulletinClient } from '@bulletin/sdk';
+ * import { AsyncBulletinClient } from '@novasamatech/bulletin-sdk';
  *
  * // User sets up PAPI client
  * const wsProvider = getWsProvider('wss://bulletin-rpc.polkadot.io');
@@ -431,19 +431,19 @@ export class AsyncBulletinClient implements BulletinClientInterface {
     data: Uint8Array,
     cidCodec: CidCodec | number,
     hashAlgorithm: HashAlgorithm,
-  ): PapiTransaction | BulletinError {
+  ): Result<PapiTransaction, BulletinError> {
     if (!isNonDefaultCidConfig(cidCodec, hashAlgorithm)) {
-      return this.api.tx.TransactionStorage.store({ data: new Binary(data) });
+      return ok(this.api.tx.TransactionStorage.store({ data: new Binary(data) }));
     }
-    const hashingResult = hashAlgorithmCodecToEnum(hashAlgorithm);
-    if (hashingResult.isErr()) return hashingResult.error;
-    return this.api.tx.TransactionStorage.store_with_cid_config({
-      cid: {
-        codec: BigInt(cidCodec),
-        hashing: hashingResult.value,
-      },
-      data: new Binary(data),
-    });
+    return hashAlgorithmCodecToEnum(hashAlgorithm).map(hashing =>
+      this.api.tx.TransactionStorage.store_with_cid_config({
+        cid: {
+          codec: BigInt(cidCodec),
+          hashing,
+        },
+        data: new Binary(data),
+      }),
+    );
   }
 
   /**
@@ -556,24 +556,25 @@ export class AsyncBulletinClient implements BulletinClientInterface {
   /**
    * Wrap a call in Sudo if requested, otherwise return it as-is
    */
-  private maybeSudo(tx: PapiTransaction, sudo?: boolean): PapiTransaction | BulletinError {
-    if (!sudo) return tx;
+  private maybeSudo(tx: PapiTransaction, sudo?: boolean): Result<PapiTransaction, BulletinError> {
+    if (!sudo) return ok(tx);
     if (!this.api.tx.Sudo) {
-      return new BulletinError('sudo requested but Sudo pallet is not available on this chain', 'INVALID_CONFIG');
+      return err(new BulletinError('sudo requested but Sudo pallet is not available on this chain', 'INVALID_CONFIG'));
     }
-    return this.api.tx.Sudo.sudo({ call: tx.decodedCall });
+    return ok(this.api.tx.Sudo.sudo({ call: tx.decodedCall }));
   }
 
   /**
    * Submit a transaction, returning a receipt on success.
    */
   private submitTx(
-    tx: PapiTransaction | BulletinError,
+    txResult: Result<PapiTransaction, BulletinError>,
     errorMessage: string,
     errorCode: string,
     options?: CallOptions,
   ): ResultAsync<TransactionReceipt, BulletinError> {
-    if (tx instanceof BulletinError) return errAsync(tx);
+    if (txResult.isErr()) return errAsync(txResult.error);
+    const tx = txResult.value;
     const waitFor = options?.waitFor ?? 'in_block';
     return fromPromise(this.signAndSubmitWithProgress(tx, options?.onProgress, waitFor), e =>
       e instanceof BulletinError ? e : new BulletinError(`${errorMessage}: ${e}`, errorCode, e),
@@ -683,10 +684,10 @@ export class AsyncBulletinClient implements BulletinClientInterface {
     if (prepareResult.isErr()) return errAsync(prepareResult.error);
     const { cid } = prepareResult.value;
 
-    const txOrError = this.createStoreTx(data, cidCodec, hashAlgorithm);
-    if (txOrError instanceof BulletinError) return errAsync(txOrError);
+    const txResult = this.createStoreTx(data, cidCodec, hashAlgorithm);
+    if (txResult.isErr()) return errAsync(txResult.error);
 
-    return fromPromise(this.signAndSubmitWithProgress(txOrError, progressCallback, waitFor), e =>
+    return fromPromise(this.signAndSubmitWithProgress(txResult.value, progressCallback, waitFor), e =>
       e instanceof BulletinError ? e : new BulletinError(`Failed to store data: ${e}`, 'TRANSACTION_FAILED', e),
     ).map(result => ({
       cid,
@@ -748,9 +749,9 @@ export class AsyncBulletinClient implements BulletinClientInterface {
 
       try {
         // Chunks are always Raw codec
-        const txOrError = this.createStoreTx(chunk.data, CidCodec.Raw, hashAlgorithm);
-        if (txOrError instanceof BulletinError) throw txOrError;
-        await this.signAndSubmitWithProgress(txOrError, progressCallback, waitFor, chunk.index);
+        const txResult = this.createStoreTx(chunk.data, CidCodec.Raw, hashAlgorithm);
+        if (txResult.isErr()) throw txResult.error;
+        await this.signAndSubmitWithProgress(txResult.value, progressCallback, waitFor, chunk.index);
         const cid = chunk.cid;
         if (cid) chunkCids.push(cid);
 
@@ -783,9 +784,9 @@ export class AsyncBulletinClient implements BulletinClientInterface {
       }
 
       // Manifest is always DagPb codec
-      const manifestTxOrError = this.createStoreTx(prepared.manifest.data, CidCodec.DagPb, hashAlgorithm);
-      if (manifestTxOrError instanceof BulletinError) throw manifestTxOrError;
-      await this.signAndSubmitWithProgress(manifestTxOrError, progressCallback, waitFor);
+      const manifestTxResult = this.createStoreTx(prepared.manifest.data, CidCodec.DagPb, hashAlgorithm);
+      if (manifestTxResult.isErr()) throw manifestTxResult.error;
+      await this.signAndSubmitWithProgress(manifestTxResult.value, progressCallback, waitFor);
       manifestCid = prepared.manifest.cid;
 
       if (progressCallback) {
@@ -858,7 +859,7 @@ export class AsyncBulletinClient implements BulletinClientInterface {
   renew(block: number, index: number): CallBuilder {
     return new CallBuilder(options => {
       const tx = this.api.tx.TransactionStorage.renew({ block, index });
-      return this.submitTx(tx, 'Failed to renew', 'TRANSACTION_FAILED', options);
+      return this.submitTx(ok(tx), 'Failed to renew', 'TRANSACTION_FAILED', options);
     });
   }
 
@@ -914,7 +915,7 @@ export class AsyncBulletinClient implements BulletinClientInterface {
       const tx = this.api.tx.TransactionStorage.remove_expired_account_authorization({
         who,
       });
-      return this.submitTx(tx, 'Failed to remove expired account authorization', 'TRANSACTION_FAILED', options);
+      return this.submitTx(ok(tx), 'Failed to remove expired account authorization', 'TRANSACTION_FAILED', options);
     });
   }
 
@@ -930,7 +931,7 @@ export class AsyncBulletinClient implements BulletinClientInterface {
       const tx = this.api.tx.TransactionStorage.remove_expired_preimage_authorization({
         content_hash: new Binary(contentHash),
       });
-      return this.submitTx(tx, 'Failed to remove expired preimage authorization', 'TRANSACTION_FAILED', options);
+      return this.submitTx(ok(tx), 'Failed to remove expired preimage authorization', 'TRANSACTION_FAILED', options);
     });
   }
 
@@ -977,10 +978,10 @@ export class AsyncBulletinClient implements BulletinClientInterface {
     if (prepareResult.isErr()) return errAsync(prepareResult.error);
     const { cid } = prepareResult.value;
 
-    const txOrError = this.createStoreTx(dataBytes, cidCodec, hashAlgorithm);
-    if (txOrError instanceof BulletinError) return errAsync(txOrError);
+    const txResult = this.createStoreTx(dataBytes, cidCodec, hashAlgorithm);
+    if (txResult.isErr()) return errAsync(txResult.error);
 
-    return fromPromise(txOrError.getBareTx(), toBulletinError).andThen(bareTxHex =>
+    return fromPromise(txResult.value.getBareTx(), toBulletinError).andThen(bareTxHex =>
       fromPromise(this.submit(bareTxHex), toBulletinError).andThen(finalized => {
         if (!finalized.ok) {
           return errAsync(

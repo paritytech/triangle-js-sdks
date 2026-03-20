@@ -70,7 +70,7 @@ function mockReceipt(): TransactionReceipt {
  *
  * @example
  * ```typescript
- * import { MockBulletinClient } from '@bulletin/sdk';
+ * import { MockBulletinClient } from '@novasamatech/bulletin-sdk';
  *
  * // Create mock client
  * const client = new MockBulletinClient();
