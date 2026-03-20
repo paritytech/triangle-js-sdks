@@ -7,10 +7,21 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { keccak_256 } from '@noble/hashes/sha3.js';
 import { CID } from 'multiformats/cid';
 import * as digest from 'multiformats/hashes/digest';
+import type { Result } from 'neverthrow';
+import { err, ok } from 'neverthrow';
 import type { Binary } from 'polkadot-api';
 
 import { MAX_CHUNK_SIZE } from './chunker.js';
 import { BulletinError, CidCodec, HashAlgorithm } from './types.js';
+
+/**
+ * Convert unknown error to BulletinError
+ */
+export function toBulletinError(error: unknown): BulletinError {
+  if (error instanceof BulletinError) return error;
+  if (error instanceof Error) return new BulletinError(error.message, 'UNKNOWN', error);
+  return new BulletinError(String(error), 'UNKNOWN');
+}
 
 /**
  * Calculate content hash using the specified algorithm
@@ -18,19 +29,19 @@ import { BulletinError, CidCodec, HashAlgorithm } from './types.js';
  * Note: For production use, integrate with the pallet's hashing functions
  * via PAPI to ensure exact compatibility.
  */
-export function getContentHash(data: Uint8Array, hashAlgorithm: HashAlgorithm): Uint8Array {
+export function getContentHash(data: Uint8Array, hashAlgorithm: HashAlgorithm): Result<Uint8Array, BulletinError> {
   switch (hashAlgorithm) {
     case HashAlgorithm.Blake2b256: {
-      return blake2b(data, { dkLen: 32 });
+      return ok(blake2b(data, { dkLen: 32 }));
     }
     case HashAlgorithm.Sha2_256: {
-      return sha256(data);
+      return ok(sha256(data));
     }
     case HashAlgorithm.Keccak256: {
-      return keccak_256(data);
+      return ok(keccak_256(data));
     }
     default:
-      throw new BulletinError(`Unsupported hash algorithm: ${hashAlgorithm}`, 'INVALID_HASH_ALGORITHM');
+      return err(new BulletinError(`Unsupported hash algorithm: ${hashAlgorithm}`, 'INVALID_HASH_ALGORITHM'));
   }
 }
 
@@ -43,19 +54,15 @@ export function calculateCid(
   data: Uint8Array,
   cidCodec = 0x55,
   hashAlgorithm: HashAlgorithm = HashAlgorithm.Blake2b256,
-): CID {
-  try {
-    // Calculate content hash
-    const hash = getContentHash(data, hashAlgorithm);
-
-    // Create multihash digest
-    const mh = digest.create(hashAlgorithm, hash);
-
-    // Create CIDv1
-    return CID.createV1(cidCodec, mh);
-  } catch (error) {
-    throw new BulletinError(`Failed to calculate CID: ${error}`, 'CID_CALCULATION_FAILED', error);
-  }
+): Result<CID, BulletinError> {
+  return getContentHash(data, hashAlgorithm).andThen(hash => {
+    try {
+      const mh = digest.create(hashAlgorithm, hash);
+      return ok(CID.createV1(cidCodec, mh));
+    } catch (error) {
+      return err(new BulletinError(`Failed to calculate CID: ${error}`, 'CID_CALCULATION_FAILED', error));
+    }
+  });
 }
 
 /**
@@ -68,11 +75,11 @@ export function convertCid(cid: CID, newCodec: number): CID {
 /**
  * Parse CID from string
  */
-export function parseCid(cidString: string): CID {
+export function parseCid(cidString: string): Result<CID, BulletinError> {
   try {
-    return CID.parse(cidString);
+    return ok(CID.parse(cidString));
   } catch (error) {
-    throw new BulletinError(`Failed to parse CID: ${error}`, 'INVALID_CID', error);
+    return err(new BulletinError(`Failed to parse CID: ${error}`, 'INVALID_CID', error));
   }
 }
 
@@ -84,11 +91,11 @@ export function toBytes(data: Binary | Uint8Array): Uint8Array {
 /**
  * Parse CID from bytes
  */
-export function cidFromBytes(bytes: Uint8Array): CID {
+export function cidFromBytes(bytes: Uint8Array): Result<CID, BulletinError> {
   try {
-    return CID.decode(bytes);
+    return ok(CID.decode(bytes));
   } catch (error) {
-    throw new BulletinError(`Failed to decode CID from bytes: ${error}`, 'INVALID_CID', error);
+    return err(new BulletinError(`Failed to decode CID from bytes: ${error}`, 'INVALID_CID', error));
   }
 }
 
@@ -133,16 +140,16 @@ export type ScaleHashingAlgorithm = { type: 'Blake2b256' } | { type: 'Sha2_256' 
  * Convert SDK HashAlgorithm (multicodec value) to the PAPI enum variant
  * expected for the on-chain `HashingAlgorithm` type.
  */
-export function hashAlgorithmCodecToEnum(alg: HashAlgorithm): ScaleHashingAlgorithm {
+export function hashAlgorithmCodecToEnum(alg: HashAlgorithm): Result<ScaleHashingAlgorithm, BulletinError> {
   switch (alg) {
     case HashAlgorithm.Blake2b256:
-      return { type: 'Blake2b256' };
+      return ok({ type: 'Blake2b256' });
     case HashAlgorithm.Sha2_256:
-      return { type: 'Sha2_256' };
+      return ok({ type: 'Sha2_256' });
     case HashAlgorithm.Keccak256:
-      return { type: 'Keccak256' };
+      return ok({ type: 'Keccak256' });
     default:
-      throw new BulletinError(`Unsupported hash algorithm for SCALE encoding: ${alg}`, 'INVALID_HASH_ALGORITHM');
+      return err(new BulletinError(`Unsupported hash algorithm for SCALE encoding: ${alg}`, 'INVALID_HASH_ALGORITHM'));
   }
 }
 
@@ -156,12 +163,16 @@ export function isNonDefaultCidConfig(cidCodec: CidCodec | number, hashAlgorithm
   return cidCodec !== CidCodec.Raw || hashAlgorithm !== HashAlgorithm.Blake2b256;
 }
 
-export function validateChunkSize(size: number): void {
+export function validateChunkSize(size: number): Result<void, BulletinError> {
   if (size <= 0) {
-    throw new BulletinError('Chunk size must be positive', 'INVALID_CHUNK_SIZE');
+    return err(new BulletinError('Chunk size must be positive', 'INVALID_CHUNK_SIZE'));
   }
 
   if (size > MAX_CHUNK_SIZE) {
-    throw new BulletinError(`Chunk size ${size} bytes exceeds maximum ${MAX_CHUNK_SIZE} bytes`, 'CHUNK_TOO_LARGE');
+    return err(
+      new BulletinError(`Chunk size ${size} bytes exceeds maximum ${MAX_CHUNK_SIZE} bytes`, 'CHUNK_TOO_LARGE'),
+    );
   }
+
+  return ok(undefined);
 }

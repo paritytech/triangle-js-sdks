@@ -6,6 +6,8 @@
 import * as dagPB from '@ipld/dag-pb';
 import { UnixFS } from 'ipfs-unixfs';
 import type { CID } from 'multiformats/cid';
+import type { Result } from 'neverthrow';
+import { err } from 'neverthrow';
 
 import type { Chunk } from './types.js';
 import { BulletinError, CidCodec, HashAlgorithm } from './types.js';
@@ -32,18 +34,19 @@ export class UnixFsDagBuilder {
   /**
    * Build a UnixFS DAG-PB file node from raw chunks
    */
-  async build(chunks: Chunk[], hashAlgorithm: HashAlgorithm = HashAlgorithm.Blake2b256): Promise<DagManifest> {
+  build(chunks: Chunk[], hashAlgorithm: HashAlgorithm = HashAlgorithm.Blake2b256): Result<DagManifest, BulletinError> {
     if (!chunks || chunks.length === 0) {
-      throw new BulletinError('Cannot build DAG from empty chunks', 'EMPTY_DATA');
+      return err(new BulletinError('Cannot build DAG from empty chunks', 'EMPTY_DATA'));
     }
 
     // Ensure all chunks have CIDs
-    const chunkCids = chunks.map(chunk => {
+    const chunkCids: CID[] = [];
+    for (const chunk of chunks) {
       if (!chunk.cid) {
-        throw new BulletinError(`Chunk at index ${chunk.index} does not have a CID`, 'DAG_ENCODING_FAILED');
+        return err(new BulletinError(`Chunk at index ${chunk.index} does not have a CID`, 'DAG_ENCODING_FAILED'));
       }
-      return chunk.cid;
-    });
+      chunkCids.push(chunk.cid);
+    }
 
     // Calculate total size and block sizes
     const totalSize = chunks.reduce((sum, chunk) => sum + chunk.data.length, 0);
@@ -69,13 +72,11 @@ export class UnixFsDagBuilder {
     const dagBytes = dagPB.encode(dagNode);
 
     // Calculate root CID using DAG-PB codec
-    const rootCid = calculateCid(dagBytes, CidCodec.DagPb, hashAlgorithm);
-
-    return {
+    return calculateCid(dagBytes, CidCodec.DagPb, hashAlgorithm).map(rootCid => ({
       rootCid,
       chunkCids,
       totalSize,
       dagBytes,
-    };
+    }));
   }
 }

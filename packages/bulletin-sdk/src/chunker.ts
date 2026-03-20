@@ -2,6 +2,9 @@
  * Data chunking utilities for splitting large files into smaller pieces
  */
 
+import type { Result } from 'neverthrow';
+import { err, ok } from 'neverthrow';
+
 import type { Chunk, ChunkerConfig } from './types.js';
 import { BulletinError, DEFAULT_CHUNKER_CONFIG } from './types.js';
 
@@ -20,7 +23,7 @@ export class FixedSizeChunker {
   constructor(config?: Partial<ChunkerConfig>) {
     this.config = { ...DEFAULT_CHUNKER_CONFIG, ...config };
 
-    // Validate configuration
+    // Validate configuration — constructors cannot return Result, so these throw
     if (this.config.chunkSize <= 0) {
       throw new BulletinError('Chunk size must be greater than 0', 'INVALID_CONFIG');
     }
@@ -35,14 +38,16 @@ export class FixedSizeChunker {
   /**
    * Split data into chunks
    */
-  chunk(data: Uint8Array): Chunk[] {
+  chunk(data: Uint8Array): Result<Chunk[], BulletinError> {
     if (data.length === 0) {
-      throw new BulletinError('Data cannot be empty', 'EMPTY_DATA');
+      return err(new BulletinError('Data cannot be empty', 'EMPTY_DATA'));
     }
     if (data.length > MAX_FILE_SIZE) {
-      throw new BulletinError(
-        `Data size ${data.length} exceeds maximum allowed size of ${MAX_FILE_SIZE} (64 MiB)`,
-        'FILE_TOO_LARGE',
+      return err(
+        new BulletinError(
+          `Data size ${data.length} exceeds maximum allowed size of ${MAX_FILE_SIZE} (64 MiB)`,
+          'FILE_TOO_LARGE',
+        ),
       );
     }
 
@@ -61,7 +66,7 @@ export class FixedSizeChunker {
       });
     }
 
-    return chunks;
+    return ok(chunks);
   }
 
   /**
@@ -88,9 +93,9 @@ export class FixedSizeChunker {
  * @param chunks - Array of chunks to reassemble
  * @returns The original data as a single Uint8Array
  */
-export function reassembleChunks(chunks: Chunk[]): Uint8Array {
+export function reassembleChunks(chunks: Chunk[]): Result<Uint8Array, BulletinError> {
   if (chunks.length === 0) {
-    throw new BulletinError('No chunks to reassemble', 'EMPTY_DATA');
+    return err(new BulletinError('No chunks to reassemble', 'EMPTY_DATA'));
   }
 
   // Sort by index to ensure correct order
@@ -99,7 +104,7 @@ export function reassembleChunks(chunks: Chunk[]): Uint8Array {
   // Validate indices are contiguous starting from 0
   for (let i = 0; i < sorted.length; i++) {
     if (sorted[i]?.index !== i) {
-      throw new BulletinError(`Missing chunk at index ${i}`, 'MISSING_CHUNK');
+      return err(new BulletinError(`Missing chunk at index ${i}`, 'MISSING_CHUNK'));
     }
   }
 
@@ -112,5 +117,5 @@ export function reassembleChunks(chunks: Chunk[]): Uint8Array {
     offset += chunk.data.length;
   }
 
-  return result;
+  return ok(result);
 }

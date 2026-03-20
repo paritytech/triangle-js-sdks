@@ -21,16 +21,16 @@ describe('Node.js environment', () => {
       crypto.getRandomValues(data);
 
       const chunker = new FixedSizeChunker({ chunkSize: 1024 });
-      const chunks = chunker.chunk(data);
+      const chunks = chunker.chunk(data)._unsafeUnwrap();
 
       expect(chunks.length).toBe(3);
-      const reassembled = reassembleChunks(chunks);
+      const reassembled = reassembleChunks(chunks)._unsafeUnwrap();
       expect(reassembled).toEqual(data);
     });
 
     it('should validate chunk sizes', () => {
-      expect(() => validateChunkSize(1024 * 1024)).not.toThrow();
-      expect(() => validateChunkSize(10 * 1024 * 1024)).toThrow();
+      expect(validateChunkSize(1024 * 1024).isOk()).toBe(true);
+      expect(validateChunkSize(10 * 1024 * 1024).isErr()).toBe(true);
     });
 
     it('should use BulletinError with cause chain', () => {

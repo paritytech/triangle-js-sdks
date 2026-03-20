@@ -8,6 +8,8 @@
  * - Development and prototyping
  */
 
+import type { ResultAsync } from 'neverthrow';
+import { errAsync, okAsync } from 'neverthrow';
 import type { Binary } from 'polkadot-api';
 
 import type { BulletinClientInterface, TransactionReceipt } from './async-client.js';
@@ -130,45 +132,50 @@ export class MockBulletinClient implements BulletinClientInterface {
   /**
    * Store data with custom options (internal, used by builder)
    */
-  async storeWithOptions(
+  storeWithOptions(
     data: Binary | Uint8Array,
     options?: StoreOptions,
     _progressCallback?: ProgressCallback,
     chunkerConfig?: Partial<ChunkerConfig>,
-  ): Promise<StoreResult> {
+  ): ResultAsync<StoreResult, BulletinError> {
     const dataBytes = toBytes(data);
 
     if (dataBytes.length === 0) {
-      throw new BulletinError('Data cannot be empty', 'EMPTY_DATA');
+      return errAsync(new BulletinError('Data cannot be empty', 'EMPTY_DATA'));
     }
 
     // Simulate authorization failure
     if (this.config.simulateAuthFailure) {
-      throw new BulletinError(
-        'Insufficient authorization: need 100 bytes, have 0 bytes',
-        'INSUFFICIENT_AUTHORIZATION',
-        { need: 100, available: 0 },
+      return errAsync(
+        new BulletinError('Insufficient authorization: need 100 bytes, have 0 bytes', 'INSUFFICIENT_AUTHORIZATION', {
+          need: 100,
+          available: 0,
+        }),
       );
     }
 
     // Simulate storage failure
     if (this.config.simulateStorageFailure) {
-      throw new BulletinError('Simulated storage failure', 'TRANSACTION_FAILED');
+      return errAsync(new BulletinError('Simulated storage failure', 'TRANSACTION_FAILED'));
     }
 
     // Handle chunked uploads (mirrors AsyncBulletinClient logic)
     if (chunkerConfig || dataBytes.length > this.config.chunkingThreshold) {
       const userCodec = options?.cidCodec;
       if (userCodec !== undefined && userCodec !== CidCodec.Raw) {
-        throw new BulletinError(
-          'withCodec() cannot be used with chunked uploads. ' +
-            'Chunks always use Raw (0x55) and the manifest always uses DagPb (0x70).',
-          'INVALID_CONFIG',
+        return errAsync(
+          new BulletinError(
+            'withCodec() cannot be used with chunked uploads. ' +
+              'Chunks always use Raw (0x55) and the manifest always uses DagPb (0x70).',
+            'INVALID_CONFIG',
+          ),
         );
       }
 
       const preparer = new BulletinPreparer(this.config);
-      const prepared = await preparer.prepareStoreChunked(dataBytes, chunkerConfig, options);
+      const preparedResult = preparer.prepareStoreChunked(dataBytes, chunkerConfig, options);
+      if (preparedResult.isErr()) return errAsync(preparedResult.error);
+      const prepared = preparedResult.value;
 
       this.operations.push({
         type: 'store',
@@ -176,7 +183,7 @@ export class MockBulletinClient implements BulletinClientInterface {
         cid: prepared.manifest?.cid.toString() ?? '',
       });
 
-      return {
+      return okAsync({
         cid: prepared.manifest?.cid,
         size: dataBytes.length,
         blockNumber: 1,
@@ -186,7 +193,7 @@ export class MockBulletinClient implements BulletinClientInterface {
             .filter((c): c is import('multiformats/cid').CID => c !== undefined),
           numChunks: prepared.chunks.length,
         },
-      };
+      });
     }
 
     const opts = { ...DEFAULT_STORE_OPTIONS, ...options };
@@ -194,7 +201,9 @@ export class MockBulletinClient implements BulletinClientInterface {
     const cidCodec = opts.cidCodec ?? CidCodec.Raw;
     const hashAlgorithm = opts.hashingAlgorithm ?? DEFAULT_STORE_OPTIONS.hashingAlgorithm;
 
-    const cid = calculateCid(dataBytes, cidCodec, hashAlgorithm);
+    const cidResult = calculateCid(dataBytes, cidCodec, hashAlgorithm);
+    if (cidResult.isErr()) return errAsync(cidResult.error);
+    const cid = cidResult.value;
 
     // Record the operation
     this.operations.push({
@@ -204,109 +213,113 @@ export class MockBulletinClient implements BulletinClientInterface {
     });
 
     // Return a mock receipt
-    return {
+    return okAsync({
       cid,
       size: dataBytes.length,
       blockNumber: 1,
-    };
-  }
-
-  private throwIfAuthFailure(): void {
-    if (this.config.simulateAuthFailure) {
-      throw new BulletinError('Simulated authorization failure', 'AUTHORIZATION_FAILED');
-    }
+    });
   }
 
   authorizeAccount(who: string, transactions: number, bytes: bigint): AuthCallBuilder {
-    return new AuthCallBuilder(async () => {
-      this.throwIfAuthFailure();
+    return new AuthCallBuilder(() => {
+      if (this.config.simulateAuthFailure) {
+        return errAsync(new BulletinError('Simulated authorization failure', 'AUTHORIZATION_FAILED'));
+      }
       this.operations.push({
         type: 'authorize_account',
         who,
         transactions,
         bytes,
       });
-      return mockReceipt();
+      return okAsync(mockReceipt());
     });
   }
 
   authorizePreimage(contentHash: Uint8Array, maxSize: bigint): AuthCallBuilder {
-    return new AuthCallBuilder(async () => {
-      this.throwIfAuthFailure();
+    return new AuthCallBuilder(() => {
+      if (this.config.simulateAuthFailure) {
+        return errAsync(new BulletinError('Simulated authorization failure', 'AUTHORIZATION_FAILED'));
+      }
       this.operations.push({
         type: 'authorize_preimage',
         contentHash,
         maxSize,
       });
-      return mockReceipt();
+      return okAsync(mockReceipt());
     });
   }
 
   refreshAccountAuthorization(who: string): AuthCallBuilder {
-    return new AuthCallBuilder(async () => {
-      this.throwIfAuthFailure();
+    return new AuthCallBuilder(() => {
+      if (this.config.simulateAuthFailure) {
+        return errAsync(new BulletinError('Simulated authorization failure', 'AUTHORIZATION_FAILED'));
+      }
       this.operations.push({ type: 'refresh_account_authorization', who });
-      return mockReceipt();
+      return okAsync(mockReceipt());
     });
   }
 
   refreshPreimageAuthorization(contentHash: Uint8Array): AuthCallBuilder {
-    return new AuthCallBuilder(async () => {
-      this.throwIfAuthFailure();
+    return new AuthCallBuilder(() => {
+      if (this.config.simulateAuthFailure) {
+        return errAsync(new BulletinError('Simulated authorization failure', 'AUTHORIZATION_FAILED'));
+      }
       this.operations.push({
         type: 'refresh_preimage_authorization',
         contentHash,
       });
-      return mockReceipt();
+      return okAsync(mockReceipt());
     });
   }
 
   removeExpiredAccountAuthorization(who: string): CallBuilder {
-    return new CallBuilder(async () => {
+    return new CallBuilder(() => {
       this.operations.push({
         type: 'remove_expired_account_authorization',
         who,
       });
-      return mockReceipt();
+      return okAsync(mockReceipt());
     });
   }
 
   removeExpiredPreimageAuthorization(contentHash: Uint8Array): CallBuilder {
-    return new CallBuilder(async () => {
+    return new CallBuilder(() => {
       this.operations.push({
         type: 'remove_expired_preimage_authorization',
         contentHash,
       });
-      return mockReceipt();
+      return okAsync(mockReceipt());
     });
   }
 
   renew(block: number, index: number): CallBuilder {
-    return new CallBuilder(async () => {
+    return new CallBuilder(() => {
       this.operations.push({ type: 'renew', block, index });
-      return mockReceipt();
+      return okAsync(mockReceipt());
     });
   }
 
   /**
    * Store preimage-authorized content (mock)
    */
-  async storeWithPreimageAuth(data: Binary | Uint8Array, options?: StoreOptions): Promise<StoreResult> {
+  storeWithPreimageAuth(data: Binary | Uint8Array, options?: StoreOptions): ResultAsync<StoreResult, BulletinError> {
     const dataBytes = toBytes(data);
 
     if (dataBytes.length === 0) {
-      throw new BulletinError('Data cannot be empty', 'EMPTY_DATA');
+      return errAsync(new BulletinError('Data cannot be empty', 'EMPTY_DATA'));
     }
 
     if (this.config.simulateStorageFailure) {
-      throw new BulletinError('Simulated storage failure', 'TRANSACTION_FAILED');
+      return errAsync(new BulletinError('Simulated storage failure', 'TRANSACTION_FAILED'));
     }
 
     const opts = { ...DEFAULT_STORE_OPTIONS, ...options };
     const cidCodec = opts.cidCodec ?? CidCodec.Raw;
     const hashAlgorithm = opts.hashingAlgorithm ?? DEFAULT_STORE_OPTIONS.hashingAlgorithm;
 
-    const cid = calculateCid(dataBytes, cidCodec, hashAlgorithm);
+    const cidResult = calculateCid(dataBytes, cidCodec, hashAlgorithm);
+    if (cidResult.isErr()) return errAsync(cidResult.error);
+    const cid = cidResult.value;
 
     this.operations.push({
       type: 'store_preimage_auth',
@@ -314,11 +327,11 @@ export class MockBulletinClient implements BulletinClientInterface {
       cid: cid.toString(),
     });
 
-    return {
+    return okAsync({
       cid,
       size: dataBytes.length,
       blockNumber: 1,
-    };
+    });
   }
 
   /**

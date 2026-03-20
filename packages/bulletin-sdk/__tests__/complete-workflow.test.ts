@@ -24,14 +24,15 @@ describe('Complete workflow (MockBulletinClient)', () => {
     expect(estimate.transactions).toBeGreaterThan(0);
     expect(estimate.bytes).toBeGreaterThanOrEqual(10 * 1024 * 1024);
 
-    const authReceipt = await client.authorizeAccount(bobAddress, estimate.transactions, BigInt(estimate.bytes)).send();
+    const authResult = await client.authorizeAccount(bobAddress, estimate.transactions, BigInt(estimate.bytes)).send();
+    const authReceipt = authResult._unsafeUnwrap();
     expect(authReceipt.blockHash).toBeDefined();
     expect(authReceipt.txHash).toBeDefined();
 
     // 2. Store data (signed)
     const message = 'Hello from Bob!';
     const data = Binary.fromText(message);
-    const storeResult = await client.store(data).send();
+    const storeResult = (await client.store(data).send())._unsafeUnwrap();
     expect(storeResult.cid).toBeDefined();
     expect(storeResult.size).toBe(data.asBytes().length);
 
@@ -39,23 +40,25 @@ describe('Complete workflow (MockBulletinClient)', () => {
     const specificData = Binary.fromText('Preimage-authorized content');
     const contentHash = blake2b(specificData.asBytes(), { dkLen: 32 });
 
-    const preimageReceipt = await client.authorizePreimage(contentHash, BigInt(specificData.asBytes().length)).send();
+    const preimageReceipt = (
+      await client.authorizePreimage(contentHash, BigInt(specificData.asBytes().length)).send()
+    )._unsafeUnwrap();
     expect(preimageReceipt.blockHash).toBeDefined();
 
     // 4. Refresh account authorization
-    const refreshAcctReceipt = await client.refreshAccountAuthorization(bobAddress).send();
+    const refreshAcctReceipt = (await client.refreshAccountAuthorization(bobAddress).send())._unsafeUnwrap();
     expect(refreshAcctReceipt.blockHash).toBeDefined();
 
     // 5. Refresh preimage authorization
-    const refreshPreimageReceipt = await client.refreshPreimageAuthorization(contentHash).send();
+    const refreshPreimageReceipt = (await client.refreshPreimageAuthorization(contentHash).send())._unsafeUnwrap();
     expect(refreshPreimageReceipt.blockHash).toBeDefined();
 
     // 6. Remove expired account authorization
-    const removeAcctReceipt = await client.removeExpiredAccountAuthorization(bobAddress).send();
+    const removeAcctReceipt = (await client.removeExpiredAccountAuthorization(bobAddress).send())._unsafeUnwrap();
     expect(removeAcctReceipt.blockHash).toBeDefined();
 
     // 7. Remove expired preimage authorization
-    const removePreimageReceipt = await client.removeExpiredPreimageAuthorization(contentHash).send();
+    const removePreimageReceipt = (await client.removeExpiredPreimageAuthorization(contentHash).send())._unsafeUnwrap();
     expect(removePreimageReceipt.blockHash).toBeDefined();
 
     // Verify all operations were recorded
@@ -91,54 +94,56 @@ describe('Complete workflow (MockBulletinClient)', () => {
     const data = Binary.fromText('Custom CID config test');
 
     // Store with DagPb codec and SHA2-256 hash
-    const result = await client.store(data).withCodec(CidCodec.DagPb).withHashAlgorithm(HashAlgorithm.Sha2_256).send();
+    const result = (
+      await client.store(data).withCodec(CidCodec.DagPb).withHashAlgorithm(HashAlgorithm.Sha2_256).send()
+    )._unsafeUnwrap();
 
     expect(result.cid).toBeDefined();
     expect(result.size).toBe(data.asBytes().length);
 
     // The CID should be different from default (Raw + Blake2b256)
-    const defaultResult = await client.store(data).send();
+    const defaultResult = (await client.store(data).send())._unsafeUnwrap();
     expect(result.cid!.toString()).not.toBe(defaultResult.cid!.toString());
   });
 
-  it('should simulate auth failure for lifecycle methods', async () => {
+  it('should return err for auth failure on lifecycle methods', async () => {
     const client = new MockBulletinClient({ simulateAuthFailure: true });
 
-    await expect(client.refreshAccountAuthorization(bobAddress).send()).rejects.toMatchObject({
-      code: 'AUTHORIZATION_FAILED',
-    });
+    const refreshResult = await client.refreshAccountAuthorization(bobAddress).send();
+    expect(refreshResult.isErr()).toBe(true);
+    expect(refreshResult._unsafeUnwrapErr().code).toBe('AUTHORIZATION_FAILED');
 
-    await expect(client.refreshPreimageAuthorization(new Uint8Array(32)).send()).rejects.toMatchObject({
-      code: 'AUTHORIZATION_FAILED',
-    });
+    const refreshPreimageResult = await client.refreshPreimageAuthorization(new Uint8Array(32)).send();
+    expect(refreshPreimageResult.isErr()).toBe(true);
+    expect(refreshPreimageResult._unsafeUnwrapErr().code).toBe('AUTHORIZATION_FAILED');
   });
 
   it('should allow remove_expired calls even with simulateAuthFailure', async () => {
     const client = new MockBulletinClient({ simulateAuthFailure: true });
 
     // remove_expired methods don't require auth — they should succeed
-    const receipt = await client.removeExpiredAccountAuthorization(bobAddress).send();
+    const receipt = (await client.removeExpiredAccountAuthorization(bobAddress).send())._unsafeUnwrap();
     expect(receipt.blockHash).toBeDefined();
 
-    const receipt2 = await client.removeExpiredPreimageAuthorization(new Uint8Array(32)).send();
+    const receipt2 = (await client.removeExpiredPreimageAuthorization(new Uint8Array(32)).send())._unsafeUnwrap();
     expect(receipt2.blockHash).toBeDefined();
   });
 
-  it('should reject withCodec on chunked uploads', async () => {
+  it('should return err for withCodec on chunked uploads', async () => {
     // Use a small chunkingThreshold so we don't need a huge buffer
     const client = new MockBulletinClient({ chunkingThreshold: 1024 });
     const data = new Uint8Array(2048); // exceeds 1024 threshold
 
-    await expect(client.store(data).withCodec(CidCodec.DagPb).send()).rejects.toMatchObject({
-      code: 'INVALID_CONFIG',
-    });
+    const result = await client.store(data).withCodec(CidCodec.DagPb).send();
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().code).toBe('INVALID_CONFIG');
   });
 
   it('should store chunked without manifest when withManifest(false)', async () => {
     const client = new MockBulletinClient({ chunkingThreshold: 1024 });
     const data = new Uint8Array(2048).fill(0xab);
 
-    const result = await client.store(data).withChunkSize(1024).withManifest(false).send();
+    const result = (await client.store(data).withChunkSize(1024).withManifest(false).send())._unsafeUnwrap();
 
     // Without manifest, cid should be undefined
     expect(result.cid).toBeUndefined();

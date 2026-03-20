@@ -78,93 +78,86 @@ describe('Error Handling', () => {
 
       const results = await Promise.allSettled(promises);
 
-      expect(results[0].status).toBe('fulfilled');
-      expect(results[1].status).toBe('rejected');
-      expect(results[2].status).toBe('fulfilled');
+      expect(results[0]!.status).toBe('fulfilled');
+      expect(results[1]!.status).toBe('rejected');
+      expect(results[2]!.status).toBe('fulfilled');
 
-      if (results[1].status === 'rejected') {
-        expect(results[1].reason).toBeInstanceOf(BulletinError);
-        expect((results[1].reason as BulletinError).code).toBe('SETTLED_ERROR');
+      if (results[1]!.status === 'rejected') {
+        expect(results[1]!.reason).toBeInstanceOf(BulletinError);
+        expect((results[1]!.reason as BulletinError).code).toBe('SETTLED_ERROR');
       }
     });
   });
 
   describe('Client Error Handling', () => {
-    it('should throw BulletinError for empty data in prepareStore', () => {
+    it('should return err for empty data in prepareStore', () => {
       const preparer = new BulletinPreparer();
+      const result = preparer.prepareStore(new Uint8Array(0));
 
-      expect(() => preparer.prepareStore(new Uint8Array(0))).toThrow(BulletinError);
-      expect(() => preparer.prepareStore(new Uint8Array(0))).toThrow();
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toBeInstanceOf(BulletinError);
+      expect(result._unsafeUnwrapErr().code).toBe('EMPTY_DATA');
     });
 
-    it('should throw DATA_TOO_LARGE for data exceeding chunkingThreshold in prepareStore', () => {
+    it('should return DATA_TOO_LARGE for data exceeding chunkingThreshold in prepareStore', () => {
       const preparer = new BulletinPreparer({ chunkingThreshold: 1024 });
       const oversized = new Uint8Array(1025);
+      const result = preparer.prepareStore(oversized);
 
-      expect(() => preparer.prepareStore(oversized)).toThrow(BulletinError);
-      try {
-        preparer.prepareStore(oversized);
-        expect.fail('Should have thrown');
-      } catch (error) {
-        expect((error as BulletinError).code).toBe('DATA_TOO_LARGE');
-      }
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().code).toBe('DATA_TOO_LARGE');
     });
 
-    it('should throw BulletinError for empty data in prepareStoreChunked', async () => {
+    it('should return err for empty data in prepareStoreChunked', () => {
       const preparer = new BulletinPreparer();
+      const result = preparer.prepareStoreChunked(new Uint8Array(0));
 
-      await expect(preparer.prepareStoreChunked(new Uint8Array(0))).rejects.toThrow(BulletinError);
-      await expect(preparer.prepareStoreChunked(new Uint8Array(0))).rejects.toMatchObject({
-        code: 'EMPTY_DATA',
-      });
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().code).toBe('EMPTY_DATA');
     });
   });
 
   describe('CID Error Handling', () => {
-    it('should throw BulletinError for invalid CID string', () => {
-      expect(() => parseCid('not-a-valid-cid')).toThrow(BulletinError);
-      expect(() => parseCid('not-a-valid-cid')).toThrow('Failed to parse CID');
+    it('should return err for invalid CID string', () => {
+      const result = parseCid('not-a-valid-cid');
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toContain('Failed to parse CID');
     });
 
-    it('should throw BulletinError for empty CID string', () => {
-      expect(() => parseCid('')).toThrow(BulletinError);
+    it('should return err for empty CID string', () => {
+      expect(parseCid('').isErr()).toBe(true);
     });
 
-    it('should throw BulletinError for invalid CID bytes', () => {
+    it('should return err for invalid CID bytes', () => {
       const invalidBytes = new Uint8Array([0xff, 0xff, 0xff]);
-      expect(() => cidFromBytes(invalidBytes)).toThrow(BulletinError);
+      expect(cidFromBytes(invalidBytes).isErr()).toBe(true);
     });
 
-    it('should throw BulletinError for empty CID bytes', () => {
-      expect(() => cidFromBytes(new Uint8Array(0))).toThrow(BulletinError);
+    it('should return err for empty CID bytes', () => {
+      expect(cidFromBytes(new Uint8Array(0)).isErr()).toBe(true);
     });
 
-    it('should throw BulletinError for unsupported hash algorithm', () => {
+    it('should return err for unsupported hash algorithm', () => {
       const data = new Uint8Array([1, 2, 3, 4, 5]);
-
-      // Use an invalid hash algorithm code
-      expect(() => calculateCid(data, 0x55, 0xff as HashAlgorithm)).toThrow(BulletinError);
+      const result = calculateCid(data, 0x55, 0xff as HashAlgorithm);
+      expect(result.isErr()).toBe(true);
     });
   });
 
   describe('Error Message Quality', () => {
     it('should include useful context in error messages', () => {
       const preparer = new BulletinPreparer();
+      const result = preparer.prepareStore(new Uint8Array(0));
 
-      try {
-        preparer.prepareStore(new Uint8Array(0));
-        expect.fail('Should have thrown');
-      } catch (error) {
-        expect(error).toBeInstanceOf(BulletinError);
-        const bulletinError = error as BulletinError;
+      expect(result.isErr()).toBe(true);
+      const bulletinError = result._unsafeUnwrapErr();
 
-        // Error should have meaningful message
-        expect(bulletinError.message.length).toBeGreaterThan(10);
+      // Error should have meaningful message
+      expect(bulletinError.message.length).toBeGreaterThan(10);
 
-        // Error should have a code
-        expect(bulletinError.code).toBeDefined();
-        expect(bulletinError.code.length).toBeGreaterThan(0);
-      }
+      // Error should have a code
+      expect(bulletinError.code).toBeDefined();
+      expect(bulletinError.code.length).toBeGreaterThan(0);
     });
 
     it('should include cause when wrapping errors', () => {
