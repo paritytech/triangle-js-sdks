@@ -1,0 +1,38 @@
+{
+  "name": "@novasamatech/bulletin-sdk",
+  "type": "module",
+  "version": "0.6.6",
+  "description": "Off-chain SDK for the Polkadot Bulletin Chain",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
+  },
+  "keywords": [
+    "polkadot",
+    "bulletin"
+  ],
+  "main": "dist/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "#/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "@noble/hashes": "2.0.1",
+    "@ipld/dag-pb": "^4.1.3",
+    "ipfs-unixfs": "^12.0.0",
+    "multiformats": "^13.4.1",
+    "polkadot-api": "^1.23.3"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}
