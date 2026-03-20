@@ -1,10 +1,3 @@
-/**
- * Simulates the examples/complete-workflow.ts flow using MockBulletinClient.
- *
- * Verifies that all 10 pallet extrinsics exposed by the SDK can be
- * called with correct argument types and produce the expected results.
- */
-
 import { blake2b } from '@noble/hashes/blake2.js';
 import { Binary } from 'polkadot-api';
 import { describe, expect, it } from 'vitest';

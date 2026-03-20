@@ -28,13 +28,10 @@
  * This approach allows fully decentralized data retrieval directly from Bulletin
  * validator nodes without relying on centralized gateways.
  *
- * See: https://github.com/paritytech/polkadot-bulletin-chain/pull/264
- *
  * ### Current Workaround: Direct P2P via Helia
  *
  * For applications that need retrieval now, connect directly to Bulletin validator
- * nodes using libp2p/Helia with their P2P multiaddrs. This is decentralized but
- * requires additional dependencies. See the console-ui implementation for reference.
+ * nodes using libp2p/Helia with their P2P multiaddrs.
  *
  * @packageDocumentation
  */
