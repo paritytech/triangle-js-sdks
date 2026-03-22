@@ -1,4 +1,11 @@
-# Host API design document
+---
+title: "Host API Protocol Design"
+type: design
+status: accepted
+created: 2026-03-13
+---
+
+# Host API Protocol Design
 
 ## Changelog
 
@@ -42,7 +49,7 @@ First implementation
 
 Host API is language-agnostic. All code examples are written in Rust, but authors can easily map these interfaces into other languages.
 
-## Technical requirements
+## Technical Requirements
 
 - Solution MUST provide a transport layer between host and product.
 - Message format MUST be well-defined and serializable to support different platforms.
