@@ -608,32 +608,27 @@ const chains = createChainConnection<MyChain, ResolvedApi>({
 
 ## How it works
 
-Each chain gets **one underlying connection** (WebSocket or Smoldot). The pool layers on top of it:
-
-1. **`createProvider`** creates the raw `JsonRpcProvider` for a chain (called once, on first use)
-2. **`BranchedProvider`** multiplexes N consumers over that single connection — each `lockApi`, `requestApi`, or `getProvider` call creates a branch that shares the same underlying transport
-3. A **ref counter** tracks active branches per chain. When the last branch is released, the connection and client are destroyed
-4. **`resolve`** (if provided) transforms the `PolkadotClient` into your app's type. The result is cached per chain — concurrent callers share the same resolution promise
-
 ```mermaid
-graph TD
-  A["requestApi · lockApi · getProvider"] -- "first caller" --> CREATE["Create connection<br/><i>WebSocket or Smoldot</i>"]
-  A -- "subsequent callers" --> REUSE["Reuse existing connection"]
+graph LR
+  subgraph Your App
+    A["requestApi()"]
+    B["lockApi()"]
+    C["getProvider()"]
+  end
 
-  CREATE --> POOL["Shared connection<br/><i>one per chainId</i>"]
-  REUSE --> POOL
+  A --> P1
+  B --> P1
+  C --> P2
 
-  POOL --> RESOLVE["resolve(chain, client) → cached API"]
+  subgraph Connection Pool
+    P1["Polkadot · 2 callers"]
+    P2["Kusama · 1 caller"]
+  end
 
-  POOL -- "refs: 3" --> R1["Caller A<br/><i>requestApi → auto-release</i>"]
-  POOL -- "refs: 3" --> R2["Caller B<br/><i>lockApi → unlock() to release</i>"]
-  POOL -- "refs: 3" --> R3["Caller C<br/><i>getProvider → disconnect() to release</i>"]
-
-  R1 -- "release" --> DEC["refs: 2 → 1 → 0"]
-  R2 -- "unlock()" --> DEC
-  R3 -- "disconnect()" --> DEC
-
-  DEC -- "refs === 0" --> DESTROY["Connection closed, client destroyed"]
+  P1 --> W1["wss://rpc.polkadot.io"]
+  P2 --> W2["wss://kusama-rpc.dwellir.com"]
 ```
 
-Multiple callers share the same underlying connection. Each caller increments a ref counter; the connection stays alive until the last one releases. `resolve` runs once per chain and the result is cached — all callers get the same resolved API.
+The pool maintains **one connection per chain**. The first call opens it, subsequent calls reuse it. When the last caller releases (callback finishes, `unlock()` called, or `disconnect()` called), the connection closes and the client is destroyed.
+
+If `resolve` is provided, it runs once per chain and the result is cached — all callers receive the same resolved API.
