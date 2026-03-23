@@ -617,32 +617,23 @@ Each chain gets **one underlying connection** (WebSocket or Smoldot). The pool l
 
 ```mermaid
 graph TD
-  subgraph Callers
-    A["requestApi(chain, cb)"]
-    B["lockApi(chain)"]
-    C["getProvider(chain)"]
-  end
+  A["requestApi · lockApi · getProvider"] -- "first caller" --> CREATE["Create connection<br/><i>WebSocket or Smoldot</i>"]
+  A -- "subsequent callers" --> REUSE["Reuse existing connection"]
 
-  A -- "acquire → run cb → release" --> RC
-  B -- "acquire → return unlock()" --> RC
-  C -- "acquire → branch → disconnect releases" --> RC
+  CREATE --> POOL["Shared connection<br/><i>one per chainId</i>"]
+  REUSE --> POOL
 
-  RC["Ref Counter<br/><i>per chainId</i>"]
+  POOL --> RESOLVE["resolve(chain, client) → cached API"]
 
-  RC -- "refs > 0: reuse" --> PC
-  RC -- "refs 0 → 1: create" --> PC
-  RC -- "refs 1 → 0: destroy" --> PC
+  POOL -- "refs: 3" --> R1["Caller A<br/><i>requestApi → auto-release</i>"]
+  POOL -- "refs: 3" --> R2["Caller B<br/><i>lockApi → unlock() to release</i>"]
+  POOL -- "refs: 3" --> R3["Caller C<br/><i>getProvider → disconnect() to release</i>"]
 
-  PC["PooledClient<br/><i>one per chain</i>"]
+  R1 -- "release" --> DEC["refs: 2 → 1 → 0"]
+  R2 -- "unlock()" --> DEC
+  R3 -- "disconnect()" --> DEC
 
-  PC --> RES["resolve(chain, client)<br/><i>cached per chain</i>"]
-  PC --> BP["BranchedProvider"]
-
-  BP -- "branch()" --> BR1["Branch 1"]
-  BP -- "branch()" --> BR2["Branch 2"]
-  BP -- "branch()" --> BR3["Branch N"]
-
-  BR1 & BR2 & BR3 --> CONN["Single JsonRpcProvider<br/><i>WebSocket · Smoldot</i>"]
+  DEC -- "refs === 0" --> DESTROY["Connection closed, client destroyed"]
 ```
 
-`lockApi` follows the same flow as `requestApi` but defers the release until `unlock()` is called. `getProvider` returns a branched provider whose `disconnect()` triggers the release.
+Multiple callers share the same underlying connection. Each caller increments a ref counter; the connection stays alive until the last one releases. `resolve` runs once per chain and the result is cached — all callers get the same resolved API.
