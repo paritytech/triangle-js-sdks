@@ -608,38 +608,41 @@ const chains = createChainConnection<MyChain, ResolvedApi>({
 
 ## How it works
 
-```
-┌─────────────────────────────────────────────────────┐
-│                  ChainConnection                    │
-│                                                     │
-│  requestApi(chain, cb)  lockApi(chain)  getProvider  │
-│         │                    │               │      │
-│         └────────┬───────────┘               │      │
-│                  ▼                           ▼      │
-│          ┌──────────────┐          ┌──────────────┐ │
-│          │  resolveApi  │          │  rawAcquire  │ │
-│          │  (cached)    │          │  (ref-count) │ │
-│          └──────┬───────┘          └──────┬───────┘ │
-│                 └────────┬───────────────┘          │
-│                          ▼                          │
-│                 ┌────────────────┐                  │
-│                 │  PooledClient  │  one per chainId  │
-│                 │  (ref-counted) │                   │
-│                 └───────┬────────┘                  │
-│                         ▼                           │
-│              ┌─────────────────────┐                │
-│              │  BranchedProvider   │                 │
-│              │  (multiplexes N     │                 │
-│              │   consumers over 1  │                 │
-│              │   connection)       │                 │
-│              └──────────┬──────────┘                │
-│                         ▼                           │
-│              ┌─────────────────────┐                │
-│              │  JsonRpcProvider    │                 │
-│              │  (WebSocket or      │                 │
-│              │   Smoldot)          │                 │
-│              └─────────────────────┘                │
-└─────────────────────────────────────────────────────┘
+Each chain gets **one underlying connection** (WebSocket or Smoldot). The pool layers on top of it:
+
+1. **`createProvider`** creates the raw `JsonRpcProvider` for a chain (called once, on first use)
+2. **`BranchedProvider`** multiplexes N consumers over that single connection — each `lockApi`, `requestApi`, or `getProvider` call creates a branch that shares the same underlying transport
+3. A **ref counter** tracks active branches per chain. When the last branch is released, the connection and client are destroyed
+4. **`resolve`** (if provided) transforms the `PolkadotClient` into your app's type. The result is cached per chain — concurrent callers share the same resolution promise
+
+```mermaid
+graph TD
+  subgraph Callers
+    A["requestApi(chain, cb)"]
+    B["lockApi(chain)"]
+    C["getProvider(chain)"]
+  end
+
+  A -- "acquire → run cb → release" --> RC
+  B -- "acquire → return unlock()" --> RC
+  C -- "acquire → branch → disconnect releases" --> RC
+
+  RC["Ref Counter<br/><i>per chainId</i>"]
+
+  RC -- "refs > 0: reuse" --> PC
+  RC -- "refs 0 → 1: create" --> PC
+  RC -- "refs 1 → 0: destroy" --> PC
+
+  PC["PooledClient<br/><i>one per chain</i>"]
+
+  PC --> RES["resolve(chain, client)<br/><i>cached per chain</i>"]
+  PC --> BP["BranchedProvider"]
+
+  BP -- "branch()" --> BR1["Branch 1"]
+  BP -- "branch()" --> BR2["Branch 2"]
+  BP -- "branch()" --> BR3["Branch N"]
+
+  BR1 & BR2 & BR3 --> CONN["Single JsonRpcProvider<br/><i>WebSocket · Smoldot</i>"]
 ```
 
-Each chain gets one underlying `JsonRpcProvider`. A **branched provider** multiplexes consumers over that single connection — each `lockApi`, `requestApi`, or `getProvider` call creates a branch. A **ref counter** tracks active branches: the connection opens when the first caller arrives and closes when the last one releases. When `resolve` is provided, the resolved API is cached and deduplicated per chain — concurrent calls share the same resolution promise.
+`lockApi` follows the same flow as `requestApi` but defers the release until `unlock()` is called. `getProvider` returns a branched provider whose `disconnect()` triggers the release.
