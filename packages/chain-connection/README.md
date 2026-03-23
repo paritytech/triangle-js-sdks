@@ -1,11 +1,11 @@
-# @novasamatech/chain-connection
+# @novasamatech/host-substrate-chain-connection
 
 Reference-counted connection pool for `polkadot-api`. Connections are created on first use, shared across callers, and destroyed when the last caller releases them.
 
 ## Install
 
 ```bash
-npm install @novasamatech/chain-connection
+npm install @novasamatech/host-substrate-chain-connection
 ```
 
 ## Example: polkadot-desktop chain registry
@@ -15,7 +15,7 @@ This is the actual chain registry from [polkadot-desktop](https://github.com/par
 ### registry.ts
 
 ```ts
-import { createChainConnection, createMetadataCache, createWsJsonRpcProvider } from '@novasamatech/chain-connection';
+import { createChainConnection, createMetadataCache, createWsJsonRpcProvider } from '@novasamatech/host-substrate-chain-connection';
 import { createLocalStorageAdapter } from '@novasamatech/storage-adapter';
 import { type JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import { getTypedCodecs } from 'polkadot-api';
@@ -207,7 +207,7 @@ const unsubscribe = chains.onStatusChanged('polkadot', status => {
 `createMetadataCache` caches chain metadata in memory, with optional persistence via a storage adapter. Wire it into `clientOptions` so `polkadot-api` skips re-fetching metadata on reconnect.
 
 ```ts
-import { createMetadataCache } from '@novasamatech/chain-connection';
+import { createMetadataCache } from '@novasamatech/host-substrate-chain-connection';
 import { createLocalStorageAdapter } from '@novasamatech/storage-adapter';
 
 // In-memory only
@@ -230,7 +230,7 @@ const chains = createChainConnection({
 WebSocket provider factory. Wraps `polkadot-api`'s `getWsProvider` with `polkadot-sdk-compat` and normalizes WebSocket events to `ConnectionStatus`.
 
 ```ts
-import { createWsJsonRpcProvider } from '@novasamatech/chain-connection';
+import { createWsJsonRpcProvider } from '@novasamatech/host-substrate-chain-connection';
 
 const provider = createWsJsonRpcProvider({
   endpoints: ['wss://rpc.polkadot.io'],

@@ -1,5 +1,5 @@
 {
-  "name": "@novasamatech/chain-connection",
+  "name": "@novasamatech/host-substrate-chain-connection",
   "type": "module",
   "version": "0.6.6-0",
   "description": "Chain connection pool with ref counting and provider branching for Polkadot API",
