@@ -1,3 +1,21 @@
+## 0.6.7 (2026-03-23)
+
+### 🚀 Features
+
+- implement chain connection PB-332 ([#69](https://github.com/paritytech/triangle-js-sdks/pull/69))
+- papp secret storage reexport ([#76](https://github.com/paritytech/triangle-js-sdks/pull/76))
+
+### 🩹 Fixes
+
+- qr styles ([#59](https://github.com/paritytech/triangle-js-sdks/pull/59))
+- disable papp ws heartbeat timeout ([#70](https://github.com/paritytech/triangle-js-sdks/pull/70))
+
+### ❤️ Thank You
+
+- Ilya Kalinin
+- Sergey Zhuravlev
+- Yanaty
+
 ## 0.6.6 (2026-03-17)
 
 ### 🚀 Features
