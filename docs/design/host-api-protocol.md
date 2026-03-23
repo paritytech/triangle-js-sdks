@@ -1247,7 +1247,7 @@ enum TypographyStyle {
 }
 
 enum ButtonVariant {
-  Primary ,
+  Primary,
   Secondary,
   Text
 }

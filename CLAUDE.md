@@ -6,23 +6,8 @@ This file provides guidance for Claude Code when working in this repository.
 
 This is an Nx monorepo for the host-product integration SDKs — a set of TypeScript packages providing transport, messaging, and UI layers for embedding Polkadot ecosystem apps into a browser host.
 
-**Repository:** `Polkadot-Community-Foundation/triangle-js-sdks`
+**Repository:** `paritytech/triangle-js-sdks`
 **License:** Apache-2.0
-
-## Packages
-
-| Package | Path | Purpose                                             |
-|---|---|-----------------------------------------------------|
-| `@novasamatech/host-api` | `packages/host-api` | Core transport/messaging layer                      |
-| `@novasamatech/host-container` | `packages/host-container` | Host container, manages embedded products           |
-| `@novasamatech/host-chat` | `packages/host-chat` | Statement store chat integration                    |
-| `@novasamatech/host-papp` | `packages/host-papp` | Polkadot app integration with crypto ops            |
-| `@novasamatech/host-papp-react-ui` | `packages/host-papp-react-ui` | React UI components for papp flows                  |
-| `@novasamatech/product-sdk` | `packages/product-sdk` | SDK for products integrating with the host          |
-| `@novasamatech/product-react-renderer` | `packages/product-react-renderer` | React reconciler wrapper for custom messages format |
-| `@novasamatech/scale` | `packages/scale` | Additional scale-ts codec bindings                  |
-| `@novasamatech/statement-store` | `packages/statement-store` | Blockchain statement store integration              |
-| `@novasamatech/storage-adapter` | `packages/storage-adapter` | Event-driven storage abstraction                    |
 
 ## Common Commands
 

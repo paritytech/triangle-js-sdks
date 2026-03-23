@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
+    "url": "git+https://github.com/paritytech/triangle-js-sdks.git"
   },
   "keywords": [
     "polkadot"
@@ -34,7 +34,7 @@
     "@polkadot-api/utils": "^0.2.0",
     "@radix-ui/react-dialog": "1.1.15",
     "qr-code-styling": "1.9.2",
-    "@novasamatech/tr-ui": "0.1.36"
+    "@novasamatech/tr-ui": "0.1.38"
   },
   "devDependencies": {
     "@types/react": "19.2.14",

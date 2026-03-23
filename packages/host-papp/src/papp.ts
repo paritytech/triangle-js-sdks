@@ -12,12 +12,14 @@ import type { AuthComponent, HostMetadata } from './sso/auth/impl.js';
 import { createAuth } from './sso/auth/impl.js';
 import type { SsoSessionManager } from './sso/sessionManager/impl.js';
 import { createSsoSessionManager } from './sso/sessionManager/impl.js';
+import type { UserSecretRepository } from './sso/userSecretRepository.js';
 import { createUserSecretRepository } from './sso/userSecretRepository.js';
 import { createUserSessionRepository } from './sso/userSessionRepository.js';
 
 export type PappAdapter = {
   sso: AuthComponent;
   sessions: SsoSessionManager;
+  secrets: UserSecretRepository;
   identity: IdentityRepository;
 };
 
@@ -75,6 +77,7 @@ export function createPappAdapter({ appId, metadata, hostMetadata, adapters }: P
       lazyClient,
     }),
     sessions: createSsoSessionManager({ storage, statementStore, ssoSessionRepository, userSecretRepository }),
+    secrets: userSecretRepository,
     identity: createIdentityRepository({ adapter: identities, storage }),
   };
 }

@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
+    "url": "git+https://github.com/paritytech/triangle-js-sdks.git"
   },
   "keywords": [
     "polkadot"
@@ -29,7 +29,7 @@
     "@polkadot-api/substrate-bindings": "^0.17.0",
     "@polkadot-api/substrate-client": "^0.5.0",
     "@polkadot-api/utils": "0.2.0",
-    "@polkadot-labs/hdkd-helpers": "0.0.27",
+    "@polkadot-labs/hdkd-helpers": "^0.0.28",
     "@noble/hashes": "2.0.1",
     "@noble/ciphers": "2.1.1",
     "@scure/sr25519": "1.0.0",

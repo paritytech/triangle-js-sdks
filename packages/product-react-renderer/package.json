@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
+    "url": "git+https://github.com/paritytech/triangle-js-sdks.git"
   },
   "keywords": [
     "polkadot"
@@ -28,6 +28,9 @@
     "@novasamatech/product-sdk": "0.6.6",
     "scale-ts": "1.6.1",
     "react-reconciler": "0.33.0"
+  },
+  "devDependencies": {
+    "@types/react-reconciler": "0.33.0"
   },
   "peerDependencies": {
     "react": "^19.0.0"

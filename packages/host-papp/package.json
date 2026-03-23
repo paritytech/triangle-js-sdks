@@ -6,7 +6,7 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
+    "url": "git+https://github.com/paritytech/triangle-js-sdks.git"
   },
   "keywords": [
     "polkadot"
@@ -35,7 +35,7 @@
     "@novasamatech/storage-adapter": "0.6.6",
     "@polkadot-api/utils": "0.2.0",
     "@polkadot-api/substrate-bindings": "^0.17.0",
-    "@polkadot-labs/hdkd-helpers": "^0.0.27",
+    "@polkadot-labs/hdkd-helpers": "^0.0.28",
     "@scure/sr25519": "1.0.0",
     "nanoevents": "9.1.0",
     "nanoid": "5.1.7",

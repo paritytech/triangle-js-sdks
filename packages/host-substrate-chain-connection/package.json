@@ -1,12 +1,12 @@
 {
   "name": "@novasamatech/host-substrate-chain-connection",
   "type": "module",
-  "version": "0.6.6-0",
+  "version": "0.6.6",
   "description": "Chain connection pool with ref counting and provider branching for Polkadot API",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Polkadot-Community-Foundation/triangle-js-sdks.git"
+    "url": "git+https://github.com/paritytech/triangle-js-sdks.git"
   },
   "keywords": [
     "polkadot"
@@ -25,9 +25,9 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/storage-adapter": "0.6.6-0",
+    "@novasamatech/storage-adapter": "0.6.6",
     "@polkadot-api/json-rpc-provider": "^0.0.4",
-    "@polkadot-api/json-rpc-provider-proxy": "^0.2.7",
+    "@polkadot-api/json-rpc-provider-proxy": "^0.2.8",
     "nanoevents": "^9.1.0",
     "polkadot-api": "^1.23.3"
   },

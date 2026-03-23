@@ -28,7 +28,7 @@
 
 ### 🚀 Features
 
-- Support updated statement store api ([#33](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/33))
+- Support updated statement store api ([#33](https://github.com/paritytech/triangle-js-sdks/pull/33))
 
 
 ## 0.6.4 (2026-02-27)
@@ -39,7 +39,7 @@
 
 ### 🩹 Fixes
 
-- Small custom renderer api changes ([ce7961c](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/ce7961c))
+- Small custom renderer api changes ([ce7961c](https://github.com/paritytech/triangle-js-sdks/commit/ce7961c))
 
 ### ❤️ Thank You
 
@@ -61,7 +61,7 @@
 
 ### 🩹 Fixes
 
-- correct import of verifible js ([524b297](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/524b297))
+- correct import of verifible js ([524b297](https://github.com/paritytech/triangle-js-sdks/commit/524b297))
 
 ### ❤️ Thank You
 
@@ -112,23 +112,23 @@ Chore:
 
 ### 🚀 Features
 
-- papp integration ([#5](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/5))
-- Implemented correct Polkadot app pairing ui ([#6](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/6))
-- Support new statement store errors while submitting statements ([#8](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/8))
-- host api spec ([#7](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/7))
-- chat ([#9](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/9))
-- retry auth requests, add tests ([#12](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/12))
-- added clearAll method to localStorageAdapter ([#11](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/11))
-- add tr-ui, PairingPopover and theme support ([#10](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/10))
-- update sdk to 0.5 spec ([#13](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/13))
-- added a disconnect attempt and an error toast. PB-118 ([#15](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/15))
-- changes for 0.5 release ([55ba140](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/55ba140))
+- papp integration ([#5](https://github.com/paritytech/triangle-js-sdks/pull/5))
+- Implemented correct Polkadot app pairing ui ([#6](https://github.com/paritytech/triangle-js-sdks/pull/6))
+- Support new statement store errors while submitting statements ([#8](https://github.com/paritytech/triangle-js-sdks/pull/8))
+- host api spec ([#7](https://github.com/paritytech/triangle-js-sdks/pull/7))
+- chat ([#9](https://github.com/paritytech/triangle-js-sdks/pull/9))
+- retry auth requests, add tests ([#12](https://github.com/paritytech/triangle-js-sdks/pull/12))
+- added clearAll method to localStorageAdapter ([#11](https://github.com/paritytech/triangle-js-sdks/pull/11))
+- add tr-ui, PairingPopover and theme support ([#10](https://github.com/paritytech/triangle-js-sdks/pull/10))
+- update sdk to 0.5 spec ([#13](https://github.com/paritytech/triangle-js-sdks/pull/13))
+- added a disconnect attempt and an error toast. PB-118 ([#15](https://github.com/paritytech/triangle-js-sdks/pull/15))
+- changes for 0.5 release ([55ba140](https://github.com/paritytech/triangle-js-sdks/commit/55ba140))
 
 ### 🩹 Fixes
 
-- Explicitly set account type to sr25519 in extension injector ([c942974](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/c942974))
-- pairing ui logos and texts ([d99f67d](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/d99f67d))
-- added Preview People Chain ([#14](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/pull/14))
+- Explicitly set account type to sr25519 in extension injector ([c942974](https://github.com/paritytech/triangle-js-sdks/commit/c942974))
+- pairing ui logos and texts ([d99f67d](https://github.com/paritytech/triangle-js-sdks/commit/d99f67d))
+- added Preview People Chain ([#14](https://github.com/paritytech/triangle-js-sdks/pull/14))
 
 ### ❤️ Thank You
 
@@ -148,7 +148,7 @@ Chore:
 
 ### 🩹 Fixes
 
-- correct disposal of chain connection ([01e3985](https://github.com/Polkadot-Community-Foundation/triangle-js-sdks/commit/01e3985))
+- correct disposal of chain connection ([01e3985](https://github.com/paritytech/triangle-js-sdks/commit/01e3985))
 
 ### ❤️ Thank You
 

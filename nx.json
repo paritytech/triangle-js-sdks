@@ -71,5 +71,6 @@
       "dependsOn": ["^build", "default", "{workspaceRoot}/eslint.config.js"],
       "inputs": ["default"]
     }
-  }
+  },
+  "analytics": false
 }
