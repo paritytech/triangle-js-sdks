@@ -110,6 +110,7 @@ export function createWebviewProvider({ webview, logger, openDevTools }: Params)
 
       if (port) {
         port.removeEventListener('message', messageHandler);
+        port.close();
       }
       port = null;
     },
