@@ -46,22 +46,13 @@ class SandboxPort {
   private readonly onMessageState: OnMessageState = { handle: null };
   private readonly messageListeners: QuickJSHandle[] = [];
   private readonly subscribers = new Set<(message: Uint8Array) => void>();
-  private toUint8ArrayFn: QuickJSHandle;
+  private readonly toUint8ArrayFn: QuickJSHandle;
   private disposed = false;
   readonly provider: Provider;
 
-  constructor(vm: QuickJSContext) {
+  constructor(vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle) {
     this.vm = vm;
-    // Pre-create a QuickJS-side helper to wrap an ArrayBuffer into Uint8Array.
-    // Used when delivering host bytes to the sandbox as event.data.
-    const helperResult = vm.evalCode('(buf) => new Uint8Array(buf)');
-    if (helperResult.error) {
-      const msg = vm.dump(helperResult.error);
-      helperResult.error.dispose();
-      throw new Error(`Sandbox error: ${JSON.stringify(msg)}`);
-    }
-
-    this.toUint8ArrayFn = helperResult.value;
+    this.toUint8ArrayFn = toUint8ArrayFn;
     this.provider = this.makeProvider();
   }
 
@@ -204,7 +195,6 @@ class SandboxPort {
   dispose(): void {
     this.disposed = true;
     this.disposeHandles();
-    this.toUint8ArrayFn.dispose();
     this.subscribers.clear();
   }
 }
@@ -213,15 +203,14 @@ class QuickJsSandbox implements Sandbox {
   private readonly vm: QuickJSContext;
   private readonly port: SandboxPort;
   private readonly toUint8ArrayFn: QuickJSHandle;
+  private readonly disposeTimers: VoidFunction;
+  private disposed = false;
 
   readonly container: Container;
   readonly provider: Provider;
 
   constructor(vm: QuickJSContext) {
     this.vm = vm;
-    this.port = new SandboxPort(vm);
-    this.provider = this.port.provider;
-    this.container = createContainer(this.provider);
 
     const helperResult = vm.evalCode('(buf) => new Uint8Array(buf)');
     if (helperResult.error) {
@@ -230,11 +219,14 @@ class QuickJsSandbox implements Sandbox {
       throw new Error(`Sandbox setup error: ${JSON.stringify(msg)}`);
     }
     this.toUint8ArrayFn = helperResult.value;
+    this.port = new SandboxPort(vm, this.toUint8ArrayFn);
+    this.provider = this.port.provider;
+    this.container = createContainer(this.provider);
 
-    this.injectGlobals();
+    this.disposeTimers = this.injectGlobals();
   }
 
-  private injectGlobals() {
+  private injectGlobals(): VoidFunction {
     const { vm } = this;
 
     const portHandle = this.port.buildHandle();
@@ -242,17 +234,22 @@ class QuickJsSandbox implements Sandbox {
     vm.setProp(vm.global, '__HOST_API_PORT__', portHandle);
     portHandle.dispose();
 
+    vm.setProp(vm.global, 'top', vm.global);
+    vm.setProp(vm.global, 'window', vm.global);
+
     injectConsole(vm, this.provider.logger);
     injectTextEncoder(vm, this.toUint8ArrayFn);
     injectTextDecoder(vm);
     injectCrypto(vm, this.toUint8ArrayFn);
     injectAbortController(vm);
-    injectIntervals(vm);
-    injectTimeouts(vm);
 
-    // globals
-    vm.setProp(vm.global, 'top', vm.global);
-    vm.setProp(vm.global, 'window', vm.global);
+    const disposeIntervals = injectIntervals(vm);
+    const disposeTimeouts = injectTimeouts(vm);
+
+    return () => {
+      disposeTimeouts();
+      disposeIntervals();
+    };
   }
 
   async run(code: string | Uint8Array, product?: string): Promise<void> {
@@ -322,10 +319,17 @@ class QuickJsSandbox implements Sandbox {
   }
 
   dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+
+    const { vm } = this;
+
+    this.disposeTimers();
     this.port.dispose();
     this.toUint8ArrayFn.dispose();
-    this.container.dispose();
-    this.vm.dispose();
+
+    vm.runtime.executePendingJobs(-1);
+    vm.dispose();
   }
 }
 

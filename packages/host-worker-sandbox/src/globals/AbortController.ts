@@ -7,7 +7,7 @@ export function injectAbortController(vm: QuickJSContext) {
     const removeEventListener = vm.newFunction('removeEventListener', () => vm.undefined);
 
     vm.setProp(signal, 'addEventListener', addEventListener);
-    vm.setProp(signal, 'removeEventListener', addEventListener);
+    vm.setProp(signal, 'removeEventListener', removeEventListener);
 
     const instance = vm.newObject();
     vm.setProp(instance, 'signal', signal);
