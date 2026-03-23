@@ -1,5 +1,5 @@
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
-import { err, ok } from 'neverthrow';
+import { errAsync, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createMetadataCache } from './metadataCache.js';
@@ -46,7 +46,7 @@ describe('createMetadataCache', () => {
     it('falls back to storage when not in memory', async () => {
       const storage = createMockStorage();
       // Base64 for [10, 20, 30] — btoa(String.fromCharCode(10, 20, 30))
-      vi.mocked(storage.read).mockReturnValue(ok('ChQe') as ReturnType<StorageAdapter['read']>);
+      vi.mocked(storage.read).mockReturnValue(okAsync('ChQe'));
 
       const cache = createMetadataCache({ storage });
       const opts = cache.forChain('chain-a');
@@ -58,7 +58,7 @@ describe('createMetadataCache', () => {
 
     it('populates memory on storage hit', async () => {
       const storage = createMockStorage();
-      vi.mocked(storage.read).mockReturnValue(ok('AQ==') as ReturnType<StorageAdapter['read']>);
+      vi.mocked(storage.read).mockReturnValue(okAsync('AQ=='));
 
       const cache = createMetadataCache({ storage });
       const opts = cache.forChain('chain-a');
@@ -81,7 +81,7 @@ describe('createMetadataCache', () => {
       opts.setMetadata!('key1', data);
 
       // Memory read should succeed without storage
-      vi.mocked(storage.read).mockReturnValue(ok(null) as ReturnType<StorageAdapter['read']>);
+      vi.mocked(storage.read).mockReturnValue(okAsync(null));
       expect(await opts.getMetadata!('key1')).toEqual(data);
 
       // Storage should have been called with base64
@@ -90,7 +90,7 @@ describe('createMetadataCache', () => {
 
     it('returns null when storage returns err', async () => {
       const storage = createMockStorage();
-      vi.mocked(storage.read).mockReturnValue(err(new Error('storage failed')) as ReturnType<StorageAdapter['read']>);
+      vi.mocked(storage.read).mockReturnValue(errAsync(new Error('storage failed')));
 
       const cache = createMetadataCache({ storage });
       const opts = cache.forChain('chain-a');
@@ -105,9 +105,9 @@ describe('createMetadataCache', () => {
       let storedValue: string | null = null;
       vi.mocked(storage.write).mockImplementation((_, value) => {
         storedValue = value;
-        return ok(undefined) as ReturnType<StorageAdapter['write']>;
+        return okAsync(undefined);
       });
-      vi.mocked(storage.read).mockImplementation(() => ok(storedValue) as ReturnType<StorageAdapter['read']>);
+      vi.mocked(storage.read).mockImplementation(() => okAsync(storedValue));
 
       const cache = createMetadataCache({ storage });
       const opts = cache.forChain('chain-a');
