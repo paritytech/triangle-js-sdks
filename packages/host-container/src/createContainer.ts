@@ -149,11 +149,11 @@ export function createContainer(provider: Provider): Container {
 
     handleLocalStorageClear(handler) {
       init();
-      return transport.handleRequest('host_local_storage_clear', async params => {
+      return transport.handleRequest('host_local_storage_clear', async message => {
         const version = 'v1';
         const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
+        return guardVersion(message, version, error)
           .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
           .andThen(r => r.map(r => enumValue(version, resultOk(r))))
           .orElse(r => ok(enumValue(version, resultErr(r))))

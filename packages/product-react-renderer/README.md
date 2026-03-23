@@ -99,43 +99,6 @@ chat.onCustomMessageRenderingRequest(
 );
 ```
 
-### TextField input
-
-`onValueChange` receives the decoded string value each time the user edits the field.
-
-```tsx
-import { useState } from 'react';
-import {
-  registerChatMessageRenderer,
-  Column,
-  Text,
-  TextField,
-  Button,
-} from '@novasamatech/product-react-renderer';
-
-function SearchForm() {
-  const [query, setQuery] = useState('');
-
-  function handleSubmit() {
-    // send the query somewhere
-  }
-
-  return (
-    <Column padding={16}>
-      <TextField value={query} placeholder="Search…" onValueChange={setQuery} />
-      <Button text="Search" variant="primary" onClick={handleSubmit} />
-    </Column>
-  );
-}
-
-chat.onCustomMessageRenderingRequest(
-  registerChatMessageRenderer(
-    () => undefined,
-    () => <SearchForm />,
-  ),
-);
-```
-
 ### Using messageId and messageType
 
 Both are forwarded to `renderFn` so you can adapt the UI per message:
@@ -203,6 +166,41 @@ All components accept the [shared layout props](#layout-props) in addition to th
 
 ```tsx
 <TextField value={query} placeholder="Search…" onValueChange={setQuery} />
+```
+
+`onValueChange` receives the decoded string value each time the user edits the field.
+
+```tsx
+import { useState } from 'react';
+import {
+  registerChatMessageRenderer,
+  Column,
+  Text,
+  TextField,
+  Button,
+} from '@novasamatech/product-react-renderer';
+
+function SearchForm() {
+  const [query, setQuery] = useState('');
+
+  function handleSubmit() {
+    // send the query somewhere
+  }
+
+  return (
+    <Column padding={16}>
+      <TextField value={query} placeholder="Search…" onValueChange={setQuery} />
+      <Button text="Search" variant="primary" onClick={handleSubmit} />
+    </Column>
+  );
+}
+
+chat.onCustomMessageRenderingRequest(
+  registerChatMessageRenderer(
+    () => undefined,
+    () => <SearchForm />,
+  ),
+);
 ```
 
 ### `<Column>`

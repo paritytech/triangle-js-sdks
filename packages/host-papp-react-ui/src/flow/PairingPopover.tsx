@@ -12,9 +12,10 @@ import styles from './Pairing.module.css';
 
 type Props = PropsWithChildren<{
   theme?: 'light' | 'dark';
+  size?: number;
 }>;
 
-export const PairingPopover = memo(({ theme, children }: Props) => {
+export const PairingPopover = memo(({ theme, size = 240, children }: Props) => {
   const auth = useAuthentication();
   const { status } = useAuthStatus();
 
@@ -63,7 +64,7 @@ export const PairingPopover = memo(({ theme, children }: Props) => {
           }}
         >
           <div className={styles.popoverContainer}>
-            {status.step === 'pairing' && <PairingStep payload={status.payload} />}
+            {status.step === 'pairing' && <PairingStep theme={theme} size={size} payload={status.payload} />}
             {status.step === 'pairingError' && <PairingErrorStep message={status.message} />}
             {status.step === 'attestation' && <LoadingStep />}
             {status.step === 'attestationError' && <PairingErrorStep message={status.message} />}
@@ -74,15 +75,14 @@ export const PairingPopover = memo(({ theme, children }: Props) => {
   );
 });
 
-const PairingStep = ({ payload }: { payload: string }) => {
+const PairingStep = ({ payload, size, theme }: { payload: string; size: number; theme?: 'light' | 'dark' }) => {
   const translation = useTranslations();
 
   return (
     <div className={styles.pairingPopoverContainer}>
       <span className={styles.pairingPopoverHeader}>{translation.pairingPopoverWelcome}</span>
-
       <div className={styles.qrContainer}>
-        <QrCode value={payload} size={200} theme="dark" />
+        <QrCode value={payload} size={size} theme={theme} />
       </div>
       <span className={styles.scanCallToActionPopover}>{translation.pairingPopoverLoginHeading}</span>
       <span className={styles.pairingDescriptionPopover}>{translation.pairingPopoverScanDescription}</span>

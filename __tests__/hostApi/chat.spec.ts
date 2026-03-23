@@ -143,8 +143,6 @@ describe('Host API: Chat', () => {
         callback,
       );
 
-      await new Promise(resolve => setTimeout(resolve, 10));
-
       expect(callback).toHaveBeenCalledWith(textNode);
 
       subscription.unsubscribe();
@@ -163,8 +161,6 @@ describe('Host API: Chat', () => {
         { messageId: '0', messageType: 'type', payload: new Uint8Array() },
         vi.fn(),
       );
-
-      await new Promise(resolve => setTimeout(resolve, 10));
 
       subscription.unsubscribe();
 
