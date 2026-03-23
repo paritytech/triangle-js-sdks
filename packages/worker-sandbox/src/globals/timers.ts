@@ -1,13 +1,22 @@
 import type { Lifetime, QuickJSContext } from 'quickjs-emscripten';
 
-export function injectTimeouts(vm: QuickJSContext) {
+export function injectTimeouts(vm: QuickJSContext): VoidFunction {
   const refs = new Map<number, Lifetime<any, any, any>>();
+  let disposed = false;
 
   const setTimeoutHandler = vm.newFunction('setTimeout', (funcHandle, timeoutHandle) => {
     const ttl = vm.getNumber(timeoutHandle);
     const ref = funcHandle.dup();
     const timeout = setTimeout(() => {
-      vm.callFunction(ref, vm.global);
+      if (disposed) return;
+      refs.delete(key);
+      const result = vm.callFunction(ref, vm.global);
+      if (result.error) {
+        result.error.dispose();
+      } else {
+        result.value.dispose();
+      }
+      ref.dispose();
       vm.runtime.executePendingJobs(-1);
     }, ttl);
 
@@ -30,16 +39,32 @@ export function injectTimeouts(vm: QuickJSContext) {
   });
   vm.setProp(vm.global, 'clearTimeout', clearTimeoutHandler);
   clearTimeoutHandler.dispose();
+
+  return () => {
+    disposed = true;
+    for (const [key, ref] of refs) {
+      clearTimeout(key);
+      ref.dispose();
+    }
+    refs.clear();
+  };
 }
 
-export function injectIntervals(vm: QuickJSContext) {
+export function injectIntervals(vm: QuickJSContext): VoidFunction {
   const refs = new Map<number, Lifetime<any, any, any>>();
+  let disposed = false;
 
   const setIntervalHandler = vm.newFunction('setInterval', (funcHandle, timeoutHandle) => {
     const ttl = vm.getNumber(timeoutHandle);
     const ref = funcHandle.dup();
     const interval = setInterval(() => {
-      vm.callFunction(ref, vm.global);
+      if (disposed) return;
+      const result = vm.callFunction(ref, vm.global);
+      if (result.error) {
+        result.error.dispose();
+      } else {
+        result.value.dispose();
+      }
       vm.runtime.executePendingJobs(-1);
     }, ttl);
 
@@ -62,4 +87,13 @@ export function injectIntervals(vm: QuickJSContext) {
   });
   vm.setProp(vm.global, 'clearInterval', clearIntervalHandler);
   clearIntervalHandler.dispose();
+
+  return () => {
+    disposed = true;
+    for (const [key, ref] of refs) {
+      clearInterval(key);
+      ref.dispose();
+    }
+    refs.clear();
+  };
 }
