@@ -1,7 +1,7 @@
-import type { Provider } from '@novasamatech/host-api';
+import type { Logger } from '@novasamatech/host-api';
 import type { QuickJSContext } from 'quickjs-emscripten';
 
-export function injectConsole(vm: QuickJSContext, logger: Provider['logger']) {
+export function injectConsole(vm: QuickJSContext, logger: Logger) {
   const consoleObj = vm.newObject();
   for (const method of ['log', 'info', 'warn', 'error'] as const) {
     const fn = vm.newFunction(method, (...args) => {

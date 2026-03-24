@@ -97,3 +97,37 @@ export function injectIntervals(vm: QuickJSContext): VoidFunction {
     refs.clear();
   };
 }
+
+export function injectQueueMicrotask(vm: QuickJSContext): VoidFunction {
+  const pendingRefs = new Set<Lifetime<any, any, any>>();
+  let disposed = false;
+
+  const queueMicrotaskHandler = vm.newFunction('queueMicrotask', funcHandle => {
+    const ref = funcHandle.dup();
+    pendingRefs.add(ref);
+    queueMicrotask(() => {
+      pendingRefs.delete(ref);
+      if (disposed) {
+        ref.dispose();
+        return;
+      }
+      const result = vm.callFunction(ref, vm.global);
+      ref.dispose();
+      if (result.error) {
+        result.error.dispose();
+      } else {
+        result.value.dispose();
+      }
+      vm.runtime.executePendingJobs(-1);
+    });
+    return vm.undefined;
+  });
+  vm.setProp(vm.global, 'queueMicrotask', queueMicrotaskHandler);
+  queueMicrotaskHandler.dispose();
+
+  return () => {
+    disposed = true;
+    for (const ref of pendingRefs) ref.dispose();
+    pendingRefs.clear();
+  };
+}

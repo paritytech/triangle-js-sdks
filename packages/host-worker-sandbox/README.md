@@ -11,7 +11,7 @@ import { createSandbox } from '@novasamatech/host-worker-sandbox';
 
 const hostStorage = new Map<string, Uint8Array>();
 
-const sandbox = await createSandbox();
+const sandbox = await createSandbox('worker.example-product.dot');
 
 // Container bindings: implement the host side of the Host API (storage, features, chain, …).
 const unbindStorageRead = sandbox.container.handleLocalStorageRead((key, { ok }) =>
@@ -23,7 +23,9 @@ const workerSource = `
   // Worker module: __HOST_API_PORT__, TextEncoder, etc. are available in the VM.
 `;
 
-await sandbox.run(workerSource, 'worker.example-product.dot');
+await sandbox.run(workerSource);
+
+// Later on...
 
 unbindStorageRead();
 unbindFeatureSupported();

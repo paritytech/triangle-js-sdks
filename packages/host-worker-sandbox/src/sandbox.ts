@@ -10,7 +10,7 @@ import { injectTextDecoder } from './globals/TextDecoder.js';
 import { injectTextEncoder } from './globals/TextEncoder.js';
 import { injectConsole } from './globals/console.js';
 import { injectCrypto } from './globals/crypto.js';
-import { injectIntervals, injectTimeouts } from './globals/timers.js';
+import { injectIntervals, injectQueueMicrotask, injectTimeouts } from './globals/timers.js';
 
 export type Sandbox = {
   container: Container;
@@ -50,10 +50,10 @@ class SandboxPort {
   private disposed = false;
   readonly provider: Provider;
 
-  constructor(vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle) {
+  constructor(productId: string, vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle) {
     this.vm = vm;
     this.toUint8ArrayFn = toUint8ArrayFn;
-    this.provider = this.makeProvider();
+    this.provider = this.makeProvider(productId);
   }
 
   buildHandle(): QuickJSHandle {
@@ -120,9 +120,9 @@ class SandboxPort {
   }
 
   // Returns a Provider implementation backed by this port's QuickJS transport
-  private makeProvider(): Provider {
+  private makeProvider(productId: string): Provider {
     return {
-      logger: createDefaultLogger(),
+      logger: createDefaultLogger(productId),
       isCorrectEnvironment: () => true,
       postMessage: message => {
         this.deliver(message);
@@ -206,10 +206,12 @@ class QuickJsSandbox implements Sandbox {
   private readonly disposeTimers: VoidFunction;
   private disposed = false;
 
+  readonly productId: string;
   readonly container: Container;
   readonly provider: Provider;
 
-  constructor(vm: QuickJSContext) {
+  constructor(productId: string, vm: QuickJSContext) {
+    this.productId = productId;
     this.vm = vm;
 
     const helperResult = vm.evalCode('(buf) => new Uint8Array(buf)');
@@ -219,7 +221,7 @@ class QuickJsSandbox implements Sandbox {
       throw new Error(`Sandbox setup error: ${JSON.stringify(msg)}`);
     }
     this.toUint8ArrayFn = helperResult.value;
-    this.port = new SandboxPort(vm, this.toUint8ArrayFn);
+    this.port = new SandboxPort(productId, vm, this.toUint8ArrayFn);
     this.provider = this.port.provider;
     this.container = createContainer(this.provider);
 
@@ -242,20 +244,24 @@ class QuickJsSandbox implements Sandbox {
     injectTextDecoder(vm);
     injectCrypto(vm, this.toUint8ArrayFn);
     injectAbortController(vm);
-
+    const disposeQueueMicrotask = injectQueueMicrotask(vm);
     const disposeIntervals = injectIntervals(vm);
     const disposeTimeouts = injectTimeouts(vm);
 
     return () => {
       disposeTimeouts();
       disposeIntervals();
+      disposeQueueMicrotask();
     };
   }
 
-  async run(code: string | Uint8Array, product?: string): Promise<void> {
+  async run(code: string | Uint8Array): Promise<void> {
     const { vm } = this;
     const str = typeof code === 'string' ? code : new TextDecoder().decode(code);
-    const result = vm.evalCode(str, `${product ?? 'unknown_product'}/worker.js`, { type: 'module', strict: true });
+    const result = vm.evalCode(str, `${this.productId ?? 'unknown_product'}/worker.js`, {
+      type: 'module',
+      strict: true,
+    });
 
     if (result.error) {
       const message = vm.dump(result.error);
@@ -333,8 +339,8 @@ class QuickJsSandbox implements Sandbox {
   }
 }
 
-export async function createSandbox(): Promise<Sandbox> {
+export async function createSandbox(productId: string): Promise<Sandbox> {
   const QuickJS = await getQuickJS();
   const vm = QuickJS.newContext();
-  return new QuickJsSandbox(vm);
+  return new QuickJsSandbox(productId, vm);
 }
