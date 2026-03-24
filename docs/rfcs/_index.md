@@ -11,3 +11,4 @@ created: 2026-03-13
 | Number | Title | Status | Author | PR |
 |--------|-------|--------|--------|----|
 | 0001   | [RFC Template](0001-template.md) | — | — | — |
+| 0003   | [Coinage Host API for Private Payments](0003-coinage-host-api.md) | draft | @valentin-parity | — |
