@@ -1,3 +1,4 @@
+import { ContextualAlias, ProductAccountId } from '@novasamatech/host-api';
 import type { HexString } from '@novasamatech/scale';
 import { enumValue, toHex } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
@@ -30,6 +31,10 @@ export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
   signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
   signRaw(payload: SigningRawRequest): ResultAsync<SigningPayloadResponseData, Error>;
+  getRingVrfAlias(
+    productAccountId: CodecType<typeof ProductAccountId>,
+    productId: string,
+  ): ResultAsync<CodecType<typeof ContextualAlias>, Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
 };
@@ -206,6 +211,34 @@ export function createUserSession({
           });
         });
       });
+    },
+
+    getRingVrfAlias(productAccountId, productId) {
+      const messageId = nanoid();
+      const request = session.request(RemoteMessageCodec, {
+        messageId,
+        data: enumValue(
+          'v1',
+          enumValue('RingVrfAliasRequest', {
+            productAccountId,
+            productId,
+          }),
+        ),
+      });
+
+      const responseFilter = (message: RemoteMessage) => {
+        if (
+          message.data.tag === 'v1' &&
+          message.data.value.tag === 'RingVrfAliasResponse' &&
+          message.data.value.value.respondingTo === messageId
+        ) {
+          return message.data.value.value.payload;
+        }
+      };
+
+      return request
+        .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+        .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
     },
 
     dispose() {
