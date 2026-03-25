@@ -1,4 +1,12 @@
-export type { ConnectionStatus, Logger, Subscription, Transport } from './types.js';
+export type {
+  ConnectionStatus,
+  HostApiMethod,
+  Logger,
+  RequestHandler,
+  Subscription,
+  SubscriptionHandler,
+  Transport,
+} from './types.js';
 export type { Provider } from './provider.js';
 export { createRequestId } from './helpers.js';
 

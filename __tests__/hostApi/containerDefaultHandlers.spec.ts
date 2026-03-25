@@ -90,4 +90,15 @@ describe('Container default handlers', () => {
       expect(secondHandler).toHaveBeenCalledOnce();
     });
   });
+
+  it('should dispose correctly', async () => {
+    const { container } = setup();
+
+    const unsub = container.handleGetNonProductAccounts((_, { ok }) => {
+      return ok([]);
+    });
+
+    container.dispose();
+    expect(() => unsub()).not.to.throw();
+  });
 });
