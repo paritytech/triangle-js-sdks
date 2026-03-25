@@ -26,6 +26,23 @@ import type { Container } from './types.js';
 
 const UNSUPPORTED_MESSAGE_FORMAT_ERROR = 'Unsupported message format';
 
+const NOT_IMPLEMENTED = 'Not implemented';
+
+function makeSlot(registerDefault: () => VoidFunction) {
+  let cleanup = registerDefault();
+  return (registerUser: () => VoidFunction): VoidFunction => {
+    cleanup();
+    cleanup = registerUser();
+    let active = true;
+    return () => {
+      if (!active) return;
+      active = false;
+      cleanup();
+      cleanup = registerDefault();
+    };
+  };
+}
+
 function guardVersion<const Enum extends { tag: string; value: unknown }, const Tag extends Enum['tag'], const Err>(
   value: Enum,
   tag: Tag,
@@ -48,313 +65,561 @@ export function createContainer(provider: Provider): Container {
     transport.isReady();
   }
 
+  // account slots
+  const handleAccountGetSlot = makeSlot(() =>
+    transport.handleRequest('host_account_get', async _params => {
+      const error = new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleAccountGetAliasSlot = makeSlot(() =>
+    transport.handleRequest('host_account_get_alias', async _params => {
+      const error = new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleGetNonProductAccountsSlot = makeSlot(() =>
+    transport.handleRequest('host_get_non_product_accounts', async _params => {
+      const error = new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleAccountCreateProofSlot = makeSlot(() =>
+    transport.handleRequest('host_account_create_proof', async _params => {
+      const error = new CreateProofErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  // storage slots
+  const handleLocalStorageReadSlot = makeSlot(() =>
+    transport.handleRequest('host_local_storage_read', async _params => {
+      const error = new StorageErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleLocalStorageWriteSlot = makeSlot(() =>
+    transport.handleRequest('host_local_storage_write', async _params => {
+      const error = new StorageErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleLocalStorageClearSlot = makeSlot(() =>
+    transport.handleRequest('host_local_storage_clear', async _params => {
+      const error = new StorageErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  // signing slots
+  const handleSignRawSlot = makeSlot(() =>
+    transport.handleRequest('host_sign_raw', async _params => {
+      const error = new SigningErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleSignPayloadSlot = makeSlot(() =>
+    transport.handleRequest('host_sign_payload', async _params => {
+      const error = new SigningErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleCreateTransactionSlot = makeSlot(() =>
+    transport.handleRequest('host_create_transaction', async _params => {
+      const error = new CreateTransactionErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleCreateTransactionWithNonProductAccountSlot = makeSlot(() =>
+    transport.handleRequest('host_create_transaction_with_non_product_account', async _params => {
+      const error = new CreateTransactionErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleFeatureSupportedSlot = makeSlot(() =>
+    transport.handleRequest('host_feature_supported', async _params => {
+      const error = new GenericError({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleDevicePermissionSlot = makeSlot(() =>
+    transport.handleRequest('host_device_permission', async _params => {
+      const error = new GenericError({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handlePermissionSlot = makeSlot(() =>
+    transport.handleRequest('remote_permission', async _params => {
+      const error = new GenericError({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handlePushNotificationSlot = makeSlot(() =>
+    transport.handleRequest('host_push_notification', async _params => {
+      const error = new GenericError({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleNavigateToSlot = makeSlot(() =>
+    transport.handleRequest('host_navigate_to', async _params => {
+      const error = new NavigateToErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleChatCreateRoomSlot = makeSlot(() =>
+    transport.handleRequest('host_chat_create_room', async _params => {
+      const error = new ChatRoomRegistrationErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleChatBotRegistrationSlot = makeSlot(() =>
+    transport.handleRequest('host_chat_register_bot', async _params => {
+      const error = new ChatBotRegistrationErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleChatPostMessageSlot = makeSlot(() =>
+    transport.handleRequest('host_chat_post_message', async _params => {
+      const error = new ChatMessagePostingErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleStatementStoreSubmitSlot = makeSlot(() =>
+    transport.handleRequest('remote_statement_store_submit', async _params => {
+      const error = new GenericError({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handleStatementStoreCreateProofSlot = makeSlot(() =>
+    transport.handleRequest('remote_statement_store_create_proof', async _params => {
+      const error = new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  const handlePreimageSubmitSlot = makeSlot(() =>
+    transport.handleRequest('remote_preimage_submit', async _params => {
+      const error = new PreimageSubmitErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    }),
+  );
+
+  // subscription slots — default interrupts on next microtask so that
+  // the caller has a chance to register an onInterrupt listener first
+  const handleAccountConnectionStatusSubscribeSlot = makeSlot(() =>
+    transport.handleSubscription('host_account_connection_status_subscribe', (_params, _send, interrupt) => {
+      queueMicrotask(interrupt);
+      return () => {
+        /* nothing to clean up */
+      };
+    }),
+  );
+
+  const handleChatListSubscribeSlot = makeSlot(() =>
+    transport.handleSubscription('host_chat_list_subscribe', (_params, _send, interrupt) => {
+      queueMicrotask(interrupt);
+      return () => {
+        /* nothing to clean up */
+      };
+    }),
+  );
+
+  const handleChatActionSubscribeSlot = makeSlot(() =>
+    transport.handleSubscription('host_chat_action_subscribe', (_params, _send, interrupt) => {
+      queueMicrotask(interrupt);
+      return () => {
+        /* nothing to clean up */
+      };
+    }),
+  );
+
+  const handleStatementStoreSubscribeSlot = makeSlot(() =>
+    transport.handleSubscription('remote_statement_store_subscribe', (_params, _send, interrupt) => {
+      queueMicrotask(interrupt);
+      return () => {
+        /* nothing to clean up */
+      };
+    }),
+  );
+
+  const handlePreimageLookupSubscribeSlot = makeSlot(() =>
+    transport.handleSubscription('remote_preimage_lookup_subscribe', (_params, _send, interrupt) => {
+      queueMicrotask(interrupt);
+      return () => {
+        /* nothing to clean up */
+      };
+    }),
+  );
+
   return {
     handleFeatureSupported(handler) {
       init();
-      return transport.handleRequest('host_feature_supported', async message => {
-        const version = 'v1';
-        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleFeatureSupportedSlot(() =>
+        transport.handleRequest('host_feature_supported', async message => {
+          const version = 'v1';
+          const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(message, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(message, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleDevicePermission(handler) {
       init();
-      return transport.handleRequest('host_device_permission', async message => {
-        const version = 'v1';
-        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleDevicePermissionSlot(() =>
+        transport.handleRequest('host_device_permission', async message => {
+          const version = 'v1';
+          const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(message, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(message, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handlePermission(handler) {
       init();
-      return transport.handleRequest('remote_permission', async message => {
-        const version = 'v1';
-        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handlePermissionSlot(() =>
+        transport.handleRequest('remote_permission', async message => {
+          const version = 'v1';
+          const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(message, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(message, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handlePushNotification(handler) {
       init();
-      return transport.handleRequest('host_push_notification', async message => {
-        const version = 'v1';
-        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handlePushNotificationSlot(() =>
+        transport.handleRequest('host_push_notification', async message => {
+          const version = 'v1';
+          const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(message, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(message, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleNavigateTo(handler) {
       init();
-      return transport.handleRequest('host_navigate_to', async message => {
-        const version = 'v1';
-        const error = new NavigateToErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleNavigateToSlot(() =>
+        transport.handleRequest('host_navigate_to', async message => {
+          const version = 'v1';
+          const error = new NavigateToErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(message, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(message, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleLocalStorageRead(handler) {
       init();
-      return transport.handleRequest('host_local_storage_read', async message => {
-        const version = 'v1';
-        const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleLocalStorageReadSlot(() =>
+        transport.handleRequest('host_local_storage_read', async message => {
+          const version = 'v1';
+          const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(message, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(message, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleLocalStorageWrite(handler) {
       init();
-      return transport.handleRequest('host_local_storage_write', async message => {
-        const version = 'v1';
-        const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleLocalStorageWriteSlot(() =>
+        transport.handleRequest('host_local_storage_write', async message => {
+          const version = 'v1';
+          const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(message, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(message, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleLocalStorageClear(handler) {
       init();
-      return transport.handleRequest('host_local_storage_clear', async message => {
-        const version = 'v1';
-        const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleLocalStorageClearSlot(() =>
+        transport.handleRequest('host_local_storage_clear', async message => {
+          const version = 'v1';
+          const error = new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(message, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(message, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleAccountConnectionStatusSubscribe(handler) {
       init();
-      return transport.handleSubscription('host_account_connection_status_subscribe', (params, send, interrupt) => {
-        const version = 'v1';
+      return handleAccountConnectionStatusSubscribeSlot(() =>
+        transport.handleSubscription('host_account_connection_status_subscribe', (params, send, interrupt) => {
+          const version = 'v1';
 
-        return guardVersion(params, version, null)
-          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
-          .orTee(interrupt)
-          .unwrapOr(() => {
-            /* empty */
-          });
-      });
+          return guardVersion(params, version, null)
+            .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
+            .orTee(interrupt)
+            .unwrapOr(() => {
+              /* empty */
+            });
+        }),
+      );
     },
 
     handleAccountGet(handler) {
       init();
-      return transport.handleRequest('host_account_get', async params => {
-        const version = 'v1';
-        const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleAccountGetSlot(() =>
+        transport.handleRequest('host_account_get', async params => {
+          const version = 'v1';
+          const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleAccountGetAlias(handler) {
       init();
-      return transport.handleRequest('host_account_get_alias', async params => {
-        const version = 'v1';
-        const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleAccountGetAliasSlot(() =>
+        transport.handleRequest('host_account_get_alias', async params => {
+          const version = 'v1';
+          const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleAccountCreateProof(handler) {
       init();
-      return transport.handleRequest('host_account_create_proof', async params => {
-        const version = 'v1';
-        const error = new CreateProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleAccountCreateProofSlot(() =>
+        transport.handleRequest('host_account_create_proof', async params => {
+          const version = 'v1';
+          const error = new CreateProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleGetNonProductAccounts(handler) {
       init();
-      return transport.handleRequest('host_get_non_product_accounts', async params => {
-        const version = 'v1';
-        const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleGetNonProductAccountsSlot(() =>
+        transport.handleRequest('host_get_non_product_accounts', async params => {
+          const version = 'v1';
+          const error = new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleCreateTransaction(handler) {
       init();
-      return transport.handleRequest('host_create_transaction', async params => {
-        const version = 'v1';
-        const error = new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleCreateTransactionSlot(() =>
+        transport.handleRequest('host_create_transaction', async params => {
+          const version = 'v1';
+          const error = new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleCreateTransactionWithNonProductAccount(handler) {
       init();
-      return transport.handleRequest('host_create_transaction_with_non_product_account', async params => {
-        const version = 'v1';
-        const error = new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleCreateTransactionWithNonProductAccountSlot(() =>
+        transport.handleRequest('host_create_transaction_with_non_product_account', async params => {
+          const version = 'v1';
+          const error = new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleSignRaw(handler) {
       init();
-      return transport.handleRequest('host_sign_raw', async params => {
-        const version = 'v1';
-        const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleSignRawSlot(() =>
+        transport.handleRequest('host_sign_raw', async params => {
+          const version = 'v1';
+          const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleSignPayload(handler) {
       init();
-      return transport.handleRequest('host_sign_payload', async params => {
-        const version = 'v1';
-        const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleSignPayloadSlot(() =>
+        transport.handleRequest('host_sign_payload', async params => {
+          const version = 'v1';
+          const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleChatCreateRoom(handler) {
       init();
-      return transport.handleRequest('host_chat_create_room', async params => {
-        const version = 'v1';
-        const error = new ChatRoomRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleChatCreateRoomSlot(() =>
+        transport.handleRequest('host_chat_create_room', async params => {
+          const version = 'v1';
+          const error = new ChatRoomRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleChatBotRegistration(handler) {
       init();
-      return transport.handleRequest('host_chat_register_bot', async params => {
-        const version = 'v1';
-        const error = new ChatBotRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleChatBotRegistrationSlot(() =>
+        transport.handleRequest('host_chat_register_bot', async params => {
+          const version = 'v1';
+          const error = new ChatBotRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleChatListSubscribe(handler) {
       init();
-      return transport.handleSubscription('host_chat_list_subscribe', (params, send, interrupt) => {
-        const version = 'v1';
+      return handleChatListSubscribeSlot(() =>
+        transport.handleSubscription('host_chat_list_subscribe', (params, send, interrupt) => {
+          const version = 'v1';
 
-        return guardVersion(params, version, null)
-          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
-          .orTee(interrupt)
-          .unwrapOr(() => {
-            /* empty */
-          });
-      });
+          return guardVersion(params, version, null)
+            .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
+            .orTee(interrupt)
+            .unwrapOr(() => {
+              /* empty */
+            });
+        }),
+      );
     },
 
     handleChatPostMessage(handler) {
       init();
-      return transport.handleRequest('host_chat_post_message', async params => {
-        const version = 'v1';
-        const error = new ChatMessagePostingErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleChatPostMessageSlot(() =>
+        transport.handleRequest('host_chat_post_message', async params => {
+          const version = 'v1';
+          const error = new ChatMessagePostingErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleChatActionSubscribe(handler) {
       init();
-      return transport.handleSubscription('host_chat_action_subscribe', (params, send, interrupt) => {
-        const version = 'v1';
+      return handleChatActionSubscribeSlot(() =>
+        transport.handleSubscription('host_chat_action_subscribe', (params, send, interrupt) => {
+          const version = 'v1';
 
-        return guardVersion(params, version, null)
-          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
-          .orTee(interrupt)
-          .unwrapOr(() => {
-            /* empty */
-          });
-      });
+          return guardVersion(params, version, null)
+            .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
+            .orTee(interrupt)
+            .unwrapOr(() => {
+              /* empty */
+            });
+        }),
+      );
     },
 
     renderChatCustomMessage({ messageId, messageType, payload }, callback) {
@@ -372,72 +637,82 @@ export function createContainer(provider: Provider): Container {
 
     handleStatementStoreSubscribe(handler) {
       init();
-      return transport.handleSubscription('remote_statement_store_subscribe', (params, send, interrupt) => {
-        const version = 'v1';
+      return handleStatementStoreSubscribeSlot(() =>
+        transport.handleSubscription('remote_statement_store_subscribe', (params, send, interrupt) => {
+          const version = 'v1';
 
-        return guardVersion(params, version, null)
-          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
-          .orTee(interrupt)
-          .unwrapOr(() => {
-            /* empty */
-          });
-      });
+          return guardVersion(params, version, null)
+            .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
+            .orTee(interrupt)
+            .unwrapOr(() => {
+              /* empty */
+            });
+        }),
+      );
     },
 
     handleStatementStoreCreateProof(handler) {
       init();
-      return transport.handleRequest('remote_statement_store_create_proof', async params => {
-        const version = 'v1';
-        const error = new StatementProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleStatementStoreCreateProofSlot(() =>
+        transport.handleRequest('remote_statement_store_create_proof', async params => {
+          const version = 'v1';
+          const error = new StatementProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handleStatementStoreSubmit(handler) {
       init();
-      return transport.handleRequest('remote_statement_store_submit', async params => {
-        const version = 'v1';
-        const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handleStatementStoreSubmitSlot(() =>
+        transport.handleRequest('remote_statement_store_submit', async params => {
+          const version = 'v1';
+          const error = new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     handlePreimageLookupSubscribe(handler) {
       init();
-      return transport.handleSubscription('remote_preimage_lookup_subscribe', (params, send, interrupt) => {
-        const version = 'v1';
+      return handlePreimageLookupSubscribeSlot(() =>
+        transport.handleSubscription('remote_preimage_lookup_subscribe', (params, send, interrupt) => {
+          const version = 'v1';
 
-        return guardVersion(params, version, null)
-          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
-          .orTee(interrupt)
-          .unwrapOr(() => {
-            /* empty */
-          });
-      });
+          return guardVersion(params, version, null)
+            .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
+            .orTee(interrupt)
+            .unwrapOr(() => {
+              /* empty */
+            });
+        }),
+      );
     },
 
     handlePreimageSubmit(handler) {
       init();
-      return transport.handleRequest('remote_preimage_submit', async params => {
-        const version = 'v1';
-        const error = new PreimageSubmitErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+      return handlePreimageSubmitSlot(() =>
+        transport.handleRequest('remote_preimage_submit', async params => {
+          const version = 'v1';
+          const error = new PreimageSubmitErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
-        return guardVersion(params, version, error)
-          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
-          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
-          .orElse(r => ok(enumValue(version, resultErr(r))))
-          .unwrapOr(enumValue(version, resultErr(error)));
-      });
+          return guardVersion(params, version, error)
+            .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+            .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+            .orElse(r => ok(enumValue(version, resultErr(r))))
+            .unwrapOr(enumValue(version, resultErr(error)));
+        }),
+      );
     },
 
     // chain interaction

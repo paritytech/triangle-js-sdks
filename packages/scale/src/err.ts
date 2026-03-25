@@ -32,6 +32,9 @@ export function Err<const T, const Name extends string>(
         super(typeof message === 'function' ? message(data) : message);
         this.payload = data;
       }
+      get value(): T {
+        return this.payload;
+      }
       // codec array destructuring workaround
       static [Symbol.iterator]() {
         return errorCodec[Symbol.iterator]();
