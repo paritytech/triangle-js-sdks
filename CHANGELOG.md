@@ -1,3 +1,19 @@
+## 0.6.8 (2026-03-24)
+
+### 🚀 Features
+
+- Add host-worker-sandbox package. ([#71](https://github.com/paritytech/triangle-js-sdks/pull/71))
+
+### 🩹 Fixes
+
+- **host-container:** close MessagePort on provider dispose PB-310 ([#78](https://github.com/paritytech/triangle-js-sdks/pull/78))
+
+### ❤️ Thank You
+
+- Ilya Kalinin
+- Sergey Zhuravlev
+- Yanaty
+
 ## 0.6.7 (2026-03-23)
 
 ### 🚀 Features
