@@ -1,3 +1,15 @@
+## 0.6.9 (2026-03-25)
+
+### 🚀 Features
+
+- **host-container:** add default handlers if user didn't provided one. ([#84](https://github.com/paritytech/triangle-js-sdks/pull/84))
+
+### 🩹 Fixes
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.8 (2026-03-24)
 
 ### 🚀 Features
