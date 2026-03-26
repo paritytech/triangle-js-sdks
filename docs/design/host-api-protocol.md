@@ -111,14 +111,16 @@ fn host_local_storage_clear(
   key: LocalStorageKey
 ) -> Result<(), LocalStorageErr>;
 
+// Host appearance
+
+fn host_theme_subscribe(
+  callback: fn(Theme)
+) -> Result<Subscriber, GenericErr>;
+
 // Account
 
 fn host_account_connection_status_subscribe(
   callback: fn(AccountConnectionStatus)
-) -> Result<Subscriber, GenericErr>;
-
-fn host_theme_subscribe(
-  callback: fn(Theme)
 ) -> Result<Subscriber, GenericErr>;
 
 fn host_account_get(
@@ -505,6 +507,21 @@ fn host_local_storage_clear(
 ) -> Result<(), LocalStorageErr>;
 ```
 
+### Host appearance
+
+The host can notify the product when the system or in-app color scheme changes so the embedded UI can match (e.g. light vs dark).
+
+```rust
+enum Theme {
+  Light,
+  Dark
+}
+
+fn host_theme_subscribe(
+  callback: fn(Theme)
+) -> Result<Subscriber, GenericErr>;
+```
+
 ### Accounts
 
 More on this part can be found [here](https://hackmd.io/@valentunn/BkXioNVbZe).
@@ -562,17 +579,8 @@ enum AccountConnectionStatus {
   Connected
 }
 
-enum Theme {
-  Light,
-  Dark
-}
-
 fn host_account_connection_status_subscribe(
   callback: fn(AccountConnectionStatus)
-) -> Result<Subscriber, GenericErr>;
-
-fn host_theme_subscribe(
-  callback: fn(Theme)
 ) -> Result<Subscriber, GenericErr>;
 
 fn host_account_get(
