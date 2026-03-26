@@ -1,3 +1,18 @@
+## 0.6.10 (2026-03-25)
+
+### 🚀 Features
+
+- **host-papp:** Add getRingVrfAlias. PB-302 ([#42](https://github.com/paritytech/triangle-js-sdks/pull/42))
+
+### 🩹 Fixes
+
+- **host-container:** correct container disposal ([#86](https://github.com/paritytech/triangle-js-sdks/pull/86))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- Yanaty
+
 ## 0.6.9 (2026-03-25)
 
 ### 🚀 Features
