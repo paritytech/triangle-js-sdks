@@ -7,9 +7,9 @@ export function createHostApiProviders() {
   type Events = 'toHost' | 'toSdk';
   const bus = createNanoEvents<Record<Events, (v: Uint8Array) => void>>();
 
-  function createProvider(listenTo: Events, postTo: Events): Provider {
+  function createProvider(prefix: string, listenTo: Events, postTo: Events): Provider {
     return {
-      logger: createDefaultLogger(),
+      logger: createDefaultLogger(prefix),
       isCorrectEnvironment: () => true,
       dispose: () => delete bus.events[listenTo],
       subscribe: callback => bus.on(listenTo, callback),
@@ -18,7 +18,7 @@ export function createHostApiProviders() {
   }
 
   return {
-    host: createProvider('toHost', 'toSdk'),
-    sdk: createProvider('toSdk', 'toHost'),
+    host: createProvider('HOST', 'toHost', 'toSdk'),
+    sdk: createProvider('PRODUCT', 'toSdk', 'toHost'),
   };
 }
