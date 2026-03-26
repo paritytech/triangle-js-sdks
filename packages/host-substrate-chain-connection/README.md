@@ -59,6 +59,7 @@ const account = await chains.requestApi(polkadot, async (client) => {
   - [Metadata caching](#metadata-caching)
   - [Smoldot light client](#smoldot-light-client)
   - [Multiple chains](#multiple-chains)
+  - [Raw JSON-RPC subscriptions](#raw-json-rpc-subscriptions)
 - [How it works](#how-it-works)
 - [Full example](#full-example)
 
@@ -198,7 +199,7 @@ unsubscribe();
 
 ### `createWsJsonRpcProvider(options)`
 
-WebSocket provider factory. Wraps polkadot-api's `getWsProvider` with `polkadot-sdk-compat` and translates WebSocket events to `ConnectionStatus`.
+WebSocket provider factory. Wraps polkadot-api's `getWsProvider` with `polkadot-sdk-compat` and translates WebSocket events to `ConnectionStatus`. Active JSON-RPC subscriptions are automatically replayed after a reconnect — consumers using `getProvider` don't need to handle reconnects manually.
 
 **Signature:**
 
@@ -414,6 +415,34 @@ const chains = createChainConnection<MyChain, ResolvedApi>({
   },
 });
 ```
+
+### Raw JSON-RPC subscriptions
+
+`getProvider` returns a raw `JsonRpcProvider`. When used with subscription methods, active subscriptions are automatically resent after a WebSocket reconnect — no manual reconnect handling needed.
+
+```ts
+const provider = chains.getProvider(polkadot);
+
+const conn = provider(message => {
+  const parsed = JSON.parse(message);
+  if (parsed.method === 'chain_newHead') {
+    console.info('New head:', parsed.params.result);
+  }
+});
+
+// Subscribe to new block heads
+conn.send(JSON.stringify({ id: 1, method: 'chain_subscribeNewHeads', params: [] }));
+
+// If the WebSocket drops and reconnects, the subscription is automatically
+// resent. The server assigns a new subscription ID and notifications resume.
+
+// Cleanup
+conn.disconnect();
+```
+
+> **Note:** Use the most recently received server-assigned subscription ID when unsubscribing. IDs from before a reconnect are no longer valid.
+
+---
 
 ## How it works
 
