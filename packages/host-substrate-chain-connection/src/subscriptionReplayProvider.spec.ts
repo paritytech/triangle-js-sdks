@@ -180,4 +180,64 @@ describe('withSubscriptionReplay', () => {
     control.triggerReconnect();
     expect(mock.send).not.toHaveBeenCalled();
   });
+
+  it('does not replay chainHead_v1_follow when pending (no server response yet)', () => {
+    const mock = createMockProvider();
+    const control = createReconnectControl();
+    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
+
+    conn.send('{"id":1,"method":"chainHead_v1_follow","params":[true]}');
+    // intentionally no simulateMessage — subscription not confirmed by server
+    mock.send.mockClear();
+
+    control.triggerReconnect();
+
+    expect(mock.send).not.toHaveBeenCalled();
+  });
+
+  it('replays active chainHead_v1_follow subscription on reconnect', () => {
+    const mock = createMockProvider();
+    const control = createReconnectControl();
+    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
+    const followMsg = '{"id":1,"method":"chainHead_v1_follow","params":[true]}';
+
+    conn.send(followMsg);
+    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"follow-sub-id"}');
+    mock.send.mockClear();
+
+    control.triggerReconnect();
+
+    expect(mock.send).toHaveBeenCalledWith(followMsg);
+  });
+
+  it('does not replay chainHead_v1_follow after chainHead_v1_unfollow', () => {
+    const mock = createMockProvider();
+    const control = createReconnectControl();
+    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
+
+    conn.send('{"id":1,"method":"chainHead_v1_follow","params":[true]}');
+    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"follow-sub-id"}');
+    conn.send('{"id":2,"method":"chainHead_v1_unfollow","params":["follow-sub-id"]}');
+    mock.send.mockClear();
+
+    control.triggerReconnect();
+
+    expect(mock.send).not.toHaveBeenCalled();
+  });
+
+  it('keeps chainHead_v1_follow active when chainHead_v1_unfollow uses wrong sub-id', () => {
+    const mock = createMockProvider();
+    const control = createReconnectControl();
+    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
+    const followMsg = '{"id":1,"method":"chainHead_v1_follow","params":[true]}';
+
+    conn.send(followMsg);
+    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"follow-sub-id"}');
+    conn.send('{"id":2,"method":"chainHead_v1_unfollow","params":["wrong-sub-id"]}');
+    mock.send.mockClear();
+
+    control.triggerReconnect();
+
+    expect(mock.send).toHaveBeenCalledWith(followMsg);
+  });
 });

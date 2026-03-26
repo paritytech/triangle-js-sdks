@@ -1,5 +1,12 @@
 import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 
+const isSubscribeMethod = (method: string): boolean =>
+  method === 'chainHead_v1_follow' ||
+  (method.toLowerCase().includes('subscribe') && !method.toLowerCase().includes('unsubscribe'));
+
+const isUnsubscribeMethod = (method: string): boolean =>
+  method === 'chainHead_v1_unfollow' || method.toLowerCase().includes('unsubscribe');
+
 export const withSubscriptionReplay =
   (provider: JsonRpcProvider, onReconnect: (callback: VoidFunction) => VoidFunction): JsonRpcProvider =>
   onMessage => {
@@ -18,7 +25,6 @@ export const withSubscriptionReplay =
           activeSubscriptions.set(parsed.result, { id: parsed.id, payload: pending });
         }
       }
-
       onMessage(message);
     });
 
@@ -40,13 +46,10 @@ export const withSubscriptionReplay =
           params?: unknown[];
         };
 
-        // TODO support chain follow and other events as well
         if (method) {
-          const normalizedMethod = method.toLowerCase();
-
-          if (normalizedMethod.includes('subscribe') && !normalizedMethod.includes('unsubscribe')) {
+          if (isSubscribeMethod(method)) {
             if (id !== undefined) pendingSubscriptions.set(id, message);
-          } else if (normalizedMethod.includes('unsubscribe')) {
+          } else if (isUnsubscribeMethod(method)) {
             const subId = (params as [string] | undefined)?.[0];
             // Note: callers must use the most recently received server-assigned subscription
             // ID to successfully unsubscribe. Using a stale ID from a previous connection
