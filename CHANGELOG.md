@@ -1,3 +1,13 @@
+## 0.6.12 (2026-03-30)
+
+### 🚀 Features
+
+- **host-substrate-chain-connection:** remove withPolkadotSdkCompat usage, added enhanceBranch option to branched provider instead ([#91](https://github.com/paritytech/triangle-js-sdks/pull/91))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.11 (2026-03-27)
 
 ### 🚀 Features
