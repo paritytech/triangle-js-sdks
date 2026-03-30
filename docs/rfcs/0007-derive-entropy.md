@@ -4,7 +4,7 @@
 |--------|--------------------------------|
 | RFC    | 0007                           |
 | Status | Draft                          |
-| Author | TBD                            |
+| Author | Valentin Sergeev               |
 | Date   | 2026-03-30                     |
 
 ## Summary
