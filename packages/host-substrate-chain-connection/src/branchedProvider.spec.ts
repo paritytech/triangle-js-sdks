@@ -134,4 +134,15 @@ describe('createBranchedProvider', () => {
 
     expect(mock.send).toHaveBeenCalledWith('{"method":"test"}');
   });
+
+  it('calls enhanceBranch for each new branch independently', () => {
+    const mock = createMockProvider();
+    const enhance = vi.fn((p: JsonRpcProvider) => p);
+    const branched = createBranchedProvider(mock.provider, { enhanceBranch: enhance });
+
+    branched.branch()(vi.fn());
+    branched.branch()(vi.fn());
+
+    expect(enhance).toHaveBeenCalledTimes(2);
+  });
 });
