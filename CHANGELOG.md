@@ -1,3 +1,13 @@
+## 0.6.11 (2026-03-27)
+
+### 🚀 Features
+
+- **host-substrate-chain-connection:** add withSubscriptionReplay provider enhancer ([#89](https://github.com/paritytech/triangle-js-sdks/pull/89))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.10 (2026-03-25)
 
 ### 🚀 Features
