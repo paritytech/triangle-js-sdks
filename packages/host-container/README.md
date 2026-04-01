@@ -370,12 +370,15 @@ const chains = new Map([
 ]);
 
 container.handleChainConnection({
-  factory: genesisHash => {
+  factory(genesisHash) {
     const endpoint = chains.get(genesisHash);
     if (!endpoint) return null;
     return getWsProvider(endpoint);
   },
-  submitPermission: () => Promise.resolve(true),
+  async submitPermission(transaction) {
+    if (hasPermission(transaction)) return true;
+    return false;
+  }
 });
 ```
 

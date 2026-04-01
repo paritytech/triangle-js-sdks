@@ -72,7 +72,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -142,7 +142,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -239,7 +239,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -311,7 +311,12 @@ describe('Host API: Chain Interaction', () => {
                             event: 'operationStorageItems',
                             operationId: 'op_storage_1',
                             items: [
-                              { key: '0xee000001', value: '0xff000001', hash: null, closestDescendantMerkleValue: null },
+                              {
+                                key: '0xee000001',
+                                value: '0xff000001',
+                                hash: null,
+                                closestDescendantMerkleValue: null,
+                              },
                             ],
                           },
                         },
@@ -339,7 +344,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -434,7 +439,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -500,7 +505,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -569,7 +574,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -635,7 +640,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(() => {
@@ -690,7 +695,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const result = await hostApi.chainTransactionBroadcast(
@@ -729,7 +734,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const result = await hostApi.chainTransactionBroadcast(
@@ -769,7 +774,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const result = await hostApi.chainTransactionStop(
@@ -817,7 +822,7 @@ describe('Host API: Chain Interaction', () => {
         () => {
           throw new Error('Expected permission denied');
         },
-        err => expect(err.value.reason).toBe('Permission denied'),
+        err => expect(err.value.payload.reason).toBe('Permission denied'),
       );
     });
   });
@@ -892,8 +897,14 @@ describe('Host API: Chain Interaction', () => {
       container1.handleFeatureSupported((params, { ok }) => ok(params.tag === 'Chain' && params.value === chainId));
       container2.handleFeatureSupported((params, { ok }) => ok(params.tag === 'Chain' && params.value === chainId));
 
-      container1.handleChainConnection({ factory: broadcastingChainFactory, submitPermission: () => Promise.resolve(true) });
-      container2.handleChainConnection({ factory: broadcastingChainFactory, submitPermission: () => Promise.resolve(true) });
+      container1.handleChainConnection({
+        factory: broadcastingChainFactory,
+        submitPermission: () => true,
+      });
+      container2.handleChainConnection({
+        factory: broadcastingChainFactory,
+        submitPermission: () => true,
+      });
 
       const sdkTransport1 = createTransport(providers1.sdk);
       const sdkTransport2 = createTransport(providers2.sdk);
@@ -985,7 +996,7 @@ describe('Host API: Chain Interaction', () => {
             };
           };
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(() => {
@@ -1029,7 +1040,7 @@ describe('Host API: Chain Interaction', () => {
           }
           return null;
         },
-        submitPermission: () => Promise.resolve(true),
+        submitPermission: () => true,
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
