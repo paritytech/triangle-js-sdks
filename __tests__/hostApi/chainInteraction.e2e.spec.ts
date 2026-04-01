@@ -1,10 +1,9 @@
-import type { HexString } from '@novasamatech/host-api';
 import { createTransport } from '@novasamatech/host-api';
 import { createContainer } from '@novasamatech/host-container';
 import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
 import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
@@ -68,228 +67,257 @@ async function pollForMessage(
   return undefined;
 }
 
-// E2E tests against a real Polkadot node.
-// Uses a single shared WebSocket connection to avoid rate-limiting from the public RPC endpoint.
-// Retries are enabled because public endpoints may occasionally be slow or temporarily unavailable.
-describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeout: 30_000 }, () => {
-  let container: ReturnType<typeof createContainer>;
-  let sdkConnection: { send: (msg: string) => void; disconnect: () => void };
-  let chainDispose: VoidFunction;
-  const receivedMessages: string[] = [];
-  let nextId = 1;
+type TestSetup = {
+  sdkConnection: { send: (msg: string) => void; disconnect: () => void };
+  receivedMessages: string[];
+  cleanup: () => Promise<void>;
+};
 
-  // chainHead state established during setup
-  let followSubId: string;
-  let initialBlockHash: string;
+function createTestSetup(): TestSetup {
+  const providers = createHostApiProviders();
+  const container = createContainer(providers.host);
+  const sdkTransport = createTransport(providers.sdk);
+  const provider = createPapiProvider(POLKADOT_GENESIS_HASH, undefined, { transport: sdkTransport });
 
-  beforeAll(async () => {
-    const providers = createHostApiProviders();
-    container = createContainer(providers.host);
-    const sdkTransport = createTransport(providers.sdk);
-    const provider = createPapiProvider(POLKADOT_GENESIS_HASH as HexString, undefined, {
-      transport: sdkTransport,
-    });
+  container.handleFeatureSupported((params, { ok }) =>
+    ok(params.tag === 'Chain' && params.value === POLKADOT_GENESIS_HASH),
+  );
 
-    container.handleFeatureSupported((params, { ok }) =>
-      ok(params.tag === 'Chain' && params.value === POLKADOT_GENESIS_HASH),
-    );
-
-    chainDispose = container.handleChainConnection(chain => {
-      if (chain !== POLKADOT_GENESIS_HASH) return null;
-      return createWebSocketProvider(POLKADOT_RPC_URL);
-    });
-
-    sdkConnection = provider(msg => receivedMessages.push(msg));
-
-    // Start follow subscription (needed for chainHead tests and also warms up the connection)
-    const followId = nextId++;
-    sdkConnection.send(
-      JSON.stringify({ jsonrpc: '2.0', id: followId, method: 'chainHead_v1_follow', params: [false] }),
-    );
-
-    // Wait for follow response
-    const followResp = await pollForMessage(receivedMessages, p => p.id === followId && p.result !== undefined);
-    if (!followResp) throw new Error('Failed to start follow subscription');
-    followSubId = JSON.parse(followResp).result;
-
-    // Wait for initialized event to get a block hash
-    const initEvent = await pollForMessage(
-      receivedMessages,
-      p => (p as any).method === 'chainHead_v1_followEvent' && (p as any).params?.result?.event === 'initialized',
-    );
-    if (!initEvent) throw new Error('Did not receive initialized event');
-
-    const parsedInit = JSON.parse(initEvent);
-    initialBlockHash = parsedInit.params.result.finalizedBlockHashes[0];
-  }, 60_000);
-
-  afterAll(async () => {
-    sdkConnection?.disconnect();
-    chainDispose?.();
-    container?.dispose();
-    await delay(200);
+  const chainDispose = container.handleChainConnection(chain => {
+    if (chain !== POLKADOT_GENESIS_HASH) return null;
+    return createWebSocketProvider(POLKADOT_RPC_URL);
   });
 
+  const receivedMessages: string[] = [];
+  const sdkConnection = provider(msg => receivedMessages.push(msg));
+
+  const cleanup = async () => {
+    sdkConnection.disconnect();
+    chainDispose();
+    container.dispose();
+    await delay(200);
+  };
+
+  return { sdkConnection, receivedMessages, cleanup };
+}
+
+type ChainHeadSetup = TestSetup & {
+  followSubId: string;
+  initialBlockHash: string;
+};
+
+// Sets up a follow subscription (id=1) and waits for the initialized event.
+// Tests using this setup should start their own request IDs from 2.
+async function createChainHeadSetup(): Promise<ChainHeadSetup> {
+  const setup = createTestSetup();
+
+  setup.sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] }));
+
+  const followResp = await pollForMessage(setup.receivedMessages, p => p.id === 1 && p.result !== undefined);
+  if (!followResp) throw new Error('Failed to start follow subscription');
+  const followSubId = JSON.parse(followResp).result as string;
+
+  const initEvent = await pollForMessage(
+    setup.receivedMessages,
+    p => (p as any).method === 'chainHead_v1_followEvent' && (p as any).params?.result?.event === 'initialized',
+  );
+  if (!initEvent) throw new Error('Did not receive initialized event');
+
+  const initialBlockHash = JSON.parse(initEvent).params.result.finalizedBlockHashes[0] as string;
+
+  return { ...setup, followSubId, initialBlockHash };
+}
+
+// E2E tests against a real Polkadot node.
+// Each test opens its own connection to avoid shared state causing flakiness.
+// Retries are enabled because public endpoints may occasionally be slow or temporarily unavailable.
+describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeout: 30_000 }, () => {
   describe('chainSpec methods', () => {
     it('chainSpec_v1_genesisHash — should return the Polkadot genesis hash', async () => {
-      const id = nextId++;
-      sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id, method: 'chainSpec_v1_genesisHash', params: [] }));
+      const { sdkConnection, receivedMessages, cleanup } = createTestSetup();
+      try {
+        sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_genesisHash', params: [] }));
 
-      const response = await pollForMessage(receivedMessages, p => p.id === id && p.result !== undefined);
-      expect(response).toBeDefined();
+        const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
+        expect(response).toBeDefined();
 
-      const parsed = JSON.parse(response!);
-      expect(parsed.result).toBe(POLKADOT_GENESIS_HASH);
+        const parsed = JSON.parse(response!);
+        expect(parsed.result).toBe(POLKADOT_GENESIS_HASH);
+      } finally {
+        await cleanup();
+      }
     });
 
     it('chainSpec_v1_chainName — should return a non-empty string', async () => {
-      const id = nextId++;
-      sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id, method: 'chainSpec_v1_chainName', params: [] }));
+      const { sdkConnection, receivedMessages, cleanup } = createTestSetup();
+      try {
+        sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_chainName', params: [] }));
 
-      const response = await pollForMessage(receivedMessages, p => p.id === id && p.result !== undefined);
-      expect(response).toBeDefined();
+        const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
+        expect(response).toBeDefined();
 
-      const parsed = JSON.parse(response!);
-      expect(typeof parsed.result).toBe('string');
-      expect(parsed.result.length).toBeGreaterThan(0);
+        const parsed = JSON.parse(response!);
+        expect(typeof parsed.result).toBe('string');
+        expect(parsed.result.length).toBeGreaterThan(0);
+      } finally {
+        await cleanup();
+      }
     });
 
     it('chainSpec_v1_properties — should return object with tokenSymbol DOT and tokenDecimals 10', async () => {
-      const id = nextId++;
-      sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id, method: 'chainSpec_v1_properties', params: [] }));
+      const { sdkConnection, receivedMessages, cleanup } = createTestSetup();
+      try {
+        sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_properties', params: [] }));
 
-      const response = await pollForMessage(receivedMessages, p => p.id === id && p.result !== undefined);
-      expect(response).toBeDefined();
+        const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
+        expect(response).toBeDefined();
 
-      const parsed = JSON.parse(response!);
-      const props = parsed.result;
-      expect(props).toBeDefined();
-      expect(props.tokenSymbol).toBe('DOT');
-      expect(props.tokenDecimals).toBe(10);
+        const parsed = JSON.parse(response!);
+        const props = parsed.result;
+        expect(props).toBeDefined();
+        expect(props.tokenSymbol).toBe('DOT');
+        expect(props.tokenDecimals).toBe(10);
+      } finally {
+        await cleanup();
+      }
     });
   });
 
   describe('chainHead methods', () => {
-    it('chainHead_v1_follow — should subscribe and receive initialized event with finalized block hashes', () => {
-      // The follow subscription was established in beforeAll; verify the data
-      expect(followSubId).toBeDefined();
-      expect(typeof followSubId).toBe('string');
+    it('chainHead_v1_follow — should subscribe and receive initialized event with finalized block hashes', async () => {
+      const { sdkConnection, receivedMessages, cleanup } = createTestSetup();
+      try {
+        sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] }));
 
-      // Find the initialized event in received messages
-      const initEvent = receivedMessages.find(m => {
-        const p = JSON.parse(m);
-        return p.method === 'chainHead_v1_followEvent' && p.params?.result?.event === 'initialized';
-      });
+        const followResp = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
+        expect(followResp).toBeDefined();
 
-      expect(initEvent).toBeDefined();
-      const parsedInit = JSON.parse(initEvent!);
-      expect(parsedInit.params.result.event).toBe('initialized');
-      expect(Array.isArray(parsedInit.params.result.finalizedBlockHashes)).toBe(true);
-      expect(parsedInit.params.result.finalizedBlockHashes.length).toBeGreaterThan(0);
+        const followSubId = JSON.parse(followResp!).result;
+        expect(typeof followSubId).toBe('string');
 
-      // Verify the block hashes start with 0x
-      for (const hash of parsedInit.params.result.finalizedBlockHashes) {
-        expect(hash).toMatch(/^0x[0-9a-fA-F]+$/);
+        const initEvent = await pollForMessage(
+          receivedMessages,
+          p => (p as any).method === 'chainHead_v1_followEvent' && (p as any).params?.result?.event === 'initialized',
+        );
+
+        expect(initEvent).toBeDefined();
+        const parsedInit = JSON.parse(initEvent!);
+        expect(parsedInit.params.result.event).toBe('initialized');
+        expect(Array.isArray(parsedInit.params.result.finalizedBlockHashes)).toBe(true);
+        expect(parsedInit.params.result.finalizedBlockHashes.length).toBeGreaterThan(0);
+
+        for (const hash of parsedInit.params.result.finalizedBlockHashes) {
+          expect(hash).toMatch(/^0x[0-9a-fA-F]+$/);
+        }
+      } finally {
+        await cleanup();
       }
     });
 
     it('chainHead_v1_header — should get a block header as hex string starting with 0x', async () => {
-      const id = nextId++;
-      sdkConnection.send(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          id,
-          method: 'chainHead_v1_header',
-          params: [followSubId, initialBlockHash],
-        }),
-      );
+      const { sdkConnection, receivedMessages, followSubId, initialBlockHash, cleanup } = await createChainHeadSetup();
+      try {
+        sdkConnection.send(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'chainHead_v1_header',
+            params: [followSubId, initialBlockHash],
+          }),
+        );
 
-      const response = await pollForMessage(
-        receivedMessages,
-        p => p.id === id && (p.result !== undefined || p.error !== undefined),
-      );
+        const response = await pollForMessage(
+          receivedMessages,
+          p => p.id === 2 && (p.result !== undefined || p.error !== undefined),
+        );
 
-      expect(response).toBeDefined();
-      const parsed = JSON.parse(response!);
-      expect(parsed.result).toBeDefined();
-      expect(typeof parsed.result).toBe('string');
-      expect(parsed.result).toMatch(/^0x/);
+        expect(response).toBeDefined();
+        const parsed = JSON.parse(response!);
+        expect(parsed.result).toBeDefined();
+        expect(typeof parsed.result).toBe('string');
+        expect(parsed.result).toMatch(/^0x/);
+      } finally {
+        await cleanup();
+      }
     });
 
     it('chainHead_v1_storage — should read System.Number storage value', async () => {
-      const id = nextId++;
-      sdkConnection.send(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          id,
-          method: 'chainHead_v1_storage',
-          params: [followSubId, initialBlockHash, [{ key: SYSTEM_NUMBER_KEY, type: 'value' }], null],
-        }),
-      );
+      const { sdkConnection, receivedMessages, followSubId, initialBlockHash, cleanup } = await createChainHeadSetup();
+      try {
+        sdkConnection.send(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'chainHead_v1_storage',
+            params: [followSubId, initialBlockHash, [{ key: SYSTEM_NUMBER_KEY, type: 'value' }], null],
+          }),
+        );
 
-      // Wait for storage operation started response
-      const storageResp = await pollForMessage(
-        receivedMessages,
-        p => p.id === id && (p.result !== undefined || p.error !== undefined),
-      );
+        const storageResp = await pollForMessage(
+          receivedMessages,
+          p => p.id === 2 && (p.result !== undefined || p.error !== undefined),
+        );
 
-      expect(storageResp).toBeDefined();
-      const parsedResp = JSON.parse(storageResp!);
-      expect(parsedResp.result).toBeDefined();
-      expect(parsedResp.result.result).toBe('started');
-      expect(parsedResp.result.operationId).toBeDefined();
+        expect(storageResp).toBeDefined();
+        const parsedResp = JSON.parse(storageResp!);
+        expect(parsedResp.result).toBeDefined();
+        expect(parsedResp.result.result).toBe('started');
+        expect(parsedResp.result.operationId).toBeDefined();
 
-      const operationId = parsedResp.result.operationId;
+        const operationId = parsedResp.result.operationId;
 
-      // Wait for operationStorageItems event
-      const storageItemsEvent = await pollForMessage(
-        receivedMessages,
-        p =>
-          (p as any).method === 'chainHead_v1_followEvent' &&
-          (p as any).params?.result?.event === 'operationStorageItems' &&
-          (p as any).params?.result?.operationId === operationId,
-      );
+        const storageItemsEvent = await pollForMessage(
+          receivedMessages,
+          p =>
+            (p as any).method === 'chainHead_v1_followEvent' &&
+            (p as any).params?.result?.event === 'operationStorageItems' &&
+            (p as any).params?.result?.operationId === operationId,
+        );
 
-      expect(storageItemsEvent).toBeDefined();
-      const parsedItems = JSON.parse(storageItemsEvent!);
-      expect(parsedItems.params.result.items.length).toBeGreaterThan(0);
-      expect(parsedItems.params.result.items[0].key).toBe(SYSTEM_NUMBER_KEY);
-      // The value should be a hex-encoded block number
-      expect(parsedItems.params.result.items[0].value).toMatch(/^0x/);
+        expect(storageItemsEvent).toBeDefined();
+        const parsedItems = JSON.parse(storageItemsEvent!);
+        expect(parsedItems.params.result.items.length).toBeGreaterThan(0);
+        expect(parsedItems.params.result.items[0].key).toBe(SYSTEM_NUMBER_KEY);
+        expect(parsedItems.params.result.items[0].value).toMatch(/^0x/);
 
-      // Wait for operationStorageDone event
-      const storageDoneEvent = await pollForMessage(
-        receivedMessages,
-        p =>
-          (p as any).method === 'chainHead_v1_followEvent' &&
-          (p as any).params?.result?.event === 'operationStorageDone' &&
-          (p as any).params?.result?.operationId === operationId,
-      );
+        const storageDoneEvent = await pollForMessage(
+          receivedMessages,
+          p =>
+            (p as any).method === 'chainHead_v1_followEvent' &&
+            (p as any).params?.result?.event === 'operationStorageDone' &&
+            (p as any).params?.result?.operationId === operationId,
+        );
 
-      expect(storageDoneEvent).toBeDefined();
+        expect(storageDoneEvent).toBeDefined();
+      } finally {
+        await cleanup();
+      }
     });
 
     it('chainHead_v1_unpin — should unpin a block without error', async () => {
-      const id = nextId++;
-      sdkConnection.send(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          id,
-          method: 'chainHead_v1_unpin',
-          params: [followSubId, [initialBlockHash]],
-        }),
-      );
+      const { sdkConnection, receivedMessages, followSubId, initialBlockHash, cleanup } = await createChainHeadSetup();
+      try {
+        sdkConnection.send(
+          JSON.stringify({
+            jsonrpc: '2.0',
+            id: 2,
+            method: 'chainHead_v1_unpin',
+            params: [followSubId, [initialBlockHash]],
+          }),
+        );
 
-      const response = await pollForMessage(
-        receivedMessages,
-        p => p.id === id && (p.result !== undefined || p.error !== undefined),
-      );
+        const response = await pollForMessage(
+          receivedMessages,
+          p => p.id === 2 && (p.result !== undefined || p.error !== undefined),
+        );
 
-      expect(response).toBeDefined();
-      const parsed = JSON.parse(response!);
-      // Unpin should succeed: result is null and no error
-      expect(parsed.error).toBeUndefined();
-      expect(parsed.result).toBe(null);
+        expect(response).toBeDefined();
+        const parsed = JSON.parse(response!);
+        expect(parsed.error).toBeUndefined();
+        expect(parsed.result).toBe(null);
+      } finally {
+        await cleanup();
+      }
     });
   });
 });
