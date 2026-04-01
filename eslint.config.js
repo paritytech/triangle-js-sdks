@@ -14,7 +14,7 @@ export default defineConfig([
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
 
-  globalIgnores(['**/dist']),
+  globalIgnores(['**/dist', '**/*.d.ts']),
 
   {
     files: ['**/*.{ts,tsx}'],

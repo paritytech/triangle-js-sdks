@@ -25,7 +25,7 @@ const createMockProvider = () => {
   return { provider, send, disconnect, simulateMessage: (msg: string) => onMessage?.(msg) };
 };
 
-const testChain = (id: string): ChainConfig => ({ genesisHash: id, nodes: ['wss://test'] });
+const testChain = (id: string): ChainConfig => ({ genesisHash: id });
 
 const createTestConnection = (overrides?: Partial<ChainConnectionConfig<ChainConfig>>) => {
   const mockProvider = createMockProvider();

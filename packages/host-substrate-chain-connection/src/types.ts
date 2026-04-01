@@ -3,8 +3,6 @@ import type { PolkadotClient } from 'polkadot-api';
 
 export type ChainConfig = {
   genesisHash: string;
-  // list of URLs
-  nodes: string[];
 };
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
