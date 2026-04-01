@@ -2,8 +2,9 @@ import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import type { PolkadotClient } from 'polkadot-api';
 
 export type ChainConfig = {
-  chainId: string;
-  nodes: ReadonlyArray<{ url: string }>;
+  genesisHash: string;
+  // list of URLs
+  nodes: string[];
 };
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
