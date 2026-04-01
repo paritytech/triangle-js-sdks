@@ -655,7 +655,7 @@ export function createContainer(provider: Provider): Container {
 
     // chain interaction
 
-    handleChainConnection(factory) {
+    handleChainConnection({ factory, submitPermission }) {
       init();
       const manager = createChainConnectionManager(factory);
       const cleanups: VoidFunction[] = [];
@@ -940,12 +940,17 @@ export function createContainer(provider: Provider): Container {
           }
           const { genesisHash, transaction } = message.value;
 
-          const entry = manager.getOrCreateChain(genesisHash);
-          if (!entry) {
-            return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
-          }
-
           try {
+            const permissionGranted = await submitPermission(transaction);
+            if (!permissionGranted) {
+              return enumValue('v1', resultErr(new GenericError({ reason: 'Permission denied' })));
+            }
+
+            const entry = manager.getOrCreateChain(genesisHash);
+            if (!entry) {
+              return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
+            }
+
             const result = await manager.sendRequest(genesisHash, 'transaction_v1_broadcast', [transaction]);
             manager.releaseChain(genesisHash);
             return enumValue('v1', resultOk((result as string) ?? null));

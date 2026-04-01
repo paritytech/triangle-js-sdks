@@ -369,10 +369,16 @@ const chains = new Map([
   ['0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe', 'wss://kusama-rpc.polkadot.io'],
 ]);
 
-container.handleChainConnection((genesisHash) => {
-  const endpoint = chains.get(genesisHash);
-  if (!endpoint) return null;
-  return getWsProvider(endpoint);
+container.handleChainConnection({
+  factory(genesisHash) {
+    const endpoint = chains.get(genesisHash);
+    if (!endpoint) return null;
+    return getWsProvider(endpoint);
+  },
+  async submitPermission(transaction) {
+    if (hasPermission(transaction)) return true;
+    return false;
+  }
 });
 ```
 

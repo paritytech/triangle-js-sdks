@@ -83,9 +83,12 @@ function createTestSetup(): TestSetup {
     ok(params.tag === 'Chain' && params.value === POLKADOT_GENESIS_HASH),
   );
 
-  const chainDispose = container.handleChainConnection(chain => {
-    if (chain !== POLKADOT_GENESIS_HASH) return null;
-    return createWebSocketProvider(POLKADOT_RPC_URL);
+  const chainDispose = container.handleChainConnection({
+    factory: chain => {
+      if (chain !== POLKADOT_GENESIS_HASH) return null;
+      return createWebSocketProvider(POLKADOT_RPC_URL);
+    },
+    submitPermission: () => Promise.resolve(true),
   });
 
   const receivedMessages: string[] = [];

@@ -125,7 +125,10 @@ export type Container = {
 
   // chain interaction
 
-  handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
+  handleChainConnection: (params: {
+    factory: (genesisHash: HexString) => JsonRpcProvider | null;
+    submitPermission: (transaction: HexString) => Promise<boolean> | boolean;
+  }) => VoidFunction;
 
   isReady(): Promise<boolean>;
   dispose(): void;
