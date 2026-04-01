@@ -98,7 +98,7 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
             }
           },
           error => {
-            console.error('Statement subscription error:', error);
+            console.error('[rpc.ts] Statement subscription error:', error);
           },
         );
 
