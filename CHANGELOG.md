@@ -1,3 +1,13 @@
+## 0.6.14 (2026-04-02)
+
+### 🚀 Features
+
+- **statement-store:** implemented correct session initialization and batching logic ([#100](https://github.com/paritytech/triangle-js-sdks/pull/100))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.13 (2026-04-01)
 
 ### 🚀 Features
