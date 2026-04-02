@@ -32,47 +32,44 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'chainHead_v1_follow') {
-                  followFn(parsed.params[0]);
-                  // Respond with subscription ID
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'chain_sub_1' }));
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                followFn(parsed.params[0]);
+                // Respond with subscription ID
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'chain_sub_1' }));
 
-                  // Send initialized event after a tick
-                  setTimeout(() => {
-                    onMessage(
-                      JSON.stringify({
-                        jsonrpc: '2.0',
-                        method: 'chainHead_v1_followEvent',
-                        params: {
-                          subscription: 'chain_sub_1',
-                          result: {
-                            event: 'initialized',
-                            finalizedBlockHashes: ['0xaabb0011'],
-                            finalizedBlockRuntime: null,
-                          },
+                // Send initialized event after a tick
+                setTimeout(() => {
+                  onMessage(
+                    JSON.stringify({
+                      jsonrpc: '2.0',
+                      method: 'chainHead_v1_followEvent',
+                      params: {
+                        subscription: 'chain_sub_1',
+                        result: {
+                          event: 'initialized',
+                          finalizedBlockHashes: ['0xaabb0011'],
+                          finalizedBlockRuntime: null,
                         },
-                      }),
-                    );
-                  }, 10);
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+                      },
+                    }),
+                  );
+                }, 10);
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -120,29 +117,26 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            chainOnMessage = onMessage;
+        return onMessage => {
+          chainOnMessage = onMessage;
 
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'chainHead_v1_follow') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -217,29 +211,26 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'chainHead_v1_follow') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
-                } else if (parsed.method === 'chainHead_v1_header') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: '0xdd000001' }));
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              } else if (parsed.method === 'chainHead_v1_header') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: '0xdd000001' }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -280,71 +271,68 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'chainHead_v1_follow') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
-                } else if (parsed.method === 'chainHead_v1_storage') {
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              } else if (parsed.method === 'chainHead_v1_storage') {
+                onMessage(
+                  JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: parsed.id,
+                    result: { result: 'started', operationId: 'op_storage_1' },
+                  }),
+                );
+
+                // Send storage items event
+                setTimeout(() => {
                   onMessage(
                     JSON.stringify({
                       jsonrpc: '2.0',
-                      id: parsed.id,
-                      result: { result: 'started', operationId: 'op_storage_1' },
+                      method: 'chainHead_v1_followEvent',
+                      params: {
+                        subscription: 'sub_1',
+                        result: {
+                          event: 'operationStorageItems',
+                          operationId: 'op_storage_1',
+                          items: [
+                            {
+                              key: '0xee000001',
+                              value: '0xff000001',
+                              hash: null,
+                              closestDescendantMerkleValue: null,
+                            },
+                          ],
+                        },
+                      },
                     }),
                   );
 
-                  // Send storage items event
-                  setTimeout(() => {
-                    onMessage(
-                      JSON.stringify({
-                        jsonrpc: '2.0',
-                        method: 'chainHead_v1_followEvent',
-                        params: {
-                          subscription: 'sub_1',
-                          result: {
-                            event: 'operationStorageItems',
-                            operationId: 'op_storage_1',
-                            items: [
-                              {
-                                key: '0xee000001',
-                                value: '0xff000001',
-                                hash: null,
-                                closestDescendantMerkleValue: null,
-                              },
-                            ],
-                          },
-                        },
-                      }),
-                    );
-
-                    onMessage(
-                      JSON.stringify({
-                        jsonrpc: '2.0',
-                        method: 'chainHead_v1_followEvent',
-                        params: {
-                          subscription: 'sub_1',
-                          result: { event: 'operationStorageDone', operationId: 'op_storage_1' },
-                        },
-                      }),
-                    );
-                  }, 10);
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+                  onMessage(
+                    JSON.stringify({
+                      jsonrpc: '2.0',
+                      method: 'chainHead_v1_followEvent',
+                      params: {
+                        subscription: 'sub_1',
+                        result: { event: 'operationStorageDone', operationId: 'op_storage_1' },
+                      },
+                    }),
+                  );
+                }, 10);
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -398,48 +386,45 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'chainHead_v1_follow') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
-                } else if (parsed.method === 'chainHead_v1_call') {
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              } else if (parsed.method === 'chainHead_v1_call') {
+                onMessage(
+                  JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: parsed.id,
+                    result: { result: 'started', operationId: 'op_call_1' },
+                  }),
+                );
+
+                setTimeout(() => {
                   onMessage(
                     JSON.stringify({
                       jsonrpc: '2.0',
-                      id: parsed.id,
-                      result: { result: 'started', operationId: 'op_call_1' },
+                      method: 'chainHead_v1_followEvent',
+                      params: {
+                        subscription: 'sub_1',
+                        result: { event: 'operationCallDone', operationId: 'op_call_1', output: '0x11000001' },
+                      },
                     }),
                   );
-
-                  setTimeout(() => {
-                    onMessage(
-                      JSON.stringify({
-                        jsonrpc: '2.0',
-                        method: 'chainHead_v1_followEvent',
-                        params: {
-                          subscription: 'sub_1',
-                          result: { event: 'operationCallDone', operationId: 'op_call_1', output: '0x11000001' },
-                        },
-                      }),
-                    );
-                  }, 10);
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+                }, 10);
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -482,30 +467,27 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'chainHead_v1_follow') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
-                } else if (parsed.method === 'chainHead_v1_unpin') {
-                  unpinFn(parsed.params);
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              } else if (parsed.method === 'chainHead_v1_unpin') {
+                unpinFn(parsed.params);
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -542,39 +524,36 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'chainSpec_v1_genesisHash') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: WellKnownChain.polkadotRelay }));
-                } else if (parsed.method === 'chainSpec_v1_chainName') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' }));
-                } else if (parsed.method === 'chainSpec_v1_properties') {
-                  onMessage(
-                    JSON.stringify({
-                      jsonrpc: '2.0',
-                      id: parsed.id,
-                      result: { ss58Format: 0, tokenDecimals: 10, tokenSymbol: 'DOT' },
-                    }),
-                  );
-                } else if (parsed.method === 'chainHead_v1_follow') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainSpec_v1_genesisHash') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: WellKnownChain.polkadotRelay }));
+              } else if (parsed.method === 'chainSpec_v1_chainName') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' }));
+              } else if (parsed.method === 'chainSpec_v1_properties') {
+                onMessage(
+                  JSON.stringify({
+                    jsonrpc: '2.0',
+                    id: parsed.id,
+                    result: { ss58Format: 0, tokenDecimals: 10, tokenSymbol: 'DOT' },
+                  }),
+                );
+              } else if (parsed.method === 'chainHead_v1_follow') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
@@ -619,28 +598,25 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'chainHead_v1_follow') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
-                } else if (parsed.method === 'chainHead_v1_unfollow') {
-                  unfollowFn(parsed.params[0]);
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect: disconnectFn,
-            };
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              } else if (parsed.method === 'chainHead_v1_unfollow') {
+                unfollowFn(parsed.params[0]);
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect: disconnectFn,
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const sdkConnection = provider(() => {
@@ -674,28 +650,26 @@ describe('Host API: Chain Interaction', () => {
       const { container, hostApi } = setupDirect();
       const broadcastFn = vi.fn();
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handlePermission((_params, { ok }) => ok(true));
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'transaction_v1_broadcast') {
-                  broadcastFn(parsed.params[0]);
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'tx_op_1' }));
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'transaction_v1_broadcast') {
+                broadcastFn(parsed.params[0]);
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'tx_op_1' }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const result = await hostApi.chainTransactionBroadcast(
@@ -714,27 +688,25 @@ describe('Host API: Chain Interaction', () => {
     it('should handle broadcast returning null when limit reached', async () => {
       const { container, hostApi } = setupDirect();
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handlePermission((_params, { ok }) => ok(true));
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'transaction_v1_broadcast') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'transaction_v1_broadcast') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const result = await hostApi.chainTransactionBroadcast(
@@ -753,28 +725,25 @@ describe('Host API: Chain Interaction', () => {
       const { container, hostApi } = setupDirect();
       const stopFn = vi.fn();
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'transaction_v1_stop') {
-                  stopFn(parsed.params[0]);
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'transaction_v1_stop') {
+                stopFn(parsed.params[0]);
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const result = await hostApi.chainTransactionStop(
@@ -795,23 +764,20 @@ describe('Host API: Chain Interaction', () => {
     it('should return permission denied when submitPermission returns false', async () => {
       const { container, hostApi } = setupDirect();
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-              },
-              disconnect() {
-                /* empty */
-              },
-            };
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+            },
+            disconnect() {
+              /* empty */
+            },
           };
-        },
-        submitPermission: () => Promise.resolve(false),
+        };
       });
 
       const result = await hostApi.chainTransactionBroadcast(
@@ -897,14 +863,8 @@ describe('Host API: Chain Interaction', () => {
       container1.handleFeatureSupported((params, { ok }) => ok(params.tag === 'Chain' && params.value === chainId));
       container2.handleFeatureSupported((params, { ok }) => ok(params.tag === 'Chain' && params.value === chainId));
 
-      container1.handleChainConnection({
-        factory: broadcastingChainFactory,
-        submitPermission: () => true,
-      });
-      container2.handleChainConnection({
-        factory: broadcastingChainFactory,
-        submitPermission: () => true,
-      });
+      container1.handleChainConnection(broadcastingChainFactory);
+      container2.handleChainConnection(broadcastingChainFactory);
 
       const sdkTransport1 = createTransport(providers1.sdk);
       const sdkTransport2 = createTransport(providers2.sdk);
@@ -971,32 +931,29 @@ describe('Host API: Chain Interaction', () => {
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain !== WellKnownChain.polkadotRelay) return null;
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
 
-          return onMessage => {
-            return {
-              send(message: string) {
-                const parsed = JSON.parse(message);
-                if (parsed.method === 'chainHead_v1_follow') {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
-                } else if (parsed.method === 'chainHead_v1_unfollow') {
-                  unfollowFn(parsed.params[0]);
-                  callOrder.push('unfollow');
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                } else {
-                  onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-                }
-              },
-              disconnect() {
-                disconnectFn();
-                callOrder.push('disconnect');
-              },
-            };
+        return onMessage => {
+          return {
+            send(message: string) {
+              const parsed = JSON.parse(message);
+              if (parsed.method === 'chainHead_v1_follow') {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              } else if (parsed.method === 'chainHead_v1_unfollow') {
+                unfollowFn(parsed.params[0]);
+                callOrder.push('unfollow');
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              } else {
+                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              }
+            },
+            disconnect() {
+              disconnectFn();
+              callOrder.push('disconnect');
+            },
           };
-        },
-        submitPermission: () => true,
+        };
       });
 
       const sdkConnection = provider(() => {
@@ -1026,21 +983,18 @@ describe('Host API: Chain Interaction', () => {
 
       // Feature returns false - chain not supported
       container.handleFeatureSupported((_, { ok }) => ok(false));
-      container.handleChainConnection({
-        factory: chain => {
-          if (chain === WellKnownChain.polkadotRelay) {
-            return _onMessage => ({
-              send() {
-                /* empty */
-              },
-              disconnect() {
-                /* empty */
-              },
-            });
-          }
-          return null;
-        },
-        submitPermission: () => true,
+      container.handleChainConnection(chain => {
+        if (chain === WellKnownChain.polkadotRelay) {
+          return _onMessage => ({
+            send() {
+              /* empty */
+            },
+            disconnect() {
+              /* empty */
+            },
+          });
+        }
+        return null;
       });
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
