@@ -1,3 +1,28 @@
+## 0.6.15 (2026-04-02)
+
+### 🚀 Features
+
+- **host-papp:** add paseo-next network and drop unstable ([#101](https://github.com/paritytech/triangle-js-sdks/pull/101))
+
+### 🩹 Fixes
+
+- **host-container:** Simplified chain connection api
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- Yanaty
+
+## 0.6.14 (2026-04-02)
+
+### 🚀 Features
+
+- **statement-store:** implemented correct session initialization and batching logic ([#100](https://github.com/paritytech/triangle-js-sdks/pull/100))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.13 (2026-04-01)
 
 ### 🚀 Features

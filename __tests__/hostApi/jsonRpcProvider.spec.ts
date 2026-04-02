@@ -30,27 +30,24 @@ describe('Host API: JSON RPC provider', () => {
     container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
-    container.handleChainConnection({
-      factory: chain => {
-        if (chain !== WellKnownChain.polkadotRelay) return null;
+    container.handleChainConnection(chain => {
+      if (chain !== WellKnownChain.polkadotRelay) return null;
 
-        return onMessage => {
-          return {
-            send(message: string) {
-              const parsed = JSON.parse(message);
-              if (parsed.method === 'chainSpec_v1_chainName') {
-                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' }));
-              } else {
-                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-              }
-            },
-            disconnect() {
-              /* empty */
-            },
-          };
+      return onMessage => {
+        return {
+          send(message: string) {
+            const parsed = JSON.parse(message);
+            if (parsed.method === 'chainSpec_v1_chainName') {
+              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' }));
+            } else {
+              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+            }
+          },
+          disconnect() {
+            /* empty */
+          },
         };
-      },
-      submitPermission: () => Promise.resolve(true),
+      };
     });
 
     const sdkConnection = provider(message => receivedBySDK.push(message));
@@ -78,23 +75,20 @@ describe('Host API: JSON RPC provider', () => {
 
     // Feature returns false - chain not supported
     container.handleFeatureSupported((_, { ok }) => ok(false));
-    container.handleChainConnection({
-      factory: chain => {
-        if (chain !== WellKnownChain.polkadotRelay) return null;
+    container.handleChainConnection(chain => {
+      if (chain !== WellKnownChain.polkadotRelay) return null;
 
-        return onMessage => {
-          return {
-            send(message: string) {
-              receivedByProvider.push(message);
-              onMessage(JSON.stringify({ jsonrpc: '2.0', id: JSON.parse(message).id, result: 'ok' }));
-            },
-            disconnect() {
-              /* empty */
-            },
-          };
+      return onMessage => {
+        return {
+          send(message: string) {
+            receivedByProvider.push(message);
+            onMessage(JSON.stringify({ jsonrpc: '2.0', id: JSON.parse(message).id, result: 'ok' }));
+          },
+          disconnect() {
+            /* empty */
+          },
         };
-      },
-      submitPermission: () => Promise.resolve(true),
+      };
     });
 
     const sdkConnection = provider(() => {
@@ -123,25 +117,22 @@ describe('Host API: JSON RPC provider', () => {
     container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
-    container.handleChainConnection({
-      factory: chain => {
-        if (chain !== WellKnownChain.polkadotRelay) return null;
+    container.handleChainConnection(chain => {
+      if (chain !== WellKnownChain.polkadotRelay) return null;
 
-        return onMessage => {
-          return {
-            send(message: string) {
-              const parsed = JSON.parse(message);
-              if (parsed.method === 'chainHead_v1_follow') {
-                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
-              } else {
-                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-              }
-            },
-            disconnect: disconnectFn,
-          };
+      return onMessage => {
+        return {
+          send(message: string) {
+            const parsed = JSON.parse(message);
+            if (parsed.method === 'chainHead_v1_follow') {
+              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+            } else {
+              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+            }
+          },
+          disconnect: disconnectFn,
         };
-      },
-      submitPermission: () => Promise.resolve(true),
+      };
     });
 
     const sdkConnection = provider(() => {
@@ -168,28 +159,25 @@ describe('Host API: JSON RPC provider', () => {
     container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
     );
-    container.handleChainConnection({
-      factory: chain => {
-        if (chain === WellKnownChain.polkadotRelay) {
-          return onMessage => ({
-            send(message: string) {
-              receivedByPolkadot.push(message);
-              const parsed = JSON.parse(message);
-              if (parsed.method === 'chainSpec_v1_chainName') {
-                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' }));
-              } else {
-                onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
-              }
-            },
-            disconnect() {
-              /* empty */
-            },
-          });
-        }
+    container.handleChainConnection(chain => {
+      if (chain === WellKnownChain.polkadotRelay) {
+        return onMessage => ({
+          send(message: string) {
+            receivedByPolkadot.push(message);
+            const parsed = JSON.parse(message);
+            if (parsed.method === 'chainSpec_v1_chainName') {
+              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' }));
+            } else {
+              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+            }
+          },
+          disconnect() {
+            /* empty */
+          },
+        });
+      }
 
-        return null;
-      },
-      submitPermission: () => Promise.resolve(true),
+      return null;
     });
 
     const sdkConnection = provider(() => {
