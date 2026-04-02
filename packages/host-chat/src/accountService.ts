@@ -23,7 +23,7 @@ type AccountService = {
   getConsumerInfo(address: string): ResultAsync<Identity | null, Error>;
 };
 
-type Network = 'stable' | 'unstable';
+type Network = 'paseo-next' | 'preview' | 'stable';
 
 type SearchResponse = {
   candidateAccountId: string;
@@ -121,13 +121,19 @@ const NETWORK_CONFIGS: Record<Network, NetworkConfig> = {
   stable: {
     id: 'stable',
     name: 'PoP Stable',
-    wsUrl: 'wss://pop3-testnet.parity-lab.parity.io:443/7911',
+    wsUrl: 'wss://pop3-testnet.parity-lab.parity.io/people',
     apiUrl: 'https://polkadot-app.api.polkadotcommunity.foundation/api/v1',
   },
-  unstable: {
-    id: 'unstable',
-    name: 'PoP Unstable',
-    wsUrl: 'wss://pop-testnet.parity-lab.parity.io:443/9910',
+  preview: {
+    id: 'preview',
+    name: 'PoP Preview',
+    wsUrl: 'wss://previewnet.substrate.dev/people',
     apiUrl: 'https://polkadot-app-stg.parity.io/api/v1',
+  },
+  'paseo-next': {
+    id: 'paseo-next',
+    name: 'Paseo Next',
+    wsUrl: 'wss://paseo-people-next-rpc.polkadot.io',
+    apiUrl: 'https://identity-backend.parity-testnet.parity.io/api/v1',
   },
 };
