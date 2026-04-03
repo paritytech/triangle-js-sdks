@@ -31,7 +31,7 @@
     "nanoid": "5.1.7"
   },
   "devDependencies": {
-    "electron": "^41.0.2"
+    "electron": "^41.0.3"
   },
   "publishConfig": {
     "access": "public"
