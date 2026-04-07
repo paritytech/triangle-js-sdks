@@ -16,7 +16,7 @@ export const withSubscriptionReplay =
     const activeSubscriptions = new Map<string, { id: number | string; payload: string }>();
 
     const conn = provider(message => {
-      const parsed = JSON.parse(message) as { id?: number | string; result?: unknown };
+      const parsed: { id?: number | string; result?: unknown } = JSON.parse(message);
 
       if (parsed.id !== undefined && typeof parsed.result === 'string') {
         const pending = pendingSubscriptions.get(parsed.id);
@@ -40,11 +40,8 @@ export const withSubscriptionReplay =
 
     return {
       send(message) {
-        const { method, id, params } = JSON.parse(message) as {
-          method?: string;
-          id?: number | string;
-          params?: unknown[];
-        };
+        const { method, id, params }: { method?: string; id?: number | string; params?: unknown[] } =
+          JSON.parse(message);
 
         if (method) {
           if (isSubscribeMethod(method)) {
