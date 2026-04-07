@@ -61,7 +61,14 @@ export {
 } from './protocol/v1/chat.js';
 export { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
 export { HandshakeErr } from './protocol/v1/handshake.js';
-export { SigningErr } from './protocol/v1/sign.js';
+export {
+  SigningErr,
+  SigningPayload,
+  SigningPayloadWithoutAccount,
+  SigningRawPayload,
+  SigningRawPayloadWithoutAccount,
+  SigningResult,
+} from './protocol/v1/sign.js';
 export { SignedStatement, Statement, StatementProofErr, Topic } from './protocol/v1/statementStore.js';
 export { StorageErr } from './protocol/v1/localStorage.js';
 export { DevicePermissionRequest } from './protocol/v1/devicePermission.js';

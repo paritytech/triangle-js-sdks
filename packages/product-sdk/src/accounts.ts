@@ -8,6 +8,10 @@ import {
   CreateProofErr,
   RequestCredentialsErr,
   RingLocation,
+  SigningPayload,
+  SigningPayloadWithoutAccount,
+  SigningRawPayload,
+  SigningRawPayloadWithoutAccount,
   assertEnumVariant,
   createHostApi,
   enumValue,
@@ -92,21 +96,25 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
       return getPolkadotSignerFromPjs(
         toHex(account.publicKey),
         async payload => {
-          const codecPayload = {
-            ...payload,
-            blockHash: payload.blockHash as HexString,
-            blockNumber: payload.blockNumber as HexString,
-            era: payload.era as HexString,
-            genesisHash: payload.genesisHash as HexString,
-            nonce: payload.nonce as HexString,
-            method: payload.method as HexString,
-            specVersion: payload.specVersion as HexString,
-            transactionVersion: payload.transactionVersion as HexString,
-            metadataHash: payload.metadataHash as HexString | undefined,
-            tip: payload.tip as HexString,
-            assetId: payload.assetId as never as HexString | undefined,
-            mode: payload.mode,
-            withSignedTransaction: payload.withSignedTransaction,
+          const codecPayload: CodecType<typeof SigningPayload> = {
+            account: [account.dotNsIdentifier, account.derivationIndex],
+            payload: {
+              blockHash: asHex(payload.blockHash),
+              blockNumber: asHex(payload.blockNumber),
+              era: asHex(payload.era),
+              genesisHash: asHex(payload.genesisHash),
+              nonce: asHex(payload.nonce),
+              method: asHex(payload.method),
+              specVersion: asHex(payload.specVersion),
+              transactionVersion: asHex(payload.transactionVersion),
+              metadataHash: payload.metadataHash ? asHex(payload.metadataHash) : undefined,
+              tip: asHex(payload.tip),
+              assetId: payload.assetId !== undefined ? (payload.assetId as never as HexString) : undefined,
+              mode: payload.mode,
+              withSignedTransaction: payload.withSignedTransaction,
+              signedExtensions: payload.signedExtensions,
+              version: payload.version,
+            },
           };
 
           const response = await hostApi.signPayload(enumValue('v1', codecPayload));
@@ -127,16 +135,16 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           );
         },
         async raw => {
-          const payload = {
-            address: raw.address,
-            data:
+          const payload: CodecType<typeof SigningRawPayload> = {
+            account: [account.dotNsIdentifier, account.derivationIndex],
+            payload:
               raw.type === 'bytes'
                 ? {
-                    tag: 'Bytes' as const,
-                    value: fromHex(raw.data),
+                    tag: 'Bytes',
+                    value: fromHex(asHex(raw.data)),
                   }
                 : {
-                    tag: 'Payload' as const,
+                    tag: 'Payload',
                     value: raw.data,
                   },
           };
@@ -171,24 +179,28 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
       return getPolkadotSignerFromPjs(
         toHex(account.publicKey),
         async payload => {
-          const codecPayload = {
-            ...payload,
-            blockHash: payload.blockHash as HexString,
-            blockNumber: payload.blockNumber as HexString,
-            era: payload.era as HexString,
-            genesisHash: payload.genesisHash as HexString,
-            nonce: payload.nonce as HexString,
-            method: payload.method as HexString,
-            specVersion: payload.specVersion as HexString,
-            transactionVersion: payload.transactionVersion as HexString,
-            metadataHash: payload.metadataHash as HexString | undefined,
-            tip: payload.tip as HexString,
-            assetId: payload.assetId as never as HexString | undefined,
-            mode: payload.mode,
-            withSignedTransaction: payload.withSignedTransaction,
+          const codecPayload: CodecType<typeof SigningPayloadWithoutAccount> = {
+            signer: payload.address,
+            payload: {
+              blockHash: asHex(payload.blockHash),
+              blockNumber: asHex(payload.blockNumber),
+              era: asHex(payload.era),
+              genesisHash: asHex(payload.genesisHash),
+              nonce: asHex(payload.nonce),
+              method: asHex(payload.method),
+              specVersion: asHex(payload.specVersion),
+              transactionVersion: asHex(payload.transactionVersion),
+              metadataHash: payload.metadataHash ? asHex(payload.metadataHash) : undefined,
+              tip: asHex(payload.tip),
+              assetId: payload.assetId !== undefined ? (payload.assetId as never as HexString) : undefined,
+              mode: payload.mode,
+              withSignedTransaction: payload.withSignedTransaction,
+              signedExtensions: payload.signedExtensions,
+              version: payload.version,
+            },
           };
 
-          const response = await hostApi.signPayload(enumValue('v1', codecPayload));
+          const response = await hostApi.signPayloadWithNonProductAccount(enumValue('v1', codecPayload));
 
           return response.match(
             response => {
@@ -206,21 +218,12 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           );
         },
         async raw => {
-          const payload = {
-            address: raw.address,
-            data:
-              raw.type === 'bytes'
-                ? {
-                    tag: 'Bytes' as const,
-                    value: fromHex(raw.data),
-                  }
-                : {
-                    tag: 'Payload' as const,
-                    value: raw.data,
-                  },
+          const payload: CodecType<typeof SigningRawPayloadWithoutAccount> = {
+            signer: raw.address,
+            payload: { tag: 'Bytes', value: fromHex(asHex(raw.data)) },
           };
 
-          const response = await hostApi.signRaw(enumValue('v1', payload));
+          const response = await hostApi.signRawWithNonProductAccount(enumValue('v1', payload));
 
           return response.match(
             response => {
@@ -241,3 +244,8 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
     },
   };
 };
+
+function asHex(v: string): HexString {
+  if (v.startsWith('0x')) return v as HexString;
+  return `0x${v}`;
+}

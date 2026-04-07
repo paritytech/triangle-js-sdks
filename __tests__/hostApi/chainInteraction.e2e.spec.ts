@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion,@typescript-eslint/no-explicit-any */
+
 import { createTransport } from '@novasamatech/host-api';
 import { createContainer } from '@novasamatech/host-container';
 import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';

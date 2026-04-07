@@ -89,7 +89,16 @@ import {
   PreimageSubmitV1_response,
 } from './v1/preimage.js';
 import { RemotePermissionV1_request, RemotePermissionV1_response } from './v1/remotePermission.js';
-import { SignPayloadV1_request, SignPayloadV1_response, SignRawV1_request, SignRawV1_response } from './v1/sign.js';
+import {
+  SignPayloadV1_request,
+  SignPayloadV1_response,
+  SignPayloadWithNonProductAccountV1_request,
+  SignPayloadWithNonProductAccountV1_response,
+  SignRawV1_request,
+  SignRawV1_response,
+  SignRawWithNonProductAccountV1_request,
+  SignRawWithNonProductAccountV1_response,
+} from './v1/sign.js';
 import {
   StatementStoreCreateProofV1_request,
   StatementStoreCreateProofV1_response,
@@ -235,8 +244,16 @@ export const hostApiProtocol = {
     v1: [SignRawV1_request, SignRawV1_response],
   }),
 
+  host_sign_raw_with_non_product_account: versionedRequest({
+    v1: [SignRawWithNonProductAccountV1_request, SignRawWithNonProductAccountV1_response],
+  }),
+
   host_sign_payload: versionedRequest({
     v1: [SignPayloadV1_request, SignPayloadV1_response],
+  }),
+
+  host_sign_payload_with_non_product_account: versionedRequest({
+    v1: [SignPayloadWithNonProductAccountV1_request, SignPayloadWithNonProductAccountV1_response],
   }),
 
   // Chat
