@@ -74,8 +74,8 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
       signer: {
         async signRaw(raw) {
           const payload = {
-            address: raw.address,
-            data:
+            signer: raw.address,
+            payload:
               raw.type === 'bytes'
                 ? {
                     tag: 'Bytes' as const,
@@ -87,7 +87,7 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
                   },
           };
 
-          const response = await hostApi.signRaw(enumValue('v1', payload));
+          const response = await hostApi.signRawWithNonProductAccount(enumValue('v1', payload));
 
           return response.match(
             response => {
@@ -106,15 +106,27 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
         },
         async signPayload(payload) {
           const codecPayload = {
-            ...payload,
-            method: payload.method as HexString,
-            assetId: payload.assetId,
-            mode: payload.mode,
-            withSignedTransaction: payload.withSignedTransaction,
-            metadataHash: payload.metadataHash,
+            signer: payload.address,
+            payload: {
+              blockHash: payload.blockHash as HexString,
+              blockNumber: payload.blockNumber as HexString,
+              era: payload.era as HexString,
+              genesisHash: payload.genesisHash as HexString,
+              nonce: payload.nonce as HexString,
+              method: payload.method as HexString,
+              specVersion: payload.specVersion as HexString,
+              transactionVersion: payload.transactionVersion as HexString,
+              metadataHash: payload.metadataHash as HexString | undefined,
+              tip: payload.tip as HexString,
+              assetId: payload.assetId as never as HexString | undefined,
+              mode: payload.mode,
+              withSignedTransaction: payload.withSignedTransaction,
+              signedExtensions: payload.signedExtensions,
+              version: payload.version,
+            },
           };
 
-          const response = await hostApi.signPayload(enumValue('v1', codecPayload));
+          const response = await hostApi.signPayloadWithNonProductAccount(enumValue('v1', codecPayload));
 
           return response.match(
             response => {

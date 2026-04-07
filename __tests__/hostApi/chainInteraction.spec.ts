@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
+
 import type { HexString } from '@novasamatech/host-api';
 import { createHostApi, createTransport, enumValue } from '@novasamatech/host-api';
 import { createContainer } from '@novasamatech/host-container';
