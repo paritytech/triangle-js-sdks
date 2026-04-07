@@ -59,6 +59,7 @@ export {
   ChatRoomRegistrationStatus,
   ReceivedChatAction,
 } from './protocol/v1/chat.js';
+export { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
 export { HandshakeErr } from './protocol/v1/handshake.js';
 export { SigningErr } from './protocol/v1/sign.js';
 export { SignedStatement, Statement, StatementProofErr, Topic } from './protocol/v1/statementStore.js';

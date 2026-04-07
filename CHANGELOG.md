@@ -15,6 +15,14 @@
 - Ilya Kalinin
 - Sergey Zhuravlev @johnthecat
 
+## Unreleased
+
+### 🚀 Features
+
+- **host-api:** add `host_derive_entropy` protocol method for deterministic entropy derivation (RFC-0007)
+- **host-container:** add `handleDeriveEntropy` handler slot
+- **product-sdk:** add `deriveEntropy` convenience function
+
 ## 0.6.17 (2026-04-09)
 
 ### 🩹 Fixes
