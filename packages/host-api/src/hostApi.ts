@@ -237,6 +237,48 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
+    signRawWithNonProductAccount(payload) {
+      const response = fromPromise(transport.request('host_sign_raw_with_non_product_account', payload), e => ({
+        tag: payload.tag,
+        value: new SigningErr.Unknown({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    signPayloadWithNonProductAccount(payload) {
+      const response = fromPromise(transport.request('host_sign_payload_with_non_product_account', payload), e => ({
+        tag: payload.tag,
+        value: new SigningErr.Unknown({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
     chatListSubscribe(args, callback) {
       return transport.subscribe('host_chat_list_subscribe', args, callback);
     },
