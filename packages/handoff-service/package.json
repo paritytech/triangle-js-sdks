@@ -1,0 +1,39 @@
+{
+  "name": "@novasamatech/handoff-service",
+  "type": "module",
+  "version": "0.6.15",
+  "description": "HOP (Handoff Pool) file transfer service for P2P chat",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paritytech/triangle-js-sdks.git"
+  },
+  "keywords": [
+    "polkadot"
+  ],
+  "main": "dist/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "#/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "dependencies": {
+    "@novasamatech/scale": "0.6.15",
+    "@noble/ciphers": "2.1.1",
+    "@noble/hashes": "2.0.1",
+    "@polkadot-api/utils": "0.2.0",
+    "@scure/sr25519": "1.0.0",
+    "neverthrow": "^8.2.0",
+    "scale-ts": "1.6.1"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

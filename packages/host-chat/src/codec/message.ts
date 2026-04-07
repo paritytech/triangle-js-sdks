@@ -1,15 +1,13 @@
 import { Enum, Hex, Nullable, Status } from '@novasamatech/scale';
 import { Option, Struct, Vector, _void, compact, str, u64 } from 'scale-ts';
 
+import { FileVariant } from './attachment.js';
+
 export const TextContent = str;
 
-export const Media = Struct({
-  imageRemoteUrl: str,
-});
-
 export const RichTextContent = Struct({
-  text: Option(TextContent), // markdown content
-  media: Option(Vector(Media)),
+  text: Option(TextContent),
+  attachments: Option(Vector(FileVariant)),
 });
 
 export const Platform = Status('Android', 'iOS');
