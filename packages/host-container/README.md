@@ -102,6 +102,15 @@ container.handleNavigateTo(async (url, { ok, err }) => {
 });
 ```
 
+### handleDeriveEntropy
+
+```ts
+container.handleDeriveEntropy(async (key, { ok, err }) => {
+  const entropy = await deriveEntropy(key);
+  return ok(entropy);
+});
+```
+
 ### handleLocalStorageRead
 
 ```ts
