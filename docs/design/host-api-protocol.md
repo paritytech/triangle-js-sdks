@@ -9,6 +9,11 @@ created: 2026-03-13
 
 ## Changelog
 
+### v0.7 - 2026-04-07
+
+- Replaced `address: str` with `account: ProductAccountId` in `SigningPayloadRaw` and `SigningPayload` (RFC-0005) for consistency with other account-bearing methods;
+- Added `host_sign_raw_with_non_product_account` and `host_sign_payload_with_non_product_account` methods that carry the same payloads minus the `account` field — the host resolves the signer from context, mirroring the `create_transaction_with_non_product_account` pattern.
+
 ### v0.6 - 2026-02-06
 
 - Implemented `host_account_connection_status_subscribe` method to track sign in status;
@@ -138,8 +143,16 @@ fn host_sign_raw(
   payload: SigningPayloadRaw
 ) -> Result<SigningResult, SigningErr>;
 
+fn host_sign_raw_with_non_product_account(
+  payload: SigningPayloadRawWithoutAccount
+) -> Result<SigningResult, SigningErr>;
+
 fn host_sign_payload(
-  payload: SigningPayloadJSON
+  payload: SigningPayload
+) -> Result<SigningResult, SigningErr>;
+
+fn host_sign_payload_with_non_product_account(
+  payload: SigningPayloadWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 
 // Chat
@@ -603,6 +616,8 @@ fn host_create_transaction_with_non_product_account(
 
 Signing of raw bytes. The interface implementation is similar to `signRaw` from `injectedWeb3`, added for backward compatibility.
 
+There are two variants: `host_sign_raw` for product accounts (identified by `ProductAccountId`) and `host_sign_raw_with_non_product_account` for non-product accounts (the host resolves the signer from context, mirroring the `create_transaction_with_non_product_account` pattern).
+
 ```rust
 enum SigningErr {
   FailedToDecode,
@@ -617,8 +632,13 @@ enum RawPayload {
 }
 
 struct SigningPayloadRaw {
-  address: str,
-  data: RawPayload
+  account: ProductAccountId,
+  payload: RawPayload
+}
+
+struct SigningPayloadRawWithoutAccount {
+  signer: str,
+  payload: RawPayload
 }
 
 struct SigningResult {
@@ -629,22 +649,20 @@ struct SigningResult {
 fn host_sign_raw(
   payload: SigningPayloadRaw
 ) -> Result<SigningResult, SigningErr>;
+
+fn host_sign_raw_with_non_product_account(
+  payload: SigningPayloadRawWithoutAccount
+) -> Result<SigningResult, SigningErr>;
 ```
 
 #### Signing JSON Payload
 
 Signing of JSON payload. The interface implementation is similar to `signPayload` from `injectedWeb3`, added for backward compatibility.
 
-```rust
-enum SigningErr {
-  FailedToDecode,
-  Rejected,
-  PermissionDenied,
-  Unknown(GenericErr)
-}
+There are two variants: `host_sign_payload` for product accounts (identified by `ProductAccountId`) and `host_sign_payload_with_non_product_account` for non-product accounts (the host resolves the signer from context).
 
-struct SigningPayload {
-  address: str,
+```rust
+struct SigningPayloadPayload {
   block_hash: Vec<u8>,
   block_number: Vec<u8>,
   era: Vec<u8>,
@@ -662,13 +680,22 @@ struct SigningPayload {
   with_signed_transaction: Option<bool>
 }
 
-struct SigningResult {
-  signature: Vec<u8>,
-  signed_transaction: Option<Vec<u8>>
+struct SigningPayload {
+  account: ProductAccountId,
+  payload: SigningPayloadPayload
+}
+
+struct SigningPayloadWithoutAccount {
+  signer: str,
+  payload: SigningPayloadPayload
 }
 
 fn host_sign_payload(
   payload: SigningPayload
+) -> Result<SigningResult, SigningErr>;
+
+fn host_sign_payload_with_non_product_account(
+  payload: SigningPayloadWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 ```
 

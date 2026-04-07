@@ -307,7 +307,7 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
       });
     }
     if (rt.type === 'invalid') {
-      return enumValue('Invalid', { error: (rt as Record<string, unknown>).error as string });
+      return enumValue('Invalid', { error: rt.error as string });
     }
 
     return undefined;

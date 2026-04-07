@@ -57,8 +57,8 @@ describe('Host API: injected web3 provider', () => {
       signature: '0x0001',
     };
 
-    container.handleSignPayload((params, { ok }) => {
-      return ok({ ...signerResult, signedTransaction: params.method });
+    container.handleSignPayloadWithNonProductAccount((params, { ok }) => {
+      return ok({ ...signerResult, signedTransaction: params.payload.method });
     });
 
     const result = await injected.signer.signPayload?.({
@@ -88,8 +88,8 @@ describe('Host API: injected web3 provider', () => {
       signature: '0x0001',
     };
 
-    container.handleSignRaw((params, { ok }) => {
-      return ok({ ...signerResult, signedTransaction: params.data.value as HexString });
+    container.handleSignRawWithNonProductAccount((params, { ok }) => {
+      return ok({ ...signerResult, signedTransaction: params.payload.value as HexString });
     });
 
     const result = await injected.signer.signRaw?.({
@@ -150,7 +150,7 @@ describe('Host API: injected web3 provider', () => {
     const { container, injected } = await setup();
     const error = new SigningErr.Rejected();
 
-    container.handleSignPayload((_, { err }) => err(error));
+    container.handleSignPayloadWithNonProductAccount((_, { err }) => err(error));
 
     await expect(
       injected.signer.signPayload?.({
@@ -174,7 +174,7 @@ describe('Host API: injected web3 provider', () => {
     const { container, injected } = await setup();
     const error = new SigningErr.Rejected();
 
-    container.handleSignRaw((_, { err }) => err(error));
+    container.handleSignRawWithNonProductAccount((_, { err }) => err(error));
 
     await expect(
       injected.signer.signRaw?.({

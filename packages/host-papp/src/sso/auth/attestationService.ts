@@ -166,8 +166,8 @@ export const createAttestationService = (lazyClient: LazyClient) => {
                       } else {
                         let errorMessage = 'Transaction failed';
                         if (event.dispatchError?.type === 'Module') {
-                          const moduleError = event.dispatchError.value as any;
-                          errorMessage = `${moduleError.type}.${moduleError.value?.type || 'Unknown'}`;
+                          const moduleError = event.dispatchError.value as { type: string; value?: { type?: string } };
+                          errorMessage = `${moduleError.type}.${moduleError.value?.type ?? 'Unknown'}`;
                         }
                         reject(new Error(errorMessage));
                       }
