@@ -156,6 +156,19 @@ export function createContainer(provider: Provider): Container {
     return enumValue('v1', resultErr(error));
   });
 
+  const handleSignRawWithNonProductAccountSlot = makeRequestSlot('host_sign_raw_with_non_product_account', async () => {
+    const error = new SigningErr.Unknown({ reason: NOT_IMPLEMENTED });
+    return enumValue('v1', resultErr(error));
+  });
+
+  const handleSignPayloadWithNonProductAccountSlot = makeRequestSlot(
+    'host_sign_payload_with_non_product_account',
+    async () => {
+      const error = new SigningErr.Unknown({ reason: NOT_IMPLEMENTED });
+      return enumValue('v1', resultErr(error));
+    },
+  );
+
   const handleCreateTransactionSlot = makeRequestSlot('host_create_transaction', async () => {
     const error = new CreateTransactionErr.Unknown({ reason: NOT_IMPLEMENTED });
     return enumValue('v1', resultErr(error));
@@ -518,6 +531,34 @@ export function createContainer(provider: Provider): Container {
     handleSignPayload(handler) {
       init();
       return handleSignPayloadSlot.update(async params => {
+        const version = 'v1';
+        const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleSignRawWithNonProductAccount(handler) {
+      init();
+      return handleSignRawWithNonProductAccountSlot.update(async params => {
+        const version = 'v1';
+        const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(params, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleSignPayloadWithNonProductAccount(handler) {
+      init();
+      return handleSignPayloadWithNonProductAccountSlot.update(async params => {
         const version = 'v1';
         const error = new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 

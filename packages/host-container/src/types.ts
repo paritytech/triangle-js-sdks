@@ -102,6 +102,11 @@ export type Container = {
   >;
   handleSignRaw: InferHandler<'v1', HostApiProtocol['host_sign_raw']>;
   handleSignPayload: InferHandler<'v1', HostApiProtocol['host_sign_payload']>;
+  handleSignRawWithNonProductAccount: InferHandler<'v1', HostApiProtocol['host_sign_raw_with_non_product_account']>;
+  handleSignPayloadWithNonProductAccount: InferHandler<
+    'v1',
+    HostApiProtocol['host_sign_payload_with_non_product_account']
+  >;
 
   // chat
 

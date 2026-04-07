@@ -53,3 +53,7 @@ Run `npm run build` before `typecheck` since typecheck depends on built artifact
 - Packages are buildable libraries — always run `npm run build` before testing dependent packages
 - Crypto primitives use `@noble/*` libraries (hashes, ciphers, curves, sr25519)
 - Polkadot chain interactions use `polkadot-api` (not the older `@polkadot/api`)
+
+## Implementation Notes
+
+- **IMPORTANT**: Always align implementation if host api package with `docs/design/host-api-protocol.md`. This document is source of truth. If something needs to be changed in host api package, it should be done in specification first and then synced to all packages.

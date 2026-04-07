@@ -1,7 +1,5 @@
 import { blake2b } from '@noble/hashes/blake2.js';
 
-const DOMAIN_SEPARATOR = new TextEncoder().encode('product-entropy-derivation');
-
 function blake2b256Keyed(message: Uint8Array, key: Uint8Array): Uint8Array {
   return blake2b(message, { dkLen: 32, key });
 }
@@ -22,9 +20,11 @@ export function deriveProductEntropy(rootAccountSecret: Uint8Array, productId: s
   if (key.length === 0 || key.length > 32) {
     throw new Error(`"key" must be between 1 and 32 bytes, got ${key.length}`);
   }
-  const rootEntropySource = blake2b256Keyed(rootAccountSecret, DOMAIN_SEPARATOR);
-  const perProductEntropy = blake2b256Keyed(rootEntropySource, blake2b256(new TextEncoder().encode(productId)));
-  const requestedEntropy = blake2b256Keyed(perProductEntropy, key);
 
-  return requestedEntropy;
+  const textEncoder = new TextEncoder();
+
+  const rootEntropySource = blake2b256Keyed(rootAccountSecret, textEncoder.encode('product-entropy-derivation'));
+  const perProductEntropy = blake2b256Keyed(rootEntropySource, blake2b256(textEncoder.encode(productId)));
+
+  return blake2b256Keyed(perProductEntropy, key);
 }

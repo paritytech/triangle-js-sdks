@@ -274,17 +274,20 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const rawData = new Uint8Array([1, 2, 3, 4]);
       const signatureBytes = new Uint8Array(64).fill(0xab);
-      let capturedData: unknown;
+      let capturedParams: unknown;
 
       container.handleSignRaw((params, { ok }) => {
-        capturedData = params.data;
+        capturedParams = params;
         return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
       });
 
       const signer = accountsProvider.getProductAccountSigner(mockAccount);
       const result = await signer.signBytes(rawData);
 
-      expect(capturedData).toEqual({ tag: 'Bytes', value: rawData });
+      expect(capturedParams).toEqual({
+        account: [mockAccount.dotNsIdentifier, mockAccount.derivationIndex],
+        payload: { tag: 'Bytes', value: rawData },
+      });
       expect(result).toEqual(signatureBytes);
     });
 
@@ -340,21 +343,21 @@ describe('Host API: Accounts', () => {
       expect(signer.publicKey).toEqual(mockPublicKey);
     });
 
-    it('should sign bytes via handleSignRaw', async () => {
+    it('should sign bytes via handleSignRawWithNonProductAccount', async () => {
       const { container, accountsProvider } = setup();
       const rawData = new Uint8Array([5, 6, 7, 8]);
       const signatureBytes = new Uint8Array(64).fill(0xef);
-      let capturedData: unknown;
+      let capturedParams: unknown;
 
-      container.handleSignRaw((params, { ok }) => {
-        capturedData = params.data;
+      container.handleSignRawWithNonProductAccount((params, { ok }) => {
+        capturedParams = params;
         return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
       });
 
       const signer = accountsProvider.getNonProductAccountSigner(mockAccount);
       const result = await signer.signBytes(rawData);
 
-      expect(capturedData).toEqual({ tag: 'Bytes', value: rawData });
+      expect(capturedParams).toMatchObject({ payload: { tag: 'Bytes', value: rawData } });
       expect(result).toEqual(signatureBytes);
     });
 
@@ -362,7 +365,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new SigningErr.Rejected();
 
-      container.handleSignRaw((_, { err }) => err(error));
+      container.handleSignRawWithNonProductAccount((_, { err }) => err(error));
 
       const signer = accountsProvider.getNonProductAccountSigner(mockAccount);
 
