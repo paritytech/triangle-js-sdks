@@ -29,3 +29,5 @@ export { createAccountsProvider } from './accounts.js';
 export { createLocalStorage, hostLocalStorage } from './localStorage.js';
 
 export { createPreimageManager, preimageManager } from './preimage.js';
+
+export { deriveEntropy } from './deriveEntropy.js';
