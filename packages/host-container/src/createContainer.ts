@@ -206,6 +206,12 @@ export function createContainer(provider: Provider): Container {
     () => new DeriveEntropyErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
+  // entropy derivation slot
+  const handleDeriveEntropySlot = makeRequestSlot('host_derive_entropy', async () => {
+    const error = new DeriveEntropyErr.Unknown({ reason: NOT_IMPLEMENTED });
+    return enumValue('v1', resultErr(error));
+  });
+
   // storage slots
   const handleLocalStorageReadSlot = makeNotImplementedSlot(
     'host_local_storage_read',
