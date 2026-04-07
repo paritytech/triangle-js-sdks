@@ -12,6 +12,7 @@ import {
   ChatRoomRegistrationErr,
   CreateProofErr,
   CreateTransactionErr,
+  DeriveEntropyErr,
   GenericError,
   NavigateToErr,
   PreimageSubmitErr,
@@ -119,6 +120,12 @@ export function createContainer(provider: Provider): Container {
 
   const handleAccountCreateProofSlot = makeRequestSlot('host_account_create_proof', async () => {
     const error = new CreateProofErr.Unknown({ reason: NOT_IMPLEMENTED });
+    return enumValue('v1', resultErr(error));
+  });
+
+  // entropy derivation slot
+  const handleDeriveEntropySlot = makeRequestSlot('host_derive_entropy', async () => {
+    const error = new DeriveEntropyErr.Unknown({ reason: NOT_IMPLEMENTED });
     return enumValue('v1', resultErr(error));
   });
 
@@ -331,6 +338,20 @@ export function createContainer(provider: Provider): Container {
       return handleNavigateToSlot.update(async message => {
         const version = 'v1';
         const error = new NavigateToErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
+
+        return guardVersion(message, version, error)
+          .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(r => enumValue(version, resultOk(r))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)));
+      });
+    },
+
+    handleDeriveEntropy(handler) {
+      init();
+      return handleDeriveEntropySlot.update(async message => {
+        const version = 'v1';
+        const error = new DeriveEntropyErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR });
 
         return guardVersion(message, version, error)
           .asyncMap(async params => handler(params, { ok: okAsync<any>, err: errAsync<never, any> }))

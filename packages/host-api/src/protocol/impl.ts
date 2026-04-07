@@ -62,6 +62,7 @@ import {
   CreateTransactionWithNonProductAccountV1_request,
   CreateTransactionWithNonProductAccountV1_response,
 } from './v1/createTransaction.js';
+import { DeriveEntropyV1_request, DeriveEntropyV1_response } from './v1/deriveEntropy.js';
 import { DevicePermissionV1_request, DevicePermissionV1_response } from './v1/devicePermission.js';
 import { FeatureV1_request, FeatureV1_response } from './v1/feature.js';
 import { HandshakeV1_request, HandshakeV1_response } from './v1/handshake.js';
@@ -168,6 +169,10 @@ export const hostApiProtocol = {
 
   host_navigate_to: versionedRequest({
     v1: [NavigateToV1_request, NavigateToV1_response],
+  }),
+
+  host_derive_entropy: versionedRequest({
+    v1: [DeriveEntropyV1_request, DeriveEntropyV1_response],
   }),
 
   // Permissions

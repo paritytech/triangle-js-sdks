@@ -8,6 +8,7 @@ import type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscr
 import { CreateProofErr, RequestCredentialsErr } from './protocol/v1/accounts.js';
 import { ChatBotRegistrationErr, ChatMessagePostingErr, ChatRoomRegistrationErr } from './protocol/v1/chat.js';
 import { CreateTransactionErr } from './protocol/v1/createTransaction.js';
+import { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
 import { HandshakeErr } from './protocol/v1/handshake.js';
 import { StorageErr } from './protocol/v1/localStorage.js';
 import { NavigateToErr } from './protocol/v1/navigation.js';
@@ -174,6 +175,27 @@ export function createHostApi(transport: Transport): HostApi {
       const response = fromPromise(transport.request('host_navigate_to', payload), e => ({
         tag: payload.tag,
         value: new NavigateToErr.Unknown({ reason: extractErrorMessage(e) }),
+      }));
+
+      return response.andThen(response => {
+        if (response.value.success) {
+          return okAsync({
+            tag: response.tag,
+            value: response.value.value,
+          });
+        }
+
+        return errAsync({
+          tag: response.tag,
+          value: response.value.value,
+        });
+      });
+    },
+
+    deriveEntropy(payload) {
+      const response = fromPromise(transport.request('host_derive_entropy', payload), e => ({
+        tag: payload.tag,
+        value: new DeriveEntropyErr.Unknown({ reason: extractErrorMessage(e) }),
       }));
 
       return response.andThen(response => {
