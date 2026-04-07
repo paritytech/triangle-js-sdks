@@ -1,6 +1,6 @@
-import { blake2b } from '@noble/hashes/blake2.js';
 import { deriveProductEntropy } from '@novasamatech/host-container';
 
+import { blake2b } from '@noble/hashes/blake2.js';
 import { describe, expect, it } from 'vitest';
 
 const textEncoder = new TextEncoder();
