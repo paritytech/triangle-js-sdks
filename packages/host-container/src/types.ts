@@ -72,6 +72,10 @@ export type Container = {
   handlePushNotification: InferHandler<'v1', HostApiProtocol['host_push_notification']>;
   handleNavigateTo: InferHandler<'v1', HostApiProtocol['host_navigate_to']>;
 
+  // entropy derivation
+
+  handleDeriveEntropy: InferHandler<'v1', HostApiProtocol['host_derive_entropy']>;
+
   // storage
 
   handleLocalStorageRead: InferHandler<'v1', HostApiProtocol['host_local_storage_read']>;

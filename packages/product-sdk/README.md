@@ -289,6 +289,21 @@ const config = await storage.readJSON('config');
 await storage.clear('key');
 ```
 
+### Derive Entropy
+
+The Derive Entropy function allows products to derive deterministic 32-byte entropy scoped to the product and a caller-chosen key.
+
+```ts
+import { deriveEntropy } from '@novasamatech/product-sdk';
+
+const result = await deriveEntropy(new Uint8Array([1, 2, 3]));
+
+if (result.isOk()) {
+  const entropy: Uint8Array = result.value;
+  console.log('Derived entropy:', entropy);
+}
+```
+
 ### Preimage Manager
 
 The Preimage Manager allows you to lookup and submit preimages to the host application.
