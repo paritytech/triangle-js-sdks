@@ -63,8 +63,8 @@ function createQueueStrategy(config: CreateRateLimiterConfig): RateLimiter {
 
       try {
         const result = task.execute();
-        if (result != null && typeof (result as Promise<unknown>).then === 'function') {
-          (result as Promise<unknown>).then(task.resolve).catch(task.reject);
+        if (result instanceof Promise) {
+          result.then(task.resolve).catch(task.reject);
         } else {
           task.resolve(result);
         }
@@ -90,10 +90,10 @@ function createQueueStrategy(config: CreateRateLimiterConfig): RateLimiter {
       state.remainingTokens -= 1;
       try {
         const result = execute();
-        if (result != null && typeof (result as Promise<T>).then === 'function') {
-          return result as Promise<T>;
+        if (result instanceof Promise) {
+          return result;
         }
-        return Promise.resolve(result as T);
+        return Promise.resolve(result);
       } catch (error) {
         return Promise.reject(error);
       }
@@ -148,10 +148,10 @@ function createDropStrategy(config: CreateRateLimiterConfig): RateLimiter {
       state.remainingTokens -= 1;
       try {
         const result = execute();
-        if (result != null && typeof (result as Promise<T>).then === 'function') {
-          return result as Promise<T>;
+        if (result instanceof Promise) {
+          return result;
         }
-        return Promise.resolve(result as T);
+        return Promise.resolve(result);
       } catch (error) {
         return Promise.reject(error);
       }
