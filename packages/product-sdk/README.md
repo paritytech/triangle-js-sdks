@@ -304,6 +304,35 @@ if (result.isOk()) {
 }
 ```
 
+### Permissions
+
+Products can request device and remote permissions from the host. Decisions are prompted once and persisted permanently — subsequent calls for the same permission resolve immediately without prompting.
+
+```ts
+import { requestDevicePermission, requestPermission } from '@novasamatech/product-sdk';
+
+// Request a single device permission
+const deviceResult = await requestDevicePermission('Camera');
+if (deviceResult.isOk()) {
+  console.log('Camera granted:', deviceResult.value); // boolean
+}
+
+// Request remote permissions in a batch (single user prompt for all)
+const remoteResult = await requestPermission([
+  { tag: 'Remote', value: ['api.coingecko.com', '*.example.com'] },
+  { tag: 'ChainSubmit', value: undefined },
+]);
+if (remoteResult.isOk()) {
+  console.log('All remote permissions granted:', remoteResult.value); // boolean
+}
+```
+
+Available device permission values: `'Notifications'`, `'Camera'`, `'Microphone'`, `'Bluetooth'`, `'NFC'`, `'Location'`, `'Clipboard'`, `'OpenUrl'`, `'Biometrics'`.
+
+Available remote permission tags: `'Remote'` (HTTP/WS domain patterns), `'WebRTC'`, `'ChainSubmit'`, `'PreimageSubmit'`, `'StatementSubmit'`.
+
+> **Note:** `remote_chain_transaction_broadcast`, `remote_preimage_submit`, and `remote_statement_store_submit` implicitly trigger a permission prompt if the relevant permission has not yet been resolved. Call `requestPermission(...)` proactively before entering those flows for a controlled UX.
+
 ### Preimage Manager
 
 The Preimage Manager allows you to lookup and submit preimages to the host application.

@@ -66,6 +66,8 @@ type InferHandler<
     ? InferSubscribeHandler<V, T>
     : never;
 
+export type ContainerHandlerOf<T extends (...args: any[]) => any> = Parameters<T>[0];
+
 export type Container = {
   // host
 

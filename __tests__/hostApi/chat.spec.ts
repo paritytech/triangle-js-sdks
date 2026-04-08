@@ -7,6 +7,7 @@ import {
   createTransport,
   enumValue,
 } from '@novasamatech/host-api';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 import type { ChatMessageContent } from '@novasamatech/product-sdk';
 import { createProductChatManager } from '@novasamatech/product-sdk';
@@ -30,7 +31,9 @@ describe('Host API: Chat', () => {
       const { container, chat } = setup();
       const registrationInfo = { roomId: 'test', name: 'test chat', icon: 'http://product.com/icon.png' };
 
-      const handler = vi.fn<Parameters<typeof container.handleChatCreateRoom>[0]>((_, { ok }) => ok({ status: 'New' }));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleChatCreateRoom>>((_, { ok }) =>
+        ok({ status: 'New' }),
+      );
       container.handleChatCreateRoom(handler);
 
       await chat.registerRoom(registrationInfo);
@@ -54,7 +57,7 @@ describe('Host API: Chat', () => {
       const { container, chat } = setup();
       const registrationInfo = { botId: 'test', name: 'test chat', icon: 'http://product.com/icon.png' };
 
-      const handler = vi.fn<Parameters<typeof container.handleChatBotRegistration>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleChatBotRegistration>>((_, { ok }) =>
         ok({ status: 'New' }),
       );
       container.handleChatBotRegistration(handler);
@@ -83,7 +86,7 @@ describe('Host API: Chat', () => {
       const response = { messageId: 'hello' };
 
       container.handleChatCreateRoom((_, { ok }) => ok({ status: 'New' }));
-      const handler = vi.fn<Parameters<typeof container.handleChatPostMessage>[0]>((_, { ok }) => ok(response));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleChatPostMessage>>((_, { ok }) => ok(response));
       container.handleChatPostMessage(handler);
 
       await chat.registerRoom(registrationInfo);

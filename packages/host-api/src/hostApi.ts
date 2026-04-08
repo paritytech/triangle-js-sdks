@@ -121,27 +121,6 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
-    deriveEntropy(payload) {
-      const response = fromPromise(transport.request('host_derive_entropy', payload), e => ({
-        tag: payload.tag,
-        value: new DeriveEntropyErr.Unknown({ reason: extractErrorMessage(e) }),
-      }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
-    },
-
     localStorageRead(payload) {
       return makeRequest(transport.request('host_local_storage_read', payload), reason => ({
         tag: payload.tag,
@@ -235,48 +214,6 @@ export function createHostApi(transport: Transport): HostApi {
         tag: payload.tag,
         value: new SigningErr.Unknown({ reason }),
       }));
-    },
-
-    signRawWithNonProductAccount(payload) {
-      const response = fromPromise(transport.request('host_sign_raw_with_non_product_account', payload), e => ({
-        tag: payload.tag,
-        value: new SigningErr.Unknown({ reason: extractErrorMessage(e) }),
-      }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
-    },
-
-    signPayloadWithNonProductAccount(payload) {
-      const response = fromPromise(transport.request('host_sign_payload_with_non_product_account', payload), e => ({
-        tag: payload.tag,
-        value: new SigningErr.Unknown({ reason: extractErrorMessage(e) }),
-      }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chatListSubscribe(args, callback) {
