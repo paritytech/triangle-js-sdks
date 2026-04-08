@@ -78,6 +78,10 @@ fn host_push_notification(
   text: str
 ) -> Result<(), GenericErr>;
 
+fn host_theme_subscribe(
+  callback: fn(Theme)
+) -> Result<Subscriber, GenericErr>;
+
 fn host_navigate_to(
   deeplink: str
 ) -> Result<(), NavigateToErr>;
@@ -110,12 +114,6 @@ fn host_local_storage_write(
 fn host_local_storage_clear(
   key: LocalStorageKey
 ) -> Result<(), LocalStorageErr>;
-
-// Host appearance
-
-fn host_theme_subscribe(
-  callback: fn(Theme)
-) -> Result<Subscriber, GenericErr>;
 
 // Account
 
@@ -451,6 +449,21 @@ enum Feature {
 fn host_feature_supported(feature: Feature) -> Result<bool, GenericErr>;
 ```
 
+### Host appearance
+
+The host can notify the product when the system or in-app color scheme changes so the embedded UI can match (e.g. light vs dark).
+
+```rust
+enum Theme {
+  Light,
+  Dark
+}
+
+fn host_theme_subscribe(
+  callback: fn(Theme)
+) -> Result<Subscriber, GenericErr>;
+```
+
 #### Deriving entropy
 
 ```rust
@@ -505,21 +518,6 @@ fn host_local_storage_write(
 fn host_local_storage_clear(
   key: LocalStorageKey
 ) -> Result<(), LocalStorageErr>;
-```
-
-### Host appearance
-
-The host can notify the product when the system or in-app color scheme changes so the embedded UI can match (e.g. light vs dark).
-
-```rust
-enum Theme {
-  Light,
-  Dark
-}
-
-fn host_theme_subscribe(
-  callback: fn(Theme)
-) -> Result<Subscriber, GenericErr>;
 ```
 
 ### Accounts

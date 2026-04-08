@@ -310,6 +310,7 @@ export function createContainer(provider: Provider): Container {
 
   // subscription slots — default interrupts on next microtask so that
   // the caller has a chance to register an onInterrupt listener first
+  const handleThemeSubscribeSlot = makeInterruptSlot('host_theme_subscribe');
   const handleAccountConnectionStatusSubscribeSlot = makeInterruptSlot('host_account_connection_status_subscribe');
   const handleChatListSubscribeSlot = makeInterruptSlot('host_chat_list_subscribe');
   const handleChatActionSubscribeSlot = makeInterruptSlot('host_chat_action_subscribe');
@@ -390,17 +391,7 @@ export function createContainer(provider: Provider): Container {
     },
 
     handleThemeSubscribe(handler) {
-      init();
-      return transport.handleSubscription('host_theme_subscribe', (params, send, interrupt) => {
-        const version = 'v1';
-
-        return guardVersion(params, version, null)
-          .map(params => handler(params, payload => send(enumValue(version, payload)), interrupt))
-          .orTee(interrupt)
-          .unwrapOr(() => {
-            /* empty */
-          });
-      });
+      return handleV1Subscription(handleThemeSubscribeSlot, handler);
     },
 
     handleAccountConnectionStatusSubscribe(handler) {

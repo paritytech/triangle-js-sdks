@@ -177,6 +177,10 @@ export const hostApiProtocol = {
     v1: [PushNotificationV1_request, PushNotificationV1_response],
   }),
 
+  host_theme_subscribe: versionedSubscription({
+    v1: [ThemeSubscribeV1_start, ThemeSubscribeV1_receive],
+  }),
+
   host_navigate_to: versionedRequest({
     v1: [NavigateToV1_request, NavigateToV1_response],
   }),
@@ -213,10 +217,6 @@ export const hostApiProtocol = {
 
   host_account_connection_status_subscribe: versionedSubscription({
     v1: [AccountConnectionStatusV1_start, AccountConnectionStatusV1_receive],
-  }),
-
-  host_theme_subscribe: versionedSubscription({
-    v1: [ThemeSubscribeV1_start, ThemeSubscribeV1_receive],
   }),
 
   host_account_get: versionedRequest({

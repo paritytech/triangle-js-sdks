@@ -73,11 +73,16 @@ export function createHostApi(transport: Transport): HostApi {
         value: new HandshakeErr.Unknown({ reason }),
       }));
     },
+
     featureSupported(payload) {
       return makeRequest(transport.request('host_feature_supported', payload), reason => ({
         tag: payload.tag,
         value: new GenericError({ reason }),
       }));
+    },
+
+    themeSubscribe(args, callback) {
+      return transport.subscribe('host_theme_subscribe', args, callback);
     },
 
     devicePermission(payload) {
@@ -134,10 +139,6 @@ export function createHostApi(transport: Transport): HostApi {
         tag: payload.tag,
         value: new StorageErr.Unknown({ reason }),
       }));
-    },
-
-    themeSubscribe(args, callback) {
-      return transport.subscribe('host_theme_subscribe', args, callback);
     },
 
     accountConnectionStatusSubscribe(args, callback) {
