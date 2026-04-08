@@ -68,212 +68,72 @@ export type HostApi = {
 export function createHostApi(transport: Transport): HostApi {
   return {
     handshake(payload) {
-      const response = fromPromise(transport.request('host_handshake', payload), e => ({
+      return makeRequest(transport.request('host_handshake', payload), reason => ({
         tag: payload.tag,
-        value: new HandshakeErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new HandshakeErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
     featureSupported(payload) {
-      const response = fromPromise(transport.request('host_feature_supported', payload), e => ({
+      return makeRequest(transport.request('host_feature_supported', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     devicePermission(payload) {
-      const response = fromPromise(transport.request('host_device_permission', payload), e => ({
+      return makeRequest(transport.request('host_device_permission', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     permission(payload) {
-      const response = fromPromise(transport.request('remote_permission', payload), e => ({
+      return makeRequest(transport.request('remote_permission', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     pushNotification(payload) {
-      const response = fromPromise(transport.request('host_push_notification', payload), e => ({
+      return makeRequest(transport.request('host_push_notification', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     navigateTo(payload) {
-      const response = fromPromise(transport.request('host_navigate_to', payload), e => ({
+      return makeRequest(transport.request('host_navigate_to', payload), reason => ({
         tag: payload.tag,
-        value: new NavigateToErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new NavigateToErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     deriveEntropy(payload) {
-      const response = fromPromise(transport.request('host_derive_entropy', payload), e => ({
+      return makeRequest(transport.request('host_derive_entropy', payload), reason => ({
         tag: payload.tag,
-        value: new DeriveEntropyErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new DeriveEntropyErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     localStorageRead(payload) {
-      const response = fromPromise(transport.request('host_local_storage_read', payload), e => ({
+      return makeRequest(transport.request('host_local_storage_read', payload), reason => ({
         tag: payload.tag,
-        value: new StorageErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new StorageErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     localStorageWrite(payload) {
-      const response = fromPromise(transport.request('host_local_storage_write', payload), e => ({
+      return makeRequest(transport.request('host_local_storage_write', payload), reason => ({
         tag: payload.tag,
-        value: new StorageErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new StorageErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     localStorageClear(payload) {
-      const response = fromPromise(transport.request('host_local_storage_clear', payload), e => ({
+      return makeRequest(transport.request('host_local_storage_clear', payload), reason => ({
         tag: payload.tag,
-        value: new StorageErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new StorageErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     accountConnectionStatusSubscribe(args, callback) {
@@ -281,216 +141,73 @@ export function createHostApi(transport: Transport): HostApi {
     },
 
     accountGet(payload) {
-      const response = fromPromise(transport.request('host_account_get', payload), e => ({
+      return makeRequest(transport.request('host_account_get', payload), reason => ({
         tag: payload.tag,
-        value: new RequestCredentialsErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new RequestCredentialsErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     accountGetAlias(payload) {
-      const response = fromPromise(transport.request('host_account_get_alias', payload), e => ({
+      return makeRequest(transport.request('host_account_get_alias', payload), reason => ({
         tag: payload.tag,
-        value: new RequestCredentialsErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new RequestCredentialsErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     accountCreateProof(payload) {
-      const response = fromPromise(transport.request('host_account_create_proof', payload), e => ({
+      return makeRequest(transport.request('host_account_create_proof', payload), reason => ({
         tag: payload.tag,
-        value: new CreateProofErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new CreateProofErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     getNonProductAccounts(payload) {
-      const response = fromPromise(transport.request('host_get_non_product_accounts', payload), e => ({
+      return makeRequest(transport.request('host_get_non_product_accounts', payload), reason => ({
         tag: payload.tag,
-        value: new RequestCredentialsErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new RequestCredentialsErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     createTransaction(payload) {
-      const response = fromPromise(transport.request('host_create_transaction', payload), e => ({
+      return makeRequest(transport.request('host_create_transaction', payload), reason => ({
         tag: payload.tag,
-        value: new CreateTransactionErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new CreateTransactionErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     createTransactionWithNonProductAccount(payload) {
-      const response = fromPromise(
-        transport.request('host_create_transaction_with_non_product_account', payload),
-        e => ({
-          tag: payload.tag,
-          value: new CreateTransactionErr.Unknown({ reason: extractErrorMessage(e) }),
-        }),
-      );
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
+      return makeRequest(transport.request('host_create_transaction_with_non_product_account', payload), reason => ({
+        tag: payload.tag,
+        value: new CreateTransactionErr.Unknown({ reason }),
+      }));
     },
 
     signRaw(payload) {
-      const response = fromPromise(transport.request('host_sign_raw', payload), e => ({
+      return makeRequest(transport.request('host_sign_raw', payload), reason => ({
         tag: payload.tag,
-        value: new SigningErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new SigningErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     signPayload(payload) {
-      const response = fromPromise(transport.request('host_sign_payload', payload), e => ({
+      return makeRequest(transport.request('host_sign_payload', payload), reason => ({
         tag: payload.tag,
-        value: new SigningErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new SigningErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     signRawWithNonProductAccount(payload) {
-      const response = fromPromise(transport.request('host_sign_raw_with_non_product_account', payload), e => ({
+      return makeRequest(transport.request('host_sign_raw_with_non_product_account', payload), reason => ({
         tag: payload.tag,
-        value: new SigningErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new SigningErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     signPayloadWithNonProductAccount(payload) {
-      const response = fromPromise(transport.request('host_sign_payload_with_non_product_account', payload), e => ({
+      return makeRequest(transport.request('host_sign_payload_with_non_product_account', payload), reason => ({
         tag: payload.tag,
-        value: new SigningErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new SigningErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chatListSubscribe(args, callback) {
@@ -498,66 +215,24 @@ export function createHostApi(transport: Transport): HostApi {
     },
 
     chatCreateRoom(payload) {
-      const response = fromPromise(transport.request('host_chat_create_room', payload), e => ({
+      return makeRequest(transport.request('host_chat_create_room', payload), reason => ({
         tag: payload.tag,
-        value: new ChatRoomRegistrationErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new ChatRoomRegistrationErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chatRegisterBot(payload) {
-      const response = fromPromise(transport.request('host_chat_register_bot', payload), e => ({
+      return makeRequest(transport.request('host_chat_register_bot', payload), reason => ({
         tag: payload.tag,
-        value: new ChatBotRegistrationErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new ChatBotRegistrationErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chatPostMessage(payload) {
-      const response = fromPromise(transport.request('host_chat_post_message', payload), e => ({
+      return makeRequest(transport.request('host_chat_post_message', payload), reason => ({
         tag: payload.tag,
-        value: new ChatMessagePostingErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new ChatMessagePostingErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chatActionSubscribe(args, callback) {
@@ -573,45 +248,17 @@ export function createHostApi(transport: Transport): HostApi {
     },
 
     statementStoreCreateProof(payload) {
-      const response = fromPromise(transport.request('remote_statement_store_create_proof', payload), e => ({
+      return makeRequest(transport.request('remote_statement_store_create_proof', payload), reason => ({
         tag: payload.tag,
-        value: new StatementProofErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new StatementProofErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     statementStoreSubmit(payload) {
-      const response = fromPromise(transport.request('remote_statement_store_submit', payload), e => ({
+      return makeRequest(transport.request('remote_statement_store_submit', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     preimageLookupSubscribe(args, callback) {
@@ -619,45 +266,17 @@ export function createHostApi(transport: Transport): HostApi {
     },
 
     preimageSubmit(payload) {
-      const response = fromPromise(transport.request('remote_preimage_submit', payload), e => ({
+      return makeRequest(transport.request('remote_preimage_submit', payload), reason => ({
         tag: payload.tag,
-        value: new PreimageSubmitErr.Unknown({ reason: extractErrorMessage(e) }),
+        value: new PreimageSubmitErr.Unknown({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     jsonrpcMessageSend(payload) {
-      const response = fromPromise(transport.request('host_jsonrpc_message_send', payload), e => ({
+      return makeRequest(transport.request('host_jsonrpc_message_send', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     jsonrpcMessageSubscribe(args, callback) {
@@ -671,255 +290,100 @@ export function createHostApi(transport: Transport): HostApi {
     },
 
     chainHeadHeader(payload) {
-      const response = fromPromise(transport.request('remote_chain_head_header', payload), e => ({
+      return makeRequest(transport.request('remote_chain_head_header', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainHeadBody(payload) {
-      const response = fromPromise(transport.request('remote_chain_head_body', payload), e => ({
+      return makeRequest(transport.request('remote_chain_head_body', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainHeadStorage(payload) {
-      const response = fromPromise(transport.request('remote_chain_head_storage', payload), e => ({
+      return makeRequest(transport.request('remote_chain_head_storage', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainHeadCall(payload) {
-      const response = fromPromise(transport.request('remote_chain_head_call', payload), e => ({
+      return makeRequest(transport.request('remote_chain_head_call', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainHeadUnpin(payload) {
-      const response = fromPromise(transport.request('remote_chain_head_unpin', payload), e => ({
+      return makeRequest(transport.request('remote_chain_head_unpin', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainHeadContinue(payload) {
-      const response = fromPromise(transport.request('remote_chain_head_continue', payload), e => ({
+      return makeRequest(transport.request('remote_chain_head_continue', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainHeadStopOperation(payload) {
-      const response = fromPromise(transport.request('remote_chain_head_stop_operation', payload), e => ({
+      return makeRequest(transport.request('remote_chain_head_stop_operation', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainSpecGenesisHash(payload) {
-      const response = fromPromise(transport.request('remote_chain_spec_genesis_hash', payload), e => ({
+      return makeRequest(transport.request('remote_chain_spec_genesis_hash', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainSpecChainName(payload) {
-      const response = fromPromise(transport.request('remote_chain_spec_chain_name', payload), e => ({
+      return makeRequest(transport.request('remote_chain_spec_chain_name', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainSpecProperties(payload) {
-      const response = fromPromise(transport.request('remote_chain_spec_properties', payload), e => ({
+      return makeRequest(transport.request('remote_chain_spec_properties', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainTransactionBroadcast(payload) {
-      const response = fromPromise(transport.request('remote_chain_transaction_broadcast', payload), e => ({
+      return makeRequest(transport.request('remote_chain_transaction_broadcast', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
 
     chainTransactionStop(payload) {
-      const response = fromPromise(transport.request('remote_chain_transaction_stop', payload), e => ({
+      return makeRequest(transport.request('remote_chain_transaction_stop', payload), reason => ({
         tag: payload.tag,
-        value: new GenericError({ reason: extractErrorMessage(e) }),
+        value: new GenericError({ reason }),
       }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
     },
   };
+}
+
+function makeRequest<Tag extends string, R extends { success: boolean; value: unknown }>(
+  promise: Promise<{ tag: Tag; value: R }>,
+  mapErr: (e: string) => { tag: Tag; value: Extract<R, { success: false }>['value'] },
+): ResultAsync<
+  { tag: Tag; value: Extract<R, { success: true }>['value'] },
+  { tag: Tag; value: Extract<R, { success: false }>['value'] }
+> {
+  return fromPromise(promise, e => mapErr(extractErrorMessage(e))).andThen(r => {
+    if (r.value.success) return okAsync({ tag: r.tag, value: r.value.value });
+    return errAsync({ tag: r.tag, value: r.value.value });
+  });
 }
