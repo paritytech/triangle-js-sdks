@@ -11,6 +11,7 @@ created: 2026-03-13
 
 ### v0.7 - 2026-04-07
 
+- Added `host_derive_entropy` method for deterministic entropy derivation (RFC-0007)
 - Replaced `address: str` with `account: ProductAccountId` in `SigningPayloadRaw` and `SigningPayload` (RFC-0005) for consistency with other account-bearing methods;
 - Added `host_sign_raw_with_non_product_account` and `host_sign_payload_with_non_product_account` methods that carry the same payloads minus the `account` field — the host resolves the signer from context, mirroring the `create_transaction_with_non_product_account` pattern.
 
@@ -79,6 +80,10 @@ fn host_push_notification(
 fn host_navigate_to(
   deeplink: str
 ) -> Result<(), NavigateToErr>;
+
+fn host_derive_entropy(
+  message: Vec<u8>
+) -> Result<Entropy, DeriveEntropyErr>;
 
 // Permissions
 
@@ -437,6 +442,20 @@ enum Feature {
 }
 
 fn host_feature_supported(feature: Feature) -> Result<bool, GenericErr>;
+```
+
+#### Deriving entropy
+
+```rust
+enum DeriveEntropyErr {
+  Unknown(GenericErr)
+}
+
+type Entropy = [u8; 32];
+
+fn host_derive_entropy(
+  message: Vec<u8>
+) -> Result<Entropy, DeriveEntropyErr>;
 ```
 
 #### Device permissions request
