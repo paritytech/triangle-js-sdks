@@ -16,7 +16,7 @@ Methods marked **[v0.2]** are new or changed. All others carry forward from v0.1
 ## General
 
 ```rust
-/// Negotiate protocol version. Must be the first request processed. Both Host and Product
+/// Must be the first request processed. Both Host and Product
 /// must respond. Implementations may timeout after 10 seconds. Result is cached.
 fn host_handshake(version: ProtocolVersion) -> Result<(), HandshakeErr>;
 
@@ -135,7 +135,7 @@ requestedEntropy     = blake2b256_keyed(perProductEntropy, key)
 **[v0.2]** `address: String` replaced by `account: ProductAccountId` in `SigningPayload` and `SigningRawPayload`. [RFC 0005](https://github.com/paritytech/triangle-js-sdks/pull/82) | [#40](https://github.com/paritytech/triangle-js-sdks/issues/40)
 
 ```rust
-/// Build and sign a transaction for the given product account. Supports V4 and V5 extrinsics.
+/// Build and sign a transaction for the given product account.
 /// The host resolves the signing key from the ProductAccountId derivation hierarchy.
 fn host_create_transaction(account_id: ProductAccountId, payload: VersionedTxPayload) -> Result<Vec<u8>, CreateTransactionErr>;
 
