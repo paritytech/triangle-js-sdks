@@ -11,10 +11,11 @@ created: 2026-03-13
 
 ### v0.7 - 2026-04-07
 
-- Added `host_derive_entropy` method for deterministic entropy derivation (RFC-0007)
 - Replaced `address: str` with `account: ProductAccountId` in `SigningPayloadRaw` and `SigningPayload` (RFC-0005) for consistency with other account-bearing methods;
 - Added `host_sign_raw_with_non_product_account` and `host_sign_payload_with_non_product_account` methods that carry the same payloads minus the `account` field — the host resolves the signer from context, mirroring the `create_transaction_with_non_product_account` pattern.
 - Added `host_theme_subscribe` method to track host theme updates (`light`/`dark`).
+- Added payment API (RFC-0006): `host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`, `host_payment_status_subscribe`.
+- Added `host_derive_entropy` method for deterministic entropy derivation (RFC-0007)
 
 ### v0.6 - 2026-02-06
 
@@ -235,6 +236,27 @@ fn remote_preimage_lookup_subscribe(
 fn remote_preimage_submit(
   value: Vec<u8>
 ) -> Result<Vec<u8>, PreimageSubmitErr>;
+
+// Payments
+
+fn host_payment_balance_subscribe(
+  callback: fn(PaymentBalance)
+) -> Result<Subscriber, PaymentBalanceErr>;
+
+fn host_payment_top_up(
+  amount: Balance,
+  source: PaymentTopUpSource
+) -> Result<(), PaymentTopUpErr>;
+
+fn host_payment_request(
+  amount: Balance,
+  destination: AccountId
+) -> Result<PaymentReceipt, PaymentRequestErr>;
+
+fn host_payment_status_subscribe(
+  payment_id: PaymentId,
+  callback: fn(PaymentStatus)
+) -> Result<Subscriber, PaymentStatusErr>;
 
 // Chain interaction
 
@@ -1041,6 +1063,90 @@ After generating proof, the product can submit the statement to the store
 fn remote_statement_store_submit(
   statement: SignedStatement
 ) -> Result<(), GenericErr>;
+```
+
+### Payments
+
+Products can query the user's payment balance, top up the balance from product-controlled accounts, request payments from the user to a destination account, and track payment settlement asynchronously.
+
+The underlying payment medium is hidden from products. `Balance` values are interpreted as a fixed asset (e.g. pUSD) known to both host and product.
+
+```rust
+type Balance = u128;
+type PaymentId = str;
+
+enum PaymentTopUpSource {
+  /// Fund from one of the calling product's scoped accounts.
+  ProductAccount(ProductAccountId),
+  /// Fund from a one-time account whose Ed25519 private key the product possesses.
+  PrivateKey([u8; 32])
+}
+
+struct PaymentBalance {
+  /// Balance spendable right now.
+  available: Balance,
+  /// Balance owned but not yet spendable (e.g. in recycling stage).
+  pending: Balance
+}
+
+struct PaymentReceipt {
+  id: PaymentId
+}
+
+enum PaymentStatus {
+  Processing,
+  Completed,
+  Failed(str)
+}
+
+enum PaymentBalanceErr {
+  PermissionDenied,
+  Unknown(GenericErr)
+}
+
+enum PaymentTopUpErr {
+  InsufficientFunds,
+  InvalidSource,
+  Unknown(GenericErr)
+}
+
+enum PaymentRequestErr {
+  Denied,
+  InsufficientBalance,
+  Unknown(GenericErr)
+}
+
+enum PaymentStatusErr {
+  PaymentNotFound,
+  Unknown(GenericErr)
+}
+
+/// Subscribe to balance updates. Host MUST prompt user for consent on first call.
+/// Denial is communicated via subscription interrupt.
+fn host_payment_balance_subscribe(
+  callback: fn(PaymentBalance)
+) -> Result<Subscriber, PaymentBalanceErr>;
+
+/// Top up user balance from a product-controlled source. No user consent required.
+fn host_payment_top_up(
+  amount: Balance,
+  source: PaymentTopUpSource
+) -> Result<(), PaymentTopUpErr>;
+
+/// Request a payment from the user. Host MUST show a confirmation prompt.
+/// Returns a PaymentReceipt immediately — settlement is asynchronous.
+fn host_payment_request(
+  amount: Balance,
+  destination: AccountId
+) -> Result<PaymentReceipt, PaymentRequestErr>;
+
+/// Subscribe to status updates for a previously requested payment.
+/// Subscription ends when a terminal state (Completed or Failed) is delivered.
+/// PaymentId is scoped to the calling product.
+fn host_payment_status_subscribe(
+  payment_id: PaymentId,
+  callback: fn(PaymentStatus)
+) -> Result<Subscriber, PaymentStatusErr>;
 ```
 
 ### Chain connection

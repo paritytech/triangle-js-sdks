@@ -12,6 +12,7 @@ import { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
 import { HandshakeErr } from './protocol/v1/handshake.js';
 import { StorageErr } from './protocol/v1/localStorage.js';
 import { NavigateToErr } from './protocol/v1/navigation.js';
+import { PaymentRequestErr, PaymentTopUpErr } from './protocol/v1/payments.js';
 import { PreimageSubmitErr } from './protocol/v1/preimage.js';
 import { SigningErr } from './protocol/v1/sign.js';
 import { StatementProofErr } from './protocol/v1/statementStore.js';
@@ -338,6 +339,28 @@ export function createHostApi(transport: Transport): HostApi {
         tag: payload.tag,
         value: new PreimageSubmitErr.Unknown({ reason }),
       }));
+    },
+
+    paymentBalanceSubscribe(args, callback) {
+      return transport.subscribe('host_payment_balance_subscribe', args, callback);
+    },
+
+    paymentTopUp(payload) {
+      return makeRequest(transport.request('host_payment_top_up', payload), reason => ({
+        tag: payload.tag,
+        value: new PaymentTopUpErr.Unknown({ reason }),
+      }));
+    },
+
+    paymentRequest(payload) {
+      return makeRequest(transport.request('host_payment_request', payload), reason => ({
+        tag: payload.tag,
+        value: new PaymentRequestErr.Unknown({ reason }),
+      }));
+    },
+
+    paymentStatusSubscribe(args, callback) {
+      return transport.subscribe('host_payment_status_subscribe', args, callback);
     },
 
     jsonrpcMessageSend(payload) {
