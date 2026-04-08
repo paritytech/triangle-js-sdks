@@ -26,6 +26,9 @@ export { createStatementStore } from './statementStore.js';
 export type { AccountConnectionStatus, ProductAccount } from './accounts.js';
 export { createAccountsProvider } from './accounts.js';
 
+export type { ThemeMode, ThemeSubscription } from './theme.js';
+export { createThemeProvider } from './theme.js';
+
 export { createLocalStorage, hostLocalStorage } from './localStorage.js';
 
 export { createPreimageManager, preimageManager } from './preimage.js';

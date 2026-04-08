@@ -152,6 +152,17 @@ container.handleAccountConnectionStatusSubscribe((_, send, interrupt) => {
 });
 ```
 
+### handleThemeSubscribe
+
+```ts
+container.handleThemeSubscribe((_, send, interrupt) => {
+  const listener = (theme: 'light' | 'dark') => send(theme);
+  themeService.on('change', listener);
+  send(themeService.getCurrentTheme());
+  return () => themeService.off('change', listener);
+});
+```
+
 ### handleAccountGet
 
 ```ts

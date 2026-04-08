@@ -14,6 +14,7 @@ created: 2026-03-13
 - Added `host_derive_entropy` method for deterministic entropy derivation (RFC-0007)
 - Replaced `address: str` with `account: ProductAccountId` in `SigningPayloadRaw` and `SigningPayload` (RFC-0005) for consistency with other account-bearing methods;
 - Added `host_sign_raw_with_non_product_account` and `host_sign_payload_with_non_product_account` methods that carry the same payloads minus the `account` field — the host resolves the signer from context, mirroring the `create_transaction_with_non_product_account` pattern.
+- Added `host_theme_subscribe` method to track host theme updates (`light`/`dark`).
 
 ### v0.6 - 2026-02-06
 
@@ -76,6 +77,10 @@ fn host_feature_supported(
 fn host_push_notification(
   text: str
 ) -> Result<(), GenericErr>;
+
+fn host_theme_subscribe(
+  callback: fn(Theme)
+) -> Result<Subscriber, GenericErr>;
 
 fn host_navigate_to(
   deeplink: str
@@ -442,6 +447,21 @@ enum Feature {
 }
 
 fn host_feature_supported(feature: Feature) -> Result<bool, GenericErr>;
+```
+
+### Host appearance
+
+The host can notify the product when the system or in-app color scheme changes so the embedded UI can match (e.g. light vs dark).
+
+```rust
+enum Theme {
+  Light,
+  Dark
+}
+
+fn host_theme_subscribe(
+  callback: fn(Theme)
+) -> Result<Subscriber, GenericErr>;
 ```
 
 #### Deriving entropy
