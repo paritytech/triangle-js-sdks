@@ -1,10 +1,10 @@
 # @novasamatech/product-bulletin
 
-Bulletin Chain client adapter for Nova Spektr products.
+Bulletin Chain client adapter for Polkadot product applications.
 
 ## Overview
 
-Thin wrapper that wires [`@parity/bulletin-sdk`](https://github.com/paritytech/polkadot-bulletin-chain/tree/main/sdk/typescript) to the Host API transport. Products running inside Nova Spektr cannot make direct WebSocket connections — this adapter routes all chain interactions (transaction submission, storage queries, event subscriptions) through the Host API using the existing `createPapiProvider()` from `@novasamatech/product-sdk`.
+Wraps [`@parity/bulletin-sdk`](https://github.com/paritytech/polkadot-bulletin-chain/tree/main/sdk/typescript) for use inside product applications. Creates a polkadot-api client via `createPapiProvider()` from `@novasamatech/product-sdk` and wires it to `AsyncBulletinClient`.
 
 ## Installation
 
@@ -23,7 +23,7 @@ const accounts = createAccountsProvider();
 const account = await accounts.getProductAccount('my-product.dot');
 const signer = accounts.getProductAccountSigner(account);
 
-// Create client — all calls route through Host API
+// Create client
 const { client, destroy } = createBulletinClient({
   genesisHash: BulletinChain.paseo,
   signer,
@@ -44,7 +44,7 @@ const largeResult = await client
 destroy();
 ```
 
-### Known Bulletin Chain networks
+### Known networks
 
 `BulletinChain` provides genesis hashes for known networks:
 
@@ -74,6 +74,5 @@ const { client, destroy } = createBulletinClient({
 
 `createBulletinClient` returns a `BulletinClientHandle` with:
 - `client` — the `AsyncBulletinClient` instance from `@parity/bulletin-sdk`
-- `destroy()` — disconnects the underlying `PolkadotClient` and releases Host API resources
+- `destroy()` — disconnects the underlying `PolkadotClient` and releases resources
 
-Always call `destroy()` when the client is no longer needed.

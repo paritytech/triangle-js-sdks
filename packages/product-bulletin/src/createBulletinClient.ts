@@ -1,23 +1,23 @@
 import type { HexString } from '@novasamatech/host-api';
 import { createPapiProvider } from '@novasamatech/product-sdk';
-import type { BulletinTypedApi, ClientConfig, SubmitFn } from '@parity/bulletin-sdk';
+import type { BulletinTypedApi, ClientConfig } from '@parity/bulletin-sdk';
 import { AsyncBulletinClient } from '@parity/bulletin-sdk';
 import type { PolkadotSigner } from 'polkadot-api';
 import { createClient } from 'polkadot-api';
 
 export interface CreateBulletinClientOptions {
-  /** Bulletin Chain genesis hash */
+  /** Bulletin Chain genesis hash — see {@link BulletinChain} for known networks */
   genesisHash: HexString;
-  /** Signer from accountsProvider.getProductAccountSigner() */
+  /** PAPI signer for transaction submission */
   signer: PolkadotSigner;
-  /** Optional AsyncBulletinClient config (chunk size, etc.) */
+  /** Optional AsyncBulletinClient config (chunk size, manifest behavior) */
   config?: Partial<ClientConfig>;
 }
 
 export interface BulletinClientHandle {
   /** The AsyncBulletinClient instance */
   client: AsyncBulletinClient;
-  /** Disconnect the underlying PolkadotClient */
+  /** Disconnect the underlying PolkadotClient and release resources */
   destroy: () => void;
 }
 
@@ -28,9 +28,7 @@ export function createBulletinClient(options: CreateBulletinClientOptions): Bull
   const polkadotClient = createClient(provider);
 
   const api = polkadotClient.getUnsafeApi() as unknown as BulletinTypedApi;
-  const submit = polkadotClient.submit as unknown as SubmitFn;
-
-  const client = new AsyncBulletinClient(api, signer, submit, config);
+  const client = new AsyncBulletinClient(api, signer, polkadotClient.submit, config);
 
   return {
     client,

@@ -2,7 +2,7 @@
   "name": "@novasamatech/product-bulletin",
   "type": "module",
   "version": "0.6.15",
-  "description": "Bulletin Chain client adapter for Nova Spektr products",
+  "description": "Bulletin Chain client adapter for Polkadot product applications",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
