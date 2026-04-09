@@ -63,7 +63,9 @@ export const createAttestationService = (lazyClient: LazyClient) => {
           call: increaseAllowanceCall.decodedCall,
         });
 
-        return withRetry(() => sudoCall.signAndSubmit(createPeopleSigner(verifier)).then(() => undefined));
+        return withRetry(() =>
+          sudoCall.signAndSubmit(createPeopleSigner(verifier), { at: 'best' }).then(() => undefined),
+        );
       }, toError);
 
       return verifierAllowance.andThen(verifierAllowance => (verifierAllowance > 0 ? okAsync() : getAllowance()));
@@ -153,28 +155,30 @@ export const createAttestationService = (lazyClient: LazyClient) => {
 
           const submitAttestation = () =>
             new Promise<void>((resolve, reject) => {
-              const subscription = attestCall.signSubmitAndWatch(createPeopleSigner(verifier)).subscribe({
-                next(event) {
-                  if (event.type === 'finalized') {
-                    // Check if transaction was successful
-                    if (event.ok) {
-                      subscription.unsubscribe();
-                      resolve();
-                    } else {
-                      // Extract error details
-                      let errorMessage = 'Transaction failed';
-                      if (event.dispatchError?.type === 'Module') {
-                        const moduleError = event.dispatchError.value as any;
-                        errorMessage = `${moduleError.type}.${moduleError.value?.type || 'Unknown'}`;
-                      }
+              const subscription = attestCall
+                .signSubmitAndWatch(createPeopleSigner(verifier), { at: 'best' })
+                .subscribe({
+                  next(event) {
+                    if (event.type === 'finalized') {
+                      // Check if transaction was successful
+                      if (event.ok) {
+                        subscription.unsubscribe();
+                        resolve();
+                      } else {
+                        // Extract error details
+                        let errorMessage = 'Transaction failed';
+                        if (event.dispatchError?.type === 'Module') {
+                          const moduleError = event.dispatchError.value as any;
+                          errorMessage = `${moduleError.type}.${moduleError.value?.type || 'Unknown'}`;
+                        }
 
-                      subscription.unsubscribe();
-                      reject(errorMessage);
+                        subscription.unsubscribe();
+                        reject(errorMessage);
+                      }
                     }
-                  }
-                },
-                error: reject,
-              });
+                  },
+                  error: reject,
+                });
             });
 
           return fromPromise(withRetry(submitAttestation), toError).map<void>(() => undefined);
