@@ -394,6 +394,53 @@ describe('session', () => {
       expect(adapter.submitStatement).not.toHaveBeenCalled();
     });
 
+    it('delivers peer request to a subscriber that registers after the batch notification (race condition)', async () => {
+      // Regression test for PB-439: when peer's request and the ACK response arrive in the
+      // same subscribeStatements batch, the request is processed before waitForRequestMessage
+      // has a chance to register its subscriber. The fix ensures request statements are always
+      // buffered so late subscribers (simulating waitForRequestMessage called in .andThen()
+      // after waitForResponseMessage resolves) still receive them.
+      let subscribeCallback!: (statements: Statement[]) => void;
+      const subscribeStatements = vi
+        .fn()
+        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
+          subscribeCallback = cb;
+          return vi.fn();
+        });
+
+      const { session } = makeSession({ subscribeStatements });
+      await flushPromises();
+
+      // Register a dummy subscriber to activate the store subscription (simulates
+      // any pre-existing subscriber in the session, e.g. the app listening for messages).
+      const dummyUnsub = session.subscribe(rawCodec, vi.fn());
+
+      const peerRequestId = 'race-condition-request';
+      const peerRequest = makeStatement({
+        tag: 'request',
+        value: { requestId: peerRequestId, data: [new Uint8Array([42])] },
+      });
+
+      // Peer request arrives while dummy subscriber is active but waitForRequestMessage
+      // hasn't registered its subscriber yet (the race condition scenario).
+      subscribeCallback([peerRequest]);
+      await flushPromises();
+
+      // Now the late subscriber registers (simulates waitForRequestMessage being called
+      // in the .andThen() chain after waitForResponseMessage resolves).
+      const lateCallback = vi.fn();
+      session.subscribe(rawCodec, lateCallback);
+
+      // The late subscriber must receive the buffered peer request, otherwise
+      // waitForRequestMessage would hang indefinitely.
+      expect(lateCallback).toHaveBeenCalledTimes(1);
+      const messages = (lateCallback.mock.calls[0] as [Array<{ type: string; requestId: string }>])[0];
+      expect(messages[0]?.type).toBe('request');
+      expect(messages[0]?.requestId).toBe(peerRequestId);
+
+      dummyUnsub();
+    });
+
     it('unsubscribing last subscriber tears down the store subscription', () => {
       const { session, adapter } = makeSession();
       const unsub = session.subscribe(rawCodec, vi.fn());
