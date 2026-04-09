@@ -19,6 +19,18 @@
       "#/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./codec/message": {
+      "types": "./dist/codec/message.d.ts",
+      "default": "./dist/codec/message.js"
+    },
+    "./codec/attachment": {
+      "types": "./dist/codec/attachment.d.ts",
+      "default": "./dist/codec/attachment.js"
+    },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "default": "./dist/session.js"
     }
   },
   "files": [

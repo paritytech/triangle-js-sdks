@@ -33,25 +33,16 @@ export function createHopClient(requestFn: RequestFn): HopClient {
       const encodedRecipients = recipients.map(r => encodeSr25519Signer(r));
 
       return fromPromise(
-        requestFn<PoolStatus>('hop_submit', [
-          {
-            data: toHexString(data),
-            recipients: encodedRecipients,
-            proof: '0x' as HexString,
-          },
-        ]),
+        requestFn<PoolStatus>('hop_submit', [toHexString(data), encodedRecipients, '0x' as HexString]),
         toError,
       );
     },
 
     claim(hash, signature) {
       return fromPromise(
-        requestFn<HexString>('hop_claim', [
-          {
-            hash: toHexString(hash),
-            signature: encodeSr25519Signature(signature),
-          },
-        ]).then(hex => fromHex(hex)),
+        requestFn<HexString>('hop_claim', [toHexString(hash), encodeSr25519Signature(signature)]).then(hex =>
+          fromHex(hex),
+        ),
         toError,
       );
     },
