@@ -33,4 +33,7 @@ export { createLocalStorage, hostLocalStorage } from './localStorage.js';
 
 export { createPreimageManager, preimageManager } from './preimage.js';
 
+export type { PaymentBalance, PaymentStatus, TopUpSource } from './payments.js';
+export { createPaymentManager, paymentManager } from './payments.js';
+
 export { deriveEntropy } from './deriveEntropy.js';

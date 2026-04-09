@@ -18,6 +18,8 @@ import {
   DeriveEntropyErr,
   GenericError,
   NavigateToErr,
+  PaymentRequestErr,
+  PaymentTopUpErr,
   PreimageSubmitErr,
   RequestCredentialsErr,
   SigningErr,
@@ -308,6 +310,17 @@ export function createContainer(provider: Provider): Container {
     () => new PreimageSubmitErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
+  // payment request slots
+  const handlePaymentTopUpSlot = makeNotImplementedSlot(
+    'host_payment_top_up',
+    () => new PaymentTopUpErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
+  const handlePaymentRequestSlot = makeNotImplementedSlot(
+    'host_payment_request',
+    () => new PaymentRequestErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
   // subscription slots — default interrupts on next microtask so that
   // the caller has a chance to register an onInterrupt listener first
   const handleThemeSubscribeSlot = makeInterruptSlot('host_theme_subscribe');
@@ -316,6 +329,8 @@ export function createContainer(provider: Provider): Container {
   const handleChatActionSubscribeSlot = makeInterruptSlot('host_chat_action_subscribe');
   const handleStatementStoreSubscribeSlot = makeInterruptSlot('remote_statement_store_subscribe');
   const handlePreimageLookupSubscribeSlot = makeInterruptSlot('remote_preimage_lookup_subscribe');
+  const handlePaymentBalanceSubscribeSlot = makeInterruptSlot('host_payment_balance_subscribe');
+  const handlePaymentStatusSubscribeSlot = makeInterruptSlot('host_payment_status_subscribe');
 
   return {
     handleFeatureSupported(handler) {
@@ -553,6 +568,30 @@ export function createContainer(provider: Provider): Container {
         () => new PreimageSubmitErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
+    },
+
+    handlePaymentBalanceSubscribe(handler) {
+      return handleV1Subscription(handlePaymentBalanceSubscribeSlot, handler);
+    },
+
+    handlePaymentTopUp(handler) {
+      return handleV1Request(
+        handlePaymentTopUpSlot,
+        () => new PaymentTopUpErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handlePaymentRequest(handler) {
+      return handleV1Request(
+        handlePaymentRequestSlot,
+        () => new PaymentRequestErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handlePaymentStatusSubscribe(handler) {
+      return handleV1Subscription(handlePaymentStatusSubscribeSlot, handler);
     },
 
     // chain interaction

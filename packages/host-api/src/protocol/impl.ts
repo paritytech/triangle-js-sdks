@@ -83,6 +83,16 @@ import {
 import { NavigateToV1_request, NavigateToV1_response } from './v1/navigation.js';
 import { PushNotificationV1_request, PushNotificationV1_response } from './v1/notification.js';
 import {
+  PaymentBalanceSubscribeV1_receive,
+  PaymentBalanceSubscribeV1_start,
+  PaymentRequestV1_request,
+  PaymentRequestV1_response,
+  PaymentStatusSubscribeV1_receive,
+  PaymentStatusSubscribeV1_start,
+  PaymentTopUpV1_request,
+  PaymentTopUpV1_response,
+} from './v1/payments.js';
+import {
   PreimageLookupSubscribeV1_receive,
   PreimageLookupSubscribeV1_start,
   PreimageSubmitV1_request,
@@ -309,6 +319,24 @@ export const hostApiProtocol = {
 
   remote_preimage_submit: versionedRequest({
     v1: [PreimageSubmitV1_request, PreimageSubmitV1_response],
+  }),
+
+  // Payments
+
+  host_payment_balance_subscribe: versionedSubscription({
+    v1: [PaymentBalanceSubscribeV1_start, PaymentBalanceSubscribeV1_receive],
+  }),
+
+  host_payment_top_up: versionedRequest({
+    v1: [PaymentTopUpV1_request, PaymentTopUpV1_response],
+  }),
+
+  host_payment_request: versionedRequest({
+    v1: [PaymentRequestV1_request, PaymentRequestV1_response],
+  }),
+
+  host_payment_status_subscribe: versionedSubscription({
+    v1: [PaymentStatusSubscribeV1_start, PaymentStatusSubscribeV1_receive],
   }),
 
   // json rpc (deprecated: use remote_chain_* methods instead)

@@ -333,3 +333,34 @@ subscription.unsubscribe();
 const preimageKey = await manager.submit(new Uint8Array([1, 2, 3, 4]));
 ```
 
+### Payment manager
+
+```ts
+import { createPaymentManager } from '@novasamatech/product-sdk';
+
+const payments = createPaymentManager();
+
+// Subscribe to the user's payment balance (host will prompt for consent)
+const balanceSub = payments.subscribeBalance(balance => {
+  console.log('Available:', balance.available);
+  console.log('Pending:', balance.pending);
+});
+balanceSub.onInterrupt(() => console.log('Balance access denied or lost'));
+
+// Top up the user's balance from a product account
+await payments.topUp(1_000_000n, {
+  type: 'productAccount',
+  dotNsIdentifier: 'my-product.dot',
+  derivationIndex: 0,
+});
+
+// Request a payment from the user (host shows confirmation UI)
+const destination = new Uint8Array(32); // 32-byte AccountId
+const receipt = await payments.requestPayment(500_000n, destination);
+
+// Track payment settlement
+const statusSub = payments.subscribePaymentStatus(receipt.id, status => {
+  if (status.type === 'completed') console.log('Payment settled');
+  if (status.type === 'failed') console.log('Payment failed:', status.reason);
+});
+```
