@@ -136,6 +136,13 @@ export type Container = {
   handlePreimageLookupSubscribe: InferHandler<'v1', HostApiProtocol['remote_preimage_lookup_subscribe']>;
   handlePreimageSubmit: InferHandler<'v1', HostApiProtocol['remote_preimage_submit']>;
 
+  // payments
+
+  handlePaymentBalanceSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_balance_subscribe']>;
+  handlePaymentTopUp: InferHandler<'v1', HostApiProtocol['host_payment_top_up']>;
+  handlePaymentRequest: InferHandler<'v1', HostApiProtocol['host_payment_request']>;
+  handlePaymentStatusSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_status_subscribe']>;
+
   // chain interaction
 
   handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;

@@ -77,6 +77,17 @@ export { PushNotification } from './protocol/v1/notification.js';
 export { NavigateToErr } from './protocol/v1/navigation.js';
 export { PreimageKey, PreimageSubmitErr, PreimageValue } from './protocol/v1/preimage.js';
 export {
+  PaymentBalance,
+  PaymentBalanceErr,
+  PaymentId,
+  PaymentReceipt,
+  PaymentRequestErr,
+  PaymentStatus,
+  PaymentStatusErr,
+  PaymentTopUpErr,
+  PaymentTopUpSource,
+} from './protocol/v1/payments.js';
+export {
   Arrangement,
   BorderStyle,
   ButtonVariant,

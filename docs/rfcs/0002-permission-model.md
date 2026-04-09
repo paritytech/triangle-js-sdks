@@ -1,9 +1,6 @@
 ---
 title: "Permission Model for Host API"
-type: rfc
-status: draft
 owner: "@johnthecat"
-pr:
 ---
 
 # RFC 0002 — Permission Model for Host API
