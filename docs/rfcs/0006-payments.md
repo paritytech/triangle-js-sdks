@@ -1,10 +1,9 @@
-# RFC-0006: Payment Host API
+---
+title: "Payment Host API"
+owner: "Valentin Sergeev"
+---
 
-|                 |                                                                                       |
-| --------------- | ------------------------------------------------------------------------------------- |
-| **Start Date**  | 2026-03-30                                                                            |
-| **Description** | Host API extensions enabling products to query balances, top up, and request payments |
-| **Authors**     | Valentin Sergeev                                                                      |
+# RFC 0006 — Payment Host API
 
 ## Summary
 
@@ -22,13 +21,13 @@ Rather than exposing these implementation details to products, this RFC defines 
 - Provides a **top-up mechanism** for products to fund user balances.
 - Offers **asynchronous payment requests** with status tracking, accommodating the non-instant nature of the underlying system.
 
-## Stakeholders
+### Stakeholders
 
 - **Product developers** -- consumers of the host API who wish to integrate payment features into their applications.
 - **Host implementors** -- responsible for implementing the host-side logic including user consent flows, coin management, and settlement.
 - **End users** -- whose privacy must be preserved while enabling product interactions with their balance.
 
-## Explanation
+## Detailed Design
 
 ### Design Principles
 
@@ -49,9 +48,7 @@ fn host_payment_balance_subscribe(
 
 struct PaymentBalance {
     /// Balance that can be spent right now
-    available: Balance,
-    /// Balance the user possesses but cannot spend yet (e.g. in recycling stage)
-    pending: Balance
+    available: Balance
 }
 
 enum PaymentBalanceErr {
@@ -175,17 +172,19 @@ This proposal assumes a single, fixed payment asset (e.g. pUSD) known to both th
 
 The API is intentionally low-level and aligned with the rest of the Host API. Higher-level abstractions (e.g. "pay-and-wait" helpers, balance formatting utilities) are expected to be provided by the Product SDK.
 
+## Alternatives
+
 ### Compatibility
 
 This proposal adds new host API calls without modifying existing ones. It introduces four new payload variant groups in the protocol. Existing products and hosts are unaffected.
 
-## Prior Art and References
+### Prior Art and References
 
 - [Coinage Design Document](https://docs.google.com/document/d/124mp6mnMhKFgSjmL6Y1NDzD0v-hRAhmryjqWEJ7yFDk/edit?usp=sharing)
 - [Host API PRD](https://docs.google.com/document/d/1AxKjF15y7gmdl-a6twc5wd8R5xcxKxMO8Ahp2l20v0g) -- defines the overall protocol architecture, naming conventions, and transport layer
 - Previous RFC "Coinage Host API for Private Payments" (2026-03-13) -- superseded by this RFC. The previous version coupled payment transfers to the chat infrastructure and exposed coinage internals (coin private keys, amount hints). This RFC replaces that approach with an abstract payment interface.
 
-## Future Directions
+## Unresolved Questions
 
 - **Multi-asset support** -- Extend `Balance` to include an asset identifier for payments in different currencies.
 - **Batch payments** -- Support for multiple payments in a single request.

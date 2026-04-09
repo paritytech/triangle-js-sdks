@@ -14,8 +14,8 @@
     "build": "npm run build:lib && npm run build:ui",
     "build:watch": "nx watch --all -- nx run \\$NX_PROJECT_NAME:build",
     "typecheck": "nx run-many -t typecheck",
-    "lint": "nx run-many -t lint && eslint ./__tests__",
-    "lint:fix": "nx run-many -t lint --fix && eslint ./__tests__ --fix",
+    "lint": "nx run-many -t lint && eslint ./__tests__ --quiet",
+    "lint:fix": "nx run-many -t lint --fix && eslint ./__tests__ --fix --quiet",
     "test": "vitest run",
     "storybook:papp": "nx run host-papp-react-ui:storybook",
     "prepare": "husky"

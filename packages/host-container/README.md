@@ -379,6 +379,69 @@ container.handlePreimageSubmit(async (preimage, { ok, err }) => {
 });
 ```
 
+### handlePaymentBalanceSubscribe
+
+Called when a product subscribes to balance updates. Host should prompt for user consent on the first call; interrupt the subscription to communicate denial.
+
+```ts
+container.handlePaymentBalanceSubscribe((_params, send, interrupt) => {
+  const unsubscribe = balanceService.subscribe(balance => {
+    send({ available: balance.available, pending: balance.pending });
+  });
+
+  return () => unsubscribe();
+});
+```
+
+### handlePaymentTopUp
+
+Called when a product requests a balance top-up from a product-controlled source. Does not require user consent.
+
+```ts
+container.handlePaymentTopUp(async ({ amount, source }, { ok, err }) => {
+  if (source.tag === 'ProductAccount') {
+    const [dotNsIdentifier, derivationIndex] = source.value;
+    await transferFromProductAccount(dotNsIdentifier, derivationIndex, amount);
+    return ok(undefined);
+  }
+  if (source.tag === 'PrivateKey') {
+    await transferFromPrivateKey(source.value, amount);
+    return ok(undefined);
+  }
+  return err(new PaymentTopUpErr.InvalidSource());
+});
+```
+
+### handlePaymentRequest
+
+Called when a product requests a payment from the user's balance. Host MUST show a confirmation UI. Returns a receipt immediately; settlement is asynchronous.
+
+```ts
+container.handlePaymentRequest(async ({ amount, destination }, { ok, err }) => {
+  const approved = await showPaymentConfirmation({ amount, destination });
+  if (!approved) return err(new PaymentRequestErr.Denied());
+
+  const paymentId = await paymentService.submit(amount, destination);
+  return ok({ id: paymentId });
+});
+```
+
+### handlePaymentStatusSubscribe
+
+Called when a product subscribes to the status of a previously requested payment.
+
+```ts
+container.handlePaymentStatusSubscribe((paymentId, send, interrupt) => {
+  const unsubscribe = paymentService.trackStatus(paymentId, status => {
+    if (status === 'processing') send({ tag: 'Processing', value: undefined });
+    if (status === 'completed') send({ tag: 'Completed', value: undefined });
+    if (status === 'failed') send({ tag: 'Failed', value: 'settlement failed' });
+  });
+
+  return () => unsubscribe();
+});
+```
+
 ### handleChainConnection
 
 ```ts
