@@ -155,23 +155,27 @@ export const createAttestationService = (lazyClient: LazyClient) => {
 
           const submitAttestation = () =>
             new Promise<void>((resolve, reject) => {
-              attestCall
-                .signAndSubmit(createPeopleSigner(verifier), { at: 'best' })
-                .then(event => {
-                  if (event.ok) {
-                    resolve();
-                  } else {
-                    // Extract error details
-                    let errorMessage = 'Transaction failed';
-                    if (event.dispatchError.type === 'Module') {
-                      const moduleError = event.dispatchError.value as any;
-                      errorMessage = `${moduleError.type}.${moduleError.value?.type || 'Unknown'}`;
+              const subscription = attestCall
+                .signSubmitAndWatch(createPeopleSigner(verifier), { at: 'best' })
+                .subscribe({
+                  next(event) {
+                    if ((event.type === 'txBestBlocksState' && event.found) || event.type === 'finalized') {
+                      subscription.unsubscribe();
+                      if (event.ok) {
+                        resolve();
+                      } else {
+                        let errorMessage = 'Transaction failed';
+                        if (event.dispatchError?.type === 'Module') {
+                          const moduleError = event.dispatchError.value as any;
+                          errorMessage = `${moduleError.type}.${moduleError.value?.type || 'Unknown'}`;
+                        }
+                        reject(new Error(errorMessage));
+                      }
                     }
-
-                    reject(errorMessage);
-                  }
-                })
-                .catch(error => reject(String(error)));
+                  },
+                  error: reject,
+                  complete: () => reject(new Error('Transaction observable completed without best block confirmation')),
+                });
             });
 
           return fromPromise(withRetry(submitAttestation), toError).map<void>(() => undefined);
