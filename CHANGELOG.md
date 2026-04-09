@@ -1,3 +1,13 @@
+## 0.6.16 (2026-04-09)
+
+### 🩹 Fixes
+
+- **host-papp:** attestation service now listens to the best block instead of finalized ([538692c](https://github.com/paritytech/triangle-js-sdks/commit/538692c))
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.15 (2026-04-02)
 
 ### 🚀 Features
