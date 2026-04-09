@@ -1083,10 +1083,7 @@ enum PaymentTopUpSource {
 }
 
 struct PaymentBalance {
-  /// Balance spendable right now.
-  available: Balance,
-  /// Balance owned but not yet spendable (e.g. in recycling stage).
-  pending: Balance
+  available: Balance
 }
 
 struct PaymentReceipt {
@@ -1111,7 +1108,7 @@ enum PaymentTopUpErr {
 }
 
 enum PaymentRequestErr {
-  Denied,
+  Rejected,
   InsufficientBalance,
   Unknown(GenericErr)
 }

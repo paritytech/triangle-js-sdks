@@ -6,7 +6,6 @@ import { sandboxTransport } from './sandboxTransport.js';
 
 export type PaymentBalance = {
   available: bigint;
-  pending: bigint;
 };
 
 export type PaymentStatus = { type: 'processing' } | { type: 'completed' } | { type: 'failed'; reason: string };

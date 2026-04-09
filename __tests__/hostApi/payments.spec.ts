@@ -28,7 +28,7 @@ describe('Host API: Payments', () => {
       const { container, payments } = setup();
 
       container.handlePaymentBalanceSubscribe((_params, send, _interrupt) => {
-        send({ available: 100n, pending: 50n });
+        send({ available: 100n });
         return noop;
       });
 
@@ -37,7 +37,7 @@ describe('Host API: Payments', () => {
 
       await delay(50);
 
-      expect(received).toEqual([{ available: 100n, pending: 50n }]);
+      expect(received).toEqual([{ available: 100n }]);
     });
 
     it('should interrupt when no handler is registered', async () => {
@@ -130,12 +130,12 @@ describe('Host API: Payments', () => {
       expect(handler).toHaveBeenCalledWith({ amount: 300n, destination }, expect.anything());
     });
 
-    it('should reject with Denied', async () => {
+    it('should reject with Rejected', async () => {
       const { container, payments } = setup();
 
-      container.handlePaymentRequest((_params, { err }) => err(new PaymentRequestErr.Denied()));
+      container.handlePaymentRequest((_params, { err }) => err(new PaymentRequestErr.Rejected()));
 
-      await expect(payments.requestPayment(100n, destination)).rejects.toBeInstanceOf(PaymentRequestErr.Denied);
+      await expect(payments.requestPayment(100n, destination)).rejects.toBeInstanceOf(PaymentRequestErr.Rejected);
     });
 
     it('should reject with InsufficientBalance', async () => {

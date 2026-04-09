@@ -18,7 +18,6 @@ export const PaymentTopUpSource = Enum({
 
 export const PaymentBalance = Struct({
   available: u128,
-  pending: u128,
 });
 
 export const PaymentReceipt = Struct({
@@ -34,25 +33,25 @@ export const PaymentStatus = Enum({
 // errors
 
 export const PaymentBalanceErr = ErrEnum('PaymentBalanceErr', {
-  PermissionDenied: [_void, 'Payment balance: permission denied'],
-  Unknown: [GenericErr, 'Payment balance: unknown error'],
+  PermissionDenied: [_void, 'permission denied'],
+  Unknown: [GenericErr, 'unknown error'],
 });
 
 export const PaymentTopUpErr = ErrEnum('PaymentTopUpErr', {
-  InsufficientFunds: [_void, 'Payment top up: insufficient funds'],
-  InvalidSource: [_void, 'Payment top up: invalid source'],
-  Unknown: [GenericErr, 'Payment top up: unknown error'],
+  InsufficientFunds: [_void, 'insufficient funds'],
+  InvalidSource: [_void, 'invalid source'],
+  Unknown: [GenericErr, 'unknown error'],
 });
 
 export const PaymentRequestErr = ErrEnum('PaymentRequestErr', {
-  Denied: [_void, 'Payment request: denied'],
-  InsufficientBalance: [_void, 'Payment request: insufficient balance'],
-  Unknown: [GenericErr, 'Payment request: unknown error'],
+  Rejected: [_void, 'rejected'],
+  InsufficientBalance: [_void, 'insufficient balance'],
+  Unknown: [GenericErr, 'unknown error'],
 });
 
 export const PaymentStatusErr = ErrEnum('PaymentStatusErr', {
-  PaymentNotFound: [_void, 'Payment status: payment not found'],
-  Unknown: [GenericErr, 'Payment status: unknown error'],
+  PaymentNotFound: [_void, 'payment not found'],
+  Unknown: [GenericErr, 'unknown error'],
 });
 
 // host_payment_balance_subscribe
