@@ -1,0 +1,33 @@
+{
+  "version": 0,
+  "descriptorPath": ".papi/descriptors",
+  "options": {
+    "noDescriptorsPackage": true
+  },
+  "entries": {
+    "bulletin_westend": {
+      "wsUrl": "wss://westend-bulletin-rpc.polkadot.io",
+      "metadata": ".papi/metadata/bulletin_westend.scale",
+      "genesis": "0xee1f44f62e68312c4852f37585941e9b64b5ceae539e4aa112ce9d3cf7bbe9fd",
+      "codeHash": "0x9838682961f13a0665e7dac54178aa99531391530e60e879a9eab84d6dc2a199"
+    },
+    "bulletin_paseo": {
+      "wsUrl": "wss://paseo-bulletin-rpc.polkadot.io",
+      "metadata": ".papi/metadata/bulletin_paseo.scale",
+      "genesis": "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea",
+      "codeHash": "0x1a82e5143be3211ded412b0368b486ce83bd41a80ec95eb267f6c204adda8365"
+    },
+    "bulletin_pop_stable": {
+      "wsUrl": "wss://pop3-testnet.parity-lab.parity.io/bulletin",
+      "metadata": ".papi/metadata/bulletin_pop_stable.scale",
+      "genesis": "0x6fdf4baff0328ddaca1812e6d2f8f26afc439e6e0a339c0094d17013f8da246d",
+      "codeHash": "0xce76768a4d9db3a9dbea8acdefeec037a1119dafdc98c62c30c90453ef3a2c75"
+    },
+    "bulletin_previewnet": {
+      "wsUrl": "wss://previewnet.substrate.dev/bulletin",
+      "metadata": ".papi/metadata/bulletin_previewnet.scale",
+      "genesis": "0x1c28cc48ee21f4f6dd2712c68c9a416f19cd518cbfe205e70e4d9dd007278fca",
+      "codeHash": "0xbf09b8cae0c5d583cfb06367e0398dca67a840937387a3841731092aa4b9dc0b"
+    }
+  }
+}

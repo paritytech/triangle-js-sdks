@@ -25,7 +25,7 @@ const signer = accounts.getProductAccountSigner(account);
 
 // Create client
 const { client, destroy } = createBulletinClient({
-  genesisHash: BulletinChain.paseo,
+  ...BulletinChain.paseo,
   signer,
 });
 
@@ -46,13 +46,14 @@ destroy();
 
 ### Known networks
 
-`BulletinChain` provides genesis hashes for known networks:
+`BulletinChain` provides genesis hashes and PAPI descriptors for known networks:
 
 | Network | Key |
 |---------|-----|
 | Bulletin Westend | `BulletinChain.westend` |
 | Bulletin Paseo | `BulletinChain.paseo` |
 | PoP Testnet (stable) | `BulletinChain.popStable` |
+| Bulletin Previewnet | `BulletinChain.previewnet` |
 
 ### Configuration
 
@@ -60,7 +61,7 @@ Optional `config` parameter for chunk size and manifest behavior:
 
 ```ts
 const { client, destroy } = createBulletinClient({
-  genesisHash: BulletinChain.paseo,
+  ...BulletinChain.paseo,
   signer,
   config: {
     defaultChunkSize: 1024 * 1024,  // 1 MiB
