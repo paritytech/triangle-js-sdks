@@ -155,30 +155,23 @@ export const createAttestationService = (lazyClient: LazyClient) => {
 
           const submitAttestation = () =>
             new Promise<void>((resolve, reject) => {
-              const subscription = attestCall
-                .signSubmitAndWatch(createPeopleSigner(verifier), { at: 'best' })
-                .subscribe({
-                  next(event) {
-                    if (event.type === 'finalized') {
-                      // Check if transaction was successful
-                      if (event.ok) {
-                        subscription.unsubscribe();
-                        resolve();
-                      } else {
-                        // Extract error details
-                        let errorMessage = 'Transaction failed';
-                        if (event.dispatchError?.type === 'Module') {
-                          const moduleError = event.dispatchError.value as any;
-                          errorMessage = `${moduleError.type}.${moduleError.value?.type || 'Unknown'}`;
-                        }
-
-                        subscription.unsubscribe();
-                        reject(errorMessage);
-                      }
+              attestCall
+                .signAndSubmit(createPeopleSigner(verifier), { at: 'best' })
+                .then(event => {
+                  if (event.ok) {
+                    resolve();
+                  } else {
+                    // Extract error details
+                    let errorMessage = 'Transaction failed';
+                    if (event.dispatchError.type === 'Module') {
+                      const moduleError = event.dispatchError.value as any;
+                      errorMessage = `${moduleError.type}.${moduleError.value?.type || 'Unknown'}`;
                     }
-                  },
-                  error: reject,
-                });
+
+                    reject(errorMessage);
+                  }
+                })
+                .catch(error => reject(String(error)));
             });
 
           return fromPromise(withRetry(submitAttestation), toError).map<void>(() => undefined);
