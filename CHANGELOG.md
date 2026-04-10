@@ -87,6 +87,10 @@
 - **host-container:** add `handleDeriveEntropy` handler slot
 - **product-sdk:** add `deriveEntropy` convenience function
 
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.17 (2026-04-09)
 
 ### 🩹 Fixes
