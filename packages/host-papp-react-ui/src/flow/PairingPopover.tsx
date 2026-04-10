@@ -15,7 +15,7 @@ type Props = PropsWithChildren<{
   size?: number;
 }>;
 
-export const PairingPopover = memo(({ theme, size = 240, children }: Props) => {
+export const PairingPopover = memo(({ theme = 'dark', size = 240, children }: Props) => {
   const auth = useAuthentication();
   const { status } = useAuthStatus();
 
@@ -45,7 +45,7 @@ export const PairingPopover = memo(({ theme, size = 240, children }: Props) => {
   }, []);
 
   return (
-    <ThemeProvider theme={defaultTheme} defaultMode={theme ?? 'light'}>
+    <ThemeProvider theme={defaultTheme} defaultMode={theme}>
       <Popover open={open} onOpenChange={togglePopover}>
         <Popover.Trigger asChild onClick={handleTriggerClick}>
           {children}

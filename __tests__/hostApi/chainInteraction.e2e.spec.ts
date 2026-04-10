@@ -125,7 +125,7 @@ async function createChainHeadSetup(): Promise<ChainHeadSetup> {
   );
   if (!initEvent) throw new Error('Did not receive initialized event');
 
-  const initialBlockHash = initEvent.params.result.finalizedBlockHashes[0] as string;
+  const initialBlockHash = (initEvent as any).params.result.finalizedBlockHashes[0] as string;
 
   return { ...setup, followSubId, initialBlockHash };
 }
@@ -143,7 +143,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
         const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
         expect(response).toBeDefined();
 
-        expect(response.result).toBe(POLKADOT_GENESIS_HASH);
+        expect((response! as any).result).toBe(POLKADOT_GENESIS_HASH);
       } finally {
         await cleanup();
       }
@@ -157,7 +157,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
         const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
         expect(response).toBeDefined();
 
-        const parsed = JSON.parse(response!);
+        const parsed = response as any;
         expect(typeof parsed.result).toBe('string');
         expect(parsed.result.length).toBeGreaterThan(0);
       } finally {
@@ -173,7 +173,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
         const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
         expect(response).toBeDefined();
 
-        const parsed = JSON.parse(response!);
+        const parsed = response as any;
         const props = parsed.result;
         expect(props).toBeDefined();
         expect(props.tokenSymbol).toBe('DOT');
@@ -193,7 +193,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
         const followResp = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
         expect(followResp).toBeDefined();
 
-        const followSubId = JSON.parse(followResp!).result;
+        const followSubId = (followResp as any).result;
         expect(typeof followSubId).toBe('string');
 
         const initEvent = await pollForMessage(
@@ -202,7 +202,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
         );
 
         expect(initEvent).toBeDefined();
-        const parsedInit = JSON.parse(initEvent!);
+        const parsedInit = initEvent as any;
         expect(parsedInit.params.result.event).toBe('initialized');
         expect(Array.isArray(parsedInit.params.result.finalizedBlockHashes)).toBe(true);
         expect(parsedInit.params.result.finalizedBlockHashes.length).toBeGreaterThan(0);
@@ -231,7 +231,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
         );
 
         expect(response).toBeDefined();
-        const parsed = JSON.parse(response!);
+        const parsed = response as any;
         expect(parsed.result).toBeDefined();
         expect(typeof parsed.result).toBe('string');
         expect(parsed.result).toMatch(/^0x/);
@@ -256,7 +256,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
         );
 
         expect(storageResp).toBeDefined();
-        const parsedResp = JSON.parse(storageResp!);
+        const parsedResp = storageResp as any;
         expect(parsedResp.result).toBeDefined();
         expect(parsedResp.result.result).toBe('started');
         expect(parsedResp.result.operationId).toBeDefined();
@@ -272,7 +272,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
         );
 
         expect(storageItemsEvent).toBeDefined();
-        const parsedItems = JSON.parse(storageItemsEvent!);
+        const parsedItems = storageItemsEvent as any;
         expect(parsedItems.params.result.items.length).toBeGreaterThan(0);
         expect(parsedItems.params.result.items[0].key).toBe(SYSTEM_NUMBER_KEY);
         expect(parsedItems.params.result.items[0].value).toMatch(/^0x/);
@@ -307,7 +307,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
         );
 
         expect(response).toBeDefined();
-        const parsed = JSON.parse(response!);
+        const parsed = response as any;
         expect(parsed.error).toBeUndefined();
         expect(parsed.result).toBe(null);
       } finally {
