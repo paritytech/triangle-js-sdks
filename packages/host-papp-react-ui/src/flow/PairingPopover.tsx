@@ -51,7 +51,6 @@ export const PairingPopover = memo(({ theme, size = 240, children }: Props) => {
           {children}
         </Popover.Trigger>
         <Popover.Content
-          className={styles.popoverContent}
           onInteractOutside={e => {
             if (status.step === 'attestation') {
               e.preventDefault();

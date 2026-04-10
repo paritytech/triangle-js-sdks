@@ -4,7 +4,7 @@ import { createTransport } from '@novasamatech/host-api';
 import { createContainer } from '@novasamatech/host-container';
 import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
+import type { JsonRpcMessage, JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import { describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 
@@ -21,19 +21,19 @@ function delay(ttl: number) {
 function createWebSocketProvider(url: string): JsonRpcProvider {
   return onMessage => {
     const ws = new WebSocket(url);
-    const pending: string[] = [];
+    const pending: JsonRpcMessage[] = [];
 
     ws.on('open', () => {
-      for (const msg of pending) ws.send(msg);
+      for (const msg of pending) ws.send(JSON.stringify(msg));
       pending.length = 0;
     });
 
-    ws.on('message', (data: Buffer) => onMessage(data.toString()));
+    ws.on('message', (data: Buffer) => onMessage(JSON.parse(data.toString())));
 
     return {
-      send(message: string) {
+      send(message) {
         if (ws.readyState === WebSocket.OPEN) {
-          ws.send(message);
+          ws.send(JSON.stringify(message));
         } else {
           pending.push(message);
         }
@@ -50,15 +50,15 @@ function createWebSocketProvider(url: string): JsonRpcProvider {
  * Returns the matching message or undefined if not found within the timeout.
  */
 async function pollForMessage(
-  messages: string[],
+  messages: JsonRpcMessage[],
   predicate: (parsed: Record<string, unknown>) => boolean,
   maxIterations = 150,
   interval = 200,
-): Promise<string | undefined> {
+): Promise<JsonRpcMessage | undefined> {
   for (let i = 0; i < maxIterations; i++) {
     const found = messages.find(m => {
       try {
-        return predicate(JSON.parse(m));
+        return predicate(m);
       } catch {
         return false;
       }
@@ -70,8 +70,8 @@ async function pollForMessage(
 }
 
 type TestSetup = {
-  sdkConnection: { send: (msg: string) => void; disconnect: () => void };
-  receivedMessages: string[];
+  sdkConnection: ReturnType<JsonRpcProvider>;
+  receivedMessages: JsonRpcMessage[];
   cleanup: () => Promise<void>;
 };
 
@@ -90,7 +90,7 @@ function createTestSetup(): TestSetup {
     return createWebSocketProvider(POLKADOT_RPC_URL);
   });
 
-  const receivedMessages: string[] = [];
+  const receivedMessages: JsonRpcMessage[] = [];
   const sdkConnection = provider(msg => receivedMessages.push(msg));
 
   const cleanup = async () => {
@@ -113,11 +113,11 @@ type ChainHeadSetup = TestSetup & {
 async function createChainHeadSetup(): Promise<ChainHeadSetup> {
   const setup = createTestSetup();
 
-  setup.sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] }));
+  setup.sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
 
   const followResp = await pollForMessage(setup.receivedMessages, p => p.id === 1 && p.result !== undefined);
   if (!followResp) throw new Error('Failed to start follow subscription');
-  const followSubId = JSON.parse(followResp).result as string;
+  const followSubId = 'result' in followResp ? (followResp.result as string) : '';
 
   const initEvent = await pollForMessage(
     setup.receivedMessages,
@@ -125,7 +125,7 @@ async function createChainHeadSetup(): Promise<ChainHeadSetup> {
   );
   if (!initEvent) throw new Error('Did not receive initialized event');
 
-  const initialBlockHash = JSON.parse(initEvent).params.result.finalizedBlockHashes[0] as string;
+  const initialBlockHash = initEvent.params.result.finalizedBlockHashes[0] as string;
 
   return { ...setup, followSubId, initialBlockHash };
 }
@@ -138,13 +138,12 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
     it('chainSpec_v1_genesisHash — should return the Polkadot genesis hash', async () => {
       const { sdkConnection, receivedMessages, cleanup } = createTestSetup();
       try {
-        sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_genesisHash', params: [] }));
+        sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_genesisHash', params: [] });
 
         const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
         expect(response).toBeDefined();
 
-        const parsed = JSON.parse(response!);
-        expect(parsed.result).toBe(POLKADOT_GENESIS_HASH);
+        expect(response.result).toBe(POLKADOT_GENESIS_HASH);
       } finally {
         await cleanup();
       }
@@ -153,7 +152,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
     it('chainSpec_v1_chainName — should return a non-empty string', async () => {
       const { sdkConnection, receivedMessages, cleanup } = createTestSetup();
       try {
-        sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_chainName', params: [] }));
+        sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_chainName', params: [] });
 
         const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
         expect(response).toBeDefined();
@@ -169,7 +168,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
     it('chainSpec_v1_properties — should return object with tokenSymbol DOT and tokenDecimals 10', async () => {
       const { sdkConnection, receivedMessages, cleanup } = createTestSetup();
       try {
-        sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_properties', params: [] }));
+        sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_properties', params: [] });
 
         const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
         expect(response).toBeDefined();
@@ -189,7 +188,7 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
     it('chainHead_v1_follow — should subscribe and receive initialized event with finalized block hashes', async () => {
       const { sdkConnection, receivedMessages, cleanup } = createTestSetup();
       try {
-        sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] }));
+        sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
 
         const followResp = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
         expect(followResp).toBeDefined();
@@ -219,14 +218,12 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
     it('chainHead_v1_header — should get a block header as hex string starting with 0x', async () => {
       const { sdkConnection, receivedMessages, followSubId, initialBlockHash, cleanup } = await createChainHeadSetup();
       try {
-        sdkConnection.send(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: 2,
-            method: 'chainHead_v1_header',
-            params: [followSubId, initialBlockHash],
-          }),
-        );
+        sdkConnection.send({
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'chainHead_v1_header',
+          params: [followSubId, initialBlockHash],
+        });
 
         const response = await pollForMessage(
           receivedMessages,
@@ -246,14 +243,12 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
     it('chainHead_v1_storage — should read System.Number storage value', async () => {
       const { sdkConnection, receivedMessages, followSubId, initialBlockHash, cleanup } = await createChainHeadSetup();
       try {
-        sdkConnection.send(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: 2,
-            method: 'chainHead_v1_storage',
-            params: [followSubId, initialBlockHash, [{ key: SYSTEM_NUMBER_KEY, type: 'value' }], null],
-          }),
-        );
+        sdkConnection.send({
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'chainHead_v1_storage',
+          params: [followSubId, initialBlockHash, [{ key: SYSTEM_NUMBER_KEY, type: 'value' }], null],
+        });
 
         const storageResp = await pollForMessage(
           receivedMessages,
@@ -299,14 +294,12 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
     it('chainHead_v1_unpin — should unpin a block without error', async () => {
       const { sdkConnection, receivedMessages, followSubId, initialBlockHash, cleanup } = await createChainHeadSetup();
       try {
-        sdkConnection.send(
-          JSON.stringify({
-            jsonrpc: '2.0',
-            id: 2,
-            method: 'chainHead_v1_unpin',
-            params: [followSubId, [initialBlockHash]],
-          }),
-        );
+        sdkConnection.send({
+          jsonrpc: '2.0',
+          id: 2,
+          method: 'chainHead_v1_unpin',
+          params: [followSubId, [initialBlockHash]],
+        });
 
         const response = await pollForMessage(
           receivedMessages,

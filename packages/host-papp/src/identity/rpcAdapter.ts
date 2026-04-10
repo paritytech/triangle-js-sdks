@@ -1,3 +1,4 @@
+import type { HexString } from '@novasamatech/scale';
 import type { LazyClient } from '@novasamatech/statement-store';
 import { AccountId } from '@polkadot-api/substrate-bindings';
 import { errAsync, fromPromise, ok } from 'neverthrow';
@@ -13,6 +14,7 @@ export function createIdentityRpcAdapter(lazyClient: LazyClient): IdentityAdapte
 
   return {
     readIdentities(accounts) {
+      const textDecoder = new TextDecoder();
       const client = lazyClient.getClient();
       const unsafeApi = client.getUnsafeApi<People_lite>();
 
@@ -43,7 +45,7 @@ export function createIdentityRpcAdapter(lazyClient: LazyClient): IdentityAdapte
                     }
                   : {
                       type: 'Person',
-                      alias: raw.credibility.value.alias.asHex(),
+                      alias: raw.credibility.value.alias as HexString,
                       lastUpdate: raw.credibility.value.last_update.toString(),
                     };
 
@@ -51,9 +53,18 @@ export function createIdentityRpcAdapter(lazyClient: LazyClient): IdentityAdapte
                 accountId,
                 {
                   accountId: accountId,
-                  fullUsername: raw.full_username ? raw.full_username.asText() : null,
-                  liteUsername: raw.lite_username.asText(),
+                  fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
+                  liteUsername: textDecoder.decode(raw.lite_username),
                   credibility,
+                  slots: raw.stmt_store_slots.map(slot =>
+                    slot.type === 'Free'
+                      ? { type: 'Free' }
+                      : {
+                          type: 'Occupied',
+                          accountId: slot.value.account_id,
+                          since: slot.value.since.toString(),
+                        },
+                  ),
                 },
               ];
             }),

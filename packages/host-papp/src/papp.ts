@@ -2,7 +2,7 @@ import type { LazyClient, StatementStoreAdapter } from '@novasamatech/statement-
 import { createLazyClient, createPapiStatementStoreAdapter } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { createLocalStorageAdapter } from '@novasamatech/storage-adapter';
-import { getWsProvider } from '@polkadot-api/ws-provider';
+import { getWsProvider } from 'polkadot-api/ws';
 
 import { SS_STABLE_STAGE_ENDPOINTS } from './constants.js';
 import { createIdentityRepository } from './identity/impl.js';

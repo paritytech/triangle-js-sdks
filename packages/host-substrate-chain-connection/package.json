@@ -26,9 +26,7 @@
   ],
   "dependencies": {
     "@novasamatech/storage-adapter": "0.7.0-0",
-    "@polkadot-api/json-rpc-provider": "^0.2.0",
     "@polkadot-api/json-rpc-provider-proxy": "^0.4.0",
-    "@polkadot-api/ws-provider": "^0.9.0",
     "nanoevents": "^9.1.0",
     "polkadot-api": "^2.0.0"
   },

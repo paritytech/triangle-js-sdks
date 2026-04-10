@@ -27,7 +27,7 @@
   "dependencies": {
     "@noble/hashes": "2.0.1",
     "@polkadot-api/utils": "^0.4.0",
-    "@polkadot-api/json-rpc-provider": "^0.2.0",
+    "polkadot-api": "^2.0.0",
     "@novasamatech/host-api": "0.7.0-0",
     "nanoid": "5.1.7"
   },
