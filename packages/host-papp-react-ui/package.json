@@ -31,17 +31,17 @@
   },
   "dependencies": {
     "@novasamatech/statement-store": "0.7.0-0",
-    "@polkadot-api/utils": "^0.2.0",
+    "@polkadot-api/utils": "^0.4.0",
     "@radix-ui/react-dialog": "1.1.15",
     "qr-code-styling": "1.9.2",
-    "@novasamatech/tr-ui": "0.1.38"
+    "@novasamatech/tr-ui": "0.2.3"
   },
   "devDependencies": {
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@polkadot-api/substrate-bindings": "^0.17.0",
-    "react": "19.2.4",
-    "react-dom": "19.2.4",
+    "@polkadot-api/substrate-bindings": "^0.20.0",
+    "react": "19.2.5",
+    "react-dom": "19.2.5",
     "typescript-plugin-css-modules": "5.2.0",
     "vite-plugin-wasm": "3.6.0"
   },
