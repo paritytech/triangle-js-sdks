@@ -2,7 +2,6 @@ import { toHex } from '@novasamatech/scale';
 import type { Statement, TopicFilter as SdkTopicFilter } from '@novasamatech/sdk-statement';
 import { createStatementSdk } from '@novasamatech/sdk-statement';
 import { errAsync, fromPromise, okAsync } from 'neverthrow';
-import { toHex } from 'polkadot-api/utils';
 
 import { toError } from '../helpers.js';
 
