@@ -213,8 +213,8 @@ export function createSession({
 
   function ensureStoreSubscription(): void {
     if (storeUnsub) return;
-    storeUnsub = statementStore.subscribeStatements([incomingSessionId], statements => {
-      for (const statement of statements) {
+    storeUnsub = statementStore.subscribeStatements({ matchAll: [incomingSessionId] }, page => {
+      for (const statement of page.statements) {
         processIncomingStatement(statement);
       }
     });
@@ -222,8 +222,8 @@ export function createSession({
 
   async function init(): Promise<void> {
     const [ownResult, peerResult] = await Promise.all([
-      statementStore.queryStatements([outgoingSessionId]),
-      statementStore.queryStatements([incomingSessionId]),
+      statementStore.queryStatements({ matchAll: [outgoingSessionId] }),
+      statementStore.queryStatements({ matchAll: [incomingSessionId] }),
     ]);
 
     if (ownResult.isErr() || peerResult.isErr()) return;

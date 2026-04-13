@@ -357,10 +357,11 @@ subscription.unsubscribe();
 ### handleStatementStoreSubscribe
 
 ```ts
-container.handleStatementStoreSubscribe((query, send, interrupt) => {
-  const listener = (statements) => send(statements);
-  statementStore.subscribe(query, listener);
-  return () => statementStore.unsubscribe(query, listener);
+container.handleStatementStoreSubscribe((filter, send, interrupt) => {
+  // filter is { tag: 'MatchAll', value: Uint8Array[] } | { tag: 'MatchAny', value: Uint8Array[] }
+  const listener = (page) => send(page);
+  statementStore.subscribe(filter, listener);
+  return () => statementStore.unsubscribe(filter, listener);
 });
 ```
 

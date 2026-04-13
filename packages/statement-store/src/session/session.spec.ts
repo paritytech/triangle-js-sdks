@@ -5,6 +5,7 @@ import type { CodecType } from 'scale-ts';
 import { Bytes, str } from 'scale-ts';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { StatementsPage } from '../adapter/types.js';
 import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount } from '../model/sessionAccount.js';
 
 import { StatementData } from './scale/statementData.js';
@@ -347,8 +348,8 @@ describe('session', () => {
         return okAsync([]);
       });
 
-      let subscribeCallback!: (statements: Statement[]) => void;
-      adapter.subscribeStatements.mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
+      let subscribeCallback!: (page: StatementsPage) => void;
+      adapter.subscribeStatements.mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
         subscribeCallback = cb;
         return vi.fn();
       });
@@ -360,7 +361,7 @@ describe('session', () => {
       session.subscribe(rawCodec, appCallback);
 
       // Simulate subscription delivering the same statement again
-      subscribeCallback([peerRequest]);
+      subscribeCallback({ statements: [peerRequest], isComplete: true });
       await flushPromises();
 
       // Should only be called once (from buffered init message), not again from subscription
@@ -372,8 +373,8 @@ describe('session', () => {
       const peerRequest = makeStatement({ tag: 'request', value: { requestId, data: [new Uint8Array([1])] } });
 
       const adapter = makeAdapter();
-      let subscribeCallback!: (statements: Statement[]) => void;
-      adapter.subscribeStatements.mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
+      let subscribeCallback!: (page: StatementsPage) => void;
+      adapter.subscribeStatements.mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
         subscribeCallback = cb;
         return vi.fn();
       });
@@ -386,7 +387,7 @@ describe('session', () => {
       session.subscribe(rawCodec, callback);
 
       adapter.submitStatement.mockClear();
-      subscribeCallback([peerRequest]);
+      subscribeCallback({ statements: [peerRequest], isComplete: true });
       await flushPromises();
 
       // Message delivered to app callback but no automatic response submitted
@@ -400,13 +401,11 @@ describe('session', () => {
       // has a chance to register its subscriber. The fix ensures request statements are always
       // buffered so late subscribers (simulating waitForRequestMessage called in .andThen()
       // after waitForResponseMessage resolves) still receive them.
-      let subscribeCallback!: (statements: Statement[]) => void;
-      const subscribeStatements = vi
-        .fn()
-        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-          subscribeCallback = cb;
-          return vi.fn();
-        });
+      let subscribeCallback!: (page: StatementsPage) => void;
+      const subscribeStatements = vi.fn().mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
+        subscribeCallback = cb;
+        return vi.fn();
+      });
 
       const { session } = makeSession({ subscribeStatements });
       await flushPromises();
@@ -423,7 +422,7 @@ describe('session', () => {
 
       // Peer request arrives while dummy subscriber is active but waitForRequestMessage
       // hasn't registered its subscriber yet (the race condition scenario).
-      subscribeCallback([peerRequest]);
+      subscribeCallback({ statements: [peerRequest], isComplete: true });
       await flushPromises();
 
       // Now the late subscriber registers (simulates waitForRequestMessage being called
@@ -524,13 +523,11 @@ describe('session', () => {
     });
 
     it('drains message queue after response received', async () => {
-      let subscribeCallback!: (statements: Statement[]) => void;
-      const subscribeStatements = vi
-        .fn()
-        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-          subscribeCallback = cb;
-          return vi.fn();
-        });
+      let subscribeCallback!: (page: StatementsPage) => void;
+      const subscribeStatements = vi.fn().mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
+        subscribeCallback = cb;
+        return vi.fn();
+      });
 
       const { session, adapter } = makeSession({ maxRequestSize: 5, subscribeStatements });
       await flushPromises();
@@ -555,7 +552,7 @@ describe('session', () => {
         value: { requestId: respondingRequestId, responseCode: 'success' },
       });
 
-      subscribeCallback([responseStatement]);
+      subscribeCallback({ statements: [responseStatement], isComplete: true });
       await flushPromises();
 
       // Queued message should now be submitted
@@ -563,13 +560,11 @@ describe('session', () => {
     });
 
     it('waitForResponseMessage resolves when response arrives for batch', async () => {
-      let subscribeCallback!: (statements: Statement[]) => void;
-      const subscribeStatements = vi
-        .fn()
-        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-          subscribeCallback = cb;
-          return vi.fn();
-        });
+      let subscribeCallback!: (page: StatementsPage) => void;
+      const subscribeStatements = vi.fn().mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
+        subscribeCallback = cb;
+        return vi.fn();
+      });
 
       const { session, adapter } = makeSession({ subscribeStatements });
       await flushPromises();
@@ -589,9 +584,10 @@ describe('session', () => {
       const decoded = StatementData.dec(lastStatement.data!);
       const respondingId = decoded.tag === 'request' ? decoded.value.requestId : '';
 
-      subscribeCallback([
-        makeStatement({ tag: 'response', value: { requestId: respondingId, responseCode: 'success' } }),
-      ]);
+      subscribeCallback({
+        statements: [makeStatement({ tag: 'response', value: { requestId: respondingId, responseCode: 'success' } })],
+        isComplete: true,
+      });
       await flushPromises();
 
       const result = await responsePromise;

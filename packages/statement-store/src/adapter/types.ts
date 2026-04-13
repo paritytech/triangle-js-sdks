@@ -1,9 +1,16 @@
 import type { SignedStatement, Statement } from '@novasamatech/sdk-statement';
 import type { ResultAsync } from 'neverthrow';
 
+export type TopicFilter = { matchAll: Uint8Array[] } | { matchAny: Uint8Array[] };
+
+export type StatementsPage = {
+  statements: Statement[];
+  isComplete: boolean;
+};
+
 export type StatementStoreAdapter = {
-  queryStatements(topics: Uint8Array[], destination?: Uint8Array): ResultAsync<Statement[], Error>;
-  subscribeStatements(topics: Uint8Array[], callback: (statements: Statement[]) => unknown): VoidFunction;
+  queryStatements(filter: TopicFilter, destination?: Uint8Array): ResultAsync<Statement[], Error>;
+  subscribeStatements(filter: TopicFilter, callback: (page: StatementsPage) => unknown): VoidFunction;
   submitStatement(
     statement: SignedStatement,
   ): ResultAsync<
