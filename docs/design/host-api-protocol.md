@@ -9,6 +9,15 @@ created: 2026-03-13
 
 ## Changelog
 
+### v0.8 - 2026-04-08
+
+- Renamed `DevicePermissionRequest` to `DevicePermission` for consistency (RFC-0002).
+- Extended `DevicePermission` with new variants: `Notifications`, `NFC`, `Clipboard`, `OpenUrl`, `Biometrics`.
+- Replaced `RemotePermission` variants `ExternalRequest(str)` and `TransactionSubmit` with `Remote(Vec<String>)`, `WebRTC`, `ChainSubmit`, `PreimageSubmit`, and `StatementSubmit`.
+- Changed `remote_permission` argument from a single `RemotePermission` to `Vec<RemotePermission>` to allow batched requests in one prompt.
+- Documented permission lifecycle: decisions are prompted once and persisted indefinitely, surviving app restarts.
+- Documented implicit permission triggering for `remote_chain_transaction_broadcast` (ChainSubmit), `remote_preimage_submit` (PreimageSubmit), and `remote_statement_store_submit` (StatementSubmit).
+
 ### v0.7 - 2026-04-07
 
 - Replaced `address: str` with `account: ProductAccountId` in `SigningPayloadRaw` and `SigningPayload` (RFC-0005) for consistency with other account-bearing methods;
@@ -94,11 +103,11 @@ fn host_derive_entropy(
 // Permissions
 
 fn host_device_permission(
-  permission: DevicePermissionRequest
+  permission: DevicePermission
 ) -> Result<bool, GenericErr>;
 
 fn remote_permission(
-  permission: RemotePermission
+  permissions: Vec<RemotePermission>
 ) -> Result<bool, GenericErr>;
 
 // Storage
@@ -502,19 +511,89 @@ fn host_derive_entropy(
 
 #### Device permissions request
 
-Products can request additional device permissions. This device permissions check should be implemented on top of platform permissions (web, iOS, Android) and add an additional security level.
+Products can request additional device permissions. This check is layered on top of platform permissions (web, iOS, Android) and adds a product-level security gate.
+
+The Host prompts the user the first time a permission is requested; subsequent calls resolve immediately from persisted state without prompting.
+
 ```rust
-enum DevicePermissionRequest {
+enum DevicePermission {
+  Notifications,
   Camera,
   Microphone,
   Bluetooth,
-  Location
+  NFC,
+  Location,
+  Clipboard,
+  OpenUrl,
+  Biometrics
 }
 
 fn host_device_permission(
-  permission: DevicePermissionRequest
+  permission: DevicePermission
 ) -> Result<bool, GenericErr>;
 ```
+
+Each call requests a single device permission. Batching is not supported for device permissions — each capability warrants its own prompt.
+
+#### Remote permissions request
+
+Products can request remote permissions to access network resources or submit data to chains. Remote permissions can be batched: a single call declares all of a product's needs and results in one user prompt.
+
+```rust
+enum RemotePermission {
+  // Access to HTTP/HTTPS/WS/WSS APIs.
+  // Each entry is a domain or wildcard subdomain pattern:
+  //   "api.coingecko.com"  — exact domain match
+  //   "*.coingecko.com"    — any single subdomain of coingecko.com (not coingecko.com itself)
+  //   "*"                  — allow all HTTP/WS requests (broad; host SHOULD show a prominent warning)
+  // Matching is case-insensitive. Scheme is always HTTP, HTTPS, WS, or WSS.
+  Remote(Vec<String>),
+  // Access to WebRTC (can expose the user's IP address).
+  WebRTC,
+  // Broadcast signed transactions via remote_chain_transaction_broadcast.
+  ChainSubmit,
+  // Submit preimage data via remote_preimage_submit.
+  PreimageSubmit,
+  // Submit statements to the statement store via remote_statement_store_submit.
+  StatementSubmit
+}
+
+fn remote_permission(
+  permissions: Vec<RemotePermission>
+) -> Result<bool, GenericErr>;
+```
+
+`true` means all requested permissions were granted. `false` means the user denied at least one; the Host MAY persist partial grants. Products that need to know which specific permissions were denied should call `remote_permission` with individual entries.
+
+### Permission Lifecycle
+
+1. **First request** — When a permission is requested for the first time (via explicit API call or implicitly by a business method), the Host presents an approval dialog.
+2. **Decision persisted** — The decision is stored by the Host, keyed to the product identity, and survives app restarts indefinitely.
+3. **Subsequent requests** — All subsequent calls for the same permission resolve immediately without prompting.
+4. **Revocation** — Out of scope for this version. Hosts MAY provide a settings UI; the protocol does not define a revocation notification to the product.
+
+Products MAY request permissions lazily (on first use) or upfront during initialization. Requesting upfront is recommended when the product can predict its needs, as it batches consent into a single moment.
+
+### Implicit Permission Triggering
+
+The following business methods gate on a specific `RemotePermission` and MUST internally trigger a permission prompt if the permission has not yet been resolved:
+
+| Business Method                      | Required Permission                |
+|--------------------------------------|------------------------------------|
+| `remote_chain_transaction_broadcast` | `RemotePermission::ChainSubmit`    |
+| `remote_preimage_submit`             | `RemotePermission::PreimageSubmit` |
+| `remote_statement_store_submit`      | `RemotePermission::StatementSubmit`|
+
+If the user has already granted the relevant permission, the business method proceeds without prompting. If the user denies, the method returns `GenericErr` with a permission-denied reason.
+
+The following business methods require user consent through their own signing-confirmation flow and return `PermissionDenied` when the user cancels — this is separate from the remote permission system:
+
+| Business Method                                    | Error on Denial                          |
+|----------------------------------------------------|------------------------------------------|
+| `host_sign_raw`                                    | `SigningErr::PermissionDenied`           |
+| `host_sign_payload`                                | `SigningErr::PermissionDenied`           |
+| `host_create_transaction`                          | `CreateTransactionErr::PermissionDenied` |
+| `host_create_transaction_with_non_product_account` | `CreateTransactionErr::PermissionDenied` |
 
 ### Local storage
 

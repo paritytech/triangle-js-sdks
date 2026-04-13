@@ -7,6 +7,7 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 import type { AccountConnectionStatus, ProductAccount } from '@novasamatech/product-sdk';
 import { createAccountsProvider } from '@novasamatech/product-sdk';
@@ -57,7 +58,7 @@ describe('Host API: Accounts', () => {
 
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountGet>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
         ok({ publicKey: mockPublicKey, name: undefined }),
       );
       container.handleAccountGet(handler);
@@ -69,7 +70,7 @@ describe('Host API: Accounts', () => {
 
     it('should use derivation index 0 by default', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountGet>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
         ok({ publicKey: mockPublicKey, name: undefined }),
       );
       container.handleAccountGet(handler);
@@ -118,7 +119,7 @@ describe('Host API: Accounts', () => {
 
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountGetAlias>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGetAlias>>((_, { ok }) =>
         ok({ context: new Uint8Array(32), alias: new Uint8Array(0) }),
       );
       container.handleAccountGetAlias(handler);
@@ -130,7 +131,7 @@ describe('Host API: Accounts', () => {
 
     it('should use derivation index 0 by default', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountGetAlias>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGetAlias>>((_, { ok }) =>
         ok({ context: new Uint8Array(32), alias: new Uint8Array(0) }),
       );
       container.handleAccountGetAlias(handler);
@@ -209,7 +210,7 @@ describe('Host API: Accounts', () => {
     it('should pass correct params to handler', async () => {
       const { container, accountsProvider } = setup();
       const message = new Uint8Array([7, 8, 9]);
-      const handler = vi.fn<Parameters<typeof container.handleAccountCreateProof>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
         ok(new Uint8Array(0)),
       );
       container.handleAccountCreateProof(handler);
@@ -224,7 +225,7 @@ describe('Host API: Accounts', () => {
 
     it('should use derivation index 0 by default', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountCreateProof>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
         ok(new Uint8Array(0)),
       );
       container.handleAccountCreateProof(handler);

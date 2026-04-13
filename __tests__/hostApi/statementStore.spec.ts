@@ -1,4 +1,5 @@
 import { GenericError, StatementProofErr, createTransport, enumValue } from '@novasamatech/host-api';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 import type { ProductAccountId, SignedStatement, Statement, Topic } from '@novasamatech/product-sdk';
 import { createStatementStore } from '@novasamatech/product-sdk';
@@ -93,7 +94,7 @@ describe('Host API: StatementStore', () => {
       signer: new Uint8Array(32).fill(6),
     });
 
-    const handler = vi.fn<Parameters<typeof container.handleStatementStoreCreateProof>[0]>((_, { ok }) =>
+    const handler = vi.fn<ContainerHandlerOf<typeof container.handleStatementStoreCreateProof>>((_, { ok }) =>
       ok(expectedProof),
     );
     container.handleStatementStoreCreateProof(handler);
@@ -108,12 +109,21 @@ describe('Host API: StatementStore', () => {
     const { container, statementStore } = setup();
     const signedStatement = createMockSignedStatement(1);
 
-    const handler = vi.fn<Parameters<typeof container.handleStatementStoreSubmit>[0]>((_, { ok }) => ok(undefined));
+    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.handlePermission>>((_params, { ok }) =>
+      ok(true),
+    );
+    container.handlePermission(permissionHandler);
+    const handler = vi.fn<ContainerHandlerOf<typeof container.handleStatementStoreSubmit>>((_, { ok }) =>
+      ok(undefined),
+    );
     container.handleStatementStoreSubmit(handler);
 
     await statementStore.submit(signedStatement);
 
     expect(handler).toBeCalledWith(signedStatement, { ok: expect.any(Function), err: expect.any(Function) });
+    expect(permissionHandler).toHaveBeenCalledOnce();
+    const [receivedParams] = permissionHandler.mock.calls[0]!;
+    expect(receivedParams).toContainEqual({ tag: 'StatementSubmit', value: undefined });
   });
 
   it('should handle createProof error when account is unknown', async () => {
@@ -132,9 +142,17 @@ describe('Host API: StatementStore', () => {
     const signedStatement = createMockSignedStatement(1);
     const error = new GenericError({ reason: 'Submit failed' });
 
+    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.handlePermission>>((_params, { ok }) =>
+      ok(true),
+    );
+    container.handlePermission(permissionHandler);
     container.handleStatementStoreSubmit((_, { err }) => err(error));
 
     await expect(statementStore.submit(signedStatement)).rejects.toEqual(error);
+
+    expect(permissionHandler).toHaveBeenCalledOnce();
+    const [receivedParams] = permissionHandler.mock.calls[0]!;
+    expect(receivedParams).toContainEqual({ tag: 'StatementSubmit', value: undefined });
   });
 
   it('should unsubscribe from statement updates', async () => {
