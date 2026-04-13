@@ -30,6 +30,7 @@
     "react-dom": ">=18"
   },
   "dependencies": {
+    "@novasamatech/host-papp": "0.7.0-0",
     "@novasamatech/statement-store": "0.7.0-0",
     "@polkadot-api/utils": "^0.4.0",
     "@radix-ui/react-dialog": "1.1.15",

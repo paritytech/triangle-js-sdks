@@ -25,8 +25,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@noble/hashes": "2.0.1",
-    "@polkadot-api/utils": "^0.4.0",
+    "@noble/hashes": "2.2.0",
     "polkadot-api": "^2.0.0",
     "@novasamatech/host-api": "0.7.0-0",
     "nanoid": "5.1.7"

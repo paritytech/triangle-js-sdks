@@ -1,6 +1,6 @@
 import { GenericError } from '@novasamatech/host-api';
 
-export const RATE_LIMITED_MESSAGE = 'Request rate limited';
+const RATE_LIMITED_MESSAGE = 'Request rate limited';
 
 export type RateLimiterConfig = {
   maxRequestsPerInterval: number;

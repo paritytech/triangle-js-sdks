@@ -1,7 +1,7 @@
 import type { HexString } from '@novasamatech/scale';
 import type { LazyClient } from '@novasamatech/statement-store';
-import { AccountId } from '@polkadot-api/substrate-bindings';
 import { errAsync, fromPromise, ok } from 'neverthrow';
+import { AccountId } from 'polkadot-api';
 
 import type { People_lite } from '../../.papi/descriptors/dist/index.js';
 import { toError } from '../helpers/utils.js';

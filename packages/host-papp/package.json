@@ -26,14 +26,13 @@
     "README.md"
   ],
   "dependencies": {
-    "@noble/ciphers": "2.1.1",
-    "@noble/curves": "2.0.1",
-    "@noble/hashes": "2.0.1",
+    "@noble/ciphers": "2.2.0",
+    "@noble/curves": "2.2.0",
+    "@noble/hashes": "2.2.0",
     "@novasamatech/host-api": "0.7.0-0",
     "@novasamatech/scale": "0.7.0-0",
     "@novasamatech/statement-store": "0.7.0-0",
     "@novasamatech/storage-adapter": "0.7.0-0",
-    "@polkadot-api/utils": "^0.4.0",
     "@polkadot-api/substrate-bindings": "^0.20.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.28",
     "@scure/sr25519": "1.0.0",
