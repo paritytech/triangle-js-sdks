@@ -86,21 +86,32 @@ Each item has one of these shapes:
 ```ts
 container.handlePermission(async (permissions, { ok, err }) => {
   for (const permission of permissions) {
-    if (permission.tag === 'Remote') {
-      const allowed = await checkDomainPermissions(permission.value);
-      if (!allowed) return ok(false);
-    } else if (permission.tag === 'WebRTC') {
-      const allowed = await promptWebRTCPermission();
-      if (!allowed) return ok(false);
-    } else if (permission.tag === 'ChainSubmit') {
-      const allowed = await promptChainSubmitPermission();
-      if (!allowed) return ok(false);
-    } else if (permission.tag === 'PreimageSubmit') {
-      const allowed = await promptPreimageSubmitPermission();
-      if (!allowed) return ok(false);
-    } else if (permission.tag === 'StatementSubmit') {
-      const allowed = await promptStatementSubmitPermission();
-      if (!allowed) return ok(false);
+    switch (permission.tag) {
+      case 'Remote': {
+        const allowed = await checkDomainPermissions(permission.value);
+        if (!allowed) return ok(false);
+        break;
+      }
+      case 'WebRTC': {
+        const allowed = await promptWebRTCPermission();
+        if (!allowed) return ok(false);
+        break;
+      }
+      case 'ChainSubmit': {
+        const allowed = await promptChainSubmitPermission();
+        if (!allowed) return ok(false);
+        break;
+      }
+      case 'PreimageSubmit': {
+        const allowed = await promptPreimageSubmitPermission();
+        if (!allowed) return ok(false);
+        break;
+      }
+      case 'StatementSubmit': {
+        const allowed = await promptStatementSubmitPermission();
+        if (!allowed) return ok(false);
+        break;
+      }
     }
   }
   return ok(true);
