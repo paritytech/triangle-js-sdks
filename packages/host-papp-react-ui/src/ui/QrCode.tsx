@@ -24,6 +24,7 @@ export const QrCode = memo(({ value, size, theme = 'light' }: Props) => {
   const [ref, setRef] = useState<HTMLDivElement | null>(null);
   const isDark = theme === 'dark';
   const color = isDark ? COLOR_DARK : COLOR_LIGHT;
+  const backgroundColor = isDark ? COLOR_LIGHT : COLOR_DARK;
   const imageBase64 = isDark ? IMAGE_DARK : IMAGE_LIGHT;
 
   const qrCode = useMemo(() => {
@@ -59,7 +60,7 @@ export const QrCode = memo(({ value, size, theme = 'light' }: Props) => {
         errorCorrectionLevel: 'M',
       },
     });
-  }, [size, theme, color, imageBase64]);
+  }, [size, color, imageBase64]);
 
   useEffect(() => {
     if (ref) {
@@ -77,5 +78,5 @@ export const QrCode = memo(({ value, size, theme = 'light' }: Props) => {
     qrCode?.update({ data: value });
   }, [value, qrCode]);
 
-  return <div className={styles.container} style={{ height: size, width: size }} ref={setRef} />;
+  return <div className={styles.container} style={{ height: size, width: size, backgroundColor }} ref={setRef} />;
 });

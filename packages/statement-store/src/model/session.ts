@@ -1,4 +1,4 @@
-import { mergeUint8 } from '@polkadot-api/utils';
+import { mergeUint8 } from 'polkadot-api/utils';
 import { Bytes } from 'scale-ts';
 
 import { khash, stringToBytes } from '../crypto.js';

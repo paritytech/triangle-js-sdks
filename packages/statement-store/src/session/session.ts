@@ -1,8 +1,8 @@
 import type { Statement } from '@novasamatech/sdk-statement';
 import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
-import { toHex } from '@polkadot-api/utils';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, fromPromise, fromThrowable, ok, okAsync } from 'neverthrow';
+import { toHex } from 'polkadot-api/utils';
 import type { Codec, CodecType } from 'scale-ts';
 
 import type { StatementStoreAdapter } from '../adapter/types.js';

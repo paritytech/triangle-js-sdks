@@ -3,7 +3,7 @@ import { assertEnumVariant, createHostApi, enumValue, fromHex, toHex } from '@no
 import { injectExtension } from '@polkadot/extension-inject';
 import type { InjectedAccount, InjectedAccounts } from '@polkadot/extension-inject/types';
 import type { SignerPayloadJSON, SignerPayloadRaw, SignerResult } from '@polkadot/types/types/extrinsic';
-import { AccountId } from '@polkadot-api/substrate-bindings';
+import { AccountId } from 'polkadot-api';
 
 import { SpektrExtensionName, Version } from './constants.js';
 import { sandboxTransport } from './sandboxTransport.js';

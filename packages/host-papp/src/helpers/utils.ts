@@ -9,7 +9,3 @@ export function toError(err: unknown) {
 
   return new Error('Unknown error occurred.');
 }
-
-export function nonNullable<T>(value: T): value is Exclude<NonNullable<T>, void> {
-  return value !== null && value !== undefined;
-}
