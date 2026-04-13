@@ -21,23 +21,18 @@ import {
   StorageFullError,
 } from './types.js';
 
+function toSdkTopicFilter(filter: TopicFilter): SdkTopicFilter {
+  if ('matchAll' in filter) {
+    return { matchAll: filter.matchAll.map(toHex) };
+  }
+  return { matchAny: filter.matchAny.map(toHex) };
+}
+
 function createKey(filter: TopicFilter): string {
   if ('matchAll' in filter) {
     return `matchAll:${filter.matchAll.map(toHex).sort().join(',')}`;
   }
   return `matchAny:${filter.matchAny.map(toHex).sort().join(',')}`;
-}
-
-function toSdkTopicFilter(filter: TopicFilter): SdkTopicFilter {
-  if ('matchAll' in filter) {
-    return { matchAll: filter.matchAll.map(toHex) };
-  }
-
-  if ('matchAny' in filter) {
-    return { matchAny: filter.matchAny.map(toHex) };
-  }
-
-  throw new Error('Invalid filter.');
 }
 
 export function createPapiStatementStoreAdapter(lazyClient: LazyClient): StatementStoreAdapter {
@@ -59,14 +54,11 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
   }
 
   function removeCallback(key: string, callback: StatementsCallback) {
-    let list = callbacks.get(key);
+    const list = callbacks.get(key);
     if (!list) return [];
-    list = list.filter(x => x !== callback);
-    if (list.length === 0) {
-      callbacks.delete(key);
-    } else {
-      callbacks.set(key, list);
-    }
+    const idx = list.indexOf(callback);
+    if (idx !== -1) list.splice(idx, 1);
+    if (list.length === 0) callbacks.delete(key);
     return list;
   }
 
@@ -80,7 +72,6 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
       const list = addCallback(key, callback);
 
       if (list.length === 1) {
-        const sdkFilter = toSdkTopicFilter(filter);
         let batch: Statement[] = [];
         let flushScheduled = false;
 
@@ -98,7 +89,7 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
         };
 
         const unsub = sdk.subscribeStatements(
-          sdkFilter,
+          toSdkTopicFilter(filter),
           statement => {
             batch.push(statement);
             if (!flushScheduled) {
