@@ -1,4 +1,4 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
+import type { JsonRpcProvider } from 'polkadot-api';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createBranchedProvider } from './branchedProvider.js';
@@ -6,10 +6,12 @@ import { createBranchedProvider } from './branchedProvider.js';
 const createMockProvider = () => {
   const send = vi.fn();
   const disconnect = vi.fn();
-  let onMessage: ((msg: string) => void) | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let onMessage: ((msg: any) => void) | null = null;
 
   const provider: JsonRpcProvider = cb => {
-    onMessage = cb;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onMessage = cb as any;
     return { send, disconnect };
   };
 
@@ -17,7 +19,8 @@ const createMockProvider = () => {
     provider,
     send,
     disconnect,
-    simulateMessage: (msg: string) => onMessage?.(msg),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    simulateMessage: (msg: any) => onMessage?.(msg),
   };
 };
 
@@ -29,8 +32,8 @@ describe('createBranchedProvider', () => {
     const onMessage = vi.fn();
     branched.branch()(onMessage);
 
-    mock.simulateMessage('{"id":1}');
-    expect(onMessage).toHaveBeenCalledWith('{"id":1}');
+    mock.simulateMessage({ id: 1 });
+    expect(onMessage).toHaveBeenCalledWith({ id: 1 });
   });
 
   it('reuses connection for multiple branches', () => {
@@ -53,9 +56,9 @@ describe('createBranchedProvider', () => {
     branched.branch()(cb1);
     branched.branch()(cb2);
 
-    mock.simulateMessage('{"id":1}');
-    expect(cb1).toHaveBeenCalledWith('{"id":1}');
-    expect(cb2).toHaveBeenCalledWith('{"id":1}');
+    mock.simulateMessage({ id: 1 });
+    expect(cb1).toHaveBeenCalledWith({ id: 1 });
+    expect(cb2).toHaveBeenCalledWith({ id: 1 });
   });
 
   it('disconnected branch stops receiving messages', () => {
@@ -67,7 +70,7 @@ describe('createBranchedProvider', () => {
     branched.branch()(vi.fn()); // keep connection alive
 
     conn1.disconnect();
-    mock.simulateMessage('{"id":1}');
+    mock.simulateMessage({ id: 1 });
 
     expect(cb1).not.toHaveBeenCalled();
   });
@@ -81,9 +84,9 @@ describe('createBranchedProvider', () => {
     branched.branch()(cb2);
 
     conn1.disconnect();
-    mock.simulateMessage('{"id":1}');
+    mock.simulateMessage({ id: 1 });
 
-    expect(cb2).toHaveBeenCalledWith('{"id":1}');
+    expect(cb2).toHaveBeenCalledWith({ id: 1 });
     expect(mock.disconnect).not.toHaveBeenCalled();
   });
 
@@ -130,9 +133,10 @@ describe('createBranchedProvider', () => {
     const branched = createBranchedProvider(mock.provider);
 
     const conn = branched.branch()(vi.fn());
-    conn.send('{"method":"test"}');
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    conn.send({ method: 'test' } as any);
 
-    expect(mock.send).toHaveBeenCalledWith('{"method":"test"}');
+    expect(mock.send).toHaveBeenCalledWith({ method: 'test' });
   });
 
   it('calls enhanceBranch for each new branch independently', () => {

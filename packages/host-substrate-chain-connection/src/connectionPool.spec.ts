@@ -1,5 +1,4 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
-import type { PolkadotClient } from 'polkadot-api';
+import type { JsonRpcProvider, PolkadotClient } from 'polkadot-api';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChainConnectionConfig } from './connectionPool.js';
@@ -15,14 +14,17 @@ const createMockClient = (): PolkadotClient => ({ destroy: vi.fn() }) as unknown
 const createMockProvider = () => {
   const send = vi.fn();
   const disconnect = vi.fn();
-  let onMessage: ((msg: string) => void) | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let onMessage: ((msg: any) => void) | null = null;
 
   const provider: JsonRpcProvider = cb => {
-    onMessage = cb;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onMessage = cb as any;
     return { send, disconnect };
   };
 
-  return { provider, send, disconnect, simulateMessage: (msg: string) => onMessage?.(msg) };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { provider, send, disconnect, simulateMessage: (msg: any) => onMessage?.(msg) };
 };
 
 const testChain = (id: string): ChainConfig => ({ genesisHash: id });

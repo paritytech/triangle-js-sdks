@@ -86,6 +86,7 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
       });
     },
     getConsumerInfo(address) {
+      const textDecoder = new TextDecoder();
       const accountId = AccountId();
       const client = lazyClient.getClient();
       const api = client.getUnsafeApi<People_lite>();
@@ -102,14 +103,14 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
               }
             : {
                 type: 'Person',
-                alias: raw.credibility.value.alias.asHex(),
+                alias: raw.credibility.value.alias as HexString,
                 lastUpdate: raw.credibility.value.last_update.toString(),
               };
 
         return {
           accountId: toHex(accountId.enc(address)),
-          fullUsername: raw.full_username ? raw.full_username.asText() : null,
-          liteUsername: raw.lite_username.asText(),
+          fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
+          liteUsername: textDecoder.decode(raw.lite_username),
           credibility: credibility,
         };
       });

@@ -2,8 +2,8 @@ import { gcm } from '@noble/ciphers/aes.js';
 import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { randomBytes } from '@noble/hashes/utils.js';
-import { mergeUint8 } from '@polkadot-api/utils';
 import { Result, fromThrowable } from 'neverthrow';
+import { mergeUint8 } from 'polkadot-api/utils';
 
 export type Encryption = {
   encrypt(cipherText: Uint8Array): Result<Uint8Array, Error>;

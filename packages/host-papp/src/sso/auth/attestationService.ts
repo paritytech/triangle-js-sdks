@@ -1,6 +1,6 @@
+import { toHex } from '@novasamatech/scale';
 import type { LazyClient } from '@novasamatech/statement-store';
 import { createAccountId } from '@novasamatech/statement-store';
-import { mergeUint8 } from '@polkadot-api/utils';
 import { blake2b256 } from '@polkadot-labs/hdkd-helpers';
 import { customAlphabet } from 'nanoid';
 import type { ResultAsync } from 'neverthrow';
@@ -8,6 +8,7 @@ import { errAsync, fromAsyncThrowable, fromPromise, okAsync } from 'neverthrow';
 import { AccountId, Binary } from 'polkadot-api';
 import type { PolkadotSigner } from 'polkadot-api/signer';
 import { getPolkadotSigner } from 'polkadot-api/signer';
+import { mergeUint8 } from 'polkadot-api/utils';
 import { Bytes, Option, Tuple, str } from 'scale-ts';
 import { member_from_entropy, sign } from 'verifiablejs/bundler';
 
@@ -53,7 +54,7 @@ export const createAttestationService = (lazyClient: LazyClient) => {
         toError,
       );
 
-      const getAllowance = fromAsyncThrowable(async () => {
+      const getAllowance = fromAsyncThrowable(async (): Promise<void> => {
         const increaseAllowanceCall = api.tx.PeopleLite.increase_attestation_allowance({
           account: verifierAddress,
           count: 10,
@@ -63,9 +64,7 @@ export const createAttestationService = (lazyClient: LazyClient) => {
           call: increaseAllowanceCall.decodedCall,
         });
 
-        return withRetry(() =>
-          sudoCall.signAndSubmit(createPeopleSigner(verifier), { at: 'best' }).then(() => undefined),
-        );
+        return withRetry(() => sudoCall.signAndSubmit(createPeopleSigner(verifier)).then(() => undefined));
       }, toError);
 
       return verifierAllowance.andThen(verifierAllowance => (verifierAllowance > 0 ? okAsync() : getAllowance()));
@@ -137,17 +136,17 @@ export const createAttestationService = (lazyClient: LazyClient) => {
             candidate: accountId.dec(candidate.publicKey),
             candidate_signature: {
               type: 'Sr25519',
-              value: Binary.fromBytes(params.candidateSignature),
+              value: toHex(params.candidateSignature),
             },
-            ring_vrf_key: Binary.fromBytes(params.ringVrfKey),
-            proof_of_ownership: Binary.fromBytes(params.proofOfOwnership),
+            ring_vrf_key: toHex(params.ringVrfKey),
+            proof_of_ownership: toHex(params.proofOfOwnership),
             consumer_registration: {
               signature: {
                 type: 'Sr25519',
-                value: Binary.fromBytes(params.consumerRegistrationSignature),
+                value: toHex(params.consumerRegistrationSignature),
               },
               account: accountId.dec(candidate.publicKey),
-              identifier_key: Binary.fromBytes(params.identifierKey),
+              identifier_key: toHex(params.identifierKey),
               username: Binary.fromText(username),
               reserved_username: undefined,
             },
@@ -155,27 +154,30 @@ export const createAttestationService = (lazyClient: LazyClient) => {
 
           const submitAttestation = () =>
             new Promise<void>((resolve, reject) => {
-              const subscription = attestCall
-                .signSubmitAndWatch(createPeopleSigner(verifier), { at: 'best' })
-                .subscribe({
-                  next(event) {
-                    if ((event.type === 'txBestBlocksState' && event.found) || event.type === 'finalized') {
-                      subscription.unsubscribe();
-                      if (event.ok) {
-                        resolve();
-                      } else {
-                        let errorMessage = 'Transaction failed';
-                        if (event.dispatchError?.type === 'Module') {
-                          const moduleError = event.dispatchError.value as { type: string; value?: { type?: string } };
-                          errorMessage = `${moduleError.type}.${moduleError.value?.type ?? 'Unknown'}`;
-                        }
-                        reject(new Error(errorMessage));
+              const subscription = attestCall.signSubmitAndWatch(createPeopleSigner(verifier)).subscribe({
+                next(event: {
+                  type: string;
+                  found?: boolean;
+                  ok?: boolean;
+                  dispatchError?: { type: string; value?: unknown };
+                }) {
+                  if ((event.type === 'txBestBlocksState' && event.found) || event.type === 'finalized') {
+                    subscription.unsubscribe();
+                    if (event.ok) {
+                      resolve();
+                    } else {
+                      let errorMessage = 'Transaction failed';
+                      if (event.dispatchError?.type === 'Module') {
+                        const moduleError = event.dispatchError.value as { type: string; value?: { type?: string } };
+                        errorMessage = `${moduleError.type}.${moduleError.value?.type ?? 'Unknown'}`;
                       }
+                      reject(new Error(errorMessage));
                     }
-                  },
-                  error: reject,
-                  complete: () => reject(new Error('Transaction observable completed without best block confirmation')),
-                });
+                  }
+                },
+                error: reject,
+                complete: () => reject(new Error('Transaction observable completed without best block confirmation')),
+              });
             });
 
           return fromPromise(withRetry(submitAttestation), toError).map<void>(() => undefined);

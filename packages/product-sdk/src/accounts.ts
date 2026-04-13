@@ -19,9 +19,9 @@ import {
   isEnumVariant,
   toHex,
 } from '@novasamatech/host-api';
-import { getPolkadotSignerFromPjs } from '@polkadot-api/pjs-signer';
 import { err, ok } from 'neverthrow';
 import type { PolkadotSigner } from 'polkadot-api';
+import { getPolkadotSignerFromPjs } from 'polkadot-api/pjs-signer';
 
 import { sandboxTransport } from './sandboxTransport.js';
 

@@ -1,5 +1,5 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
-import { WsEvent, getWsProvider } from '@polkadot-api/ws-provider';
+import type { JsonRpcProvider } from 'polkadot-api';
+import { WsEvent, getWsProvider } from 'polkadot-api/ws';
 
 import { noop } from './helpers.js';
 import { withSubscriptionReplay } from './subscriptionReplayProvider.js';

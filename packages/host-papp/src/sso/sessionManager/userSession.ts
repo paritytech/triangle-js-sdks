@@ -5,9 +5,9 @@ import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasa
 import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { fieldListView } from '@novasamatech/storage-adapter';
-import { AccountId } from '@polkadot-api/substrate-bindings';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
+import { AccountId } from 'polkadot-api';
 import type { CodecType } from 'scale-ts';
 
 import type { Callback } from '../../types.js';
