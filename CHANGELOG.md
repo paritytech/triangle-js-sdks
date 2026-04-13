@@ -1,14 +1,40 @@
-## 0.7.0 (2026-04-10)
+## 0.7.0 (2026-04-13)
 
 ### 🚀 Features
 
 - **host-api:** add `host_derive_entropy` protocol method for deterministic entropy derivation (RFC-0007)
+- **host-api:** add payment host API for RFC-0006 (`host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`, `host_payment_status_subscribe`)
+- **host-api:** add `host_theme_subscribe` protocol method
+- **host-api:** add non-product account signing methods (`host_sign_raw_with_non_product_account`, `host_sign_payload_with_non_product_account`)
+- **host-api:** replace `address: string` with `ProductAccountId` in `host_sign_raw` and `host_sign_payload` methods
+- **host-api:** expand `DevicePermission` with new variants: `Notifications`, `NFC`, `Clipboard`, `OpenUrl`, `Biometrics`
+- **host-api:** update `RemotePermission` to support `Remote`, `WebRTC`, `ChainSubmit`, `PreimageSubmit`, `StatementSubmit`
 - **host-container:** add `handleDeriveEntropy` handler slot
+- **host-container:** add permission-gated request handling for preimage and statement submit
+- **host-container:** add handler slots for `handleThemeSubscribe`, `handlePaymentBalanceSubscribe`, `handlePaymentTopUp`, `handlePaymentRequest`, `handlePaymentStatusSubscribe`, `handleSignRawWithNonProductAccount`, `handleSignPayloadWithNonProductAccount`
+- **host-container:** export `CodecValue`, `WithVersion`, `UnwrapSuccessResponse`, `UnwrapErrorResponse`, `ContainerHandlerOf`, `ContainerRequestHandler` types
 - **product-sdk:** add `deriveEntropy` convenience function
+- **product-sdk:** add `createThemeProvider` for theme subscription
+- **product-sdk:** add `createPaymentManager` and `paymentManager` for payment operations
+- **product-sdk:** add `requestDevicePermission` and `requestPermission` for RFC-0002 permission model
+- **host-papp:** update to polkadot-api v2.0 (updated import paths e.g. `polkadot-api/ws`)
+
+### ⚠️ Breaking Changes
+
+- **host-api:** `host_sign_raw` and `host_sign_payload` request payloads now use `account: ProductAccountId` instead of `address: string`
+- **host-api:** `RemotePermission` enum restructured — old `ExternalRequest` and `TransactionSubmit` variants replaced
+- **host-container:** `JsonRpcProvider` is now imported from `polkadot-api` (polkadot-api v2.0)
+
+### Chore
+
+- Optimize internal `hostApi` and container wrappers
+- Add `knip` for dead code detection
 
 ### ❤️ Thank You
 
+- Filippo
 - Sergey Zhuravlev @johnthecat
+- Yanaty
 
 ## 0.6.17 (2026-04-09)
 
