@@ -62,25 +62,59 @@ container.handleFeatureSupported((params, { ok, err }) => {
 
 ### handleDevicePermission
 
+The `request` parameter is one of: `'Notifications'`, `'Camera'`, `'Microphone'`, `'Bluetooth'`, `'NFC'`, `'Location'`, `'Clipboard'`, `'OpenUrl'`, `'Biometrics'`.
+
 ```ts
 container.handleDevicePermission(async (request, { ok, err }) => {
-  const granted = await requestDevicePermission(request);
+  // request is a string literal: 'Notifications' | 'Camera' | 'Microphone' | ...
+  const granted = await promptDevicePermission(request);
   return ok(granted);
 });
 ```
 
 ### handlePermission
 
+The `request` parameter is an **array** of `RemotePermission` items. Return `ok(true)` only when **all** permissions in the batch are granted.
+
+Each item has one of these shapes:
+- `{ tag: 'Remote', value: string[] }` — HTTP/WS domain patterns (exact or `*.wildcard`)
+- `{ tag: 'WebRTC', value: undefined }` — WebRTC access (may expose user IP)
+- `{ tag: 'ChainSubmit', value: undefined }` — broadcast transactions via `remote_chain_transaction_broadcast`
+- `{ tag: 'PreimageSubmit', value: undefined }` — submit preimages via `remote_preimage_submit`
+- `{ tag: 'StatementSubmit', value: undefined }` — submit statements via `remote_statement_store_submit`
+
 ```ts
-container.handlePermission(async (request, { ok, err }) => {
-  if (request.tag === 'ExternalRequest') {
-    const allowed = await checkExternalRequestPermission(request.value);
-    return ok(allowed);
+container.handlePermission(async (permissions, { ok, err }) => {
+  for (const permission of permissions) {
+    switch (permission.tag) {
+      case 'Remote': {
+        const allowed = await checkDomainPermissions(permission.value);
+        if (!allowed) return ok(false);
+        break;
+      }
+      case 'WebRTC': {
+        const allowed = await promptWebRTCPermission();
+        if (!allowed) return ok(false);
+        break;
+      }
+      case 'ChainSubmit': {
+        const allowed = await promptChainSubmitPermission();
+        if (!allowed) return ok(false);
+        break;
+      }
+      case 'PreimageSubmit': {
+        const allowed = await promptPreimageSubmitPermission();
+        if (!allowed) return ok(false);
+        break;
+      }
+      case 'StatementSubmit': {
+        const allowed = await promptStatementSubmitPermission();
+        if (!allowed) return ok(false);
+        break;
+      }
+    }
   }
-  if (request.tag === 'TransactionSubmit') {
-    return ok(true);
-  }
-  return ok(false);
+  return ok(true);
 });
 ```
 
@@ -457,10 +491,6 @@ container.handleChainConnection({
     const endpoint = chains.get(genesisHash);
     if (!endpoint) return null;
     return getWsProvider(endpoint);
-  },
-  async submitPermission(transaction) {
-    if (hasPermission(transaction)) return true;
-    return false;
   }
 });
 ```

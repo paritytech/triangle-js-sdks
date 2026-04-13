@@ -1,12 +1,15 @@
 import { Enum } from '@novasamatech/scale';
-import { Result, _void, bool, str } from 'scale-ts';
+import { Result, Vector, _void, bool, str } from 'scale-ts';
 
 import { GenericError } from '../commonCodecs.js';
 
-export const RemotePermissionRequest = Enum({
-  ExternalRequest: str, // URL
-  TransactionSubmit: _void,
+export const RemotePermission = Enum({
+  Remote: Vector(str),
+  WebRTC: _void,
+  ChainSubmit: _void,
+  PreimageSubmit: _void,
+  StatementSubmit: _void,
 });
 
-export const RemotePermissionV1_request = RemotePermissionRequest;
+export const RemotePermissionV1_request = Vector(RemotePermission);
 export const RemotePermissionV1_response = Result(bool, GenericError);

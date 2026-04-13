@@ -37,3 +37,6 @@ export type { PaymentBalance, PaymentStatus, TopUpSource } from './payments.js';
 export { createPaymentManager, paymentManager } from './payments.js';
 
 export { deriveEntropy } from './deriveEntropy.js';
+
+export type { DevicePermissionKind, RemotePermissionItem } from './permission.js';
+export { requestDevicePermission, requestPermission } from './permission.js';

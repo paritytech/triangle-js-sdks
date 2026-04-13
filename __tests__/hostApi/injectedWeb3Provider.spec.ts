@@ -6,6 +6,7 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 import { createNonProductExtensionEnableFactory } from '@novasamatech/product-sdk';
 
@@ -125,9 +126,9 @@ describe('Host API: injected web3 provider', () => {
       },
     };
 
-    const createTransaction = vitest.fn<Parameters<typeof container.handleCreateTransactionWithNonProductAccount>[0]>(
-      (_, { ok }) => ok(response),
-    );
+    const createTransaction = vitest.fn<
+      ContainerHandlerOf<typeof container.handleCreateTransactionWithNonProductAccount>
+    >((_, { ok }) => ok(response));
 
     container.handleCreateTransactionWithNonProductAccount(createTransaction);
 

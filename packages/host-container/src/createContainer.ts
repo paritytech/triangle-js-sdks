@@ -141,6 +141,44 @@ export function createContainer(provider: Provider): Container {
     return makeSubscriptionSlot(method, defaultHandler);
   }
 
+  function makePermissionGatedRequestSlot<const Method extends HostApiMethod>(
+    method: Method,
+    permissionVariant: string,
+    makeError: () => ErrorResponse<HostApiProtocol[Method]>,
+  ): RequestSlot<Method> {
+    const defaultHandler: RequestHandler<Method> = async () =>
+      enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+    let current = defaultHandler;
+    let version = 0;
+
+    transport.handleRequest(method, async params => {
+      const permissionResponse = await handleRemotePermissionSlot.call(
+        enumValue('v1', [enumValue(permissionVariant as never, undefined)]),
+      );
+      const permissionGranted =
+        isEnumVariant(permissionResponse, 'v1') &&
+        permissionResponse.value.success === true &&
+        permissionResponse.value.value === true;
+      if (!permissionGranted) {
+        return enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+      }
+      return current(params);
+    });
+
+    return {
+      update: handler => {
+        current = handler;
+        const myVersion = ++version;
+        return () => {
+          if (myVersion !== version) return;
+          version++;
+          current = defaultHandler;
+        };
+      },
+      call: (...args) => current(...args),
+    };
+  }
+
   function handleV1Request<const Method extends HostApiMethod>(
     slot: RequestSlot<Method>,
     makeError: () => ErrorResponse<HostApiProtocol[Method]>,
@@ -295,8 +333,9 @@ export function createContainer(provider: Provider): Container {
     () => new ChatMessagePostingErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
-  const handleStatementStoreSubmitSlot = makeNotImplementedSlot(
+  const handleStatementStoreSubmitSlot = makePermissionGatedRequestSlot(
     'remote_statement_store_submit',
+    'StatementSubmit',
     () => new GenericError({ reason: NOT_IMPLEMENTED }),
   );
 
@@ -305,8 +344,9 @@ export function createContainer(provider: Provider): Container {
     () => new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
-  const handlePreimageSubmitSlot = makeNotImplementedSlot(
+  const handlePreimageSubmitSlot = makePermissionGatedRequestSlot(
     'remote_preimage_submit',
+    'PreimageSubmit',
     () => new PreimageSubmitErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
@@ -883,7 +923,7 @@ export function createContainer(provider: Provider): Container {
 
           try {
             const permissionResponse = await handleRemotePermissionSlot.call(
-              enumValue('v1', enumValue('TransactionSubmit', undefined)),
+              enumValue('v1', [enumValue('ChainSubmit', undefined)]),
             );
             const permissionGranted =
               isEnumVariant(permissionResponse, 'v1') &&
