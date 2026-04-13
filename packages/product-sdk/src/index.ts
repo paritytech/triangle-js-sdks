@@ -20,7 +20,14 @@ export type {
 } from './chat.js';
 export { createProductChatManager, matchChatCustomRenderers } from './chat.js';
 
-export type { ProductAccountId, SignedStatement, Statement, Topic } from './statementStore.js';
+export type {
+  ProductAccountId,
+  SignedStatement,
+  Statement,
+  StatementTopicFilter,
+  StatementsPage,
+  Topic,
+} from './statementStore.js';
 export { createStatementStore } from './statementStore.js';
 
 export type { AccountConnectionStatus, ProductAccount } from './accounts.js';

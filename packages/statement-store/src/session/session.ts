@@ -214,14 +214,9 @@ export function createSession({
   }
 
   function ensureStoreSubscription(): void {
-    if (storeUnsub) {
-      console.info('[session] ensureStoreSubscription: already subscribed');
-      return;
-    }
-    console.info('[session] ensureStoreSubscription: subscribing to', toHex(incomingSessionId));
-    storeUnsub = statementStore.subscribeStatements([incomingSessionId], statements => {
-      console.info('[session] subscribeStatements callback fired — statements:', statements.length);
-      for (const statement of statements) {
+    if (storeUnsub) return;
+    storeUnsub = statementStore.subscribeStatements({ matchAll: [incomingSessionId] }, page => {
+      for (const statement of page.statements) {
         processIncomingStatement(statement);
       }
     });
@@ -238,8 +233,8 @@ export function createSession({
 
   async function init(): Promise<void> {
     const [ownResult, peerResult] = await Promise.all([
-      statementStore.queryStatements([outgoingSessionId]),
-      statementStore.queryStatements([incomingSessionId]),
+      statementStore.queryStatements({ matchAll: [outgoingSessionId] }),
+      statementStore.queryStatements({ matchAll: [incomingSessionId] }),
     ]);
 
     if (ownResult.isErr() || peerResult.isErr()) return;

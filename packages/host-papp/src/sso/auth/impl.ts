@@ -101,7 +101,8 @@ export function createAuth({
 
     return dataPrepared.asyncAndThen(([, handshakeTopic, encrKeys]) => {
       const pappResponse = waitForStatements<StoredUserSession>(
-        callback => statementStore.subscribeStatements([handshakeTopic], callback),
+        callback =>
+          statementStore.subscribeStatements({ matchAll: [handshakeTopic] }, page => callback(page.statements)),
         signal,
         (statements, resolve) => {
           for (const statement of statements) {

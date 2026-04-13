@@ -69,7 +69,14 @@ export {
   SigningRawPayloadWithoutAccount,
   SigningResult,
 } from './protocol/v1/sign.js';
-export { SignedStatement, Statement, StatementProofErr, Topic } from './protocol/v1/statementStore.js';
+export {
+  SignedStatement,
+  SignedStatementsPage,
+  Statement,
+  StatementProofErr,
+  Topic,
+  TopicFilter,
+} from './protocol/v1/statementStore.js';
 export { StorageErr } from './protocol/v1/localStorage.js';
 export { DevicePermission } from './protocol/v1/devicePermission.js';
 export { RemotePermission } from './protocol/v1/remotePermission.js';
