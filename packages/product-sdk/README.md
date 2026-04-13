@@ -230,11 +230,11 @@ if (aliasResult.isOk()) {
   console.log('Alias:', aliasResult.value);
 }
 
-// Get non-product accounts (external wallets)
-const nonProductAccountsResult = await accountsProvider.getNonProductAccounts();
+// Get legacy accounts (external wallets)
+const legacyAccountsResult = await accountsProvider.getLegacyAccounts();
 
-if (nonProductAccountsResult.isOk()) {
-  console.log('Non-product accounts:', nonProductAccountsResult.value);
+if (legacyAccountsResult.isOk()) {
+  console.log('Legacy accounts:', legacyAccountsResult.value);
 }
 
 // Subscribe to account connection status changes
@@ -251,13 +251,13 @@ const account: ProductAccount = {
 };
 const signer = accountsProvider.getProductAccountSigner(account);
 
-// Create a signer for a non-product account
-const nonProductSigner = accountsProvider.getNonProductAccountSigner(account);
+// Create a signer for a legacy account
+const legacySigner = accountsProvider.getLegacyAccountSigner(account);
 
 // PAPI transaction signing example
 
 const productAccountSignedTx = await tx.signAndSubmit(signer);
-const nonProductAccountSignedTx = await tx.signAndSubmit(nonProductSigner);
+const legacyAccountSignedTx = await tx.signAndSubmit(legacySigner);
 ```
 
 ### Local Storage

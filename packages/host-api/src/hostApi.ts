@@ -167,8 +167,8 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
-    getNonProductAccounts(payload) {
-      return makeRequest(transport.request('host_get_non_product_accounts', payload), reason => ({
+    getLegacyAccounts(payload) {
+      return makeRequest(transport.request('host_get_legacy_accounts', payload), reason => ({
         tag: payload.tag,
         value: new RequestCredentialsErr.Unknown({ reason }),
       }));
@@ -181,8 +181,8 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
-    createTransactionWithNonProductAccount(payload) {
-      return makeRequest(transport.request('host_create_transaction_with_non_product_account', payload), reason => ({
+    createTransactionWithLegacyAccount(payload) {
+      return makeRequest(transport.request('host_create_transaction_with_legacy_account', payload), reason => ({
         tag: payload.tag,
         value: new CreateTransactionErr.Unknown({ reason }),
       }));
@@ -202,15 +202,15 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
-    signRawWithNonProductAccount(payload) {
-      return makeRequest(transport.request('host_sign_raw_with_non_product_account', payload), reason => ({
+    signRawWithLegacyAccount(payload) {
+      return makeRequest(transport.request('host_sign_raw_with_legacy_account', payload), reason => ({
         tag: payload.tag,
         value: new SigningErr.Unknown({ reason }),
       }));
     },
 
-    signPayloadWithNonProductAccount(payload) {
-      return makeRequest(transport.request('host_sign_payload_with_non_product_account', payload), reason => ({
+    signPayloadWithLegacyAccount(payload) {
+      return makeRequest(transport.request('host_sign_payload_with_legacy_account', payload), reason => ({
         tag: payload.tag,
         value: new SigningErr.Unknown({ reason }),
       }));

@@ -39,8 +39,8 @@ export const SigningRawPayloadWithoutAccount = Struct({
 export const SignRawV1_request = SigningRawPayload;
 export const SignRawV1_response = Result(SigningResult, SigningErr);
 
-export const SignRawWithNonProductAccountV1_request = SigningRawPayloadWithoutAccount;
-export const SignRawWithNonProductAccountV1_response = Result(SigningResult, SigningErr);
+export const SignRawWithLegacyAccountV1_request = SigningRawPayloadWithoutAccount;
+export const SignRawWithLegacyAccountV1_response = Result(SigningResult, SigningErr);
 
 // sign payload
 
@@ -75,5 +75,5 @@ export const SigningPayloadWithoutAccount = Struct({
 export const SignPayloadV1_request = SigningPayload;
 export const SignPayloadV1_response = Result(SigningResult, SigningErr);
 
-export const SignPayloadWithNonProductAccountV1_request = SigningPayloadWithoutAccount;
-export const SignPayloadWithNonProductAccountV1_response = Result(SigningResult, SigningErr);
+export const SignPayloadWithLegacyAccountV1_request = SigningPayloadWithoutAccount;
+export const SignPayloadWithLegacyAccountV1_response = Result(SigningResult, SigningErr);
