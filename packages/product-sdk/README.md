@@ -166,7 +166,7 @@ It can be used for various purposes like p2p communication, storing temp data, e
 
 ```ts
 import { createStatementStore } from '@novasamatech/product-sdk';
-import type { Topic, Statement, SignedStatement } from '@novasamatech/product-sdk';
+import type { Topic, Statement, SignedStatement, StatementTopicFilter } from '@novasamatech/product-sdk';
 
 // Create statement store instance
 const statementStore = createStatementStore();
@@ -174,9 +174,11 @@ const statementStore = createStatementStore();
 // Define topics (32-byte identifiers) to categorize statements
 const topic: Topic = new Uint8Array(32);
 
-// Subscribe to statement updates for specific topics
-const subscription = statementStore.subscribe([topic], (statements) => {
-  console.log('Received statement updates:', statements);
+// Subscribe to statements matching ALL listed topics (AND semantics)
+const filter: StatementTopicFilter = { matchAll: [topic] };
+const subscription = statementStore.subscribe(filter, (page) => {
+  // page.isComplete is true once the initial historical dump is done
+  console.log('Received statements:', page.statements, 'synced:', page.isComplete);
 });
 
 // Create a proof for a new statement

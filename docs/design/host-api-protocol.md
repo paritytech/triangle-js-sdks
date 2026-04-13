@@ -9,23 +9,22 @@ created: 2026-03-13
 
 ## Changelog
 
-### v0.8 - 2026-04-08
+### v0.7 - 2026-04-13
 
+- Renamed all `*_with_non_product_account` methods to `*_with_legacy_account`; renamed `host_get_non_product_accounts` to `host_get_legacy_accounts`; updated glossary term "Non-product account (NPA)" to "Legacy account".
+- Replaced `address: str` with `account: ProductAccountId` in `SigningPayloadRaw` and `SigningPayload` (RFC-0005) for consistency with other account-bearing methods;
+- Added `host_sign_raw_with_legacy_account` and `host_sign_payload_with_legacy_account` methods that carry the same payloads minus the `account` field — the host resolves the signer from context, mirroring the `create_transaction_with_legacy_account` pattern.
+- Added `host_theme_subscribe` method to track host theme updates (`light`/`dark`).
+- Added payment API (RFC-0006): `host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`, `host_payment_status_subscribe`.
+- Added `host_derive_entropy` method for deterministic entropy derivation (RFC-0007)
 - Renamed `DevicePermissionRequest` to `DevicePermission` for consistency (RFC-0002).
 - Extended `DevicePermission` with new variants: `Notifications`, `NFC`, `Clipboard`, `OpenUrl`, `Biometrics`.
 - Replaced `RemotePermission` variants `ExternalRequest(str)` and `TransactionSubmit` with `Remote(Vec<String>)`, `WebRTC`, `ChainSubmit`, `PreimageSubmit`, and `StatementSubmit`.
 - Changed `remote_permission` argument from a single `RemotePermission` to `Vec<RemotePermission>` to allow batched requests in one prompt.
 - Documented permission lifecycle: decisions are prompted once and persisted indefinitely, surviving app restarts.
 - Documented implicit permission triggering for `remote_chain_transaction_broadcast` (ChainSubmit), `remote_preimage_submit` (PreimageSubmit), and `remote_statement_store_submit` (StatementSubmit).
-- Renamed all `*_with_non_product_account` methods to `*_with_legacy_account`; renamed `host_get_non_product_accounts` to `host_get_legacy_accounts`; updated glossary term "Non-product account (NPA)" to "Legacy account".
-
-### v0.7 - 2026-04-07
-
-- Replaced `address: str` with `account: ProductAccountId` in `SigningPayloadRaw` and `SigningPayload` (RFC-0005) for consistency with other account-bearing methods;
-- Added `host_sign_raw_with_legacy_account` and `host_sign_payload_with_legacy_account` methods that carry the same payloads minus the `account` field — the host resolves the signer from context, mirroring the `create_transaction_with_legacy_account` pattern.
-- Added `host_theme_subscribe` method to track host theme updates (`light`/`dark`).
-- Added payment API (RFC-0006): `host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`, `host_payment_status_subscribe`.
-- Added `host_derive_entropy` method for deterministic entropy derivation (RFC-0007)
+- Changed `remote_statement_store_subscribe` start payload from `Vec<Topic>` to `TopicFilter` (RFC-0008).
+- Changed `remote_statement_store_subscribe` callback argument from `Vec<SignedStatement>` to `SignedStatementsPage` (RFC-0008).
 
 ### v0.6 - 2026-02-06
 
@@ -223,8 +222,8 @@ fn product_chat_custom_message_render_subscribe(
 // Statement Store
 
 fn remote_statement_store_subscribe(
-  topics: Vec<Topic>,
-  callback: fn(Vec<SignedStatement>)
+  filter: TopicFilter,
+  callback: fn(SignedStatementsPage)
 ) -> Result<Subscriber, GenericErr>;
 
 fn remote_statement_store_create_proof(
@@ -1111,9 +1110,23 @@ struct SignedStatement {
 #### Receiving Statements
 
 ```rust
+/// AND: statement must contain every listed topic (up to 4)
+/// OR: statement must contain at least one listed topic (up to 128)
+enum TopicFilter {
+  MatchAll(Vec<Topic>),
+  MatchAny(Vec<Topic>)
+}
+
+struct SignedStatementsPage {
+  statements: Vec<SignedStatement>,
+  /// false — intermediate page of the initial historical dump; more pages follow.
+  /// true  — initial dump is complete; all subsequent pages carry only live statements.
+  is_complete: bool
+}
+
 fn remote_statement_store_subscribe(
-  topics: Vec<Topic>,
-  callback: fn(Vec<SignedStatement>)
+  filter: TopicFilter,
+  callback: fn(SignedStatementsPage)
 ) -> Result<Subscriber, GenericErr>;
 ```
 

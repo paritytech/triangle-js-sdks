@@ -8,15 +8,12 @@ import type { JsonRpcMessage, JsonRpcProvider } from '@polkadot-api/json-rpc-pro
 import { describe, expect, it } from 'vitest';
 import { WebSocket } from 'ws';
 
+import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
 
 const POLKADOT_RPC_URL = 'wss://rpc.polkadot.io';
 const POLKADOT_GENESIS_HASH = WellKnownChain.polkadotRelay;
 const SYSTEM_NUMBER_KEY = '0x26aa394eea5630e07c48ae0c9558cef702a5c1b19ab7a04f536c519aca4983ac';
-
-function delay(ttl: number) {
-  return new Promise(resolve => setTimeout(resolve, ttl));
-}
 
 function createWebSocketProvider(url: string): JsonRpcProvider {
   return onMessage => {

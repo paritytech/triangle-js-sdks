@@ -5,11 +5,8 @@ import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
-
-function delay(ttl: number) {
-  return new Promise(resolve => setTimeout(resolve, ttl));
-}
 
 function setup(chainId: HexString) {
   const providers = createHostApiProviders();

@@ -7,11 +7,8 @@ import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
-
-function delay(ttl: number) {
-  return new Promise(resolve => setTimeout(resolve, ttl));
-}
 
 function setup(chainId: HexString) {
   const providers = createHostApiProviders();
@@ -51,7 +48,6 @@ describe('Host API: Chain Interaction', () => {
 
                 // Send initialized event after a tick
                 setTimeout(() => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onMessage({
                     jsonrpc: '2.0',
                     method: 'chainHead_v1_followEvent',
@@ -242,7 +238,7 @@ describe('Host API: Chain Interaction', () => {
       const followSubId = receivedMessages.find(m => m.id === 1)!.result;
 
       // Request header
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       sdkConnection.send({
         jsonrpc: '2.0',
         id: 2,
@@ -280,7 +276,6 @@ describe('Host API: Chain Interaction', () => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
               } else if (parsed.method === 'chainHead_v1_storage') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onMessage({
                   jsonrpc: '2.0',
                   id: parsed.id,
@@ -289,7 +284,6 @@ describe('Host API: Chain Interaction', () => {
 
                 // Send storage items event
                 setTimeout(() => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onMessage({
                     jsonrpc: '2.0',
                     method: 'chainHead_v1_followEvent',
@@ -310,7 +304,6 @@ describe('Host API: Chain Interaction', () => {
                     },
                   } as any);
 
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onMessage({
                     jsonrpc: '2.0',
                     method: 'chainHead_v1_followEvent',
@@ -342,7 +335,7 @@ describe('Host API: Chain Interaction', () => {
       const followSubId = receivedMessages.find(m => m.id === 1)!.result;
 
       // Storage query
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
       sdkConnection.send({
         jsonrpc: '2.0',
         id: 2,
@@ -393,7 +386,6 @@ describe('Host API: Chain Interaction', () => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
               } else if (parsed.method === 'chainHead_v1_call') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onMessage({
                   jsonrpc: '2.0',
                   id: parsed.id,
@@ -401,7 +393,6 @@ describe('Host API: Chain Interaction', () => {
                 } as any);
 
                 setTimeout(() => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   onMessage({
                     jsonrpc: '2.0',
                     method: 'chainHead_v1_followEvent',
@@ -431,7 +422,6 @@ describe('Host API: Chain Interaction', () => {
 
       const followSubId = receivedMessages.find(m => m.id === 1)!.result;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sdkConnection.send({
         jsonrpc: '2.0',
         id: 2,
@@ -499,7 +489,6 @@ describe('Host API: Chain Interaction', () => {
 
       const followSubId = receivedMessages.find(m => m.id === 1)!.result;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       sdkConnection.send({
         jsonrpc: '2.0',
         id: 2,
@@ -541,7 +530,6 @@ describe('Host API: Chain Interaction', () => {
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' } as any);
               } else if (parsed.method === 'chainSpec_v1_properties') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 onMessage({
                   jsonrpc: '2.0',
                   id: parsed.id,
@@ -847,7 +835,6 @@ describe('Host API: Chain Interaction', () => {
                 // Use valid hex strings — invalid hex gets mangled by SCALE encoding roundtrip
                 const blockHash = subCounter === 1 ? '0xaa00000000000001' : '0xbb00000000000002';
                 setTimeout(() => {
-                  // eslint-disable-next-line @typescript-eslint/no-explicit-any
                   const event = {
                     jsonrpc: '2.0',
                     method: 'chainHead_v1_followEvent',

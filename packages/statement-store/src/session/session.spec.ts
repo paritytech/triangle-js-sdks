@@ -5,13 +5,13 @@ import type { CodecType } from 'scale-ts';
 import { Bytes, str } from 'scale-ts';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { StatementsPage } from '../adapter/types.js';
 import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount } from '../model/sessionAccount.js';
 
+import type { Encryption } from './encyption.js';
 import { StatementData } from './scale/statementData.js';
 import { createSession, nextExpiry } from './session.js';
-import type { StatementProver } from './statementProver.js';
-
-// ── test helpers ──────────────────────────────────────────────────────────────
+import { createSr25519Prover } from './statementProver.js';
 
 function makeAccounts() {
   const localAccount = createLocalSessionAccount(createAccountId(new Uint8Array(32).fill(1)));
@@ -22,27 +22,10 @@ function makeAccounts() {
   return { localAccount, remoteAccount };
 }
 
-function makeEncryption() {
+function mockEncryption(): Encryption {
   return {
     encrypt: (data: Uint8Array) => ok(data),
     decrypt: (data: Uint8Array) => ok(data),
-  };
-}
-
-function makeProver(): StatementProver {
-  return {
-    generateMessageProof: s =>
-      okAsync({
-        ...s,
-        proof: {
-          type: 'sr25519',
-          value: {
-            signature: `0x${'00'.repeat(64)}` as `0x${string}`,
-            signer: `0x${'00'.repeat(32)}` as `0x${string}`,
-          },
-        },
-      }),
-    verifyMessageProof: () => okAsync(true),
   };
 }
 
@@ -77,15 +60,15 @@ function makeSession(overrides?: {
     localAccount,
     remoteAccount,
     statementStore: adapter,
-    encryption: makeEncryption(),
-    prover: makeProver(),
+    encryption: mockEncryption(),
+    prover: createSr25519Prover(new Uint8Array(64).fill(1)),
     maxRequestSize,
   });
   return { session, adapter };
 }
 
-async function flushPromises() {
-  await new Promise(resolve => setTimeout(resolve, 0));
+async function delay(ttl = 0) {
+  await new Promise(resolve => setTimeout(resolve, ttl));
 }
 
 describe('session', () => {
@@ -121,7 +104,7 @@ describe('session', () => {
   describe('createSession initialization', () => {
     it('queries own and peer statements on creation', async () => {
       const { adapter } = makeSession();
-      await flushPromises();
+      await delay();
       expect(adapter.queryStatements).toHaveBeenCalledTimes(2);
     });
 
@@ -140,12 +123,12 @@ describe('session', () => {
       });
 
       const { session } = makeSession(adapter);
-      await flushPromises();
+      await delay();
 
       // Submit a message to trigger a statement — its expiry must be greater than highExpiry
       const rawCodec = Bytes();
       void session.submitRequestMessage(rawCodec, new Uint8Array([1]));
-      await flushPromises();
+      await delay();
 
       const submittedStatement = adapter.submitStatement.mock.calls[0]?.[0] as Statement | undefined;
       if (submittedStatement) {
@@ -165,7 +148,7 @@ describe('session', () => {
       });
 
       const { session } = makeSession(adapter);
-      await flushPromises();
+      await delay();
 
       // Register subscriber AFTER init — buffered incoming request should be delivered
       const callback = vi.fn();
@@ -178,13 +161,12 @@ describe('session', () => {
       const { session, adapter } = makeSession();
 
       // Before init completes, submitRequestMessage queues the message
-      const rawCodec = str;
-      void session.submitRequestMessage(rawCodec, 'hello');
+      void session.submitRequestMessage(str, 'hello');
 
       // Statement should NOT be submitted yet (still initializing)
       expect(adapter.submitStatement).not.toHaveBeenCalled();
 
-      await flushPromises();
+      await delay();
 
       // After init, queued messages are processed → submitStatement called
       expect(adapter.submitStatement).toHaveBeenCalled();
@@ -205,12 +187,12 @@ describe('session', () => {
       });
 
       const { session } = makeSession(adapter);
-      await flushPromises();
+      await delay();
 
       // If outgoingRequest was restored, a new message appends to it
       const codec = str;
       void session.submitRequestMessage(codec, 'hello');
-      await flushPromises();
+      await delay();
 
       expect(adapter.submitStatement).toHaveBeenCalled();
     });
@@ -229,12 +211,12 @@ describe('session', () => {
       });
 
       const { session } = makeSession(adapter);
-      await flushPromises();
+      await delay();
 
       // No pending outgoing request — new message creates a brand new request
       const codec = str;
       void session.submitRequestMessage(codec, 'hi');
-      await flushPromises();
+      await delay();
 
       // submitStatement called exactly once (for the new message only)
       expect(adapter.submitStatement).toHaveBeenCalledTimes(1);
@@ -253,7 +235,7 @@ describe('session', () => {
       });
 
       const { session } = makeSession(adapter);
-      await flushPromises();
+      await delay();
 
       // Calling submitResponseMessage with restored requestId should succeed
       const result = await session.submitResponseMessage(requestId, 'success');
@@ -274,7 +256,7 @@ describe('session', () => {
       });
 
       const { session } = makeSession(adapter);
-      await flushPromises();
+      await delay();
 
       // Already responded — submitResponseMessage should return ok without submitting again
       const submitsBefore = adapter.submitStatement.mock.calls.length;
@@ -300,7 +282,7 @@ describe('session', () => {
       });
 
       const { session } = makeSession(adapter);
-      await flushPromises(); // init completes
+      await delay(); // init completes
 
       const callback = vi.fn();
       session.subscribe(rawCodec, callback);
@@ -328,7 +310,7 @@ describe('session', () => {
       const callback = vi.fn();
       session.subscribe(rawCodec, callback); // before init completes
 
-      await flushPromises();
+      await delay();
 
       expect(callback).toHaveBeenCalledTimes(1);
       const messages2 = (callback.mock.calls[0] as [Array<{ requestId: string }>])[0];
@@ -347,21 +329,21 @@ describe('session', () => {
         return okAsync([]);
       });
 
-      let subscribeCallback!: (statements: Statement[]) => void;
-      adapter.subscribeStatements.mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
+      let subscribeCallback!: (page: StatementsPage) => void;
+      adapter.subscribeStatements.mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
         subscribeCallback = cb;
         return vi.fn();
       });
 
       const { session } = makeSession(adapter);
-      await flushPromises(); // init sees peerRequest, adds to seenStatements
+      await delay(); // init sees peerRequest, adds to seenStatements
 
       const appCallback = vi.fn();
       session.subscribe(rawCodec, appCallback);
 
       // Simulate subscription delivering the same statement again
-      subscribeCallback([peerRequest]);
-      await flushPromises();
+      subscribeCallback({ statements: [peerRequest], isComplete: true });
+      await delay();
 
       // Should only be called once (from buffered init message), not again from subscription
       expect(appCallback).toHaveBeenCalledTimes(1);
@@ -372,22 +354,22 @@ describe('session', () => {
       const peerRequest = makeStatement({ tag: 'request', value: { requestId, data: [new Uint8Array([1])] } });
 
       const adapter = makeAdapter();
-      let subscribeCallback!: (statements: Statement[]) => void;
-      adapter.subscribeStatements.mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
+      let subscribeCallback!: (page: StatementsPage) => void;
+      adapter.subscribeStatements.mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
         subscribeCallback = cb;
         return vi.fn();
       });
       adapter.queryStatements.mockReturnValue(okAsync([]));
 
       const { session } = makeSession(adapter);
-      await flushPromises();
+      await delay();
 
       const callback = vi.fn();
       session.subscribe(rawCodec, callback);
 
       adapter.submitStatement.mockClear();
-      subscribeCallback([peerRequest]);
-      await flushPromises();
+      subscribeCallback({ statements: [peerRequest], isComplete: true });
+      await delay();
 
       // Message delivered to app callback but no automatic response submitted
       expect(callback).toHaveBeenCalled();
@@ -400,16 +382,14 @@ describe('session', () => {
       // has a chance to register its subscriber. The fix ensures request statements are always
       // buffered so late subscribers (simulating waitForRequestMessage called in .andThen()
       // after waitForResponseMessage resolves) still receive them.
-      let subscribeCallback!: (statements: Statement[]) => void;
-      const subscribeStatements = vi
-        .fn()
-        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-          subscribeCallback = cb;
-          return vi.fn();
-        });
+      let subscribeCallback!: (page: StatementsPage) => void;
+      const subscribeStatements = vi.fn().mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
+        subscribeCallback = cb;
+        return vi.fn();
+      });
 
       const { session } = makeSession({ subscribeStatements });
-      await flushPromises();
+      await delay();
 
       // Register a dummy subscriber to activate the store subscription (simulates
       // any pre-existing subscriber in the session, e.g. the app listening for messages).
@@ -423,8 +403,8 @@ describe('session', () => {
 
       // Peer request arrives while dummy subscriber is active but waitForRequestMessage
       // hasn't registered its subscriber yet (the race condition scenario).
-      subscribeCallback([peerRequest]);
-      await flushPromises();
+      subscribeCallback({ statements: [peerRequest], isComplete: true });
+      await delay();
 
       // Now the late subscriber registers (simulates waitForRequestMessage being called
       // in the .andThen() chain after waitForResponseMessage resolves).
@@ -468,7 +448,7 @@ describe('session', () => {
       });
 
       const { session } = makeSession(adapter);
-      await flushPromises();
+      await delay();
 
       await session.submitResponseMessage(requestId, 'success');
       const submitsAfterFirst = adapter.submitStatement.mock.calls.length;
@@ -479,7 +459,7 @@ describe('session', () => {
 
     it('returns error when requestId does not match incomingRequest', async () => {
       const { session } = makeSession();
-      await flushPromises();
+      await delay();
 
       const result = await session.submitResponseMessage('wrong-id', 'success');
       expect(result.isErr()).toBe(true);
@@ -491,21 +471,21 @@ describe('session', () => {
 
     it('sends a single statement for the first message', async () => {
       const { session, adapter } = makeSession();
-      await flushPromises();
+      await delay();
 
       void session.submitRequestMessage(rawCodec, new Uint8Array([1, 2, 3]));
-      await flushPromises();
+      await delay();
 
       expect(adapter.submitStatement).toHaveBeenCalledTimes(1);
     });
 
     it('appends second message to existing request (resubmits with new requestId)', async () => {
       const { session, adapter } = makeSession();
-      await flushPromises();
+      await delay();
 
       void session.submitRequestMessage(rawCodec, new Uint8Array([1]));
       void session.submitRequestMessage(rawCodec, new Uint8Array([2]));
-      await flushPromises();
+      await delay();
 
       // Two submits: first for msg1, second for msg1+msg2 batched
       expect(adapter.submitStatement).toHaveBeenCalledTimes(2);
@@ -513,33 +493,31 @@ describe('session', () => {
 
     it('queues message that exceeds maxRequestSize', async () => {
       const { session, adapter } = makeSession({ maxRequestSize: 5 });
-      await flushPromises();
+      await delay();
 
       void session.submitRequestMessage(rawCodec, new Uint8Array([1, 2, 3])); // 3 bytes — fits
       void session.submitRequestMessage(rawCodec, new Uint8Array([4, 5, 6, 7])); // 4 bytes — doesn't fit with existing
-      await flushPromises();
+      await delay();
 
       // Only first message sent; second is queued
       expect(adapter.submitStatement).toHaveBeenCalledTimes(1);
     });
 
     it('drains message queue after response received', async () => {
-      let subscribeCallback!: (statements: Statement[]) => void;
-      const subscribeStatements = vi
-        .fn()
-        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-          subscribeCallback = cb;
-          return vi.fn();
-        });
+      let subscribeCallback!: (page: StatementsPage) => void;
+      const subscribeStatements = vi.fn().mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
+        subscribeCallback = cb;
+        return vi.fn();
+      });
 
       const { session, adapter } = makeSession({ maxRequestSize: 5, subscribeStatements });
-      await flushPromises();
+      await delay();
 
       session.subscribe(Bytes(), vi.fn()); // ensure store subscription is active
 
       void session.submitRequestMessage(rawCodec, new Uint8Array([1, 2, 3])); // sent
       void session.submitRequestMessage(rawCodec, new Uint8Array([4, 5, 6])); // queued (doesn't fit)
-      await flushPromises();
+      await delay();
 
       const submitCountBefore = adapter.submitStatement.mock.calls.length;
 
@@ -555,30 +533,28 @@ describe('session', () => {
         value: { requestId: respondingRequestId, responseCode: 'success' },
       });
 
-      subscribeCallback([responseStatement]);
-      await flushPromises();
+      subscribeCallback({ statements: [responseStatement], isComplete: true });
+      await delay();
 
       // Queued message should now be submitted
       expect(adapter.submitStatement.mock.calls.length).toBeGreaterThan(submitCountBefore);
     });
 
     it('waitForResponseMessage resolves when response arrives for batch', async () => {
-      let subscribeCallback!: (statements: Statement[]) => void;
-      const subscribeStatements = vi
-        .fn()
-        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-          subscribeCallback = cb;
-          return vi.fn();
-        });
+      let subscribeCallback!: (page: StatementsPage) => void;
+      const subscribeStatements = vi.fn().mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
+        subscribeCallback = cb;
+        return vi.fn();
+      });
 
       const { session, adapter } = makeSession({ subscribeStatements });
-      await flushPromises();
+      await delay();
 
       session.subscribe(Bytes(), vi.fn()); // ensure store subscription is active
 
       const submitResult = await session.submitRequestMessage(rawCodec, new Uint8Array([1]));
       const token = submitResult.unwrapOr({ requestId: '' }).requestId;
-      await flushPromises();
+      await delay();
 
       const responsePromise = session.waitForResponseMessage(token);
 
@@ -589,10 +565,11 @@ describe('session', () => {
       const decoded = StatementData.dec(lastStatement.data!);
       const respondingId = decoded.tag === 'request' ? decoded.value.requestId : '';
 
-      subscribeCallback([
-        makeStatement({ tag: 'response', value: { requestId: respondingId, responseCode: 'success' } }),
-      ]);
-      await flushPromises();
+      subscribeCallback({
+        statements: [makeStatement({ tag: 'response', value: { requestId: respondingId, responseCode: 'success' } })],
+        isComplete: true,
+      });
+      await delay();
 
       const result = await responsePromise;
       expect(result.isOk()).toBe(true);

@@ -1,4 +1,5 @@
 import type {
+  CodecType,
   ConnectionStatus,
   HexString,
   HostApiMethod,
@@ -21,6 +22,7 @@ import {
   PaymentRequestErr,
   PaymentTopUpErr,
   PreimageSubmitErr,
+  RemotePermission,
   RequestCredentialsErr,
   SigningErr,
   StatementProofErr,
@@ -143,7 +145,7 @@ export function createContainer(provider: Provider): Container {
 
   function makePermissionGatedRequestSlot<const Method extends HostApiMethod>(
     method: Method,
-    permissionVariant: string,
+    permissionVariant: CodecType<typeof RemotePermission>['tag'],
     makeError: () => ErrorResponse<HostApiProtocol[Method]>,
   ): RequestSlot<Method> {
     const defaultHandler: RequestHandler<Method> = async () =>

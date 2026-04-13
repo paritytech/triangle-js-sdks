@@ -18,6 +18,8 @@
 - **product-sdk:** add `createPaymentManager` and `paymentManager` for payment operations
 - **product-sdk:** add `requestDevicePermission` and `requestPermission` for RFC-0002 permission model
 - **host-papp:** update to polkadot-api v2.0 (updated import paths e.g. `polkadot-api/ws`)
+- **host-api:** add `TopicFilter` enum codec and `SignedStatementsPage` struct codec (RFC-0008)
+- **product-sdk:** update `createStatementStore().subscribe` to accept `StatementTopicFilter` and deliver `StatementsPage` with `isComplete` flag (RFC-0008)
 
 ### ⚠️ Breaking Changes
 
@@ -27,6 +29,9 @@
 - **host-container:** renamed handler slots `handleGetNonProductAccounts`, `handleCreateTransactionWithNonProductAccount`, `handleSignRawWithNonProductAccount`, `handleSignPayloadWithNonProductAccount` to their `LegacyAccount` equivalents
 - **host-container:** `JsonRpcProvider` is now imported from `polkadot-api` (polkadot-api v2.0)
 - **product-sdk:** renamed `getNonProductAccounts` → `getLegacyAccounts`, `getNonProductAccountSigner` → `getLegacyAccountSigner`, `createNonProductExtensionEnableFactory` → `createLegacyExtensionEnableFactory`
+- **host-api:** `remote_statement_store_subscribe` start payload changed from `Vec<Topic>` to `TopicFilter`; receive payload changed from `Vec<SignedStatement>` to `SignedStatementsPage`
+- **product-sdk:** `createStatementStore().subscribe` first argument changed from `Topic[]` to `StatementTopicFilter`; callback argument changed from `SignedStatement[]` to `StatementsPage`
+- **statement-store:** `StatementStoreAdapter.queryStatements` and `subscribeStatements` first argument changed from `Uint8Array[]` to `TopicFilter`; `subscribeStatements` callback argument changed from `Statement[]` to `StatementsPage`
 
 ### Chore
 

@@ -98,23 +98,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         async payload => {
           const codecPayload: CodecType<typeof SigningPayload> = {
             account: [account.dotNsIdentifier, account.derivationIndex],
-            payload: {
-              blockHash: asHex(payload.blockHash),
-              blockNumber: asHex(payload.blockNumber),
-              era: asHex(payload.era),
-              genesisHash: asHex(payload.genesisHash),
-              nonce: asHex(payload.nonce),
-              method: asHex(payload.method),
-              specVersion: asHex(payload.specVersion),
-              transactionVersion: asHex(payload.transactionVersion),
-              metadataHash: payload.metadataHash ? asHex(payload.metadataHash) : undefined,
-              tip: asHex(payload.tip),
-              assetId: payload.assetId !== undefined ? (payload.assetId as never as HexString) : undefined,
-              mode: payload.mode,
-              withSignedTransaction: payload.withSignedTransaction,
-              signedExtensions: payload.signedExtensions,
-              version: payload.version,
-            },
+            payload: buildSigningPayloadFields(payload),
           };
 
           const response = await hostApi.signPayload(enumValue('v1', codecPayload));
@@ -181,23 +165,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         async payload => {
           const codecPayload: CodecType<typeof SigningPayloadWithoutAccount> = {
             signer: payload.address,
-            payload: {
-              blockHash: asHex(payload.blockHash),
-              blockNumber: asHex(payload.blockNumber),
-              era: asHex(payload.era),
-              genesisHash: asHex(payload.genesisHash),
-              nonce: asHex(payload.nonce),
-              method: asHex(payload.method),
-              specVersion: asHex(payload.specVersion),
-              transactionVersion: asHex(payload.transactionVersion),
-              metadataHash: payload.metadataHash ? asHex(payload.metadataHash) : undefined,
-              tip: asHex(payload.tip),
-              assetId: payload.assetId !== undefined ? (payload.assetId as never as HexString) : undefined,
-              mode: payload.mode,
-              withSignedTransaction: payload.withSignedTransaction,
-              signedExtensions: payload.signedExtensions,
-              version: payload.version,
-            },
+            payload: buildSigningPayloadFields(payload),
           };
 
           const response = await hostApi.signPayloadWithLegacyAccount(enumValue('v1', codecPayload));
@@ -248,4 +216,40 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
 function asHex(v: string): HexString {
   if (v.startsWith('0x')) return v as HexString;
   return `0x${v}`;
+}
+
+function buildSigningPayloadFields(payload: {
+  blockHash: string;
+  blockNumber: string;
+  era: string;
+  genesisHash: string;
+  nonce: string;
+  method: string;
+  specVersion: string;
+  transactionVersion: string;
+  metadataHash?: string;
+  tip: string;
+  assetId?: unknown;
+  mode?: number;
+  withSignedTransaction?: boolean;
+  signedExtensions: string[];
+  version: number;
+}): CodecType<typeof SigningPayload>['payload'] {
+  return {
+    blockHash: asHex(payload.blockHash),
+    blockNumber: asHex(payload.blockNumber),
+    era: asHex(payload.era),
+    genesisHash: asHex(payload.genesisHash),
+    nonce: asHex(payload.nonce),
+    method: asHex(payload.method),
+    specVersion: asHex(payload.specVersion),
+    transactionVersion: asHex(payload.transactionVersion),
+    metadataHash: payload.metadataHash ? asHex(payload.metadataHash) : undefined,
+    tip: asHex(payload.tip),
+    assetId: payload.assetId !== undefined ? (payload.assetId as never as HexString) : undefined,
+    mode: payload.mode,
+    withSignedTransaction: payload.withSignedTransaction,
+    signedExtensions: payload.signedExtensions,
+    version: payload.version,
+  };
 }
