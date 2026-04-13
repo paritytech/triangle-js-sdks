@@ -12,6 +12,9 @@
   "keywords": [
     "polkadot"
   ],
+  "scripts": {
+    "papi:update": "papi update"
+  },
   "main": "dist/index.js",
   "exports": {
     "./package.json": "./package.json",

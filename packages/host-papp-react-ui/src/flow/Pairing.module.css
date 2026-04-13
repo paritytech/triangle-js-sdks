@@ -49,11 +49,6 @@
   margin-bottom: 15px;
 }
 
-.qrContainer {
-  background: hsl(var(--general-muted));
-  border-radius: 20px;
-}
-
 .pairingDescription {
   font-family: Inter, sans-serif;
   width: 300px;
@@ -303,4 +298,16 @@
   font-size: 20px;
   line-height: 1.5;
   letter-spacing: -0.526px;
+}
+
+.retryButton {
+  font-family: Inter, sans-serif;
+  font-size: 16px;
+  font-weight: 500;
+  padding: 10px 24px;
+  border-radius: 12px;
+  border: 1px solid var(--color-text-foreground-inverse);
+  background: transparent;
+  color: var(--color-text-foreground-inverse);
+  cursor: pointer;
 }
