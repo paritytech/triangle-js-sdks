@@ -1,5 +1,7 @@
 ## 0.7.0 (2026-04-13)
 
+See [migration guide](./docs/migration/v0.7.md) for details.
+
 ### 🚀 Features
 
 - **host-api:** add `host_derive_entropy` protocol method for deterministic entropy derivation (RFC-0007)
