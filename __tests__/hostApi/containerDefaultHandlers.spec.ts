@@ -94,7 +94,7 @@ describe('Container default handlers', () => {
   it('should dispose correctly', async () => {
     const { container } = setup();
 
-    const unsub = container.handleGetNonProductAccounts((_, { ok }) => {
+    const unsub = container.handleGetLegacyAccounts((_, { ok }) => {
       return ok([]);
     });
 

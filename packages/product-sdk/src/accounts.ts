@@ -63,9 +63,9 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
-    getNonProductAccounts() {
+    getLegacyAccounts() {
       return hostApi
-        .getNonProductAccounts(enumValue('v1', undefined))
+        .getLegacyAccounts(enumValue('v1', undefined))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -175,7 +175,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         }
       });
     },
-    getNonProductAccountSigner(account: ProductAccount): PolkadotSigner {
+    getLegacyAccountSigner(account: ProductAccount): PolkadotSigner {
       return getPolkadotSignerFromPjs(
         toHex(account.publicKey),
         async payload => {
@@ -200,7 +200,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
             },
           };
 
-          const response = await hostApi.signPayloadWithNonProductAccount(enumValue('v1', codecPayload));
+          const response = await hostApi.signPayloadWithLegacyAccount(enumValue('v1', codecPayload));
 
           return response.match(
             response => {
@@ -223,7 +223,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
             payload: { tag: 'Bytes', value: fromHex(asHex(raw.data)) },
           };
 
-          const response = await hostApi.signRawWithNonProductAccount(enumValue('v1', payload));
+          const response = await hostApi.signRawWithLegacyAccount(enumValue('v1', payload));
 
           return response.match(
             response => {

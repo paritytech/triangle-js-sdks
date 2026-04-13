@@ -17,11 +17,12 @@ created: 2026-03-13
 - Changed `remote_permission` argument from a single `RemotePermission` to `Vec<RemotePermission>` to allow batched requests in one prompt.
 - Documented permission lifecycle: decisions are prompted once and persisted indefinitely, surviving app restarts.
 - Documented implicit permission triggering for `remote_chain_transaction_broadcast` (ChainSubmit), `remote_preimage_submit` (PreimageSubmit), and `remote_statement_store_submit` (StatementSubmit).
+- Renamed all `*_with_non_product_account` methods to `*_with_legacy_account`; renamed `host_get_non_product_accounts` to `host_get_legacy_accounts`; updated glossary term "Non-product account (NPA)" to "Legacy account".
 
 ### v0.7 - 2026-04-07
 
 - Replaced `address: str` with `account: ProductAccountId` in `SigningPayloadRaw` and `SigningPayload` (RFC-0005) for consistency with other account-bearing methods;
-- Added `host_sign_raw_with_non_product_account` and `host_sign_payload_with_non_product_account` methods that carry the same payloads minus the `account` field — the host resolves the signer from context, mirroring the `create_transaction_with_non_product_account` pattern.
+- Added `host_sign_raw_with_legacy_account` and `host_sign_payload_with_legacy_account` methods that carry the same payloads minus the `account` field — the host resolves the signer from context, mirroring the `create_transaction_with_legacy_account` pattern.
 - Added `host_theme_subscribe` method to track host theme updates (`light`/`dark`).
 - Added payment API (RFC-0006): `host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`, `host_payment_status_subscribe`.
 - Added `host_derive_entropy` method for deterministic entropy derivation (RFC-0007)
@@ -145,7 +146,7 @@ fn host_account_create_proof(
   message: Vec<u8>
 ) -> Result<RingVrfProof, CreateProofErr>;
 
-fn host_get_non_product_accounts() -> Result<Vec<Account>, RequestCredentialsErr>;
+fn host_get_legacy_accounts() -> Result<Vec<Account>, RequestCredentialsErr>;
 
 // Signing
 
@@ -154,7 +155,7 @@ fn host_create_transaction(
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
-fn host_create_transaction_with_non_product_account(
+fn host_create_transaction_with_legacy_account(
   accountId: AccountId,
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
@@ -163,7 +164,7 @@ fn host_sign_raw(
   payload: SigningPayloadRaw
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_raw_with_non_product_account(
+fn host_sign_raw_with_legacy_account(
   payload: SigningPayloadRawWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 
@@ -171,7 +172,7 @@ fn host_sign_payload(
   payload: SigningPayload
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_payload_with_non_product_account(
+fn host_sign_payload_with_legacy_account(
   payload: SigningPayloadWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 
@@ -593,7 +594,7 @@ The following business methods require user consent through their own signing-co
 | `host_sign_raw`                                    | `SigningErr::PermissionDenied`           |
 | `host_sign_payload`                                | `SigningErr::PermissionDenied`           |
 | `host_create_transaction`                          | `CreateTransactionErr::PermissionDenied` |
-| `host_create_transaction_with_non_product_account` | `CreateTransactionErr::PermissionDenied` |
+| `host_create_transaction_with_legacy_account`       | `CreateTransactionErr::PermissionDenied` |
 
 ### Local storage
 
@@ -626,7 +627,7 @@ fn host_local_storage_clear(
 More on this part can be found [here](https://hackmd.io/@valentunn/BkXioNVbZe).
 
 - **Product account** - account that belongs to the derivation hierarchy described in Appendix. Those accounts are inherent to the Mobile App and are derived from the root user account
-- **Non-product account (NPA)** - other accounts that have been imported to PAPP in addition to the root account. Importing such an account allows user to utilize their existing account in the new system (e.g. in products)
+- **Legacy account** - other accounts that have been imported to PAPP in addition to the root account. Importing such an account allows user to utilize their existing account in the new system (e.g. in products)
 
 ```rust
 enum RequestCredentialsErr {
@@ -696,7 +697,7 @@ fn host_account_create_proof(
   message: Vec<u8>
 ) -> Result<RingVrfProof, CreateProofErr>;
 
-fn host_get_non_product_accounts() -> Result<Vec<Account>, RequestCredentialsErr>;
+fn host_get_legacy_accounts() -> Result<Vec<Account>, RequestCredentialsErr>;
 ```
 
 ### Signing
@@ -705,7 +706,7 @@ fn host_get_non_product_accounts() -> Result<Vec<Account>, RequestCredentialsErr
 
 Based on [https://github.com/polkadot-js/api/issues/6213](https://github.com/polkadot-js/api/issues/6213), but omitting the `version` field.\
 This format is capable of supporting both V4 and V5 extrinsics.
-There are two different methods for creating a transaction: `create_transaction` and `create_transaction_with_non_product_account`. `create_transaction` is bound to the Host API account model; `create_transaction_with_non_product_account`, on the other hand, can request signing with any non-product account, and the host should decide how to find or derive accounts for signing using the `signer` field as a reference.
+There are two different methods for creating a transaction: `create_transaction` and `create_transaction_with_legacy_account`. `create_transaction` is bound to the Host API account model; `create_transaction_with_legacy_account`, on the other hand, can request signing with any legacy account, and the host should decide how to find or derive accounts for signing using the `signer` field as a reference.
 
 ```rust
 enum CreateTransactionErr {
@@ -747,7 +748,7 @@ fn host_create_transaction(
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
-fn host_create_transaction_with_non_product_account(
+fn host_create_transaction_with_legacy_account(
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 ```
@@ -756,7 +757,7 @@ fn host_create_transaction_with_non_product_account(
 
 Signing of raw bytes. The interface implementation is similar to `signRaw` from `injectedWeb3`, added for backward compatibility.
 
-There are two variants: `host_sign_raw` for product accounts (identified by `ProductAccountId`) and `host_sign_raw_with_non_product_account` for non-product accounts (the host resolves the signer from context, mirroring the `create_transaction_with_non_product_account` pattern).
+There are two variants: `host_sign_raw` for product accounts (identified by `ProductAccountId`) and `host_sign_raw_with_legacy_account` for legacy accounts (the host resolves the signer from context, mirroring the `create_transaction_with_legacy_account` pattern).
 
 ```rust
 enum SigningErr {
@@ -790,7 +791,7 @@ fn host_sign_raw(
   payload: SigningPayloadRaw
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_raw_with_non_product_account(
+fn host_sign_raw_with_legacy_account(
   payload: SigningPayloadRawWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 ```
@@ -799,7 +800,7 @@ fn host_sign_raw_with_non_product_account(
 
 Signing of JSON payload. The interface implementation is similar to `signPayload` from `injectedWeb3`, added for backward compatibility.
 
-There are two variants: `host_sign_payload` for product accounts (identified by `ProductAccountId`) and `host_sign_payload_with_non_product_account` for non-product accounts (the host resolves the signer from context).
+There are two variants: `host_sign_payload` for product accounts (identified by `ProductAccountId`) and `host_sign_payload_with_legacy_account` for legacy accounts (the host resolves the signer from context).
 
 ```rust
 struct SigningPayloadPayload {
@@ -834,7 +835,7 @@ fn host_sign_payload(
   payload: SigningPayload
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_payload_with_non_product_account(
+fn host_sign_payload_with_legacy_account(
   payload: SigningPayloadWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 ```

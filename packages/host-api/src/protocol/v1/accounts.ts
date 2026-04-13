@@ -72,7 +72,7 @@ export const AccountGetAliasV1_response = Result(ContextualAlias, RequestCredent
 export const AccountCreateProofV1_request = Tuple(ProductAccountId, RingLocation, Bytes());
 export const AccountCreateProofV1_response = Result(RingVrfProof, CreateProofErr);
 
-// get_non_product_accounts
+// get_legacy_accounts
 
-export const GetNonProductAccountsV1_request = _void;
-export const GetNonProductAccountsV1_response = Result(Vector(Account), RequestCredentialsErr);
+export const GetLegacyAccountsV1_request = _void;
+export const GetLegacyAccountsV1_response = Result(Vector(Account), RequestCredentialsErr);

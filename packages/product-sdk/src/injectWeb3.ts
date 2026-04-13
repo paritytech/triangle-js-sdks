@@ -30,7 +30,7 @@ interface Injected {
   signer: Signer;
 }
 
-export async function createNonProductExtensionEnableFactory(transport: Transport) {
+export async function createLegacyExtensionEnableFactory(transport: Transport) {
   const ready = await transport.isReady();
   if (!ready) return null;
 
@@ -39,7 +39,7 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
 
   async function enable(): Promise<Injected> {
     async function getAccounts() {
-      const response = await hostApi.getNonProductAccounts(enumValue('v1', undefined));
+      const response = await hostApi.getLegacyAccounts(enumValue('v1', undefined));
 
       return response.match(
         response => {
@@ -87,7 +87,7 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
                   },
           };
 
-          const response = await hostApi.signRawWithNonProductAccount(enumValue('v1', payload));
+          const response = await hostApi.signRawWithLegacyAccount(enumValue('v1', payload));
 
           return response.match(
             response => {
@@ -126,7 +126,7 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
             },
           };
 
-          const response = await hostApi.signPayloadWithNonProductAccount(enumValue('v1', codecPayload));
+          const response = await hostApi.signPayloadWithLegacyAccount(enumValue('v1', codecPayload));
 
           return response.match(
             response => {
@@ -144,7 +144,7 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
           );
         },
         async createTransaction(payload) {
-          const response = await hostApi.createTransactionWithNonProductAccount(enumValue('v1', payload));
+          const response = await hostApi.createTransactionWithLegacyAccount(enumValue('v1', payload));
 
           return response.match<HexString, HexString>(
             response => {
@@ -168,7 +168,7 @@ export async function injectSpektrExtension(transport: Transport | null = sandbo
   if (!transport) return false;
 
   try {
-    const enable = await createNonProductExtensionEnableFactory(transport);
+    const enable = await createLegacyExtensionEnableFactory(transport);
 
     if (enable) {
       injectExtension(enable, { name: SpektrExtensionName, version: Version });
