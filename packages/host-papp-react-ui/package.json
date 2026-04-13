@@ -33,6 +33,7 @@
     "@novasamatech/statement-store": "0.7.0-0",
     "@polkadot-api/utils": "^0.4.0",
     "@radix-ui/react-dialog": "1.1.15",
+    "@radix-ui/react-popover": "1.1.15",
     "qr-code-styling": "1.9.2",
     "@novasamatech/tr-ui": "0.2.3"
   },
