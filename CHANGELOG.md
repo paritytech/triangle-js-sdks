@@ -1,64 +1,38 @@
-## 0.7.0-0 (2026-04-10)
+## 0.7.0 (2026-04-13)
 
 ### 🚀 Features
 
-- papp integration ([#5](https://github.com/paritytech/triangle-js-sdks/pull/5))
-- Implemented correct Polkadot app pairing ui ([#6](https://github.com/paritytech/triangle-js-sdks/pull/6))
-- Support new statement store errors while submitting statements ([#8](https://github.com/paritytech/triangle-js-sdks/pull/8))
-- host api spec ([#7](https://github.com/paritytech/triangle-js-sdks/pull/7))
-- chat ([#9](https://github.com/paritytech/triangle-js-sdks/pull/9))
-- retry auth requests, add tests ([#12](https://github.com/paritytech/triangle-js-sdks/pull/12))
-- added clearAll method to localStorageAdapter ([#11](https://github.com/paritytech/triangle-js-sdks/pull/11))
-- add tr-ui, PairingPopover and theme support ([#10](https://github.com/paritytech/triangle-js-sdks/pull/10))
-- update sdk to 0.5 spec ([#13](https://github.com/paritytech/triangle-js-sdks/pull/13))
-- added a disconnect attempt and an error toast. PB-118 ([#15](https://github.com/paritytech/triangle-js-sdks/pull/15))
-- changes for 0.5 release ([#16](https://github.com/paritytech/triangle-js-sdks/pull/16))
-- implement chain JSON RPC methods ([#17](https://github.com/paritytech/triangle-js-sdks/pull/17))
-- 0.6.0 ([#22](https://github.com/paritytech/triangle-js-sdks/pull/22))
-- save session only after attestation ([#24](https://github.com/paritytech/triangle-js-sdks/pull/24))
-- update stable stage endpoints ([#29](https://github.com/paritytech/triangle-js-sdks/pull/29))
-- support updated statement store api ([#33](https://github.com/paritytech/triangle-js-sdks/pull/33))
-- added rate limiter. PB-192 ([#20](https://github.com/paritytech/triangle-js-sdks/pull/20))
-- product-react-renderer package with chat adapter integration ([#38](https://github.com/paritytech/triangle-js-sdks/pull/38))
-- add Paseo stable stage endpoint ([#43](https://github.com/paritytech/triangle-js-sdks/pull/43))
-- make logger configurable ([#19](https://github.com/paritytech/triangle-js-sdks/pull/19))
-- RFC/features by .md files ([#57](https://github.com/paritytech/triangle-js-sdks/pull/57))
-- implement chain connection PB-332 ([#69](https://github.com/paritytech/triangle-js-sdks/pull/69))
-- papp secret storage reexport ([#76](https://github.com/paritytech/triangle-js-sdks/pull/76))
-- add worker-sandbox package. PB-333 ([#71](https://github.com/paritytech/triangle-js-sdks/pull/71))
-- update Paseo stable stage endpoint ([#45](https://github.com/paritytech/triangle-js-sdks/pull/45))
-- add paseo-next network and drop unstable. PB-420 ([#101](https://github.com/paritytech/triangle-js-sdks/pull/101))
-- replace address with ProductAccountId in signing methods and add non-product account signing ([#108](https://github.com/paritytech/triangle-js-sdks/pull/108))
-- add theme subscribe. ([#67](https://github.com/paritytech/triangle-js-sdks/pull/67))
-- payment host API (RFC-0006) ([#115](https://github.com/paritytech/triangle-js-sdks/pull/115))
-- **host-container:** handleChainConnection now supports transaction submit permission check ([#97](https://github.com/paritytech/triangle-js-sdks/pull/97))
-- **host-substrate-chain-connection:** add withSubscriptionReplay provider enhancer ([#89](https://github.com/paritytech/triangle-js-sdks/pull/89))
-- **host-substrate-chain-connection:** remove withPolkadotSdkCompat usage, added enhanceBranch option to branched provider instead ([#91](https://github.com/paritytech/triangle-js-sdks/pull/91))
-- **host-substrate-chain-connection:** add configurable destroyDelay to connection pool ([#96](https://github.com/paritytech/triangle-js-sdks/pull/96))
-- **statement-store:** implemented correct session initialization and batching logic ([#100](https://github.com/paritytech/triangle-js-sdks/pull/100))
+- **host-api:** add `host_derive_entropy` protocol method for deterministic entropy derivation (RFC-0007)
+- **host-api:** add payment host API for RFC-0006 (`host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`, `host_payment_status_subscribe`)
+- **host-api:** add `host_theme_subscribe` protocol method
+- **host-api:** add non-product account signing methods (`host_sign_raw_with_non_product_account`, `host_sign_payload_with_non_product_account`)
+- **host-api:** replace `address: string` with `ProductAccountId` in `host_sign_raw` and `host_sign_payload` methods
+- **host-api:** expand `DevicePermission` with new variants: `Notifications`, `NFC`, `Clipboard`, `OpenUrl`, `Biometrics`
+- **host-api:** update `RemotePermission` to support `Remote`, `WebRTC`, `ChainSubmit`, `PreimageSubmit`, `StatementSubmit`
+- **host-container:** add `handleDeriveEntropy` handler slot
+- **host-container:** add permission-gated request handling for preimage and statement submit
+- **host-container:** add handler slots for `handleThemeSubscribe`, `handlePaymentBalanceSubscribe`, `handlePaymentTopUp`, `handlePaymentRequest`, `handlePaymentStatusSubscribe`, `handleSignRawWithNonProductAccount`, `handleSignPayloadWithNonProductAccount`
+- **host-container:** export `CodecValue`, `WithVersion`, `UnwrapSuccessResponse`, `UnwrapErrorResponse`, `ContainerHandlerOf`, `ContainerRequestHandler` types
+- **product-sdk:** add `deriveEntropy` convenience function
+- **product-sdk:** add `createThemeProvider` for theme subscription
+- **product-sdk:** add `createPaymentManager` and `paymentManager` for payment operations
+- **product-sdk:** add `requestDevicePermission` and `requestPermission` for RFC-0002 permission model
+- **host-papp:** update to polkadot-api v2.0 (updated import paths e.g. `polkadot-api/ws`)
 
-### 🩹 Fixes
+### ⚠️ Breaking Changes
 
-- Explicitly set account type to sr25519 in extension injector ([c942974](https://github.com/paritytech/triangle-js-sdks/commit/c942974))
-- pairing ui logos and texts ([d99f67d](https://github.com/paritytech/triangle-js-sdks/commit/d99f67d))
-- added Preview People Chain ([#14](https://github.com/paritytech/triangle-js-sdks/pull/14))
-- chain connection sharing across products ([#21](https://github.com/paritytech/triangle-js-sdks/pull/21))
-- address normalization in sso sessions sign requests ([#31](https://github.com/paritytech/triangle-js-sdks/pull/31))
-- correct error message for unknown signing error ([#36](https://github.com/paritytech/triangle-js-sdks/pull/36))
-- add hostMetadata to sign-in payload. PB-293 ([#37](https://github.com/paritytech/triangle-js-sdks/pull/37))
-- qr styles ([#59](https://github.com/paritytech/triangle-js-sdks/pull/59))
-- disable papp ws heartbeat timeout ([#70](https://github.com/paritytech/triangle-js-sdks/pull/70))
-- **host-container:** close MessagePort on provider dispose PB-310 ([#78](https://github.com/paritytech/triangle-js-sdks/pull/78))
-- **host-papp:** attestation service now listens to the best block instead of finalized ([#116](https://github.com/paritytech/triangle-js-sdks/pull/116))
+- **host-api:** `host_sign_raw` and `host_sign_payload` request payloads now use `account: ProductAccountId` instead of `address: string`
+- **host-api:** `RemotePermission` enum restructured — old `ExternalRequest` and `TransactionSubmit` variants replaced
+- **host-container:** `JsonRpcProvider` is now imported from `polkadot-api` (polkadot-api v2.0)
+
+### Chore
+
+- Optimize internal `hostApi` and container wrappers
+- Add `knip` for dead code detection
 
 ### ❤️ Thank You
 
-- Claude Opus 4.6
-- Claude Sonnet 4.6
-- Dmitry @duewarn
 - Filippo
-- Ilya Kalinin
-- Ryan Lee
 - Sergey Zhuravlev @johnthecat
 - Yanaty
 
@@ -77,18 +51,6 @@
 
 - Alexandru Gheorghe
 - Ilya Kalinin
-- Sergey Zhuravlev @johnthecat
-
-## Unreleased
-
-### 🚀 Features
-
-- **host-api:** add `host_derive_entropy` protocol method for deterministic entropy derivation (RFC-0007)
-- **host-container:** add `handleDeriveEntropy` handler slot
-- **product-sdk:** add `deriveEntropy` convenience function
-
-### ❤️ Thank You
-
 - Sergey Zhuravlev @johnthecat
 
 ## 0.6.17 (2026-04-09)
