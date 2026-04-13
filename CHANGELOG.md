@@ -5,13 +5,13 @@
 - **host-api:** add `host_derive_entropy` protocol method for deterministic entropy derivation (RFC-0007)
 - **host-api:** add payment host API for RFC-0006 (`host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`, `host_payment_status_subscribe`)
 - **host-api:** add `host_theme_subscribe` protocol method
-- **host-api:** add non-product account signing methods (`host_sign_raw_with_non_product_account`, `host_sign_payload_with_non_product_account`)
+- **host-api:** add legacy account signing methods (`host_sign_raw_with_legacy_account`, `host_sign_payload_with_legacy_account`)
 - **host-api:** replace `address: string` with `ProductAccountId` in `host_sign_raw` and `host_sign_payload` methods
 - **host-api:** expand `DevicePermission` with new variants: `Notifications`, `NFC`, `Clipboard`, `OpenUrl`, `Biometrics`
 - **host-api:** update `RemotePermission` to support `Remote`, `WebRTC`, `ChainSubmit`, `PreimageSubmit`, `StatementSubmit`
 - **host-container:** add `handleDeriveEntropy` handler slot
 - **host-container:** add permission-gated request handling for preimage and statement submit
-- **host-container:** add handler slots for `handleThemeSubscribe`, `handlePaymentBalanceSubscribe`, `handlePaymentTopUp`, `handlePaymentRequest`, `handlePaymentStatusSubscribe`, `handleSignRawWithNonProductAccount`, `handleSignPayloadWithNonProductAccount`
+- **host-container:** add handler slots for `handleThemeSubscribe`, `handlePaymentBalanceSubscribe`, `handlePaymentTopUp`, `handlePaymentRequest`, `handlePaymentStatusSubscribe`, `handleSignRawWithLegacyAccount`, `handleSignPayloadWithLegacyAccount`
 - **host-container:** export `CodecValue`, `WithVersion`, `UnwrapSuccessResponse`, `UnwrapErrorResponse`, `ContainerHandlerOf`, `ContainerRequestHandler` types
 - **product-sdk:** add `deriveEntropy` convenience function
 - **product-sdk:** add `createThemeProvider` for theme subscription

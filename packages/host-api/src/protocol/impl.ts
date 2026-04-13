@@ -11,8 +11,8 @@ import {
   AccountGetAliasV1_response,
   AccountGetV1_request,
   AccountGetV1_response,
-  GetNonProductAccountsV1_request,
-  GetNonProductAccountsV1_response,
+  GetLegacyAccountsV1_request,
+  GetLegacyAccountsV1_response,
 } from './v1/accounts.js';
 import {
   ChainHeadBodyV1_request,
@@ -59,8 +59,8 @@ import {
 import {
   CreateTransactionV1_request,
   CreateTransactionV1_response,
-  CreateTransactionWithNonProductAccountV1_request,
-  CreateTransactionWithNonProductAccountV1_response,
+  CreateTransactionWithLegacyAccountV1_request,
+  CreateTransactionWithLegacyAccountV1_response,
 } from './v1/createTransaction.js';
 import { DeriveEntropyV1_request, DeriveEntropyV1_response } from './v1/deriveEntropy.js';
 import { DevicePermissionV1_request, DevicePermissionV1_response } from './v1/devicePermission.js';
@@ -102,12 +102,12 @@ import { RemotePermissionV1_request, RemotePermissionV1_response } from './v1/re
 import {
   SignPayloadV1_request,
   SignPayloadV1_response,
-  SignPayloadWithNonProductAccountV1_request,
-  SignPayloadWithNonProductAccountV1_response,
+  SignPayloadWithLegacyAccountV1_request,
+  SignPayloadWithLegacyAccountV1_response,
   SignRawV1_request,
   SignRawV1_response,
-  SignRawWithNonProductAccountV1_request,
-  SignRawWithNonProductAccountV1_response,
+  SignRawWithLegacyAccountV1_request,
+  SignRawWithLegacyAccountV1_response,
 } from './v1/sign.js';
 import {
   StatementStoreCreateProofV1_request,
@@ -241,8 +241,8 @@ export const hostApiProtocol = {
     v1: [AccountCreateProofV1_request, AccountCreateProofV1_response],
   }),
 
-  host_get_non_product_accounts: versionedRequest({
-    v1: [GetNonProductAccountsV1_request, GetNonProductAccountsV1_response],
+  host_get_legacy_accounts: versionedRequest({
+    v1: [GetLegacyAccountsV1_request, GetLegacyAccountsV1_response],
   }),
 
   // Signing
@@ -251,24 +251,24 @@ export const hostApiProtocol = {
     v1: [CreateTransactionV1_request, CreateTransactionV1_response],
   }),
 
-  host_create_transaction_with_non_product_account: versionedRequest({
-    v1: [CreateTransactionWithNonProductAccountV1_request, CreateTransactionWithNonProductAccountV1_response],
+  host_create_transaction_with_legacy_account: versionedRequest({
+    v1: [CreateTransactionWithLegacyAccountV1_request, CreateTransactionWithLegacyAccountV1_response],
   }),
 
   host_sign_raw: versionedRequest({
     v1: [SignRawV1_request, SignRawV1_response],
   }),
 
-  host_sign_raw_with_non_product_account: versionedRequest({
-    v1: [SignRawWithNonProductAccountV1_request, SignRawWithNonProductAccountV1_response],
+  host_sign_raw_with_legacy_account: versionedRequest({
+    v1: [SignRawWithLegacyAccountV1_request, SignRawWithLegacyAccountV1_response],
   }),
 
   host_sign_payload: versionedRequest({
     v1: [SignPayloadV1_request, SignPayloadV1_response],
   }),
 
-  host_sign_payload_with_non_product_account: versionedRequest({
-    v1: [SignPayloadWithNonProductAccountV1_request, SignPayloadWithNonProductAccountV1_response],
+  host_sign_payload_with_legacy_account: versionedRequest({
+    v1: [SignPayloadWithLegacyAccountV1_request, SignPayloadWithLegacyAccountV1_response],
   }),
 
   // Chat

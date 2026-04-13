@@ -154,7 +154,7 @@ describe('Host API: Accounts', () => {
     });
   });
 
-  describe('getNonProductAccounts', () => {
+  describe('getLegacyAccounts', () => {
     it('should return list of accounts', async () => {
       const { container, accountsProvider } = setup();
       const accounts = [
@@ -162,9 +162,9 @@ describe('Host API: Accounts', () => {
         { publicKey: new Uint8Array(32).fill(2), name: undefined },
       ];
 
-      container.handleGetNonProductAccounts((_, { ok }) => ok(accounts));
+      container.handleGetLegacyAccounts((_, { ok }) => ok(accounts));
 
-      const result = await accountsProvider.getNonProductAccounts();
+      const result = await accountsProvider.getLegacyAccounts();
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual(accounts);
@@ -173,9 +173,9 @@ describe('Host API: Accounts', () => {
     it('should return empty list when no accounts', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleGetNonProductAccounts((_, { ok }) => ok([]));
+      container.handleGetLegacyAccounts((_, { ok }) => ok([]));
 
-      const result = await accountsProvider.getNonProductAccounts();
+      const result = await accountsProvider.getLegacyAccounts();
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual([]);
@@ -185,9 +185,9 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new RequestCredentialsErr.Rejected();
 
-      container.handleGetNonProductAccounts((_, { err }) => err(error));
+      container.handleGetLegacyAccounts((_, { err }) => err(error));
 
-      const result = await accountsProvider.getNonProductAccounts();
+      const result = await accountsProvider.getLegacyAccounts();
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
@@ -336,26 +336,26 @@ describe('Host API: Accounts', () => {
     });
   });
 
-  describe('getNonProductAccountSigner', () => {
+  describe('getLegacyAccountSigner', () => {
     it('should expose the correct public key', () => {
       const { accountsProvider } = setup();
-      const signer = accountsProvider.getNonProductAccountSigner(mockAccount);
+      const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
 
       expect(signer.publicKey).toEqual(mockPublicKey);
     });
 
-    it('should sign bytes via handleSignRawWithNonProductAccount', async () => {
+    it('should sign bytes via handleSignRawWithLegacyAccount', async () => {
       const { container, accountsProvider } = setup();
       const rawData = new Uint8Array([5, 6, 7, 8]);
       const signatureBytes = new Uint8Array(64).fill(0xef);
       let capturedParams: unknown;
 
-      container.handleSignRawWithNonProductAccount((params, { ok }) => {
+      container.handleSignRawWithLegacyAccount((params, { ok }) => {
         capturedParams = params;
         return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
       });
 
-      const signer = accountsProvider.getNonProductAccountSigner(mockAccount);
+      const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
       const result = await signer.signBytes(rawData);
 
       expect(capturedParams).toMatchObject({ payload: { tag: 'Bytes', value: rawData } });
@@ -366,9 +366,9 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new SigningErr.Rejected();
 
-      container.handleSignRawWithNonProductAccount((_, { err }) => err(error));
+      container.handleSignRawWithLegacyAccount((_, { err }) => err(error));
 
-      const signer = accountsProvider.getNonProductAccountSigner(mockAccount);
+      const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
 
       await expect(signer.signBytes(new Uint8Array([1, 2, 3]))).rejects.toEqual(error);
     });

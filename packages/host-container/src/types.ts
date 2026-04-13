@@ -97,22 +97,19 @@ export type Container = {
   handleAccountGet: InferHandler<'v1', HostApiProtocol['host_account_get']>;
   handleAccountGetAlias: InferHandler<'v1', HostApiProtocol['host_account_get_alias']>;
   handleAccountCreateProof: InferHandler<'v1', HostApiProtocol['host_account_create_proof']>;
-  handleGetNonProductAccounts: InferHandler<'v1', HostApiProtocol['host_get_non_product_accounts']>;
+  handleGetLegacyAccounts: InferHandler<'v1', HostApiProtocol['host_get_legacy_accounts']>;
 
   // signing
 
   handleCreateTransaction: InferHandler<'v1', HostApiProtocol['host_create_transaction']>;
-  handleCreateTransactionWithNonProductAccount: InferHandler<
+  handleCreateTransactionWithLegacyAccount: InferHandler<
     'v1',
-    HostApiProtocol['host_create_transaction_with_non_product_account']
+    HostApiProtocol['host_create_transaction_with_legacy_account']
   >;
   handleSignRaw: InferHandler<'v1', HostApiProtocol['host_sign_raw']>;
   handleSignPayload: InferHandler<'v1', HostApiProtocol['host_sign_payload']>;
-  handleSignRawWithNonProductAccount: InferHandler<'v1', HostApiProtocol['host_sign_raw_with_non_product_account']>;
-  handleSignPayloadWithNonProductAccount: InferHandler<
-    'v1',
-    HostApiProtocol['host_sign_payload_with_non_product_account']
-  >;
+  handleSignRawWithLegacyAccount: InferHandler<'v1', HostApiProtocol['host_sign_raw_with_legacy_account']>;
+  handleSignPayloadWithLegacyAccount: InferHandler<'v1', HostApiProtocol['host_sign_payload_with_legacy_account']>;
 
   // chat
 

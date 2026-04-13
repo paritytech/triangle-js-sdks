@@ -230,8 +230,8 @@ export function createContainer(provider: Provider): Container {
     () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
-  const handleGetNonProductAccountsSlot = makeNotImplementedSlot(
-    'host_get_non_product_accounts',
+  const handleGetLegacyAccountsSlot = makeNotImplementedSlot(
+    'host_get_legacy_accounts',
     () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
@@ -273,13 +273,13 @@ export function createContainer(provider: Provider): Container {
     () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
-  const handleSignRawWithNonProductAccountSlot = makeNotImplementedSlot(
-    'host_sign_raw_with_non_product_account',
+  const handleSignRawWithLegacyAccountSlot = makeNotImplementedSlot(
+    'host_sign_raw_with_legacy_account',
     () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
-  const handleSignPayloadWithNonProductAccountSlot = makeNotImplementedSlot(
-    'host_sign_payload_with_non_product_account',
+  const handleSignPayloadWithLegacyAccountSlot = makeNotImplementedSlot(
+    'host_sign_payload_with_legacy_account',
     () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
@@ -288,8 +288,8 @@ export function createContainer(provider: Provider): Container {
     () => new CreateTransactionErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
-  const handleCreateTransactionWithNonProductAccountSlot = makeNotImplementedSlot(
-    'host_create_transaction_with_non_product_account',
+  const handleCreateTransactionWithLegacyAccountSlot = makeNotImplementedSlot(
+    'host_create_transaction_with_legacy_account',
     () => new CreateTransactionErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
@@ -477,9 +477,9 @@ export function createContainer(provider: Provider): Container {
       );
     },
 
-    handleGetNonProductAccounts(handler) {
+    handleGetLegacyAccounts(handler) {
       return handleV1Request(
-        handleGetNonProductAccountsSlot,
+        handleGetLegacyAccountsSlot,
         () => new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
@@ -493,9 +493,9 @@ export function createContainer(provider: Provider): Container {
       );
     },
 
-    handleCreateTransactionWithNonProductAccount(handler) {
+    handleCreateTransactionWithLegacyAccount(handler) {
       return handleV1Request(
-        handleCreateTransactionWithNonProductAccountSlot,
+        handleCreateTransactionWithLegacyAccountSlot,
         () => new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
@@ -517,17 +517,17 @@ export function createContainer(provider: Provider): Container {
       );
     },
 
-    handleSignRawWithNonProductAccount(handler) {
+    handleSignRawWithLegacyAccount(handler) {
       return handleV1Request(
-        handleSignRawWithNonProductAccountSlot,
+        handleSignRawWithLegacyAccountSlot,
         () => new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
     },
 
-    handleSignPayloadWithNonProductAccount(handler) {
+    handleSignPayloadWithLegacyAccount(handler) {
       return handleV1Request(
-        handleSignPayloadWithNonProductAccountSlot,
+        handleSignPayloadWithLegacyAccountSlot,
         () => new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );

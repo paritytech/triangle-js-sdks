@@ -76,8 +76,8 @@ export const VersionedPublicTxPayload = enhanceCodec<CodecType<typeof VersionedT
 export const CreateTransactionV1_request = Tuple(ProductAccountId, VersionedPublicTxPayload);
 export const CreateTransactionV1_response = Result(Bytes(), CreateTransactionErr);
 
-export const CreateTransactionWithNonProductAccountV1_request = VersionedPublicTxPayload;
-export const CreateTransactionWithNonProductAccountV1_response = Result(Bytes(), CreateTransactionErr);
+export const CreateTransactionWithLegacyAccountV1_request = VersionedPublicTxPayload;
+export const CreateTransactionWithLegacyAccountV1_response = Result(Bytes(), CreateTransactionErr);
 
 // related types
 

@@ -6,7 +6,7 @@ export { hostApi } from './hostApi.js';
 
 export { createMetaProvider, metaProvider } from './metaProvider.js';
 
-export { createNonProductExtensionEnableFactory, injectSpektrExtension } from './injectWeb3.js';
+export { createLegacyExtensionEnableFactory, injectSpektrExtension } from './injectWeb3.js';
 export { createPapiProvider } from './papiProvider.js';
 
 export type {
