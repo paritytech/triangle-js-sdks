@@ -71,7 +71,7 @@ const ConnectButton = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <PairingPopover size={210}>
+      <PairingPopover theme="light" size={210}>
         <Button onClick={() => auth.authenticate('popover')}>Open auth Popover</Button>
       </PairingPopover>
       <Button onClick={() => auth.authenticate('modal')}>Open auth Modal</Button>

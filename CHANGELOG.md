@@ -1,10 +1,14 @@
-## Unreleased
+## 0.7.0 (2026-04-10)
 
 ### 🚀 Features
 
 - **host-api:** add `host_derive_entropy` protocol method for deterministic entropy derivation (RFC-0007)
 - **host-container:** add `handleDeriveEntropy` handler slot
 - **product-sdk:** add `deriveEntropy` convenience function
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
 
 ## 0.6.17 (2026-04-09)
 

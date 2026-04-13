@@ -1,5 +1,4 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
-import type { PolkadotClient } from 'polkadot-api';
+import type { JsonRpcProvider, PolkadotClient } from 'polkadot-api';
 
 export type ChainConfig = {
   genesisHash: string;

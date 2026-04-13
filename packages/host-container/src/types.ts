@@ -9,9 +9,9 @@ import type {
   VersionedProtocolSubscription,
 } from '@novasamatech/host-api';
 import { CustomRendererNode } from '@novasamatech/host-api';
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import type { ResultAsync, errAsync } from 'neverthrow';
 import { okAsync } from 'neverthrow';
+import type { JsonRpcProvider } from 'polkadot-api';
 
 type SuccessResponse<T> = T extends { success: true; value: infer U } ? U : never;
 type ErrorResponse<T> = T extends { success: false; value: infer U } ? U : never;
