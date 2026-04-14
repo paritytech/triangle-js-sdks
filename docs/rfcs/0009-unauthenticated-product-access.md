@@ -82,7 +82,7 @@ Products can explicitly ask the host to present the login UI to the user:
 ```rust
 /// Request the host to present the login flow to the user. The host opens its
 /// native sign-in UI (e.g. QR pairing). Returns once the flow
-/// completes or the user dismisses it.
+/// completes or the user rejects it.
 ///
 /// Products should call this in response to a user action (e.g. tapping a
 /// "Sign in" button rendered by the product), not automatically on load.
@@ -92,15 +92,15 @@ enum LoginResult {
     /// User successfully authenticated. The product will receive a
     /// `Connected` event via `host_account_connection_status_subscribe`.
     Success,
-    /// User dismissed the login UI without completing authentication.
-    Dismissed
+    /// User is already authenticated — no action was taken.
+    /// This allows products to call `host_request_login` unconditionally
+    /// without first checking connection status.
+    AlreadyConnected,
+    /// User dismissed/rejected the login UI without completing authentication.
+    Rejected
 }
 
 enum LoginErr {
-    /// A login flow is already in progress.
-    AlreadyInProgress,
-    /// User is already authenticated.
-    AlreadyConnected,
     Unknown(GenericErr)
 }
 ```
@@ -130,7 +130,7 @@ if (status === 'Disconnected') {
   renderReadOnlyView({
     onLoginClick: async () => {
       const result = await hostApi.requestLogin();
-      if (result === 'Dismissed') {
+      if (result === 'Rejected') {
         // User cancelled — stay in read-only mode
       }
       // On Success, the subscription will emit Connected
