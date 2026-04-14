@@ -224,8 +224,9 @@ describe('session', () => {
       let callCount = 0;
       adapter.queryStatements.mockImplementation(() => {
         callCount++;
-        if (callCount === 1) return okAsync([ownRequest]);
-        return okAsync([peerResponse]);
+        // Outgoing topic contains both our request AND the peer's response
+        if (callCount === 1) return okAsync([ownRequest, peerResponse]);
+        return okAsync([]);
       });
 
       const { session } = makeSession(adapter);
@@ -269,8 +270,9 @@ describe('session', () => {
       let callCount = 0;
       adapter.queryStatements.mockImplementation(() => {
         callCount++;
-        if (callCount === 1) return okAsync([ownResponse]);
-        return okAsync([peerRequest]);
+        if (callCount === 1) return okAsync([]);
+        // Incoming topic contains both the peer's request AND our response
+        return okAsync([peerRequest, ownResponse]);
       });
 
       const { session } = makeSession(adapter);
@@ -371,10 +373,10 @@ describe('session', () => {
       const requestId = 'no-auto-resp';
       const peerRequest = makeStatement({ tag: 'request', value: { requestId, data: [new Uint8Array([1])] } });
 
+      const subscribeCallbacks: Array<(statements: Statement[]) => void> = [];
       const adapter = makeAdapter();
-      let subscribeCallback!: (statements: Statement[]) => void;
       adapter.subscribeStatements.mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-        subscribeCallback = cb;
+        subscribeCallbacks.push(cb);
         return vi.fn();
       });
       adapter.queryStatements.mockReturnValue(okAsync([]));
@@ -386,7 +388,8 @@ describe('session', () => {
       session.subscribe(rawCodec, callback);
 
       adapter.submitStatement.mockClear();
-      subscribeCallback([peerRequest]);
+      // Fire on the incoming topic callback (first subscription)
+      subscribeCallbacks[0]!([peerRequest]);
       await flushPromises();
 
       // Message delivered to app callback but no automatic response submitted
@@ -444,13 +447,101 @@ describe('session', () => {
     it('unsubscribing last subscriber tears down the store subscription', () => {
       const { session, adapter } = makeSession();
       const unsub = session.subscribe(rawCodec, vi.fn());
-      expect(adapter.subscribeStatements).toHaveBeenCalledTimes(1);
+      expect(adapter.subscribeStatements).toHaveBeenCalledTimes(2);
 
       unsub();
       // subscribeStatements returns a mock unsubscribe fn — verify it was called
       // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
       const storeMockUnsub = adapter.subscribeStatements.mock.results[0]!.value as ReturnType<typeof vi.fn>;
       expect(storeMockUnsub).toHaveBeenCalled();
+    });
+
+    it('subscribes to outgoing topic for peer responses alongside incoming topic', () => {
+      const { session, adapter } = makeSession();
+      session.subscribe(rawCodec, vi.fn());
+
+      // Two subscriptions: one for incoming (peer requests), one for outgoing (peer responses)
+      expect(adapter.subscribeStatements).toHaveBeenCalledTimes(2);
+    });
+
+    it('tears down outgoing subscription when last subscriber leaves', () => {
+      const { session, adapter } = makeSession();
+      const unsub = session.subscribe(rawCodec, vi.fn());
+
+      unsub();
+
+      // Both unsubscribe functions should be called
+      for (const result of adapter.subscribeStatements.mock.results) {
+        const mockUnsub = result.value as ReturnType<typeof vi.fn>;
+        expect(mockUnsub).toHaveBeenCalled();
+      }
+    });
+
+    it('delivers peer response from outgoing topic subscription to subscribers', async () => {
+      const subscribeCallbacks: Array<(statements: Statement[]) => void> = [];
+      const subscribeStatements = vi
+        .fn()
+        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
+          subscribeCallbacks.push(cb);
+          return vi.fn();
+        });
+
+      const { session, adapter } = makeSession({ subscribeStatements });
+      await flushPromises();
+
+      // Submit a request so the session has an outgoingRequest
+      void session.submitRequestMessage(rawCodec, new Uint8Array([1]));
+      await flushPromises();
+
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const submitted = adapter.submitStatement.mock.calls[0]![0] as Statement;
+      const decoded = StatementData.dec(submitted.data!);
+      const requestId = decoded.tag === 'request' ? decoded.value.requestId : '';
+
+      const callback = vi.fn();
+      session.subscribe(rawCodec, callback);
+
+      // Deliver the response via the SECOND subscription callback (outgoing topic)
+      // subscribeCallbacks[0] = incoming topic, subscribeCallbacks[1] = outgoing topic
+      const responseStatement = makeStatement({
+        tag: 'response',
+        value: { requestId, responseCode: 'success' },
+      });
+      subscribeCallbacks[1]!([responseStatement]);
+      await flushPromises();
+
+      // Subscriber should receive the response
+      const allCalls = callback.mock.calls.flat();
+      const responseMessages = allCalls.flat().filter((m: { type: string }) => m.type === 'response');
+      expect(responseMessages.length).toBeGreaterThan(0);
+    });
+
+    it('ignores request-type statements from outgoing topic subscription', async () => {
+      const subscribeCallbacks: Array<(statements: Statement[]) => void> = [];
+      const subscribeStatements = vi
+        .fn()
+        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
+          subscribeCallbacks.push(cb);
+          return vi.fn();
+        });
+
+      const { session } = makeSession({ subscribeStatements });
+      await flushPromises();
+
+      const callback = vi.fn();
+      session.subscribe(rawCodec, callback);
+      callback.mockClear(); // clear any buffered init messages
+
+      // Deliver a request via the outgoing topic subscription (would be our own echoed back)
+      const ownRequest = makeStatement({
+        tag: 'request',
+        value: { requestId: 'own-req', data: [new Uint8Array([1])] },
+      });
+      subscribeCallbacks[1]!([ownRequest]);
+      await flushPromises();
+
+      // Should NOT be delivered to subscriber (filtered by responsesOnly flag)
+      expect(callback).not.toHaveBeenCalled();
     });
   });
 

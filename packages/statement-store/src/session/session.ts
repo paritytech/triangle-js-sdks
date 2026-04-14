@@ -91,6 +91,7 @@ export function createSession({
   let subscribers: Subscriber[] = [];
   const bufferedMessages: CodecType<typeof StatementData>[] = [];
   let storeUnsub: VoidFunction | null = null;
+  let responseStoreUnsub: VoidFunction | null = null;
 
   function submitStatementData(
     channel: Uint8Array,
@@ -147,7 +148,7 @@ export function createSession({
       .orElse(() => ok(null));
   }
 
-  function processIncomingStatement(statement: Statement): void {
+  function processIncomingStatement(statement: Statement, responsesOnly = false): void {
     if (!statement.data) return;
     const key = toHex(statement.data);
     if (state.seenStatements.has(key)) return;
@@ -157,6 +158,7 @@ export function createSession({
       if (!statementData) return;
 
       if (statementData.tag === 'request') {
+        if (responsesOnly) return;
         if (statementData.value.requestId === state.incomingRequest?.requestId) return;
         state.incomingRequest = { requestId: statementData.value.requestId };
         state.respondedIncomingRequest = false;
@@ -212,10 +214,24 @@ export function createSession({
   }
 
   function ensureStoreSubscription(): void {
-    if (storeUnsub) return;
+    if (storeUnsub) {
+      console.info('[session] ensureStoreSubscription: already subscribed');
+      return;
+    }
+    console.info('[session] ensureStoreSubscription: subscribing to', toHex(incomingSessionId));
     storeUnsub = statementStore.subscribeStatements([incomingSessionId], statements => {
+      console.info('[session] subscribeStatements callback fired — statements:', statements.length);
       for (const statement of statements) {
         processIncomingStatement(statement);
+      }
+    });
+
+    // Subscribe to outgoing topic to receive peer ACK responses.
+    // Only process response-type statements — request-type statements on this topic
+    // are our own submissions echoed back and must be ignored.
+    responseStoreUnsub = statementStore.subscribeStatements([outgoingSessionId], statements => {
+      for (const statement of statements) {
+        processIncomingStatement(statement, true);
       }
     });
   }
@@ -259,8 +275,7 @@ export function createSession({
     const peerResponse = peerDecoded.find(d => d.tag === 'response');
 
     if (ownRequest?.tag === 'request') {
-      const hasResponse =
-        peerResponse?.tag === 'response' && peerResponse.value.requestId === ownRequest.value.requestId;
+      const hasResponse = ownResponse?.tag === 'response' && ownResponse.value.requestId === ownRequest.value.requestId;
       if (!hasResponse) {
         state.outgoingRequest = {
           requestId: ownRequest.value.requestId,
@@ -273,7 +288,7 @@ export function createSession({
     if (peerRequest?.tag === 'request') {
       state.incomingRequest = { requestId: peerRequest.value.requestId };
       state.respondedIncomingRequest =
-        ownResponse?.tag === 'response' && ownResponse.value.requestId === peerRequest.value.requestId;
+        peerResponse?.tag === 'response' && peerResponse.value.requestId === peerRequest.value.requestId;
     }
 
     // Notify app of any unresponded incoming request.
@@ -365,6 +380,7 @@ export function createSession({
         callback: callback as Callback<Message<unknown>[]>,
       };
       subscribers.push(sub);
+      console.info('[session] subscribe: subscriber count now', subscribers.length);
       ensureStoreSubscription();
 
       // Deliver buffered init messages to this subscriber
@@ -375,9 +391,17 @@ export function createSession({
 
       return () => {
         subscribers = subscribers.filter(s => s !== sub);
-        if (subscribers.length === 0 && storeUnsub) {
-          storeUnsub();
-          storeUnsub = null;
+        console.info('[session] unsubscribe: subscriber count now', subscribers.length);
+        if (subscribers.length === 0) {
+          if (storeUnsub) {
+            console.warn('[session] ALL subscribers removed — killing store subscription!');
+            storeUnsub();
+            storeUnsub = null;
+          }
+          if (responseStoreUnsub) {
+            responseStoreUnsub();
+            responseStoreUnsub = null;
+          }
         }
       };
     },
@@ -385,6 +409,8 @@ export function createSession({
     dispose() {
       storeUnsub?.();
       storeUnsub = null;
+      responseStoreUnsub?.();
+      responseStoreUnsub = null;
       subscribers = [];
       for (const [, deferred] of state.pendingDelivery) {
         deferred.reject(new Error('Session disposed'));
