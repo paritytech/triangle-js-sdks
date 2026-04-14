@@ -6,8 +6,9 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import { createNonProductExtensionEnableFactory } from '@novasamatech/product-sdk';
+import { createLegacyExtensionEnableFactory } from '@novasamatech/product-sdk';
 
 import type { SignerResult } from '@polkadot/types/types';
 import { AccountId } from '@polkadot-api/substrate-bindings';
@@ -20,7 +21,7 @@ async function setup() {
   const container = createContainer(providers.host);
   const sdkTransport = createTransport(providers.sdk);
 
-  const enable = await createNonProductExtensionEnableFactory(sdkTransport);
+  const enable = await createLegacyExtensionEnableFactory(sdkTransport);
   assert(enable, 'Enable function should be available');
 
   const injected = await enable();
@@ -35,7 +36,7 @@ describe('Host API: injected web3 provider', () => {
 
     const { container, injected } = await setup();
 
-    container.handleGetNonProductAccounts((_, { ok }) => ok(mockAccounts));
+    container.handleGetLegacyAccounts((_, { ok }) => ok(mockAccounts));
 
     const injectedAccounts = await injected.accounts.get();
 
@@ -57,8 +58,8 @@ describe('Host API: injected web3 provider', () => {
       signature: '0x0001',
     };
 
-    container.handleSignPayload((params, { ok }) => {
-      return ok({ ...signerResult, signedTransaction: params.method });
+    container.handleSignPayloadWithLegacyAccount((params, { ok }) => {
+      return ok({ ...signerResult, signedTransaction: params.payload.method });
     });
 
     const result = await injected.signer.signPayload?.({
@@ -88,8 +89,8 @@ describe('Host API: injected web3 provider', () => {
       signature: '0x0001',
     };
 
-    container.handleSignRaw((params, { ok }) => {
-      return ok({ ...signerResult, signedTransaction: params.data.value as HexString });
+    container.handleSignRawWithLegacyAccount((params, { ok }) => {
+      return ok({ ...signerResult, signedTransaction: params.payload.value as HexString });
     });
 
     const result = await injected.signer.signRaw?.({
@@ -125,11 +126,11 @@ describe('Host API: injected web3 provider', () => {
       },
     };
 
-    const createTransaction = vitest.fn<Parameters<typeof container.handleCreateTransactionWithNonProductAccount>[0]>(
+    const createTransaction = vitest.fn<ContainerHandlerOf<typeof container.handleCreateTransactionWithLegacyAccount>>(
       (_, { ok }) => ok(response),
     );
 
-    container.handleCreateTransactionWithNonProductAccount(createTransaction);
+    container.handleCreateTransactionWithLegacyAccount(createTransaction);
 
     const result = await injected.signer.createTransaction?.(payload);
 
@@ -141,7 +142,7 @@ describe('Host API: injected web3 provider', () => {
     const { container, injected } = await setup();
     const error = new RequestCredentialsErr.Rejected();
 
-    container.handleGetNonProductAccounts((_, { err }) => err(error));
+    container.handleGetLegacyAccounts((_, { err }) => err(error));
 
     await expect(injected.accounts.get()).rejects.toEqual(error);
   });
@@ -150,7 +151,7 @@ describe('Host API: injected web3 provider', () => {
     const { container, injected } = await setup();
     const error = new SigningErr.Rejected();
 
-    container.handleSignPayload((_, { err }) => err(error));
+    container.handleSignPayloadWithLegacyAccount((_, { err }) => err(error));
 
     await expect(
       injected.signer.signPayload?.({
@@ -174,7 +175,7 @@ describe('Host API: injected web3 provider', () => {
     const { container, injected } = await setup();
     const error = new SigningErr.Rejected();
 
-    container.handleSignRaw((_, { err }) => err(error));
+    container.handleSignRawWithLegacyAccount((_, { err }) => err(error));
 
     await expect(
       injected.signer.signRaw?.({
@@ -209,7 +210,7 @@ describe('Host API: injected web3 provider', () => {
       },
     };
 
-    container.handleCreateTransactionWithNonProductAccount((_, { err }) => err(error));
+    container.handleCreateTransactionWithLegacyAccount((_, { err }) => err(error));
 
     await expect(injected.signer.createTransaction?.(payload)).rejects.toEqual(error);
   });

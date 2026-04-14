@@ -7,9 +7,9 @@ import {
   createRemoteSessionAccount,
   khash,
 } from '@novasamatech/statement-store';
-import { mergeUint8, toHex } from '@polkadot-api/utils';
 import { generateMnemonic } from '@polkadot-labs/hdkd-helpers';
 import { Result, ResultAsync, err, fromPromise, fromThrowable, ok } from 'neverthrow';
+import { mergeUint8, toHex } from 'polkadot-api/utils';
 
 import type { DerivedSr25519Account, EncrPublicKey, EncrSecret, SsPublicKey } from '../../crypto.js';
 import { createEncrSecret, createSharedSecret, deriveSr25519Account, getEncrPub, stringToBytes } from '../../crypto.js';
@@ -101,7 +101,8 @@ export function createAuth({
 
     return dataPrepared.asyncAndThen(([, handshakeTopic, encrKeys]) => {
       const pappResponse = waitForStatements<StoredUserSession>(
-        callback => statementStore.subscribeStatements([handshakeTopic], callback),
+        callback =>
+          statementStore.subscribeStatements({ matchAll: [handshakeTopic] }, page => callback(page.statements)),
         signal,
         (statements, resolve) => {
           for (const statement of statements) {

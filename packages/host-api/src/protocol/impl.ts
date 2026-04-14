@@ -11,8 +11,8 @@ import {
   AccountGetAliasV1_response,
   AccountGetV1_request,
   AccountGetV1_response,
-  GetNonProductAccountsV1_request,
-  GetNonProductAccountsV1_response,
+  GetLegacyAccountsV1_request,
+  GetLegacyAccountsV1_response,
 } from './v1/accounts.js';
 import {
   ChainHeadBodyV1_request,
@@ -59,9 +59,10 @@ import {
 import {
   CreateTransactionV1_request,
   CreateTransactionV1_response,
-  CreateTransactionWithNonProductAccountV1_request,
-  CreateTransactionWithNonProductAccountV1_response,
+  CreateTransactionWithLegacyAccountV1_request,
+  CreateTransactionWithLegacyAccountV1_response,
 } from './v1/createTransaction.js';
+import { DeriveEntropyV1_request, DeriveEntropyV1_response } from './v1/deriveEntropy.js';
 import { DevicePermissionV1_request, DevicePermissionV1_response } from './v1/devicePermission.js';
 import { FeatureV1_request, FeatureV1_response } from './v1/feature.js';
 import { HandshakeV1_request, HandshakeV1_response } from './v1/handshake.js';
@@ -82,13 +83,32 @@ import {
 import { NavigateToV1_request, NavigateToV1_response } from './v1/navigation.js';
 import { PushNotificationV1_request, PushNotificationV1_response } from './v1/notification.js';
 import {
+  PaymentBalanceSubscribeV1_receive,
+  PaymentBalanceSubscribeV1_start,
+  PaymentRequestV1_request,
+  PaymentRequestV1_response,
+  PaymentStatusSubscribeV1_receive,
+  PaymentStatusSubscribeV1_start,
+  PaymentTopUpV1_request,
+  PaymentTopUpV1_response,
+} from './v1/payments.js';
+import {
   PreimageLookupSubscribeV1_receive,
   PreimageLookupSubscribeV1_start,
   PreimageSubmitV1_request,
   PreimageSubmitV1_response,
 } from './v1/preimage.js';
 import { RemotePermissionV1_request, RemotePermissionV1_response } from './v1/remotePermission.js';
-import { SignPayloadV1_request, SignPayloadV1_response, SignRawV1_request, SignRawV1_response } from './v1/sign.js';
+import {
+  SignPayloadV1_request,
+  SignPayloadV1_response,
+  SignPayloadWithLegacyAccountV1_request,
+  SignPayloadWithLegacyAccountV1_response,
+  SignRawV1_request,
+  SignRawV1_response,
+  SignRawWithLegacyAccountV1_request,
+  SignRawWithLegacyAccountV1_response,
+} from './v1/sign.js';
 import {
   StatementStoreCreateProofV1_request,
   StatementStoreCreateProofV1_response,
@@ -97,6 +117,7 @@ import {
   StatementStoreSubscribeV1_receive,
   StatementStoreSubscribeV1_start,
 } from './v1/statementStore.js';
+import { ThemeSubscribeV1_receive, ThemeSubscribeV1_start } from './v1/theme.js';
 
 // helpers
 
@@ -166,8 +187,16 @@ export const hostApiProtocol = {
     v1: [PushNotificationV1_request, PushNotificationV1_response],
   }),
 
+  host_theme_subscribe: versionedSubscription({
+    v1: [ThemeSubscribeV1_start, ThemeSubscribeV1_receive],
+  }),
+
   host_navigate_to: versionedRequest({
     v1: [NavigateToV1_request, NavigateToV1_response],
+  }),
+
+  host_derive_entropy: versionedRequest({
+    v1: [DeriveEntropyV1_request, DeriveEntropyV1_response],
   }),
 
   // Permissions
@@ -212,8 +241,8 @@ export const hostApiProtocol = {
     v1: [AccountCreateProofV1_request, AccountCreateProofV1_response],
   }),
 
-  host_get_non_product_accounts: versionedRequest({
-    v1: [GetNonProductAccountsV1_request, GetNonProductAccountsV1_response],
+  host_get_legacy_accounts: versionedRequest({
+    v1: [GetLegacyAccountsV1_request, GetLegacyAccountsV1_response],
   }),
 
   // Signing
@@ -222,16 +251,24 @@ export const hostApiProtocol = {
     v1: [CreateTransactionV1_request, CreateTransactionV1_response],
   }),
 
-  host_create_transaction_with_non_product_account: versionedRequest({
-    v1: [CreateTransactionWithNonProductAccountV1_request, CreateTransactionWithNonProductAccountV1_response],
+  host_create_transaction_with_legacy_account: versionedRequest({
+    v1: [CreateTransactionWithLegacyAccountV1_request, CreateTransactionWithLegacyAccountV1_response],
   }),
 
   host_sign_raw: versionedRequest({
     v1: [SignRawV1_request, SignRawV1_response],
   }),
 
+  host_sign_raw_with_legacy_account: versionedRequest({
+    v1: [SignRawWithLegacyAccountV1_request, SignRawWithLegacyAccountV1_response],
+  }),
+
   host_sign_payload: versionedRequest({
     v1: [SignPayloadV1_request, SignPayloadV1_response],
+  }),
+
+  host_sign_payload_with_legacy_account: versionedRequest({
+    v1: [SignPayloadWithLegacyAccountV1_request, SignPayloadWithLegacyAccountV1_response],
   }),
 
   // Chat
@@ -282,6 +319,24 @@ export const hostApiProtocol = {
 
   remote_preimage_submit: versionedRequest({
     v1: [PreimageSubmitV1_request, PreimageSubmitV1_response],
+  }),
+
+  // Payments
+
+  host_payment_balance_subscribe: versionedSubscription({
+    v1: [PaymentBalanceSubscribeV1_start, PaymentBalanceSubscribeV1_receive],
+  }),
+
+  host_payment_top_up: versionedRequest({
+    v1: [PaymentTopUpV1_request, PaymentTopUpV1_response],
+  }),
+
+  host_payment_request: versionedRequest({
+    v1: [PaymentRequestV1_request, PaymentRequestV1_response],
+  }),
+
+  host_payment_status_subscribe: versionedSubscription({
+    v1: [PaymentStatusSubscribeV1_start, PaymentStatusSubscribeV1_receive],
   }),
 
   // json rpc (deprecated: use remote_chain_* methods instead)

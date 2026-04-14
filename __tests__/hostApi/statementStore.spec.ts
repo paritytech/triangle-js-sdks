@@ -1,15 +1,19 @@
 import { GenericError, StatementProofErr, createTransport, enumValue } from '@novasamatech/host-api';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import type { ProductAccountId, SignedStatement, Statement, Topic } from '@novasamatech/product-sdk';
+import type {
+  ProductAccountId,
+  SignedStatement,
+  Statement,
+  StatementTopicFilter,
+  Topic,
+} from '@novasamatech/product-sdk';
 import { createStatementStore } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
-
-function delay(ttl: number) {
-  return new Promise(resolve => setTimeout(resolve, ttl));
-}
 
 function setup() {
   const providers = createHostApiProviders();
@@ -62,26 +66,26 @@ function createMockAccountId(): ProductAccountId {
 describe('Host API: StatementStore', () => {
   it('should subscribe to statement updates', async () => {
     const { container, statementStore } = setup();
-    const topics = [createTopic(1)];
+    const filter: StatementTopicFilter = { matchAll: [createTopic(1)] };
     const statement1 = createMockSignedStatement(1);
     const statement2 = createMockSignedStatement(2);
 
     container.handleStatementStoreSubscribe((params, send) => {
-      expect(params).toEqual(topics);
+      expect(params).toEqual({ tag: 'MatchAll', value: [createTopic(1)] });
       // Simulate sending updates
-      send([statement1, statement2]);
+      send({ statements: [statement1, statement2], isComplete: true });
       return () => {
         /* cleanup */
       };
     });
 
     const callback = vi.fn();
-    statementStore.subscribe(topics, callback);
+    statementStore.subscribe(filter, callback);
 
     // Wait for async message passing
     await delay(10);
 
-    expect(callback).toHaveBeenNthCalledWith(1, [statement1, statement2]);
+    expect(callback).toHaveBeenNthCalledWith(1, { statements: [statement1, statement2], isComplete: true });
   });
 
   it('should create proof for a statement', async () => {
@@ -93,7 +97,7 @@ describe('Host API: StatementStore', () => {
       signer: new Uint8Array(32).fill(6),
     });
 
-    const handler = vi.fn<Parameters<typeof container.handleStatementStoreCreateProof>[0]>((_, { ok }) =>
+    const handler = vi.fn<ContainerHandlerOf<typeof container.handleStatementStoreCreateProof>>((_, { ok }) =>
       ok(expectedProof),
     );
     container.handleStatementStoreCreateProof(handler);
@@ -108,12 +112,21 @@ describe('Host API: StatementStore', () => {
     const { container, statementStore } = setup();
     const signedStatement = createMockSignedStatement(1);
 
-    const handler = vi.fn<Parameters<typeof container.handleStatementStoreSubmit>[0]>((_, { ok }) => ok(undefined));
+    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.handlePermission>>((_params, { ok }) =>
+      ok(true),
+    );
+    container.handlePermission(permissionHandler);
+    const handler = vi.fn<ContainerHandlerOf<typeof container.handleStatementStoreSubmit>>((_, { ok }) =>
+      ok(undefined),
+    );
     container.handleStatementStoreSubmit(handler);
 
     await statementStore.submit(signedStatement);
 
     expect(handler).toBeCalledWith(signedStatement, { ok: expect.any(Function), err: expect.any(Function) });
+    expect(permissionHandler).toHaveBeenCalledOnce();
+    const [receivedParams] = permissionHandler.mock.calls[0]!;
+    expect(receivedParams).toContainEqual({ tag: 'StatementSubmit', value: undefined });
   });
 
   it('should handle createProof error when account is unknown', async () => {
@@ -132,25 +145,33 @@ describe('Host API: StatementStore', () => {
     const signedStatement = createMockSignedStatement(1);
     const error = new GenericError({ reason: 'Submit failed' });
 
+    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.handlePermission>>((_params, { ok }) =>
+      ok(true),
+    );
+    container.handlePermission(permissionHandler);
     container.handleStatementStoreSubmit((_, { err }) => err(error));
 
     await expect(statementStore.submit(signedStatement)).rejects.toEqual(error);
+
+    expect(permissionHandler).toHaveBeenCalledOnce();
+    const [receivedParams] = permissionHandler.mock.calls[0]!;
+    expect(receivedParams).toContainEqual({ tag: 'StatementSubmit', value: undefined });
   });
 
   it('should unsubscribe from statement updates', async () => {
     const { container, statementStore } = setup();
-    const topics = [createTopic(1)];
+    const filter: StatementTopicFilter = { matchAll: [createTopic(1)] };
     const statement = createMockSignedStatement(1);
     const cleanupFn = vi.fn();
 
     container.handleStatementStoreSubscribe((_, send) => {
       // Send initial update
-      send([statement]);
+      send({ statements: [statement], isComplete: true });
       return cleanupFn;
     });
 
     const callback = vi.fn();
-    const subscription = statementStore.subscribe(topics, callback);
+    const subscription = statementStore.subscribe(filter, callback);
 
     expect(callback).toHaveBeenCalledTimes(1);
 

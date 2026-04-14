@@ -1,4 +1,4 @@
-import { Button, ThemeProvider, defaultTheme } from '@novasamatech/tr-ui';
+import { Button } from '@novasamatech/tr-ui';
 import { memo, useEffect } from 'react';
 
 import { useAuthStatus } from '../hooks/authStatus.js';
@@ -34,16 +34,14 @@ export const PairingModal = memo(({ theme, size = 280 }: Props = {}) => {
   }, [auth, status.step]);
 
   return (
-    <ThemeProvider theme={defaultTheme} defaultMode={theme ?? 'light'}>
-      <Modal open={open} onOpenChange={toggleModal} width="fit-content">
-        <div className={styles.container}>
-          {status.step === 'pairing' && <PairingStep theme={theme} size={size} payload={status.payload} />}
-          {status.step === 'pairingError' && <PairingErrorStep message={status.message} />}
-          {status.step === 'attestation' && <LoadingStep />}
-          {status.step === 'attestationError' && <PairingErrorStep message={status.message} />}
-        </div>
-      </Modal>
-    </ThemeProvider>
+    <Modal open={open} onOpenChange={toggleModal} width="fit-content">
+      <div className={styles.container}>
+        {status.step === 'pairing' && <PairingStep theme={theme} size={size} payload={status.payload} />}
+        {status.step === 'pairingError' && <PairingErrorStep message={status.message} />}
+        {status.step === 'attestation' && <LoadingStep />}
+        {status.step === 'attestationError' && <PairingErrorStep message={status.message} />}
+      </div>
+    </Modal>
   );
 });
 
@@ -54,9 +52,7 @@ const PairingStep = ({ payload, size, theme }: { payload: string; size: number; 
     <div className={styles.pairingContainer}>
       <span className={styles.pairingHeader}>{translation.pairingHeader}</span>
       <span className={styles.scanCallToAction}>{translation.pairingScanCallToAction}</span>
-      <div className={styles.qrContainer}>
-        <QrCode value={payload} size={size} theme={theme} />
-      </div>
+      <QrCode value={payload} size={size} theme={theme} />
       <span className={styles.pairingDescription}>{translation.pairingDescription}</span>
     </div>
   );

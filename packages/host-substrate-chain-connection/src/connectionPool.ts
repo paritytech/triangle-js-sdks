@@ -1,6 +1,5 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import { getSyncProvider } from '@polkadot-api/json-rpc-provider-proxy';
-import type { PolkadotClient } from 'polkadot-api';
+import type { JsonRpcProvider, PolkadotClient } from 'polkadot-api';
 import { createClient } from 'polkadot-api';
 
 import { createBranchedProvider } from './branchedProvider.js';
@@ -138,9 +137,18 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     },
 
     getProvider(chain) {
-      return getSyncProvider(async () => {
-        const { pooled, unlock } = await rawAcquire(chain);
-        return pooled.provider.branch(unlock);
+      return getSyncProvider(onResult => {
+        rawAcquire(chain)
+          .then(({ pooled, unlock }) => {
+            onResult((onMessage, _onHalt) => pooled.provider.branch(unlock)(onMessage));
+          })
+          .catch(() => {
+            onResult(null);
+          });
+
+        return () => {
+          /* empty */
+        };
       });
     },
 

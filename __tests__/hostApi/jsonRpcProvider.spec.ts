@@ -5,11 +5,8 @@ import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
-
-function delay(ttl: number) {
-  return new Promise(resolve => setTimeout(resolve, ttl));
-}
 
 function setup(chainId: HexString) {
   const providers = createHostApiProviders();
@@ -25,7 +22,8 @@ describe('Host API: JSON RPC provider', () => {
   it('should send and receive messages through typed chain interaction', async () => {
     const { container, provider } = setup(WellKnownChain.polkadotRelay);
 
-    const receivedBySDK: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const receivedBySDK: any[] = [];
 
     container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
@@ -35,12 +33,15 @@ describe('Host API: JSON RPC provider', () => {
 
       return onMessage => {
         return {
-          send(message: string) {
-            const parsed = JSON.parse(message);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          send(message: any) {
+            const parsed = message;
             if (parsed.method === 'chainSpec_v1_chainName') {
-              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' }));
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' } as any);
             } else {
-              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
             }
           },
           disconnect() {
@@ -52,26 +53,21 @@ describe('Host API: JSON RPC provider', () => {
 
     const sdkConnection = provider(message => receivedBySDK.push(message));
 
-    sdkConnection.send(
-      JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'chainSpec_v1_chainName',
-        params: [],
-      }),
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_chainName', params: [] } as any);
 
     await delay(100);
 
-    const response = receivedBySDK.find(m => JSON.parse(m).id === 1);
+    const response = receivedBySDK.find(m => m.id === 1);
     expect(response).toBeDefined();
-    expect(JSON.parse(response!).result).toBe('Polkadot');
+    expect(response!.result).toBe('Polkadot');
   });
 
   it('should not send messages when feature is not supported', async () => {
     const { container, provider } = setup(WellKnownChain.polkadotRelay);
 
-    const receivedByProvider: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const receivedByProvider: any[] = [];
 
     // Feature returns false - chain not supported
     container.handleFeatureSupported((_, { ok }) => ok(false));
@@ -80,9 +76,11 @@ describe('Host API: JSON RPC provider', () => {
 
       return onMessage => {
         return {
-          send(message: string) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          send(message: any) {
             receivedByProvider.push(message);
-            onMessage(JSON.stringify({ jsonrpc: '2.0', id: JSON.parse(message).id, result: 'ok' }));
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            onMessage({ jsonrpc: '2.0', id: message.id, result: 'ok' } as any);
           },
           disconnect() {
             /* empty */
@@ -95,16 +93,10 @@ describe('Host API: JSON RPC provider', () => {
       /* ignore responses */
     });
 
-    sdkConnection.send(
-      JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'chainSpec_v1_chainName',
-        params: [],
-      }),
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_chainName', params: [] } as any);
 
-    await delay(50);
+    await delay(100);
 
     // Messages should not reach the provider when feature is not supported
     expect(receivedByProvider).toEqual([]);
@@ -122,12 +114,15 @@ describe('Host API: JSON RPC provider', () => {
 
       return onMessage => {
         return {
-          send(message: string) {
-            const parsed = JSON.parse(message);
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          send(message: any) {
+            const parsed = message;
             if (parsed.method === 'chainHead_v1_follow') {
-              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' }));
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
             } else {
-              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
             }
           },
           disconnect: disconnectFn,
@@ -140,9 +135,10 @@ describe('Host API: JSON RPC provider', () => {
     });
 
     // Establish a connection first via follow
-    sdkConnection.send(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] }));
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
 
-    await delay(50);
+    await delay(100);
 
     sdkConnection.disconnect();
 
@@ -154,7 +150,8 @@ describe('Host API: JSON RPC provider', () => {
   it('should route messages to correct chain provider', async () => {
     const { container, provider } = setup(WellKnownChain.polkadotRelay);
 
-    const receivedByPolkadot: string[] = [];
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const receivedByPolkadot: any[] = [];
 
     container.handleFeatureSupported((params, { ok }) =>
       ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
@@ -162,13 +159,16 @@ describe('Host API: JSON RPC provider', () => {
     container.handleChainConnection(chain => {
       if (chain === WellKnownChain.polkadotRelay) {
         return onMessage => ({
-          send(message: string) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          send(message: any) {
             receivedByPolkadot.push(message);
-            const parsed = JSON.parse(message);
+            const parsed = message;
             if (parsed.method === 'chainSpec_v1_chainName') {
-              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' }));
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' } as any);
             } else {
-              onMessage(JSON.stringify({ jsonrpc: '2.0', id: parsed.id, result: null }));
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
             }
           },
           disconnect() {
@@ -184,20 +184,14 @@ describe('Host API: JSON RPC provider', () => {
       /* ignore */
     });
 
-    sdkConnection.send(
-      JSON.stringify({
-        jsonrpc: '2.0',
-        id: 1,
-        method: 'chainSpec_v1_chainName',
-        params: [],
-      }),
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_chainName', params: [] } as any);
 
     await delay(100);
 
     // Only Polkadot provider should receive the request
     expect(receivedByPolkadot.length).toBeGreaterThan(0);
-    const receivedMethod = JSON.parse(receivedByPolkadot[0]!).method;
+    const receivedMethod = receivedByPolkadot[0]!.method;
     expect(receivedMethod).toBe('chainSpec_v1_chainName');
   });
 });

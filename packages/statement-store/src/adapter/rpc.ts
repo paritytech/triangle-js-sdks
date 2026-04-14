@@ -1,12 +1,12 @@
-import type { Statement, TopicFilter } from '@novasamatech/sdk-statement';
+import { toHex } from '@novasamatech/scale';
+import type { Statement, TopicFilter as SdkTopicFilter } from '@novasamatech/sdk-statement';
 import { createStatementSdk } from '@novasamatech/sdk-statement';
-import { toHex } from '@polkadot-api/utils';
 import { errAsync, fromPromise, okAsync } from 'neverthrow';
 
 import { toError } from '../helpers.js';
 
 import type { LazyClient } from './lazyClient.js';
-import type { StatementStoreAdapter } from './types.js';
+import type { StatementStoreAdapter, StatementsPage, TopicFilter } from './types.js';
 import {
   AccountFullError,
   AlreadyExpiredError,
@@ -21,17 +21,22 @@ import {
   StorageFullError,
 } from './types.js';
 
-function createKey(topics: Uint8Array[]): string {
-  return topics.map(toHex).sort().join('');
+function toSdkTopicFilter(filter: TopicFilter): SdkTopicFilter {
+  if ('matchAll' in filter) {
+    return { matchAll: filter.matchAll.map(toHex) };
+  }
+  return { matchAny: filter.matchAny.map(toHex) };
 }
 
-function toTopicFilter(topics: Uint8Array[]): TopicFilter {
-  if (topics.length === 0) return 'any';
-  return { matchAll: topics.map(t => toHex(t) as `0x${string}`) };
+function createKey(filter: TopicFilter): string {
+  if ('matchAll' in filter) {
+    return `matchAll:${filter.matchAll.map(toHex).sort().join(',')}`;
+  }
+  return `matchAny:${filter.matchAny.map(toHex).sort().join(',')}`;
 }
 
 export function createPapiStatementStoreAdapter(lazyClient: LazyClient): StatementStoreAdapter {
-  type StatementsCallback = (statements: Statement[]) => unknown;
+  type StatementsCallback = (page: StatementsPage) => unknown;
 
   const sdk = createStatementSdk(lazyClient.getRequestFn(), lazyClient.getSubscribeFn());
 
@@ -49,29 +54,24 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
   }
 
   function removeCallback(key: string, callback: StatementsCallback) {
-    let list = callbacks.get(key);
+    const list = callbacks.get(key);
     if (!list) return [];
-    list = list.filter(x => x !== callback);
-    if (list.length === 0) {
-      callbacks.delete(key);
-    } else {
-      callbacks.set(key, list);
-    }
+    const idx = list.indexOf(callback);
+    if (idx !== -1) list.splice(idx, 1);
+    if (list.length === 0) callbacks.delete(key);
     return list;
   }
 
   const adapter: StatementStoreAdapter = {
-    queryStatements(topics) {
-      const filter = toTopicFilter(topics);
-      return fromPromise(sdk.getStatements(filter), toError);
+    queryStatements(filter) {
+      return fromPromise(sdk.getStatements(toSdkTopicFilter(filter)), toError);
     },
 
-    subscribeStatements(topics, callback) {
-      const key = createKey(topics);
+    subscribeStatements(filter, callback) {
+      const key = createKey(filter);
       const list = addCallback(key, callback);
 
       if (list.length === 1) {
-        const filter = toTopicFilter(topics);
         let batch: Statement[] = [];
         let flushScheduled = false;
 
@@ -83,13 +83,13 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
           const currentCallbacks = callbacks.get(key);
           if (currentCallbacks) {
             for (const fn of currentCallbacks) {
-              fn(statements);
+              fn({ statements, isComplete: true });
             }
           }
         };
 
         const unsub = sdk.subscribeStatements(
-          filter,
+          toSdkTopicFilter(filter),
           statement => {
             batch.push(statement);
             if (!flushScheduled) {

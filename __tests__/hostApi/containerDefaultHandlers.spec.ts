@@ -78,8 +78,8 @@ describe('Container default handlers', () => {
     it('second handleAccountGet call replaces first without cleanup', async () => {
       const { container, accountsProvider } = setup();
 
-      const firstHandler = vi.fn((_, { ok }: any) => ok({ publicKey: new Uint8Array(32), name: 'First' }));
-      const secondHandler = vi.fn((_, { ok }: any) => ok({ publicKey: new Uint8Array(32), name: 'Second' }));
+      const firstHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32), name: 'First' }));
+      const secondHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32), name: 'Second' }));
 
       container.handleAccountGet(firstHandler);
       container.handleAccountGet(secondHandler); // replaces first
@@ -94,7 +94,7 @@ describe('Container default handlers', () => {
   it('should dispose correctly', async () => {
     const { container } = setup();
 
-    const unsub = container.handleGetNonProductAccounts((_, { ok }) => {
+    const unsub = container.handleGetLegacyAccounts((_, { ok }) => {
       return ok([]);
     });
 

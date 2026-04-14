@@ -1,4 +1,7 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
+import type { JsonRpcProvider } from 'polkadot-api';
+
+type JsonRpcMessage = Parameters<Parameters<JsonRpcProvider>[0]>[0];
+type JsonRpcRequest = Extract<JsonRpcMessage, { method: string }>;
 
 const isSubscribeMethod = (method: string): boolean =>
   method === 'chainHead_v1_follow' ||
@@ -10,19 +13,25 @@ const isUnsubscribeMethod = (method: string): boolean =>
 export const withSubscriptionReplay =
   (provider: JsonRpcProvider, onReconnect: (callback: VoidFunction) => VoidFunction): JsonRpcProvider =>
   onMessage => {
-    // request id → raw JSON message (sent, awaiting server subscription ID)
-    const pendingSubscriptions = new Map<number | string, string>();
-    // server subscription ID → raw JSON message (confirmed by server)
-    const activeSubscriptions = new Map<string, { id: number | string; payload: string }>();
+    // request id → request object (sent, awaiting server subscription ID)
+    const pendingSubscriptions = new Map<number | string, JsonRpcRequest>();
+    // server subscription ID → request object (confirmed by server)
+    const activeSubscriptions = new Map<string, { id: number | string; payload: JsonRpcRequest }>();
 
     const conn = provider(message => {
-      const parsed = JSON.parse(message) as { id?: number | string; result?: unknown };
-
-      if (parsed.id !== undefined && typeof parsed.result === 'string') {
-        const pending = pendingSubscriptions.get(parsed.id);
+      // Response with a string result means it's a subscription confirmation
+      if (
+        'id' in message &&
+        message.id &&
+        !('method' in message) &&
+        'result' in message &&
+        typeof (message as { result?: unknown }).result === 'string'
+      ) {
+        const id = message.id as number | string;
+        const pending = pendingSubscriptions.get(id);
         if (pending !== undefined) {
-          pendingSubscriptions.delete(parsed.id);
-          activeSubscriptions.set(parsed.result, { id: parsed.id, payload: pending });
+          pendingSubscriptions.delete(id);
+          activeSubscriptions.set((message as { result: string }).result, { id, payload: pending });
         }
       }
       onMessage(message);
@@ -40,15 +49,11 @@ export const withSubscriptionReplay =
 
     return {
       send(message) {
-        const { method, id, params } = JSON.parse(message) as {
-          method?: string;
-          id?: number | string;
-          params?: unknown[];
-        };
+        const { method, id, params } = message as { method?: string; id?: number | string; params?: unknown[] };
 
         if (method) {
           if (isSubscribeMethod(method)) {
-            if (id !== undefined) pendingSubscriptions.set(id, message);
+            if (id !== undefined) pendingSubscriptions.set(id, message as JsonRpcRequest);
           } else if (isUnsubscribeMethod(method)) {
             const subId = (params as [string] | undefined)?.[0];
             // Note: callers must use the most recently received server-assigned subscription
@@ -60,7 +65,7 @@ export const withSubscriptionReplay =
           }
         }
 
-        conn.send(message);
+        conn.send(message as JsonRpcRequest);
       },
 
       disconnect() {
