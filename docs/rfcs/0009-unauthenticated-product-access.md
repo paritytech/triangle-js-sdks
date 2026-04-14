@@ -86,7 +86,10 @@ Products can explicitly ask the host to present the login UI to the user:
 ///
 /// Products should call this in response to a user action (e.g. tapping a
 /// "Sign in" button rendered by the product), not automatically on load.
-fn host_request_login() -> Result<LoginResult, LoginErr>;
+/// An optional human-readable reason displayed by the host in the login UI
+/// (e.g. "Sign in to vote on Referendum #42"). The host may truncate or
+/// ignore this string.
+fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
 
 enum LoginResult {
     /// User successfully authenticated. The product will receive a
@@ -129,7 +132,7 @@ if (status === 'Disconnected') {
   // Render read-only UI with a login button
   renderReadOnlyView({
     onLoginClick: async () => {
-      const result = await hostApi.requestLogin();
+      const result = await hostApi.requestLogin('Sign in to access your account');
       if (result === 'Rejected') {
         // User cancelled — stay in read-only mode
       }
@@ -173,6 +176,4 @@ The host presents login when the product first requests a permission or signatur
 
 ## Unresolved Questions
 
-1. **Should `host_request_login` accept hints?** For example, a `reason: str` parameter that the host can display in the login UI ("Sign in to vote on Referendum #42"). This would improve UX but adds API surface.
-
-2. **Product manifest declaration.** Should products declare in their manifest whether they support anonymous access? This could let the host skip loading products that require authentication, improving UX.
+1. **Product manifest declaration.** Should products declare in their manifest whether they support anonymous access? This could let the host skip loading products that require authentication, improving UX.
