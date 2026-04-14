@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/product-sdk",
   "type": "module",
-  "version": "0.6.15",
+  "version": "0.6.17",
   "description": "Polkadot product SDK: integrate and run your product inside Polkadot browser.",
   "license": "Apache-2.0",
   "repository": {
@@ -29,7 +29,7 @@
     "@polkadot-api/substrate-bindings": "^0.17.0",
     "@polkadot-api/json-rpc-provider": "^0.0.4",
     "@polkadot-api/json-rpc-provider-proxy": "^0.2.7",
-    "@novasamatech/host-api": "0.6.15"
+    "@novasamatech/host-api": "0.6.17"
   },
   "publishConfig": {
     "access": "public"

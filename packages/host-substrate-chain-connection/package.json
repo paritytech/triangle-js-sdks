@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-substrate-chain-connection",
   "type": "module",
-  "version": "0.6.15",
+  "version": "0.6.17",
   "description": "Chain connection pool with ref counting and provider branching for Polkadot API",
   "license": "Apache-2.0",
   "repository": {
@@ -25,7 +25,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/storage-adapter": "0.6.15",
+    "@novasamatech/storage-adapter": "0.6.17",
     "@polkadot-api/json-rpc-provider": "^0.0.4",
     "@polkadot-api/json-rpc-provider-proxy": "^0.2.8",
     "@polkadot-api/ws-provider": "^0.7.5",

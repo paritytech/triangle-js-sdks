@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-container",
   "type": "module",
-  "version": "0.6.15",
+  "version": "0.6.17",
   "description": "Host container for hosting and managing products within the Polkadot ecosystem.",
   "license": "Apache-2.0",
   "repository": {
@@ -27,11 +27,11 @@
   "dependencies": {
     "@polkadot-api/utils": "^0.2.0",
     "@polkadot-api/json-rpc-provider": "^0.0.4",
-    "@novasamatech/host-api": "0.6.15",
+    "@novasamatech/host-api": "0.6.17",
     "nanoid": "5.1.7"
   },
   "devDependencies": {
-    "electron": "^41.0.3"
+    "electron": "^41.1.0"
   },
   "publishConfig": {
     "access": "public"

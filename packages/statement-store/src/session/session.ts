@@ -121,12 +121,15 @@ export function createSession({
   }
 
   function deliverStatementData(statementData: CodecType<typeof StatementData>): void {
-    if (subscribers.length === 0) {
-      if (state.phase === 'initialization') {
-        bufferedMessages.push(statementData);
-      }
-      return;
+    // Buffer 'request' statements unconditionally so that waitForRequestMessage
+    // registered after delivery (race condition) still receives them via subscribe() replay.
+    // Buffer everything else during initialization when there are no subscribers yet.
+    if (statementData.tag === 'request' || (subscribers.length === 0 && state.phase === 'initialization')) {
+      bufferedMessages.push(statementData);
     }
+
+    if (subscribers.length === 0) return;
+
     for (const sub of subscribers) {
       const messages = toMessage(statementData, sub.codec);
       if (messages.length > 0) sub.callback(messages);
@@ -394,8 +397,6 @@ export function createSession({
 
   return session;
 }
-
-// ── module-level helpers ──────────────────────────────────────────────────────
 
 function mapResponseCode(responseCode: ResponseStatus) {
   switch (responseCode) {

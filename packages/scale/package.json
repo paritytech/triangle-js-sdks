@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/scale",
   "type": "module",
-  "version": "0.6.15",
+  "version": "0.6.17",
   "description": "additional scale-ts bindings",
   "license": "Apache-2.0",
   "repository": {
