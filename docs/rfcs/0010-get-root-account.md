@@ -3,7 +3,7 @@ title: "Host API root account access"
 owner: "@johnthecat"
 ---
 
-# RFC 0009 — Host API root account access
+# RFC 0010 — Host API root account access
 
 ## Summary
 
