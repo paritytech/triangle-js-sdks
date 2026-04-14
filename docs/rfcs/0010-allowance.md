@@ -1,15 +1,15 @@
-# RFC-0010: W3S Allowance Management in TrueApi
+# RFC-0010: W3S Allowance Management in TrUAPI
 
 |                 |                                                                                           |
 | --------------- | ----------------------------------------------------------------------------------------- |
 | **RFC Number**  | 10                                                                                        |
 | **Start Date**  | 2026-04-14                                                                                |
-| **Description** | TrueApi calls and Accounts Protocol companion for granting products access to Bulletin, Statement Store, and Smart Contract allowances |
+| **Description** | TrUAPI calls and Accounts Protocol companion for granting products access to Bulletin, Statement Store, and Smart Contract allowances |
 | **Authors**     | Valentin Sergeev                                                                          |
 
 ## Summary
 
-Products running on a Polkadot Host need to submit data to three allowance-gated systems — the Bulletin chain, the Statement Store, and Asset Hub smart contracts — each of which grants free-to-use resources to users but requires the signing origin to hold the appropriate allowance. This RFC defines how products obtain and use those allowances via TrueApi without managing the underlying slot-table state themselves, by introducing a single pre-allocation call (`host_request_resource_allocation`) and a companion Accounts Protocol request used by the Host to negotiate private-key material with the Account Holder.
+Products running on a Polkadot Host need to submit data to three allowance-gated systems — the Bulletin chain, the Statement Store, and Asset Hub smart contracts — each of which grants free-to-use resources to users but requires the signing origin to hold the appropriate allowance. This RFC defines how products obtain and use those allowances via TrUAPI without managing the underlying slot-table state themselves, by introducing a single pre-allocation call (`host_request_resource_allocation`) and a companion Accounts Protocol request used by the Host to negotiate private-key material with the Account Holder.
 
 ## Motivation
 
@@ -29,7 +29,7 @@ The common thread: users hold the entitlement, but the signing origin on the wir
 
 Requirements for a solution:
 
-1. **Products never receive private-key material.** The user's root private key never leaves the Account Holder; product and allowance private keys, when materialized at all, are cached on the Host under explicit user authorization and never exposed across the TrueApi boundary.
+1. **Products never receive private-key material.** The user's root private key never leaves the Account Holder; product and allowance private keys, when materialized at all, are cached on the Host under explicit user authorization and never exposed across the TrUAPI boundary.
 2. **Grants are independent.** Granting Bulletin allowance must not leak SS allowance or product signing keys, and vice versa.
 3. **Cross-product unlinkability.** An observer who obtains a single product's account and inspects its on-chain / off-chain traffic must not be able to link that activity to any other product the same user runs. Allowance-bearing origins must be partitioned per product.
 4. **One round-trip to the Account Holder per user authorization.** Products need a way to pre-allocate the resources they will use, eliminating repeated authorization UI during a session.
@@ -48,35 +48,35 @@ This RFC is based on the direction and decisions reached by the Host ↔ Product
 
 ### Terminology
 
-- **ProductId** — opaque identifier for a product (e.g. its dotNS identifier). The Host attests the calling product's id on every TrueApi call; products cannot forge a different id because the Host is trusted (see Threat model).
+- **ProductId** — opaque identifier for a product (e.g. its dotNS identifier). The Host attests the calling product's id on every TrUAPI call; products cannot forge a different id because the Host is trusted (see Threat model).
 - **Product account** — account derived under a product's hierarchy `/{productId ++ perProductDerivationSecret}/{index ++ indexDerivationSecret}`. Uses soft derivation with secret components per layer, rooted at the user's root key.
 - **Allowance account** — dedicated hard-derived account `//allowance//{system}//{productId}` used solely to hold slot-table allowance for a given product and system. Hard-derived from the **user's root key**, not from the product subtree; AutoSigning therefore does not convey allowance keys, preserving grant independence.
 - **Account Holder** — component that exclusively holds the user's root private key and authorizes resource grants. Typically the Mobile App. The root private key never leaves the Account Holder; any other private material (allowance account keys, product subtree keys for AutoSigning) is derived from it and shared with the Host only under explicit user authorization.
-- **Host** — component running products and exposing TrueApi. Communicates with the Account Holder via the Accounts Protocol.
+- **Host** — component running products and exposing TrUAPI. Communicates with the Account Holder via the Accounts Protocol.
 - **Accounts Protocol** — Host ↔ Account Holder channel used to request user-authorized operations (including private-key sharing for allowance accounts). Relevant message shapes are defined inline below.
 
 ### Bulletin allowance
 
-- The TrueApi call `preimage_submit` is retained with its existing signature; the product is not concerned with how allowance is provisioned.
+- The TrUAPI call `preimage_submit` is retained with its existing signature; the product is not concerned with how allowance is provisioned.
 - Each product receives a dedicated allowance account derived as `//allowance//bulletin//{productId}`.
 - The Account Holder shares the private key of that account with the Host via the Accounts Protocol once the user approves.
 - On the first `preimage_submit` call — or when existing allowance is exhausted — the Host opportunistically requests allocation from the Account Holder (see "Implicit allocation" below).
 
 ### Statement Store allowance
 
-- New TrueApi call `statement_create_proof_authorized(Statement)` is added with the signature originally proposed in the design doc.
+- New TrUAPI call `statement_create_proof_authorized(Statement)` is added with the signature originally proposed in the design doc.
 - Each product receives a dedicated allowance account derived as `//allowance//statement-store//{productId}`.
 - The Account Holder shares the private key with the Host via the Accounts Protocol.
 - On first use or allowance exhaustion, the Host requests allocation implicitly.
 
 ### Smart contract allowance
 
-- New TrueApi call `account_get_sponsorship_member_key(collectionId) -> RingVrfMemberKey` is added. It is a **getter**: the Host derives a member key bound to `(calling_product, collectionId)`, records the binding internally (so later SC membership checks can be scoped to the collection), and returns the public key to the product. The product is then responsible for handing that key to its operator (e.g. encoded in a QR code), who submits `add_member(collection, key)` on-chain. The narrower, collection-keyed form is preferred over a general-purpose `account_get_member_key(ProductAccountId)` to avoid conflict with the existing `get_alias` (which returns an alias of the PoP member key) and to allow the Host to scope membership checks to a specific collection rather than checking every account against every open sponsorship ring.
-- SC allowance does not require an explicit TrueApi call to function. During `host_sign_payload` / `host_create_transaction`, the Account Holder implicitly claims anonymous DOT into the specified product account when that account is about to pay fees on Asset Hub. Products that want to eliminate this implicit-claim latency from the signing hot path can **optionally** pre-warm the account by requesting `SmartContractAllowance { dest }` via `host_request_resource_allocation` — this triggers the claim up-front so later signing requires no top-up round-trip. Pre-warming is the only reason SC appears in `AllocatableResource`; the steady-state signing flow works without it.
+- New TrUAPI call `account_get_sponsorship_member_key(collectionId) -> RingVrfMemberKey` is added. It is a **getter**: the Host derives a member key bound to `(calling_product, collectionId)`, records the binding internally (so later SC membership checks can be scoped to the collection), and returns the public key to the product. The product is then responsible for handing that key to its operator (e.g. encoded in a QR code), who submits `add_member(collection, key)` on-chain. The narrower, collection-keyed form is preferred over a general-purpose `account_get_member_key(ProductAccountId)` to avoid conflict with the existing `get_alias` (which returns an alias of the PoP member key) and to allow the Host to scope membership checks to a specific collection rather than checking every account against every open sponsorship ring.
+- SC allowance does not require an explicit TrUAPI call to function. During `host_sign_payload` / `host_create_transaction`, the Account Holder implicitly claims anonymous DOT into the specified product account when that account is about to pay fees on Asset Hub. Products that want to eliminate this implicit-claim latency from the signing hot path can **optionally** pre-warm the account by requesting `SmartContractAllowance { dest }` via `host_request_resource_allocation` — this triggers the claim up-front so later signing requires no top-up round-trip. Pre-warming is the only reason SC appears in `AllocatableResource`; the steady-state signing flow works without it.
 
 ### Pre-allocation: `host_request_resource_allocation`
 
-Products can pre-allocate resources to eliminate round-trips on later submission calls. A single TrueApi call covers all resource kinds:
+Products can pre-allocate resources to eliminate round-trips on later submission calls. A single TrUAPI call covers all resource kinds:
 
 ```rust
 enum AllocatableResource {
@@ -110,7 +110,7 @@ fn host_request_resource_allocation(
 
 **Renewal is not a product concern.** Bulletin slots expire after 2 weeks (+ 2-week grace). Keeping an existing allowance alive across expiry is handled automatically by the Account Holder — it reassigns the same allowance account to a fresh slot before the old one expires, without product or Host involvement. Products do not need to call `host_request_resource_allocation` periodically to stay funded.
 
-**Slot-table saturation.** Each user has a fixed number of Bulletin and SSS slots. When a new allocation is requested but all of the user's slots are already occupied, the Account Holder's authorization UI surfaces the conflict and asks the user to select which existing slot(s) to evict in favor of the new one. The user-facing resolution — including which products and which systems have existing claims — is part of the Account Holder's resource-allocation confirmation UX and not a TrueApi concern. `NotAvailable` is therefore reserved for cases where the resource simply cannot be granted (e.g. the user declined to evict anything), not for a raw "table full" signal to the product.
+**Slot-table saturation.** Each user has a fixed number of Bulletin and SSS slots. When a new allocation is requested but all of the user's slots are already occupied, the Account Holder's authorization UI surfaces the conflict and asks the user to select which existing slot(s) to evict in favor of the new one. The user-facing resolution — including which products and which systems have existing claims — is part of the Account Holder's resource-allocation confirmation UX and not a TrUAPI concern. `NotAvailable` is therefore reserved for cases where the resource simply cannot be granted (e.g. the user declined to evict anything), not for a raw "table full" signal to the product.
 
 ### Accounts Protocol companion
 
@@ -172,9 +172,9 @@ fn request_resource_allocation(
 ) -> Vec<SsoAllocationOutcome>;
 ```
 
-`AllocatableResource` and `SsoAllocatableResource` are **distinct types** — one crosses the TrueApi boundary (Product ↔ Host), the other crosses the Accounts Protocol boundary (Host ↔ Account Holder). Their shapes happen to align today, but each evolves on its own schedule.
+`AllocatableResource` and `SsoAllocatableResource` are **distinct types** — one crosses the TrUAPI boundary (Product ↔ Host), the other crosses the Accounts Protocol boundary (Host ↔ Account Holder). Their shapes happen to align today, but each evolves on its own schedule.
 
-**How the Host picks `OnExistingAllowancePolicy`.** The policy is a Host-internal decision, not a product concern; TrueApi itself exposes no equivalent knob:
+**How the Host picks `OnExistingAllowancePolicy`.** The policy is a Host-internal decision, not a product concern; TrUAPI itself exposes no equivalent knob:
 
 - If the Host holds no cached keys for `(product, resource)`, it sends `Ignore`. This covers both the genuine first-time case and the case where a second Host joins a user's session — the Host does not need to distinguish them, because `Ignore` collapses both paths on the Account Holder side (allocate-if-missing, return-existing-otherwise).
 - If the Host already holds cached keys and the product calls `host_request_resource_allocation` again for the same resource, the Host sends `Increase`. This is the additive scaling path: the same allowance account is assigned to an additional slot.
@@ -187,7 +187,7 @@ This keeps the product-facing contract simple ("call again to get more allowance
 
 If a product calls `preimage_submit` or `statement_create_proof_authorized` without having pre-allocated — or if previously allocated allowance is exhausted — the Host issues an Accounts Protocol `request_resource_allocation` for the single required resource. Policy choice follows the same rule as for explicit pre-allocation: `Ignore` if no cached keys exist (first-time or fresh-Host case), `Increase` if cached keys exist but allowance has been depleted.
 
-- **Blocking.** The TrueApi call blocks until the Account Holder responds. The Host cannot submit to Bulletin / SSS without the slot account key.
+- **Blocking.** The TrUAPI call blocks until the Account Holder responds. The Host cannot submit to Bulletin / SSS without the slot account key.
 - **UI.** The Account Holder presents the same authorization surface as for pre-allocation, but listing a single resource. Repeated prompts on active products are the motivation for offering pre-allocation.
 
 ### Flows
@@ -196,109 +196,109 @@ If a product calls `preimage_submit` or `statement_create_proof_authorized` with
 
 ```mermaid
 sequenceDiagram
-    participant P as Product
-    participant H as Host
-    participant A as Account Holder
-    participant U as User
-    participant B as Bulletin
-    participant S as Statement Store
-    participant AH as Asset Hub
+  participant P as Product
+  participant H as Host
+  participant A as Account Holder
+  participant U as User
+  participant B as Bulletin
+  participant S as Statement Store
+  participant AH as Asset Hub
 
-    P->>H: host_request_resource_allocation([SS, BullIn, SC{dest:5}, AutoSigning])
-    H->>A: request_resource_allocation(ProductId, [SS, BullIn, SC{5}, AutoSigning])
-    A->>U: show authorization UI (all 4 resources)
-    U-->>A: approve
-    A->>A: derive allowance accounts + product subtree keys
-    A->>S: ring-VRF proof — assign SS allowance account to slot
-    A->>B: ring-VRF proof — assign Bulletin allowance account to slot
-    A->>AH: claim anonymous DOT into productAccount/5
-    A-->>H: [Allocated(slotKey_ss), Allocated(slotKey_bi), Allocated, Allocated{secret, subtreeKey}]
-    H->>H: cache all received private keys
-    H-->>P: [Allocated, Allocated, Allocated, Allocated]
+  P->>H: host_request_resource_allocation([SS, BullIn, SC{dest:5}, AutoSigning])
+  H->>A: request_resource_allocation(ProductId, [SS, BullIn, SC{5}, AutoSigning])
+  A->>U: show authorization UI (all 4 resources)
+  U-->>A: approve
+  A->>A: derive allowance accounts + product subtree keys
+  A->>S: ring-VRF proof — assign SS allowance account to slot
+  A->>B: ring-VRF proof — assign Bulletin allowance account to slot
+  A->>AH: claim anonymous DOT into productAccount/5
+  A-->>H: [Allocated(slotKey_ss), Allocated(slotKey_bi), Allocated, Allocated{secret, subtreeKey}]
+  H->>H: cache all received private keys
+  H-->>P: [Allocated, Allocated, Allocated, Allocated]
 ```
 
 #### Bulletin submission — pre-allocated
 
 ```mermaid
 sequenceDiagram
-    participant P as Product
-    participant H as Host
-    participant B as Bulletin Chain
+  participant P as Product
+  participant H as Host
+  participant B as Bulletin Chain
 
-    P->>H: preimage_submit(chunk)
-    H->>H: sign tx with cached //allowance//bulletin//{productId}
-    H->>B: submit signed tx
-    B-->>H: ack
-    H-->>P: Ok
+  P->>H: preimage_submit(chunk)
+  H->>H: sign tx with cached //allowance//bulletin//{productId}
+  H->>B: submit signed tx
+  B-->>H: ack
+  H-->>P: Ok
 ```
 
 #### Bulletin submission — implicit allocation
 
 ```mermaid
 sequenceDiagram
-    participant P as Product
-    participant H as Host
-    participant A as Account Holder
-    participant U as User
-    participant B as Bulletin Chain
+  participant P as Product
+  participant H as Host
+  participant A as Account Holder
+  participant U as User
+  participant B as Bulletin Chain
 
-    P->>H: preimage_submit(chunk)
-    H->>A: request_resource_allocation(ProductId, [BulletInAllowance])
-    A->>U: show authorization UI (single resource)
-    U-->>A: approve
-    A->>A: derive //allowance//bulletin//{productId}
-    A->>B: ring-VRF proof — assign allowance account to slot
-    A-->>H: [Allocated{slot_account_key}]
-    H->>H: cache key
-    H->>B: submit signed tx with slot key
-    B-->>H: ack
-    H-->>P: Ok
+  P->>H: preimage_submit(chunk)
+  H->>A: request_resource_allocation(ProductId, [BulletInAllowance])
+  A->>U: show authorization UI (single resource)
+  U-->>A: approve
+  A->>A: derive //allowance//bulletin//{productId}
+  A->>B: ring-VRF proof — assign allowance account to slot
+  A-->>H: [Allocated{slot_account_key}]
+  H->>H: cache key
+  H->>B: submit signed tx with slot key
+  B-->>H: ack
+  H-->>P: Ok
 ```
 
 #### Statement Store submission
 
 ```mermaid
 sequenceDiagram
-    participant P as Product
-    participant H as Host
-    participant A as Account Holder
-    participant U as User
-    participant S as Statement Store
+  participant P as Product
+  participant H as Host
+  participant A as Account Holder
+  participant U as User
+  participant S as Statement Store
 
-    P->>H: statement_create_proof_authorized(statement)
-    alt no cached allowance
-        H->>A: request_resource_allocation(ProductId, [StatementStoreAllowance])
-        A->>U: authorize
-        U-->>A: approve
-        A->>A: derive //allowance//statement-store//{productId}
-        A->>S: ring-VRF proof — assign allowance account to slot
-        A-->>H: [Allocated{slot_account_key}]
-        H->>H: cache key
-    end
-    H->>H: sign statement with //allowance//statement-store//{productId}
-    H->>S: submit
-    S-->>H: ack
-    H-->>P: proof
+  P->>H: statement_create_proof_authorized(statement)
+  alt no cached allowance
+    H->>A: request_resource_allocation(ProductId, [StatementStoreAllowance])
+    A->>U: authorize
+    U-->>A: approve
+    A->>A: derive //allowance//statement-store//{productId}
+    A->>S: ring-VRF proof — assign allowance account to slot
+    A-->>H: [Allocated{slot_account_key}]
+    H->>H: cache key
+  end
+  H->>H: sign statement with //allowance//statement-store//{productId}
+  H->>S: submit
+  S-->>H: ack
+  H-->>P: proof
 ```
 
 #### Smart contract fee payment (implicit top-up)
 
 ```mermaid
 sequenceDiagram
-    participant P as Product
-    participant H as Host
-    participant A as Account Holder
-    participant U as User
-    participant AH as Asset Hub
+  participant P as Product
+  participant H as Host
+  participant A as Account Holder
+  participant U as User
+  participant AH as Asset Hub
 
-    P->>H: host_sign_payload(productAccount/5, payload)
-    H->>A: signPayload(productAccount/5, payload)
-    A->>A: detect fee account lacks DOT
-    A->>U: authorize signing + implicit DOT top-up
-    U-->>A: approve
-    A->>AH: claim anonymous DOT into productAccount/5
-    A-->>H: signature
-    H-->>P: signature
+  P->>H: host_sign_payload(productAccount/5, payload)
+  H->>A: signPayload(productAccount/5, payload)
+  A->>A: detect fee account lacks DOT
+  A->>U: authorize signing + implicit DOT top-up
+  U-->>A: approve
+  A->>AH: claim anonymous DOT into productAccount/5
+  A-->>H: signature
+  H-->>P: signature
 ```
 
 Pre-allocating `SmartContractAllowance { dest: 5 }` eliminates the claim step on the signing path — the DOT is already in place.
@@ -307,24 +307,24 @@ Pre-allocating `SmartContractAllowance { dest: 5 }` eliminates the claim step on
 
 ```mermaid
 sequenceDiagram
-    participant P as Product
-    participant H as Host
-    participant A as Account Holder
-    participant U as User
+  participant P as Product
+  participant H as Host
+  participant A as Account Holder
+  participant U as User
 
-    P->>H: host_request_resource_allocation([AutoSigning])
-    H->>A: request_resource_allocation(ProductId, [AutoSigning])
-    A->>U: authorize auto-signing
-    U-->>A: approve
-    A-->>H: [Allocated{product_derivation_secret, product_root_private_key}]
-    H->>H: cache keys
+  P->>H: host_request_resource_allocation([AutoSigning])
+  H->>A: request_resource_allocation(ProductId, [AutoSigning])
+  A->>U: authorize auto-signing
+  U-->>A: approve
+  A-->>H: [Allocated{product_derivation_secret, product_root_private_key}]
+  H->>H: cache keys
 
-    Note over P,H: Later — signing without round-trip
+  Note over P,H: Later — signing without round-trip
 
-    P->>H: host_sign_payload(productAccount/N, payload)
-    H->>H: derive productAccount/N from cached product subtree key + secret
-    H->>H: sign locally
-    H-->>P: signature
+  P->>H: host_sign_payload(productAccount/N, payload)
+  H->>H: derive productAccount/N from cached product subtree key + secret
+  H->>H: sign locally
+  H-->>P: signature
 ```
 
 ### Design decisions
@@ -346,7 +346,7 @@ sequenceDiagram
 
 **Security.**
 
-- Products never receive any private-key material. The user's root private key stays on the Account Holder. Allowance and product subtree keys, when cached on the Host, are used on the product's behalf but never crossed back over the TrueApi boundary.
+- Products never receive any private-key material. The user's root private key stays on the Account Holder. Allowance and product subtree keys, when cached on the Host, are used on the product's behalf but never crossed back over the TrUAPI boundary.
 - Allowance keys are scoped: the `//allowance//bulletin//{productId}` path ensures a compromised product cannot impersonate another product's allowance even if the Host mishandles storage.
 - AutoSigning is the one grant that widens the Host's trust surface. The Account Holder must surface this distinctly in the authorization UI so users can differentiate "let this product submit statements" from "let this product sign arbitrary transactions as me."
 
