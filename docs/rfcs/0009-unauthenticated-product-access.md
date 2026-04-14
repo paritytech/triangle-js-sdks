@@ -1,4 +1,4 @@
-# RFC-0008: Unauthenticated Product Access
+# RFC-0009: Unauthenticated Product Access
 
 |                 |                                                                                          |
 | --------------- | ---------------------------------------------------------------------------------------- |
