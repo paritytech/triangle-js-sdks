@@ -146,6 +146,13 @@ export function createHostApi(transport: Transport): HostApi {
       return transport.subscribe('host_account_connection_status_subscribe', args, callback);
     },
 
+    accountGetRoot(payload) {
+      return makeRequest(transport.request('host_account_get_root', payload), reason => ({
+        tag: payload.tag,
+        value: new RequestCredentialsErr.Unknown({ reason }),
+      }));
+    },
+
     accountGet(payload) {
       return makeRequest(transport.request('host_account_get', payload), reason => ({
         tag: payload.tag,

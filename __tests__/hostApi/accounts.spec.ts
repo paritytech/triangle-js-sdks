@@ -40,6 +40,67 @@ const mockRingLocation: CodecType<typeof RingLocation> = {
 };
 
 describe('Host API: Accounts', () => {
+  describe('getRootAccount', () => {
+    it('should return root account on success', async () => {
+      const { container, accountsProvider } = setup();
+      const expected = { publicKey: mockPublicKey, name: 'alice.dot' };
+
+      container.handleAccountGetRoot((_, { ok }) => ok(expected));
+
+      const result = await accountsProvider.getRootAccount();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual(expected);
+    });
+
+    it('should return root account with no name', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleAccountGetRoot((_, { ok }) => ok({ publicKey: mockPublicKey, name: undefined }));
+
+      const result = await accountsProvider.getRootAccount();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap().name).toBeUndefined();
+    });
+
+    it('should return Rejected error when user denies permission', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new RequestCredentialsErr.Rejected();
+
+      container.handleAccountGetRoot((_, { err }) => err(error));
+
+      const result = await accountsProvider.getRootAccount();
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+
+    it('should return NotConnected error when user has no root account', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new RequestCredentialsErr.NotConnected();
+
+      container.handleAccountGetRoot((_, { err }) => err(error));
+
+      const result = await accountsProvider.getRootAccount();
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+
+    it('should return Unknown error on unexpected failure', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new RequestCredentialsErr.Unknown({ reason: 'unexpected' });
+
+      container.handleAccountGetRoot((_, { err }) => err(error));
+
+      const result = await accountsProvider.getRootAccount();
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+  });
+
   describe('getProductAccount', () => {
     it('should return account on success', async () => {
       const { container, accountsProvider } = setup();

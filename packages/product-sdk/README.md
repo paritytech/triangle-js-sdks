@@ -217,6 +217,22 @@ import type { ProductAccount } from '@novasamatech/product-sdk';
 // Create accounts provider instance
 const accountsProvider = createAccountsProvider();
 
+// Get the root (primary) account — prompts for permission on first call
+const rootResult = await accountsProvider.getRootAccount();
+
+if (rootResult.isOk()) {
+  const root = rootResult.value;
+  console.log('Root account public key:', root.publicKey);
+  console.log('Root DotNS name:', root.name);
+} else {
+  const rootErr = rootResult.error;
+  if (rootErr.tag === 'Rejected') {
+    console.log('User denied access to root account');
+  } else if (rootErr.tag === 'NotFound') {
+    console.log('User has no DotNS account yet');
+  }
+}
+
 // Get a product account by DotNS identifier and derivation index
 const accountResult = await accountsProvider.getProductAccount('product.dot', 0);
 
