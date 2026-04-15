@@ -355,11 +355,10 @@ describe('session', () => {
       const requestId = 'no-auto-resp';
       const peerRequest = makeStatement({ tag: 'request', value: { requestId, data: [new Uint8Array([1])] } });
 
-      const subscribeCallbacks: Array<(statements: Statement[]) => void> = [];
       const adapter = makeAdapter();
-      let subscribeCallback!: (page: StatementsPage) => void;
+      const subscribeCallbacks: Array<(page: StatementsPage) => void> = [];
       adapter.subscribeStatements.mockImplementation((_filter: unknown, cb: (page: StatementsPage) => void) => {
-        subscribeCallback = cb;
+        subscribeCallbacks.push(cb);
         return vi.fn();
       });
       adapter.queryStatements.mockReturnValue(okAsync([]));
@@ -460,13 +459,11 @@ describe('session', () => {
     });
 
     it('delivers peer response from outgoing topic subscription to subscribers', async () => {
-      const subscribeCallbacks: Array<(statements: Statement[]) => void> = [];
-      const subscribeStatements = vi
-        .fn()
-        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-          subscribeCallbacks.push(cb);
-          return vi.fn();
-        });
+      const subscribeCallbacks: Array<(page: StatementsPage) => void> = [];
+      const subscribeStatements = vi.fn().mockImplementation((_topics: unknown, cb: (page: StatementsPage) => void) => {
+        subscribeCallbacks.push(cb);
+        return vi.fn();
+      });
 
       const { session, adapter } = makeSession({ subscribeStatements });
       await delay();
@@ -489,7 +486,7 @@ describe('session', () => {
         tag: 'response',
         value: { requestId, responseCode: 'success' },
       });
-      subscribeCallbacks[1]!([responseStatement]);
+      subscribeCallbacks[1]!({ statements: [responseStatement], isComplete: true });
       await delay();
 
       // Subscriber should receive the response
@@ -499,13 +496,11 @@ describe('session', () => {
     });
 
     it('ignores request-type statements from outgoing topic subscription', async () => {
-      const subscribeCallbacks: Array<(statements: Statement[]) => void> = [];
-      const subscribeStatements = vi
-        .fn()
-        .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-          subscribeCallbacks.push(cb);
-          return vi.fn();
-        });
+      const subscribeCallbacks: Array<(page: StatementsPage) => void> = [];
+      const subscribeStatements = vi.fn().mockImplementation((_topics: unknown, cb: (page: StatementsPage) => void) => {
+        subscribeCallbacks.push(cb);
+        return vi.fn();
+      });
 
       const { session } = makeSession({ subscribeStatements });
       await delay();
@@ -519,7 +514,7 @@ describe('session', () => {
         tag: 'request',
         value: { requestId: 'own-req', data: [new Uint8Array([1])] },
       });
-      subscribeCallbacks[1]!([ownRequest]);
+      subscribeCallbacks[1]!({ statements: [ownRequest], isComplete: true });
       await delay();
 
       // Should NOT be delivered to subscriber (filtered by responsesOnly flag)

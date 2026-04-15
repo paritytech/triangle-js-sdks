@@ -224,7 +224,7 @@ export function createSession({
     // Subscribe to outgoing topic to receive peer ACK responses.
     // Only process response-type statements — request-type statements on this topic
     // are our own submissions echoed back and must be ignored.
-    responseStoreUnsub = statementStore.subscribeStatements([outgoingSessionId], statements => {
+    responseStoreUnsub = statementStore.subscribeStatements({ matchAll: [outgoingSessionId] }, ({ statements }) => {
       for (const statement of statements) {
         processIncomingStatement(statement, true);
       }
@@ -375,7 +375,6 @@ export function createSession({
         callback: callback as Callback<Message<unknown>[]>,
       };
       subscribers.push(sub);
-      console.info('[session] subscribe: subscriber count now', subscribers.length);
       ensureStoreSubscription();
 
       // Deliver buffered init messages to this subscriber
@@ -386,10 +385,8 @@ export function createSession({
 
       return () => {
         subscribers = subscribers.filter(s => s !== sub);
-        console.info('[session] unsubscribe: subscriber count now', subscribers.length);
         if (subscribers.length === 0) {
           if (storeUnsub) {
-            console.warn('[session] ALL subscribers removed — killing store subscription!');
             storeUnsub();
             storeUnsub = null;
           }
