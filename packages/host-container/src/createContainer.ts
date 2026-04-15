@@ -18,6 +18,7 @@ import {
   CreateTransactionErr,
   DeriveEntropyErr,
   GenericError,
+  LoginErr,
   NavigateToErr,
   PaymentRequestErr,
   PaymentTopUpErr,
@@ -225,6 +226,11 @@ export function createContainer(provider: Provider): Container {
   const handleAccountGetRootSlot = makeNotImplementedSlot(
     'host_account_get_root',
     () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
+  const handleRequestLoginSlot = makeNotImplementedSlot(
+    'host_request_login',
+    () => new LoginErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
   const handleAccountGetSlot = makeNotImplementedSlot(
@@ -460,6 +466,14 @@ export function createContainer(provider: Provider): Container {
       return handleV1Request(
         handleAccountGetRootSlot,
         () => new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handleRequestLogin(handler) {
+      return handleV1Request(
+        handleRequestLoginSlot,
+        () => new LoginErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
     },

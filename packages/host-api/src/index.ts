@@ -43,6 +43,8 @@ export {
   AccountId,
   ContextualAlias,
   CreateProofErr,
+  LoginErr,
+  LoginResult,
   ProductAccountId,
   RequestCredentialsErr,
   RingLocation,

@@ -217,6 +217,24 @@ container.handleAccountGetRoot(async (_, { ok, err }) => {
 });
 ```
 
+### handleRequestLogin
+
+Called when a product requests the host login UI. Present the sign-in flow and return the outcome. `reason` is an optional human-readable string the product provides to explain why login is needed.
+
+```ts
+import { LoginErr } from '@novasamatech/host-api';
+
+container.handleRequestLogin(async (reason, { ok, err }) => {
+  const alreadyConnected = await checkIfConnected();
+  if (alreadyConnected) return ok('alreadyConnected');
+
+  const result = await presentLoginUI(reason);
+  if (!result.success) return ok('rejected');
+
+  return ok('success');
+});
+```
+
 ### handleAccountGet
 
 ```ts

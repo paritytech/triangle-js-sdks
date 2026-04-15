@@ -233,6 +233,18 @@ if (rootResult.isOk()) {
   }
 }
 
+// Request login — triggers host sign-in UI; reason is shown to the user
+const loginResult = await accountsProvider.requestLogin('Sign in to access your account');
+
+if (loginResult.isOk()) {
+  const outcome = loginResult.value; // 'success' | 'alreadyConnected' | 'rejected'
+  if (outcome === 'rejected') {
+    console.log('User cancelled login');
+  }
+} else {
+  console.error('Login error:', loginResult.error);
+}
+
 // Get a product account by DotNS identifier and derivation index
 const accountResult = await accountsProvider.getProductAccount('product.dot', 0);
 

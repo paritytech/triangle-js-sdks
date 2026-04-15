@@ -29,6 +29,7 @@ created: 2026-03-13
 - Documented implicit permission triggering for `remote_chain_transaction_broadcast` (ChainSubmit), `remote_preimage_submit` (PreimageSubmit), and `remote_statement_store_submit` (StatementSubmit).
 - Changed `remote_statement_store_subscribe` start payload from `Vec<Topic>` to `TopicFilter` (RFC-0008).
 - Changed `remote_statement_store_subscribe` callback argument from `Vec<SignedStatement>` to `SignedStatementsPage` (RFC-0008).
+- Added `host_request_login` method (RFC-0009). Products can explicitly trigger the host login UI; returns `LoginResult` (`success | alreadyConnected | rejected`) or `LoginErr`.
 
 ### v0.6 - 2026-02-06
 
@@ -132,6 +133,8 @@ fn host_local_storage_clear(
 // Account
 
 fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
+
+fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
 
 fn host_account_connection_status_subscribe(
   callback: fn(AccountConnectionStatus)
@@ -685,6 +688,18 @@ enum AccountConnectionStatus {
 }
 
 fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
+
+enum LoginResult {
+  Success,
+  AlreadyConnected,
+  Rejected
+}
+
+enum LoginErr {
+  Unknown(GenericErr)
+}
+
+fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
 
 fn host_account_connection_status_subscribe(
   callback: fn(AccountConnectionStatus)

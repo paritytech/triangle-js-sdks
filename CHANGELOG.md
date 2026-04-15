@@ -14,16 +14,19 @@ See [migration guide](./docs/migration/v0.7.md) for details.
 - **host-api:** update `RemotePermission` to support `Remote`, `WebRTC`, `ChainSubmit`, `PreimageSubmit`, `StatementSubmit`
 - **host-api:** update `remote_statement_store_subscribe` method to support latest changes in SS API (RFC-0008)
 - **host-api:** add `host_account_get_root` protocol method (RFC-0010)
+- **host-api:** add `host_request_login` protocol method and `LoginErr`/`LoginResult` codecs (RFC-0009)
 - **host-container:** add `handleDeriveEntropy` handler slot
 - **host-container:** add permission-gated request handling for preimage and statement submit
 - **host-container:** add handler slots for `handleThemeSubscribe`, `handlePaymentBalanceSubscribe`, `handlePaymentTopUp`, `handlePaymentRequest`, `handlePaymentStatusSubscribe`, `handleSignRawWithLegacyAccount`, `handleSignPayloadWithLegacyAccount`
 - **host-container:** add `handleAccountGetRoot` handler slot for JIT permission-prompted root account access
+- **host-container:** add `handleRequestLogin` handler slot (RFC-0009)
 - **product-sdk:** add `deriveEntropy` function
 - **product-sdk:** add `createThemeProvider` for theme subscription
 - **product-sdk:** add `createPaymentManager` and `paymentManager` for payment operations
 - **product-sdk:** add `requestDevicePermission` and `requestPermission` for RFC-0002 permission model
 - **product-sdk:** update `createStatementStore().subscribe` to accept `StatementTopicFilter` and deliver `StatementsPage` with `isComplete` flag (RFC-0008)
 - **product-sdk:** add `getRootAccount()` method to `createAccountsProvider()` — returns `ResultAsync<Account, RequestCredentialsErr>`
+- **product-sdk:** add `requestLogin()` method to `createAccountsProvider()` (RFC-0009)
 
 ### ⚠️ Breaking Changes
 

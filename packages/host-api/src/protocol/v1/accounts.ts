@@ -81,3 +81,14 @@ export const AccountCreateProofV1_response = Result(RingVrfProof, CreateProofErr
 
 export const GetLegacyAccountsV1_request = _void;
 export const GetLegacyAccountsV1_response = Result(Vector(Account), RequestCredentialsErr);
+
+// request_login
+
+export const LoginResult = Status('success', 'alreadyConnected', 'rejected');
+
+export const LoginErr = ErrEnum('LoginErr', {
+  Unknown: [GenericErr, 'Login: unknown error'],
+});
+
+export const RequestLoginV1_request = Option(str);
+export const RequestLoginV1_response = Result(LoginResult, LoginErr);

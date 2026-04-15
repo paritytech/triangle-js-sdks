@@ -5,7 +5,7 @@ import type { Codec, CodecType } from 'scale-ts';
 import { extractErrorMessage } from './helpers.js';
 import { GenericError } from './protocol/commonCodecs.js';
 import type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './protocol/impl.js';
-import { CreateProofErr, RequestCredentialsErr } from './protocol/v1/accounts.js';
+import { CreateProofErr, LoginErr, RequestCredentialsErr } from './protocol/v1/accounts.js';
 import { ChatBotRegistrationErr, ChatMessagePostingErr, ChatRoomRegistrationErr } from './protocol/v1/chat.js';
 import { CreateTransactionErr } from './protocol/v1/createTransaction.js';
 import { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
@@ -150,6 +150,13 @@ export function createHostApi(transport: Transport): HostApi {
       return makeRequest(transport.request('host_account_get_root', payload), reason => ({
         tag: payload.tag,
         value: new RequestCredentialsErr.Unknown({ reason }),
+      }));
+    },
+
+    requestLogin(payload) {
+      return makeRequest(transport.request('host_request_login', payload), reason => ({
+        tag: payload.tag,
+        value: new LoginErr.Unknown({ reason }),
       }));
     },
 

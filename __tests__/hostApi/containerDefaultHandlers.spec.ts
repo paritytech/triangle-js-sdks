@@ -1,4 +1,4 @@
-import { RequestCredentialsErr, StorageErr, createTransport } from '@novasamatech/host-api';
+import { LoginErr, RequestCredentialsErr, StorageErr, createTransport } from '@novasamatech/host-api';
 import { createContainer } from '@novasamatech/host-container';
 import { createAccountsProvider, createLocalStorage } from '@novasamatech/product-sdk';
 
@@ -18,6 +18,18 @@ function setup() {
 
 describe('Container default handlers', () => {
   describe('unregistered request handler returns not-implemented error', () => {
+    it('handleRequestLogin default returns LoginErr.Unknown', async () => {
+      const { accountsProvider } = setup();
+      // No container.handleRequestLogin(...) call — default is active
+
+      const result = await accountsProvider.requestLogin();
+
+      expect(result.isErr()).toBe(true);
+      const error = result._unsafeUnwrapErr();
+      expect(error).toBeInstanceOf(LoginErr.Unknown);
+      expect(error.payload?.reason).toBe('Not implemented');
+    });
+
     it('handleAccountGet default returns RequestCredentialsErr.Unknown', async () => {
       const { accountsProvider } = setup();
       // No container.handleAccountGet(...) call — default is active
