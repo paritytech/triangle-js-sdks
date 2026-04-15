@@ -7,6 +7,9 @@ import { createClient as createPolkadotClient } from 'polkadot-api';
 
 export type LazyClient = ReturnType<typeof createLazyClient>;
 
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+const noop = () => {};
+
 export const createLazyClient = (provider: JsonRpcProvider) => {
   let polkadotClient: PolkadotClient | null = null;
   let substrateClient: SubstrateClient | null = null;
@@ -43,12 +46,30 @@ export const createLazyClient = (provider: JsonRpcProvider) => {
         onMessage: (message: T) => void,
         onError: (error: Error) => void,
       ) => {
-        return c._request<string, T>(method, params, {
-          onSuccess: (subscriptionId, followSubscription) => {
-            followSubscription(subscriptionId, { next: onMessage, error: onError });
+        let subscriptionId: string | null = null;
+        let unsubscribeLocal: (() => void) | null = null;
+        const cancelRequest = c._request<string, T>(method, params, {
+          onSuccess: (subId, followSubscription) => {
+            subscriptionId = subId;
+            unsubscribeLocal = followSubscription(subId, { next: onMessage, error: onError });
           },
           onError,
         });
+        // Derive the unsubscribe RPC method from the subscribe method name
+        // e.g. statement_subscribeStatement -> statement_unsubscribeStatement
+        const unsubscribeMethod = method.replace('subscribe', 'unsubscribe');
+        return () => {
+          if (unsubscribeLocal) {
+            unsubscribeLocal();
+            // Send the server-side unsubscribe RPC call
+            c._request(unsubscribeMethod, [subscriptionId], {
+              onSuccess: noop,
+              onError: noop,
+            });
+          } else {
+            cancelRequest();
+          }
+        };
       };
     },
     disconnect() {
