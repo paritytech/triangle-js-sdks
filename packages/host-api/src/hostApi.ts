@@ -121,27 +121,6 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
-    deriveEntropy(payload) {
-      const response = fromPromise(transport.request('host_derive_entropy', payload), e => ({
-        tag: payload.tag,
-        value: new DeriveEntropyErr.Unknown({ reason: extractErrorMessage(e) }),
-      }));
-
-      return response.andThen(response => {
-        if (response.value.success) {
-          return okAsync({
-            tag: response.tag,
-            value: response.value.value,
-          });
-        }
-
-        return errAsync({
-          tag: response.tag,
-          value: response.value.value,
-        });
-      });
-    },
-
     localStorageRead(payload) {
       return makeRequest(transport.request('host_local_storage_read', payload), reason => ({
         tag: payload.tag,
