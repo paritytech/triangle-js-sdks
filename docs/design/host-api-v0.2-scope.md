@@ -163,11 +163,11 @@ fn host_payment_balance_subscribe(callback: fn(PaymentBalance)) -> Result<Subscr
 
 /// [v0.2] Top up the user's balance from a product-controlled source (e.g. a one-time deposit
 /// account whose private key the product holds). No user consent needed (always in user's favour).
-fn host_payment_top_up(source: PaymentTopUpSource) -> Result<PaymentReceipt, PaymentTopUpError>;
+fn host_payment_top_up(amount: u128, source: PaymentTopUpSource) -> Result<(), PaymentTopUpError>;
 
 /// [v0.2] Request a payment from the user to a destination. Prompts the user for authorization.
-/// Returns a PaymentId for tracking settlement status. Assumes a single fixed payment asset.
-fn host_payment_request(amount: Balance) -> Result<PaymentId, PaymentRequestError>;
+/// Returns a PaymentReceipt for tracking settlement status. Assumes a single fixed payment asset.
+fn host_payment_request(amount: u128, destination: AccountId) -> Result<PaymentReceipt, PaymentRequestError>;
 
 /// [v0.2] Subscribe to the lifecycle of a payment by its ID. Emits Processing, then
 /// Completed or Failed. Settlement is asynchronous (coinage UTXO model).
@@ -207,25 +207,30 @@ fn host_chat_create_simple_group(request: SimpleGroupChatRequest) -> Result<Simp
 
 ## Statement Store
 
-**[v0.2]** `topics: Vec<Topic>` → `filter: TopicFilter` (supports wildcard positions). `submit` takes raw bytes and returns statement hash.
+**[v0.2]** `topics: Vec<Topic>` → `filter: TopicFilter` (enum with `MatchAll` / `MatchAny` semantics). `submit` takes a `SignedStatement`.
 
 ```rust
-/// [v0.2] Subscribe to statements matching a topic filter. None entries in the filter act as
-/// wildcards, matching any topic at that position. Mirrors polkadot-sdk TopicFilter.
-fn remote_statement_store_subscribe(filter: TopicFilter, callback: fn(Vec<SignedStatement>)) -> Result<Subscriber, GenericErr>;
+/// [v0.2] Subscribe to statements matching a topic filter. MatchAll requires every topic to be
+/// present; MatchAny matches if at least one topic is present. Emits paginated SignedStatementsPage.
+fn remote_statement_store_subscribe(filter: TopicFilter, callback: fn(SignedStatementsPage)) -> Result<Subscriber, GenericErr>;
 
 /// Create a statement proof (signature) for the given account and statement. The product must
 /// write the proof to the statement's proof field before submitting.
 fn remote_statement_store_create_proof(account: ProductAccountId, statement: Statement) -> Result<StatementProof, StatementProofErr>;
 
-/// [v0.2] Submit a SCALE-encoded signed statement to the store. Returns the statement hash
-/// on success. Takes raw bytes for encoding flexibility, aligning with the SSS node RPC interface.
-fn remote_statement_store_submit(statement: Vec<u8>) -> Result<String, GenericErr>;
+/// [v0.2] Submit a signed statement to the store.
+fn remote_statement_store_submit(statement: SignedStatement) -> Result<(), GenericErr>;
 ```
 
 ```rust
-struct TopicFilter {
-  topics: Vec<Option<Topic>>  // None entries match any topic
+enum TopicFilter {
+  MatchAll(Vec<Topic>),  // all listed topics must be present
+  MatchAny(Vec<Topic>)   // at least one listed topic must be present
+}
+
+struct SignedStatementsPage {
+  statements: Vec<SignedStatement>,
+  is_complete: bool
 }
 ```
 
@@ -315,8 +320,8 @@ fn remote_chain_transaction_stop(request: TransactionStop) -> Result<(), Generic
 | `remote_permission` | Single request → batched `Vec<RemotePermission>` | [RFC 0001](https://github.com/paritytech/triangle-js-sdks/pull/66) |
 | `host_sign_payload` | `address` → `account: ProductAccountId` | [RFC 0005](https://github.com/paritytech/triangle-js-sdks/pull/82) |
 | `host_sign_raw` | `address` → `account: ProductAccountId` | [RFC 0005](https://github.com/paritytech/triangle-js-sdks/pull/82) |
-| `remote_statement_store_subscribe` | `Vec<Topic>` → `TopicFilter` | |
-| `remote_statement_store_submit` | `SignedStatement` → `Vec<u8>`; returns `String` | |
+| `remote_statement_store_subscribe` | `Vec<Topic>` → `TopicFilter` enum (`MatchAll`/`MatchAny`); callback emits `SignedStatementsPage` | |
+| `remote_statement_store_submit` | Takes `SignedStatement`; returns `()` | |
 
 ### Deferred to v0.3+
 
