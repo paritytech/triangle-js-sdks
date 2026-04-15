@@ -403,11 +403,11 @@ describe('session', () => {
       // has a chance to register its subscriber. The fix ensures request statements are always
       // buffered so late subscribers (simulating waitForRequestMessage called in .andThen()
       // after waitForResponseMessage resolves) still receive them.
-      let subscribeCallback!: (statements: Statement[]) => void;
+      const subscribeCallbacks: Array<(statements: Statement[]) => void> = [];
       const subscribeStatements = vi
         .fn()
         .mockImplementation((_topics: unknown, cb: (statements: Statement[]) => void) => {
-          subscribeCallback = cb;
+          subscribeCallbacks.push(cb);
           return vi.fn();
         });
 
@@ -424,9 +424,10 @@ describe('session', () => {
         value: { requestId: peerRequestId, data: [new Uint8Array([42])] },
       });
 
-      // Peer request arrives while dummy subscriber is active but waitForRequestMessage
-      // hasn't registered its subscriber yet (the race condition scenario).
-      subscribeCallback([peerRequest]);
+      // Peer request arrives on the incoming topic (first subscription) while the
+      // dummy subscriber is active but waitForRequestMessage hasn't registered its
+      // subscriber yet (the race condition scenario).
+      subscribeCallbacks[0]!([peerRequest]);
       await flushPromises();
 
       // Now the late subscriber registers (simulates waitForRequestMessage being called
