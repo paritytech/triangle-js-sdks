@@ -215,12 +215,9 @@ export function createSession({
 
   function ensureStoreSubscription(): void {
     if (storeUnsub) {
-      console.info('[session] ensureStoreSubscription: already subscribed');
       return;
     }
-    console.info('[session] ensureStoreSubscription: subscribing to', toHex(incomingSessionId));
     storeUnsub = statementStore.subscribeStatements([incomingSessionId], statements => {
-      console.info('[session] subscribeStatements callback fired — statements:', statements.length);
       for (const statement of statements) {
         processIncomingStatement(statement);
       }
@@ -380,7 +377,6 @@ export function createSession({
         callback: callback as Callback<Message<unknown>[]>,
       };
       subscribers.push(sub);
-      console.info('[session] subscribe: subscriber count now', subscribers.length);
       ensureStoreSubscription();
 
       // Deliver buffered init messages to this subscriber
@@ -391,10 +387,8 @@ export function createSession({
 
       return () => {
         subscribers = subscribers.filter(s => s !== sub);
-        console.info('[session] unsubscribe: subscriber count now', subscribers.length);
         if (subscribers.length === 0) {
           if (storeUnsub) {
-            console.warn('[session] ALL subscribers removed — killing store subscription!');
             storeUnsub();
             storeUnsub = null;
           }
