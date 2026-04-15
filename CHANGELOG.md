@@ -1,3 +1,20 @@
+## 0.6.18 (2026-04-15)
+
+### 🚀 Features
+
+- **handoff-service:** add handoff-service package for P2P file transfers via HOP ([#109](https://github.com/paritytech/triangle-js-sdks/pull/109))
+
+### 🩹 Fixes
+
+- **statement-store:** send JSON-RPC unsubscribe on subscription teardown ([#111](https://github.com/paritytech/triangle-js-sdks/pull/111))
+- **statement-store:** buffer request statements to prevent race condition in waitForRequestMessage ([#119](https://github.com/paritytech/triangle-js-sdks/pull/119))
+
+### ❤️ Thank You
+
+- Alexandru Gheorghe
+- Ilya Kalinin
+- Sergey Zhuravlev @johnthecat
+
 ## 0.6.17 (2026-04-09)
 
 ### 🩹 Fixes
