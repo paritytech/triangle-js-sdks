@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/handoff-service",
   "type": "module",
-  "version": "0.6.15",
+  "version": "0.6.17",
   "description": "HOP (Handoff Pool) file transfer service for P2P chat",
   "license": "Apache-2.0",
   "repository": {
@@ -25,9 +25,9 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/scale": "0.6.15",
-    "@noble/ciphers": "2.1.1",
-    "@noble/hashes": "2.0.1",
+    "@novasamatech/scale": "0.6.17",
+    "@noble/ciphers": "2.2.0",
+    "@noble/hashes": "2.2.0",
     "@polkadot-api/utils": "0.2.0",
     "@scure/sr25519": "1.0.0",
     "neverthrow": "^8.2.0",
