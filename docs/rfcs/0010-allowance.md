@@ -48,12 +48,13 @@ This RFC is based on the direction and decisions reached by the Host ↔ Product
 
 ### Terminology
 
-- **ProductId** — opaque identifier for a product (e.g. its dotNS identifier). The Host attests the calling product's id on every TrUAPI call; products cannot forge a different id because the Host is trusted (see Threat model).
+- **ProductId** — opaque identifier for a product (e.g. its dotNS identifier). The Host always knows the calling product's id and forwards it to the Account Holder on Accounts Protocol calls that require authorization to be scoped to a specific product.
 - **Product account** — account derived under a product's hierarchy `/{productId ++ perProductDerivationSecret}/{index ++ indexDerivationSecret}`. Uses soft derivation with secret components per layer, rooted at the user's root key.
-- **Allowance account** — dedicated hard-derived account `//allowance//{system}//{productId}` used solely to hold slot-table allowance for a given product and system. Hard-derived from the **user's root key**, not from the product subtree; AutoSigning therefore does not convey allowance keys, preserving grant independence.
-- **Account Holder** — component that exclusively holds the user's root private key and authorizes resource grants. Typically the Mobile App. The root private key never leaves the Account Holder; any other private material (allowance account keys, product subtree keys for AutoSigning) is derived from it and shared with the Host only under explicit user authorization.
+- **Allowance account** — dedicated hard-derived account `//allowance//{system}//{productId}` used solely to hold slot-table allowance for a given product and system (Bulletin or SSS). Hard-derived from the **user's root key**, not from the product subtree.
+- **Account Holder** — component that exclusively holds the user's root **private** key and authorizes resource grants. Typically the Mobile App. During the Accounts Protocol handshake it shares the user's root **public** key with the Host; the Host then derives product account public keys locally via soft derivation (with caveats around secret derivation components). Product account *private* keys are never on the Host unless AutoSigning is explicitly granted; in that case the Account Holder transfers the product subtree private key so the Host can sign locally. Allowance account private keys are similarly transferred only for explicitly granted Bulletin / SSS allowance.
+- **AutoSigning** — a capability a product can request that transfers the product's subtree private key (`/{productId ++ productDerivationSecret}`) from the Account Holder to the Host. Once granted, the Host can sign from any account in that product's subtree without round-tripping to the Account Holder. Orthogonal to slot-table allowances (see §Design decisions for why the two are nonetheless linked in the account-partitioning decision).
 - **Host** — component running products and exposing TrUAPI. Communicates with the Account Holder via the Accounts Protocol.
-- **Accounts Protocol** — Host ↔ Account Holder channel used to request user-authorized operations (including private-key sharing for allowance accounts). Relevant message shapes are defined inline below.
+- **Accounts Protocol** — Host ↔ Account Holder channel used to request user-authorized operations (including private-key sharing for allowance accounts and AutoSigning). Runs over Statement Store today; larger-payload transports (Web3RTC DataChannels, HOP) are future improvements and out of scope for this RFC. Relevant message shapes are defined inline below. Note: *SSO* in this project refers specifically to the handshake portion of the Accounts Protocol (QR-code pairing), not to the protocol as a whole.
 
 ### Bulletin allowance
 
@@ -61,18 +62,19 @@ This RFC is based on the direction and decisions reached by the Host ↔ Product
 - Each product receives a dedicated allowance account derived as `//allowance//bulletin//{productId}`.
 - The Account Holder shares the private key of that account with the Host via the Accounts Protocol once the user approves.
 - On the first `preimage_submit` call — or when existing allowance is exhausted — the Host opportunistically requests allocation from the Account Holder (see "Implicit allocation" below).
+- The slot table itself lives on People chain and propagates allowance grants to Bulletin via XCM. See [paritytech/individuality#785](https://github.com/paritytech/individuality/pull/785) for the chain-side design.
 
 ### Statement Store allowance
 
-- New TrUAPI call `statement_create_proof_authorized(Statement)` is added with the signature originally proposed in the design doc.
+- New TrUAPI call `statement_create_proof_authorized(Statement)` is added. It takes only a `Statement` — **no** `ProductAccountId`. The semantics is "sign this statement using any account that holds SSS allowance"; the Host picks the allowance-bearing account internally (in practice, the product's own allowance account `//allowance//statement-store//{productId}`).
 - Each product receives a dedicated allowance account derived as `//allowance//statement-store//{productId}`.
 - The Account Holder shares the private key with the Host via the Accounts Protocol.
 - On first use or allowance exhaustion, the Host requests allocation implicitly.
 
 ### Smart contract allowance
 
-- New TrUAPI call `account_get_sponsorship_member_key(collectionId) -> RingVrfMemberKey` is added. It is a **getter**: the Host derives a member key bound to `(calling_product, collectionId)`, records the binding internally (so later SC membership checks can be scoped to the collection), and returns the public key to the product. The product is then responsible for handing that key to its operator (e.g. encoded in a QR code), who submits `add_member(collection, key)` on-chain. The narrower, collection-keyed form is preferred over a general-purpose `account_get_member_key(ProductAccountId)` to avoid conflict with the existing `get_alias` (which returns an alias of the PoP member key) and to allow the Host to scope membership checks to a specific collection rather than checking every account against every open sponsorship ring.
-- SC allowance does not require an explicit TrUAPI call to function. During `host_sign_payload` / `host_create_transaction`, the Account Holder implicitly claims anonymous DOT into the specified product account when that account is about to pay fees on Asset Hub. Products that want to eliminate this implicit-claim latency from the signing hot path can **optionally** pre-warm the account by requesting `SmartContractAllowance { dest }` via `host_request_resource_allocation` — this triggers the claim up-front so later signing requires no top-up round-trip. Pre-warming is the only reason SC appears in `AllocatableResource`; the steady-state signing flow works without it.
+- New TrUAPI call `account_get_sponsorship_member_key(collectionId) -> RingVrfMemberKey` is added. The returned `RingVrfMemberKey` is a Bandersnatch public key. One distinct member key exists per `(calling_product, collectionId)` pair — the Host derives it deterministically and records the binding so later SC membership checks can be scoped to the specific collection. The key is returned to the **product**, which is responsible for handing it to its operator (e.g. encoded in a QR code); the operator then submits `add_member(collection, key)` on-chain. This is a product-driven flow, not a host-session-wide one. The narrower, collection-keyed form is preferred over a general-purpose `account_get_member_key(ProductAccountId)` to avoid conflict with the existing `get_alias` (which returns an alias of the PoP member key) and to allow the Host to scope membership checks to a specific collection rather than checking every account against every open sponsorship ring.
+- SC allowance does not require an explicit TrUAPI call to function, and unlike Bulletin / SSS it does **not** use a separate allowance account — Asset Hub transactions originate from the product account directly. During `host_sign_payload` / `host_create_transaction` for **any** Asset Hub transaction signed with a product account, the Account Holder implicitly claims anonymous DOT into that product account when it is about to pay fees and does not hold enough DOT. This is not SC-specific — it applies to every AH tx from a product account. Products that want to eliminate the implicit-claim latency from the signing hot path can **optionally** pre-warm a specific product account by requesting `SmartContractAllowance { dest }` via `host_request_resource_allocation` — this triggers the DOT claim up-front so later signing requires no top-up round-trip. Pre-warming is the only reason SC appears in `AllocatableResource`; the steady-state signing flow works without it.
 
 ### Pre-allocation: `host_request_resource_allocation`
 
@@ -87,7 +89,10 @@ enum AllocatableResource {
     /// Top up product account at `dest` with DOT for SC fee payment
     SmartContractAllowance { dest: DerivationIndex },
     /// Grant auto-signing from product's own accounts.
-    /// Transfers product private-key material from Account Holder to Host.
+    /// Transfers the product subtree private key from Account Holder to Host,
+    /// letting the Host sign locally without round-trips. See
+    /// `ApAllocatedResource::AutoSigning` below for the exact shape of the
+    /// transferred material.
     AutoSigning,
 }
 
@@ -106,6 +111,8 @@ fn host_request_resource_allocation(
 
 **Return contract.** The returned `Vec<AllocationOutcome>` matches the request in length and order: `result[i]` is the outcome for `resources[i]`. Products never see private-key material; keys stay on the Host. Each entry is **independent**: an `Allocated` result means that specific resource was successfully granted and is usable, regardless of whether sibling entries in the same call returned `Rejected` or `NotAvailable`. There is no rollback of partially successful allocations.
 
+**Pre-allocation is opt-in, not eager.** Calling `host_request_resource_allocation` is strictly optional — every submission API works without it via implicit allocation on first use. The pre-allocation call exists purely to eliminate Account Holder round-trips from the steady state. Hosts must not pre-allocate every resource on every product's startup on the product's behalf: eager over-allocation would fragment the user's Bulletin and SSS slot tables with assignments to resources the product never uses, blocking other products from obtaining those resources without user intervention. Products opt in to only the resources they know they will need.
+
 **Repeat calls (on-demand scaling).** Invoking `host_request_resource_allocation` again for a previously granted slot-table resource returns the **same** `slot_account_key` (identity preserved) and additionally assigns that account to one more slot in the table. The first successful call yields one slot's worth of base allowance; each additional successful call adds another slot. The product accumulates allowance linearly at the cost of linearly consuming slots. This mechanism is for scaling allowance beyond the default, not for renewal.
 
 **Renewal is not a product concern.** Bulletin slots expire after 2 weeks (+ 2-week grace). Keeping an existing allowance alive across expiry is handled automatically by the Account Holder — it reassigns the same allowance account to a fresh slot before the old one expires, without product or Host involvement. Products do not need to call `host_request_resource_allocation` periodically to stay funded.
@@ -119,11 +126,11 @@ When the Host needs to provision an allocation with the Account Holder, it issue
 ```rust
 struct ResourceAllocationRequest {
     calling_product: ProductId,
-    resources: Vec<SsoAllocatableResource>,
+    resources: Vec<ApAllocatableResource>,
     on_existing: OnExistingAllowancePolicy,
 }
 
-enum SsoAllocatableResource {
+enum ApAllocatableResource {
     StatementStoreAllowance,
     BulletInAllowance,
     SmartContractAllowance { dest: DerivationIndex },
@@ -145,13 +152,13 @@ enum OnExistingAllowancePolicy {
     Increase,
 }
 
-enum SsoAllocationOutcome {
-    Allocated(SsoAllocatedResource),
+enum ApAllocationOutcome {
+    Allocated(ApAllocatedResource),
     Rejected,
     NotAvailable,
 }
 
-enum SsoAllocatedResource {
+enum ApAllocatedResource {
     StatementStoreAllowance { slot_account_key: PrivateKey },
     BulletInAllowance { slot_account_key: PrivateKey },
     SmartContractAllowance,
@@ -168,11 +175,11 @@ enum SsoAllocatedResource {
 
 /// The returned vec matches `resources` in length and order.
 fn request_resource_allocation(
-    resources: Vec<SsoAllocatableResource>
-) -> Vec<SsoAllocationOutcome>;
+    resources: Vec<ApAllocatableResource>
+) -> Vec<ApAllocationOutcome>;
 ```
 
-`AllocatableResource` and `SsoAllocatableResource` are **distinct types** — one crosses the TrUAPI boundary (Product ↔ Host), the other crosses the Accounts Protocol boundary (Host ↔ Account Holder). Their shapes happen to align today, but each evolves on its own schedule.
+`AllocatableResource` and `ApAllocatableResource` are **distinct types** — one crosses the TrUAPI boundary (Product ↔ Host), the other crosses the Accounts Protocol boundary (Host ↔ Account Holder). Their shapes happen to align today, but each evolves on its own schedule.
 
 **How the Host picks `OnExistingAllowancePolicy`.** The policy is a Host-internal decision, not a product concern; TrUAPI itself exposes no equivalent knob:
 
@@ -329,7 +336,10 @@ sequenceDiagram
 
 ### Design decisions
 
-**Dedicated allowance accounts rather than product accounts.** Product accounts are soft-derived with secret components at every layer; reusing them for allowance would pull those secrets into the grant path where they serve no purpose — the Account Holder shares the allowance private key with the Host anyway. Keeping allowance accounts outside the product hierarchy also lets Bulletin / SSS authorization be granted independently of product signing keys. Auto-signing, which does expose product keys, is a separately granted resource for exactly this reason.
+**Dedicated allowance accounts rather than product accounts (Bulletin / SSS only).** Bulletin and SSS use separate `//allowance//{system}//{productId}` accounts; SC and other Asset Hub transactions do not — they sign from the product account directly and rely on implicit DOT top-up. Two reasons drove the Bulletin / SSS choice:
+
+1. **Soft-derivation overhead.** Product accounts are soft-derived with secret components at every layer; reusing them for allowance would pull those secrets into the grant path where they serve no purpose — the Account Holder would share the allowance private key with the Host anyway.
+2. **Independence from AutoSigning.** If Bulletin / SSS allowance were granted directly to product accounts, granting the allowance would require transferring the product's private key to the Host — which is exactly what AutoSigning does. The two grants would be inseparable: a user approving "let this product submit to Bulletin" would implicitly also approve "let this product sign any transaction as me." Keeping allowance on separate hard-derived accounts means Bulletin / SSS allowance and AutoSigning are independent capabilities that the user grants (or denies) separately, even though the mechanisms themselves are orthogonal.
 
 **Slot reassignment over key rotation.** Whether scaling allowance (repeated `host_request_resource_allocation` calls) or renewing an expiring slot (automatic, Account-Holder-driven), the same allowance account is assigned to an additional / fresh slot rather than rotated to a new account. This keeps the Host's cached key valid across the account's full lifetime and avoids invalidating in-flight submissions.
 
