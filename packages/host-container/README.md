@@ -197,6 +197,26 @@ container.handleThemeSubscribe((_, send, interrupt) => {
 });
 ```
 
+### handleAccountGetRoot
+
+Called when a product requests the user's root (primary) account. Show a permission prompt on first call; cache the grant for the session. Return `NotFound` if the user has no DotNS username.
+
+```ts
+import { RequestCredentialsErr } from '@novasamatech/host-api';
+
+container.handleAccountGetRoot(async (_, { ok, err }) => {
+  const granted = await promptUserForRootAccountAccess();
+  if (!granted) {
+    return err(new RequestCredentialsErr.Rejected());
+  }
+  const rootAccount = await getRootAccount();
+  if (!rootAccount) {
+    return err(new RequestCredentialsErr.NotConnected());
+  }
+  return ok({ publicKey: rootAccount.publicKey, name: rootAccount.name ?? undefined });
+});
+```
+
 ### handleAccountGet
 
 ```ts

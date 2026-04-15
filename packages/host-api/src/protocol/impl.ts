@@ -9,6 +9,8 @@ import {
   AccountCreateProofV1_response,
   AccountGetAliasV1_request,
   AccountGetAliasV1_response,
+  AccountGetRootV1_request,
+  AccountGetRootV1_response,
   AccountGetV1_request,
   AccountGetV1_response,
   GetLegacyAccountsV1_request,
@@ -224,6 +226,10 @@ export const hostApiProtocol = {
   }),
 
   // Account management
+
+  host_account_get_root: versionedRequest({
+    v1: [AccountGetRootV1_request, AccountGetRootV1_response],
+  }),
 
   host_account_connection_status_subscribe: versionedSubscription({
     v1: [AccountConnectionStatusV1_start, AccountConnectionStatusV1_receive],

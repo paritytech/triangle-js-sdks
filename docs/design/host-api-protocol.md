@@ -9,6 +9,10 @@ created: 2026-03-13
 
 ## Changelog
 
+### v0.8 - 2026-04-15
+
+- Added `host_account_get_root` method to the Accounts section (RFC-0010). Returns the user's root account after JIT permission approval.
+
 ### v0.7 - 2026-04-13
 
 - Renamed all `*_with_non_product_account` methods to `*_with_legacy_account`; renamed `host_get_non_product_accounts` to `host_get_legacy_accounts`; updated glossary term "Non-product account (NPA)" to "Legacy account".
@@ -126,6 +130,8 @@ fn host_local_storage_clear(
 ) -> Result<(), LocalStorageErr>;
 
 // Account
+
+fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
 
 fn host_account_connection_status_subscribe(
   callback: fn(AccountConnectionStatus)
@@ -677,6 +683,8 @@ enum AccountConnectionStatus {
   Disconnected,
   Connected
 }
+
+fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
 
 fn host_account_connection_status_subscribe(
   callback: fn(AccountConnectionStatus)

@@ -27,15 +27,7 @@ These properties are desirable for some products and undesirable for others. The
 ### API changes
 
 ```rust
-enum AccountGetRootErr {
-  /// User denied the permission prompt.
-  Rejected,
-  /// The user has no root account (e.g. no DotNS username has been claimed yet).
-  NotFound,
-  Unknown(GenericErr)
-}
-
-fn host_account_get_root() -> Result<Account, AccountGetRootErr>;
+fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
 ```
 
 The returned `Account` is the same struct used by `host_account_get`:
@@ -55,18 +47,14 @@ The method is added to the **Accounts** section of the host API protocol, alongs
 
 1. **First call** — The host shows a permission prompt identifying the requesting product and explaining that the product will learn the user's primary account. The user may approve or deny.
 2. **Approved** — The host returns the `Account` and may cache the grant for subsequent calls within the same session. Hosts MAY persist the grant across sessions; this is an implementation choice.
-3. **Denied** — The host returns `AccountGetRootErr::Rejected`. The product SHOULD treat this as a permanent signal for the current session and not re-prompt immediately.
-4. **No root account** — If the user has no primary DotNS account, the host returns `AccountGetRootErr::NotFound` without prompting.
-
-### Data model changes
-
-`AccountGetRootErr` is a new error enum added to the `accounts` codec module. The response codec follows the same `Result(Account, AccountGetRootErr)` pattern used by other account methods. No existing types are modified.
+3. **Denied** — The host returns `RequestCredentialsErr::Rejected`. The product SHOULD treat this as a permanent signal for the current session and not re-prompt immediately.
+4. **No root account** — If the user has no primary DotNS account, the host returns `RequestCredentialsErr::NotConnected` without prompting.
 
 ## Drawbacks
 
 **Linkability.** Any product that receives approval can deterministically link the user's activity to their root account. This is a deliberate design trade-off — the permission prompt is the user's only control point. Hosts that want stronger privacy guarantees could choose to always deny or to prompt on every call, but the protocol does not require this.
 
-**No revocation signal.** Like other permission-based methods in this API, there is no push notification to the product if the user later revokes the grant in host settings. Products should handle `AccountGetRootErr::Rejected` at any point as a signal that access was withdrawn.
+**No revocation signal.** Like other permission-based methods in this API, there is no push notification to the product if the user later revokes the grant in host settings. Products should handle `RequestCredentialsErr::Rejected` at any point as a signal that access was withdrawn.
 
 **`NotFound` edge case.** Users without a DotNS username receive `NotFound`, which may be confusing for products that assume every user has a root account. Products should handle this gracefully (e.g. by falling back to a product-scoped identity).
 

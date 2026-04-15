@@ -222,6 +222,11 @@ export function createContainer(provider: Provider): Container {
   }
 
   // account slots
+  const handleAccountGetRootSlot = makeNotImplementedSlot(
+    'host_account_get_root',
+    () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
   const handleAccountGetSlot = makeNotImplementedSlot(
     'host_account_get',
     () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
@@ -449,6 +454,14 @@ export function createContainer(provider: Provider): Container {
 
     handleThemeSubscribe(handler) {
       return handleV1Subscription(handleThemeSubscribeSlot, handler);
+    },
+
+    handleAccountGetRoot(handler) {
+      return handleV1Request(
+        handleAccountGetRootSlot,
+        () => new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
     },
 
     handleAccountConnectionStatusSubscribe(handler) {

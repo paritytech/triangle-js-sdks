@@ -39,6 +39,18 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
   const hostApi = createHostApi(transport);
 
   return {
+    getRootAccount() {
+      return hostApi
+        .accountGetRoot(enumValue('v1', undefined))
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
+    },
     getProductAccount(dotNsIdentifier: string, derivationIndex = 0) {
       return hostApi
         .accountGet(enumValue('v1', [dotNsIdentifier, derivationIndex]))

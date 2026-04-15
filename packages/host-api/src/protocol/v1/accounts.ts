@@ -57,6 +57,11 @@ export const AccountConnectionStatus = Status('disconnected', 'connected');
 export const AccountConnectionStatusV1_start = _void;
 export const AccountConnectionStatusV1_receive = AccountConnectionStatus;
 
+// account_get_root
+
+export const AccountGetRootV1_request = _void;
+export const AccountGetRootV1_response = Result(Account, RequestCredentialsErr);
+
 // account_get
 
 export const AccountGetV1_request = ProductAccountId;
