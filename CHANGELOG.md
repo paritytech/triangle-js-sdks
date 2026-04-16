@@ -50,6 +50,7 @@ See [migration guide](./docs/migration/v0.7.md) for details.
 - Filippo
 - Sergey Zhuravlev @johnthecat
 - Yanaty
+- valentunn @valentunn
 
 ## 0.6.18 (2026-04-15)
 
