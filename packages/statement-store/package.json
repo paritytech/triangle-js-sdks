@@ -26,8 +26,8 @@
   ],
   "dependencies": {
     "@novasamatech/scale": "0.7.0-1",
-    "@novasamatech/sdk-statement": "^0.5.0",
-    "@polkadot-api/substrate-bindings": "^0.20.0",
+    "@novasamatech/sdk-statement": "^0.6.0",
+    "@polkadot-api/substrate-bindings": "^0.20.1",
     "@polkadot-api/substrate-client": "^0.7.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.29",
     "@noble/hashes": "2.2.0",
