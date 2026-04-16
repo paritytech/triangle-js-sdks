@@ -42,8 +42,6 @@ struct SimpleGroupChatRequest {
     group_id: str,
     /// Human-readable group name displayed in the contact list.
     name: str,
-    /// URL or base64-encoded image used as the group icon.
-    icon: str
 }
 ```
 
