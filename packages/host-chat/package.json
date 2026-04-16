@@ -44,7 +44,7 @@
     "@novasamatech/scale": "0.7.0-0",
     "@novasamatech/statement-store": "0.7.0-0",
     "@novasamatech/storage-adapter": "0.7.0-0",
-    "nanoid": "5.1.7",
+    "nanoid": "5.1.9",
     "neverthrow": "^8.2.0"
   },
   "publishConfig": {

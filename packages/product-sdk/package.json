@@ -28,7 +28,7 @@
     "@polkadot/extension-inject": "^0.63.1",
     "@polkadot-api/json-rpc-provider-proxy": "^0.4.0",
     "@novasamatech/host-api": "0.7.0-0",
-    "polkadot-api": "^2.0.0",
+    "polkadot-api": ">=2",
     "neverthrow": "^8.2.0"
   },
   "publishConfig": {
