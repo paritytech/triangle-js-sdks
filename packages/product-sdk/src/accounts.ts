@@ -6,6 +6,7 @@ import type {
 } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  LoginErr,
   RequestCredentialsErr,
   RingLocation,
   SigningPayload,
@@ -49,6 +50,18 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           }
           // @ts-expect-error response.tag is never here
           return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
+    },
+    requestLogin(reason?: string) {
+      return hostApi
+        .requestLogin(enumValue('v1', reason))
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new LoginErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
     getProductAccount(dotNsIdentifier: string, derivationIndex = 0) {

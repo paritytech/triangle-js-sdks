@@ -15,6 +15,8 @@ import {
   AccountGetV1_response,
   GetLegacyAccountsV1_request,
   GetLegacyAccountsV1_response,
+  RequestLoginV1_request,
+  RequestLoginV1_response,
 } from './v1/accounts.js';
 import {
   ChainHeadBodyV1_request,
@@ -229,6 +231,10 @@ export const hostApiProtocol = {
 
   host_account_get_root: versionedRequest({
     v1: [AccountGetRootV1_request, AccountGetRootV1_response],
+  }),
+
+  host_request_login: versionedRequest({
+    v1: [RequestLoginV1_request, RequestLoginV1_response],
   }),
 
   host_account_connection_status_subscribe: versionedSubscription({

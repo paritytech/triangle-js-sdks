@@ -1,6 +1,7 @@
 import type { CodecType } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  LoginErr,
   RequestCredentialsErr,
   RingLocation,
   SigningErr,
@@ -429,6 +430,73 @@ describe('Host API: Accounts', () => {
       const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
 
       await expect(signer.signBytes(new Uint8Array([1, 2, 3]))).rejects.toEqual(error);
+    });
+  });
+
+  describe('requestLogin', () => {
+    it('should return success when login completes', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleRequestLogin((_, { ok }) => ok('success'));
+
+      const result = await accountsProvider.requestLogin();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe('success');
+    });
+
+    it('should return alreadyConnected when user is already logged in', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleRequestLogin((_, { ok }) => ok('alreadyConnected'));
+
+      const result = await accountsProvider.requestLogin('some reason');
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe('alreadyConnected');
+    });
+
+    it('should return rejected when user dismisses login UI', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleRequestLogin((_, { ok }) => ok('rejected'));
+
+      const result = await accountsProvider.requestLogin();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe('rejected');
+    });
+
+    it('should pass reason string to handler', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn((_, { ok }) => ok('success'));
+      container.handleRequestLogin(handler);
+
+      await accountsProvider.requestLogin('Sign in to vote');
+
+      expect(handler).toBeCalledWith('Sign in to vote', expect.anything());
+    });
+
+    it('should pass undefined reason when no reason given', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn((_, { ok }) => ok('success'));
+      container.handleRequestLogin(handler);
+
+      await accountsProvider.requestLogin();
+
+      expect(handler).toBeCalledWith(undefined, expect.anything());
+    });
+
+    it('should return error on unknown failure', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new LoginErr.Unknown({ reason: 'host crashed' });
+
+      container.handleRequestLogin((_, { err }) => err(error));
+
+      const result = await accountsProvider.requestLogin();
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
     });
   });
 

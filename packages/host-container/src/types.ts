@@ -90,6 +90,7 @@ export type Container = {
   // accounts
 
   handleAccountGetRoot: InferHandler<'v1', HostApiProtocol['host_account_get_root']>;
+  handleRequestLogin: InferHandler<'v1', HostApiProtocol['host_request_login']>;
   handleAccountConnectionStatusSubscribe: InferHandler<
     'v1',
     HostApiProtocol['host_account_connection_status_subscribe']
