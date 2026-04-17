@@ -30,24 +30,13 @@ export interface CreateBulletinClientOptions {
   config?: Partial<ClientConfig>;
 }
 
-export interface BulletinClientHandle {
-  /** The AsyncBulletinClient instance */
-  client: AsyncBulletinClient;
-  /** Disconnect the underlying PolkadotClient and release resources */
-  destroy: () => void;
-}
-
-export function createBulletinClient(options: CreateBulletinClientOptions): BulletinClientHandle {
+export function createBulletinClient(options: CreateBulletinClientOptions): AsyncBulletinClient {
   const { genesisHash, descriptor, signer, config } = options;
 
   const provider = createPapiProvider(genesisHash);
   const polkadotClient = createClient(provider);
 
   const api = polkadotClient.getTypedApi(descriptor);
-  const client = new AsyncBulletinClient(api, signer, polkadotClient.submit, config);
 
-  return {
-    client,
-    destroy: () => polkadotClient.destroy(),
-  };
+  return new AsyncBulletinClient(api, signer, polkadotClient.submit, config, () => polkadotClient.destroy());
 }

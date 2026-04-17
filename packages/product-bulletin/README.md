@@ -24,7 +24,7 @@ const account = await accounts.getProductAccount('my-product.dot');
 const signer = accounts.getProductAccountSigner(account);
 
 // Create client
-const { client, destroy } = createBulletinClient({
+const client = createBulletinClient({
   ...BulletinChain.paseo,
   signer,
 });
@@ -41,7 +41,7 @@ const largeResult = await client
   .send();
 
 // Clean up when done
-destroy();
+await client.destroy();
 ```
 
 ### Known networks
@@ -60,7 +60,7 @@ destroy();
 Optional `config` parameter for chunk size and manifest behavior:
 
 ```ts
-const { client, destroy } = createBulletinClient({
+const client = createBulletinClient({
   ...BulletinChain.paseo,
   signer,
   config: {
@@ -70,10 +70,3 @@ const { client, destroy } = createBulletinClient({
   },
 });
 ```
-
-### Lifecycle
-
-`createBulletinClient` returns a `BulletinClientHandle` with:
-- `client` — the `AsyncBulletinClient` instance from `@parity/bulletin-sdk`
-- `destroy()` — disconnects the underlying `PolkadotClient` and releases resources
-

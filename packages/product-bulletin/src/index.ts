@@ -1,4 +1,4 @@
-export type { BulletinClientHandle, BulletinDescriptor, CreateBulletinClientOptions } from './createBulletinClient.js';
+export type { BulletinDescriptor, CreateBulletinClientOptions } from './createBulletinClient.js';
 export { createBulletinClient } from './createBulletinClient.js';
 
 export type { BulletinNetwork } from './constants.js';
