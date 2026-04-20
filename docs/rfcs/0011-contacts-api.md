@@ -8,15 +8,15 @@
 
 ## Summary
 
-Products can read the user's contact list. Each contact pairs local metadata with a context-scoped map keyed by DotNS path (the same identifier used for Ring VRF alias derivation). By default a product only sees entries for its own context; cross-context access is a separate privilege.
+Products can read the user's host-managed address book. Each contact pairs local metadata with a context-scoped map keyed by `DotNsIdentifier` — the same namespace used for Ring VRF alias derivation. By default a product only sees entries for its own context; cross-context access is a separate privilege.
 
 ## Motivation
 
-Products need to resolve human-readable identities to accounts. Without a contacts API, users must paste raw keys or scan QR codes for every interaction.
+Products need to resolve human-readable identities to accounts. The host manages an address book but does not expose it. Without this API, users must paste raw keys or scan QR codes for every interaction.
 
-The host already manages a contact list. Exposing it:
+Exposing the contact list:
 
-1. **Removes friction** — products can show names instead of raw addresses.
+1. **Removes friction** — products show names instead of raw addresses.
 2. **Enables cross-product identity** — multiple products resolve the same contact within their respective contexts.
 3. **Preserves user control** — the host gates access and filters responses to the requesting product's scope.
 4. **Supports contextual accounts** — a contact has different aliases and accounts per DotNS context, preserving unlinkability.
@@ -26,7 +26,7 @@ The host already manages a contact list. Exposing it:
 ### Data Model
 
 ```rust
-type ContactContext = ProductAccountId; // (DotNsIdentifier, DerivationIndex)
+type ContactContext = DotNsIdentifier; // str
 
 struct ContextContactInfo {
   alias: Option<Vec<u8>>,
@@ -43,17 +43,19 @@ struct Contact {
 }
 ```
 
-`ContactContext` is a DotNS path — the same as Ring VRF contexts. `ContextContactInfo` fields are optional; either or both may be present.
+`ContactContext` is a `DotNsIdentifier` (a human-readable string). The host derives the `[u8; 32]` Ring VRF context by hashing this identifier — the same derivation used elsewhere in the protocol. The contacts map is keyed by the string form; the host performs the hash internally when resolving aliases.
+
+`ContextContactInfo` fields are optional; either or both may be present.
 
 ### Access Tiers
 
 #### Tier 1: Own-context (default)
 
-The host filters `entries` to only the requesting product's DotNS path. `LocalContactInfo` is always included.
+The host filters `entries` to only the requesting product's `DotNsIdentifier`. `LocalContactInfo` is always included. This is safe because the product could already derive this information through its own alias system.
 
 #### Tier 2: Cross-context (privileged)
 
-Returns the full `entries` map. Required for products that aggregate identities across contexts (profile, honour).
+Returns the full `entries` map. Required for host-privileged products that aggregate identities across contexts (e.g. Browse, profile, honour). The host MAY grant implicit tier 2 access to built-in host products that need it for their core function (e.g. a contact management UI).
 
 ### API
 
@@ -73,16 +75,46 @@ fn host_contacts_subscribe(
 
 Both require authentication (RFC-0009). The host prompts for permission before returning. `host_contacts_subscribe` delivers the full filtered list on each callback; hosts MAY debounce.
 
+This API returns only contacts the user has explicitly saved in their address book. It is not a global name resolution service — resolving arbitrary accounts to DotNS names is a separate concern (on-chain DotNS lookup).
+
 ### Permission Model
 
-Uses RFC-0002:
+Extends `DevicePermission` from RFC-0002 with two new variants:
+
+```rust
+enum DevicePermission {
+  // ... existing variants ...
+  Contacts,
+  ContactsCrossContext
+}
+```
 
 | Permission | Tier | Grants |
 |-----------|------|--------|
 | `Contacts` | 1 | Own-context entries + local info |
 | `ContactsCrossContext` | 2 | Full entries across all contexts |
 
-The tier 2 prompt SHOULD warn that the product can correlate contacts across contexts.
+The tier 2 prompt SHOULD warn that the product can correlate contacts across contexts. `ContactsCrossContext` implies `Contacts`.
+
+### Example
+
+```
+Product "voting.dot" calls host_contacts_get():
+
+→ Host checks DevicePermission::Contacts grant
+→ Host filters each contact's entries to key "voting.dot"
+→ Returns:
+  [
+    Contact {
+      local: { display_name: "Alice" },
+      entries: { "voting.dot": { alias: 0xab.., account_id: 0x12.. } }
+    },
+    Contact {
+      local: { display_name: "Bob" },
+      entries: {}  // Bob has no entry in "voting.dot" context
+    }
+  ]
+```
 
 ### Privacy-Preserving Display
 
