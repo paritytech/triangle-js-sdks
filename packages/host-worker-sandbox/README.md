@@ -31,3 +31,29 @@ unbindStorageRead();
 unbindFeatureSupported();
 sandbox.dispose();
 ```
+
+## Web API Support
+
+The QuickJS VM does not include browser or Node.js globals. The following Web APIs are injected manually so worker code can rely on them.
+
+### `console`
+
+`console.log`, `console.info`, `console.warn`, and `console.error` are forwarded to the `Logger` instance passed to the sandbox. All other `console` methods are not available.
+
+### `crypto`
+
+`crypto.getRandomValues(typedArray)` is supported. It delegates to the host environment's `crypto.getRandomValues`. No other `SubtleCrypto` methods are available.
+
+### `TextEncoder` / `TextDecoder`
+
+`TextEncoder` supports `encode(string): Uint8Array`.
+
+`TextDecoder` supports `decode(buffer)` where `buffer` can be a `TypedArray` (e.g. `Uint8Array`) or a raw `ArrayBuffer`. The optional encoding label passed to the constructor is respected (defaults to `utf-8`). The `encoding` property is available on instances. Streaming decode (`decode(chunk, { stream: true })`) is not supported.
+
+### Timers
+
+`setTimeout`, `clearTimeout`, `setInterval`, `clearInterval`, and `queueMicrotask` are all supported. They delegate to the host environment's timer APIs. No `setImmediate` or `requestAnimationFrame` is available.
+
+### `AbortController`
+
+`AbortController` is fully functional. `controller.abort()` sets `signal.aborted` to `true` and synchronously fires all `'abort'` listeners registered via `signal.addEventListener('abort', handler)`. `signal.removeEventListener('abort', handler)` works by function identity. If `addEventListener` is called after the signal is already aborted, the handler fires immediately. Only the `'abort'` event type is supported.

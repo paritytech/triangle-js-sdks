@@ -57,6 +57,11 @@ export const AccountConnectionStatus = Status('disconnected', 'connected');
 export const AccountConnectionStatusV1_start = _void;
 export const AccountConnectionStatusV1_receive = AccountConnectionStatus;
 
+// account_get_root
+
+export const AccountGetRootV1_request = _void;
+export const AccountGetRootV1_response = Result(Account, RequestCredentialsErr);
+
 // account_get
 
 export const AccountGetV1_request = ProductAccountId;
@@ -72,7 +77,18 @@ export const AccountGetAliasV1_response = Result(ContextualAlias, RequestCredent
 export const AccountCreateProofV1_request = Tuple(ProductAccountId, RingLocation, Bytes());
 export const AccountCreateProofV1_response = Result(RingVrfProof, CreateProofErr);
 
-// get_non_product_accounts
+// get_legacy_accounts
 
-export const GetNonProductAccountsV1_request = _void;
-export const GetNonProductAccountsV1_response = Result(Vector(Account), RequestCredentialsErr);
+export const GetLegacyAccountsV1_request = _void;
+export const GetLegacyAccountsV1_response = Result(Vector(Account), RequestCredentialsErr);
+
+// request_login
+
+export const LoginResult = Status('success', 'alreadyConnected', 'rejected');
+
+export const LoginErr = ErrEnum('LoginErr', {
+  Unknown: [GenericErr, 'Login: unknown error'],
+});
+
+export const RequestLoginV1_request = Option(str);
+export const RequestLoginV1_response = Result(LoginResult, LoginErr);

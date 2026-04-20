@@ -1,4 +1,4 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
+import type { JsonRpcProvider } from 'polkadot-api';
 import { describe, expect, it, vi } from 'vitest';
 
 import { withSubscriptionReplay } from './subscriptionReplayProvider.js';
@@ -6,10 +6,12 @@ import { withSubscriptionReplay } from './subscriptionReplayProvider.js';
 const createMockProvider = () => {
   const send = vi.fn();
   const disconnect = vi.fn();
-  let onMessage: ((msg: string) => void) | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let onMessage: ((msg: any) => void) | null = null;
 
   const provider: JsonRpcProvider = cb => {
-    onMessage = cb;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onMessage = cb as any;
     return { send, disconnect };
   };
 
@@ -17,7 +19,8 @@ const createMockProvider = () => {
     provider,
     send,
     disconnect,
-    simulateMessage: (msg: string) => onMessage?.(msg),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    simulateMessage: (msg: any) => onMessage?.(msg),
   };
 };
 
@@ -39,6 +42,10 @@ const createReconnectControl = () => {
   };
 };
 
+// Helper to create typed request objects
+const req = (id: number, method: string, params: unknown[] = []) => ({ jsonrpc: '2.0' as const, id, method, params });
+const res = (id: number, result: unknown) => ({ jsonrpc: '2.0' as const, id, result });
+
 describe('withSubscriptionReplay', () => {
   it('forwards all incoming messages to onMessage unmodified', () => {
     const mock = createMockProvider();
@@ -46,9 +53,9 @@ describe('withSubscriptionReplay', () => {
     const onMessage = vi.fn();
 
     withSubscriptionReplay(mock.provider, onReconnect)(onMessage);
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"0xabc"}');
+    mock.simulateMessage(res(1, '0xabc'));
 
-    expect(onMessage).toHaveBeenCalledWith('{"jsonrpc":"2.0","id":1,"result":"0xabc"}');
+    expect(onMessage).toHaveBeenCalledWith(res(1, '0xabc'));
   });
 
   it('forwards send calls to the underlying provider', () => {
@@ -56,9 +63,9 @@ describe('withSubscriptionReplay', () => {
     const { onReconnect } = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, onReconnect)(vi.fn());
 
-    conn.send('{"id":1,"method":"chain_getBlock","params":[]}');
+    conn.send(req(1, 'chain_getBlock') as any);
 
-    expect(mock.send).toHaveBeenCalledWith('{"id":1,"method":"chain_getBlock","params":[]}');
+    expect(mock.send).toHaveBeenCalledWith(req(1, 'chain_getBlock'));
   });
 
   it('does not replay non-subscription requests on reconnect', () => {
@@ -66,7 +73,7 @@ describe('withSubscriptionReplay', () => {
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send('{"id":1,"method":"chain_getBlock","params":[]}');
+    conn.send(req(1, 'chain_getBlock') as any);
     mock.send.mockClear();
 
     control.triggerReconnect();
@@ -79,7 +86,7 @@ describe('withSubscriptionReplay', () => {
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send('{"id":1,"method":"chain_subscribeNewHeads","params":[]}');
+    conn.send(req(1, 'chain_subscribeNewHeads') as any);
     // intentionally no simulateMessage — subscription not confirmed by server
     mock.send.mockClear();
 
@@ -92,10 +99,10 @@ describe('withSubscriptionReplay', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const subscribeMsg = '{"id":1,"method":"chain_subscribeNewHeads","params":[]}';
+    const subscribeMsg = req(1, 'chain_subscribeNewHeads');
 
-    conn.send(subscribeMsg);
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"sub-id-1"}');
+    conn.send(subscribeMsg as any);
+    mock.simulateMessage(res(1, 'sub-id-1'));
     mock.send.mockClear();
 
     control.triggerReconnect();
@@ -107,13 +114,13 @@ describe('withSubscriptionReplay', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const msg1 = '{"id":1,"method":"chain_subscribeNewHeads","params":[]}';
-    const msg2 = '{"id":2,"method":"state_subscribeStorage","params":[[]]}';
+    const msg1 = req(1, 'chain_subscribeNewHeads');
+    const msg2 = req(2, 'state_subscribeStorage', [[]]);
 
-    conn.send(msg1);
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"sub-id-1"}');
-    conn.send(msg2);
-    mock.simulateMessage('{"jsonrpc":"2.0","id":2,"result":"sub-id-2"}');
+    conn.send(msg1 as any);
+    mock.simulateMessage(res(1, 'sub-id-1'));
+    conn.send(msg2 as any);
+    mock.simulateMessage(res(2, 'sub-id-2'));
     mock.send.mockClear();
 
     control.triggerReconnect();
@@ -127,18 +134,18 @@ describe('withSubscriptionReplay', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const subscribeMsg = '{"id":1,"method":"chain_subscribeNewHeads","params":[]}';
+    const subscribeMsg = req(1, 'chain_subscribeNewHeads');
 
-    conn.send(subscribeMsg);
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"old-sub-id"}');
+    conn.send(subscribeMsg as any);
+    mock.simulateMessage(res(1, 'old-sub-id'));
 
     // First reconnect — replays and moves to pending
     control.triggerReconnect();
     // Server assigns new subscription ID
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"new-sub-id"}');
+    mock.simulateMessage(res(1, 'new-sub-id'));
 
     // Unsubscribing with the old ID should have no effect (old ID is no longer tracked)
-    conn.send('{"id":2,"method":"chain_unsubscribeNewHeads","params":["old-sub-id"]}');
+    conn.send(req(2, 'chain_unsubscribeNewHeads', ['old-sub-id']) as any);
     mock.send.mockClear();
 
     // Second reconnect — subscription is still active (new-sub-id was not removed)
@@ -152,9 +159,9 @@ describe('withSubscriptionReplay', () => {
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send('{"id":1,"method":"chain_subscribeNewHeads","params":[]}');
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"sub-id-1"}');
-    conn.send('{"id":2,"method":"chain_unsubscribeNewHeads","params":["sub-id-1"]}');
+    conn.send(req(1, 'chain_subscribeNewHeads') as any);
+    mock.simulateMessage(res(1, 'sub-id-1'));
+    conn.send(req(2, 'chain_unsubscribeNewHeads', ['sub-id-1']) as any);
     mock.send.mockClear();
 
     control.triggerReconnect();
@@ -167,8 +174,8 @@ describe('withSubscriptionReplay', () => {
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send('{"id":1,"method":"chain_subscribeNewHeads","params":[]}');
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"sub-id-1"}');
+    conn.send(req(1, 'chain_subscribeNewHeads') as any);
+    mock.simulateMessage(res(1, 'sub-id-1'));
 
     conn.disconnect();
 
@@ -186,7 +193,7 @@ describe('withSubscriptionReplay', () => {
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send('{"id":1,"method":"chainHead_v1_follow","params":[true]}');
+    conn.send(req(1, 'chainHead_v1_follow', [true]) as any);
     // intentionally no simulateMessage — subscription not confirmed by server
     mock.send.mockClear();
 
@@ -199,10 +206,10 @@ describe('withSubscriptionReplay', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const followMsg = '{"id":1,"method":"chainHead_v1_follow","params":[true]}';
+    const followMsg = req(1, 'chainHead_v1_follow', [true]);
 
-    conn.send(followMsg);
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"follow-sub-id"}');
+    conn.send(followMsg as any);
+    mock.simulateMessage(res(1, 'follow-sub-id'));
     mock.send.mockClear();
 
     control.triggerReconnect();
@@ -215,9 +222,9 @@ describe('withSubscriptionReplay', () => {
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send('{"id":1,"method":"chainHead_v1_follow","params":[true]}');
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"follow-sub-id"}');
-    conn.send('{"id":2,"method":"chainHead_v1_unfollow","params":["follow-sub-id"]}');
+    conn.send(req(1, 'chainHead_v1_follow', [true]) as any);
+    mock.simulateMessage(res(1, 'follow-sub-id'));
+    conn.send(req(2, 'chainHead_v1_unfollow', ['follow-sub-id']) as any);
     mock.send.mockClear();
 
     control.triggerReconnect();
@@ -229,11 +236,11 @@ describe('withSubscriptionReplay', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const followMsg = '{"id":1,"method":"chainHead_v1_follow","params":[true]}';
+    const followMsg = req(1, 'chainHead_v1_follow', [true]);
 
-    conn.send(followMsg);
-    mock.simulateMessage('{"jsonrpc":"2.0","id":1,"result":"follow-sub-id"}');
-    conn.send('{"id":2,"method":"chainHead_v1_unfollow","params":["wrong-sub-id"]}');
+    conn.send(followMsg as any);
+    mock.simulateMessage(res(1, 'follow-sub-id'));
+    conn.send(req(2, 'chainHead_v1_unfollow', ['wrong-sub-id']) as any);
     mock.send.mockClear();
 
     control.triggerReconnect();

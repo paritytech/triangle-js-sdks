@@ -43,6 +43,8 @@ export {
   AccountId,
   ContextualAlias,
   CreateProofErr,
+  LoginErr,
+  LoginResult,
   ProductAccountId,
   RequestCredentialsErr,
   RingLocation,
@@ -59,15 +61,41 @@ export {
   ChatRoomRegistrationStatus,
   ReceivedChatAction,
 } from './protocol/v1/chat.js';
+export { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
 export { HandshakeErr } from './protocol/v1/handshake.js';
-export { SigningErr } from './protocol/v1/sign.js';
-export { SignedStatement, Statement, StatementProofErr, Topic } from './protocol/v1/statementStore.js';
+export {
+  SigningErr,
+  SigningPayload,
+  SigningPayloadWithoutAccount,
+  SigningRawPayload,
+  SigningRawPayloadWithoutAccount,
+  SigningResult,
+} from './protocol/v1/sign.js';
+export {
+  SignedStatement,
+  SignedStatementsPage,
+  Statement,
+  StatementProofErr,
+  Topic,
+  TopicFilter,
+} from './protocol/v1/statementStore.js';
 export { StorageErr } from './protocol/v1/localStorage.js';
-export { DevicePermissionRequest } from './protocol/v1/devicePermission.js';
-export { RemotePermissionRequest } from './protocol/v1/remotePermission.js';
+export { DevicePermission } from './protocol/v1/devicePermission.js';
+export { RemotePermission } from './protocol/v1/remotePermission.js';
 export { PushNotification } from './protocol/v1/notification.js';
 export { NavigateToErr } from './protocol/v1/navigation.js';
 export { PreimageKey, PreimageSubmitErr, PreimageValue } from './protocol/v1/preimage.js';
+export {
+  PaymentBalance,
+  PaymentBalanceErr,
+  PaymentId,
+  PaymentReceipt,
+  PaymentRequestErr,
+  PaymentStatus,
+  PaymentStatusErr,
+  PaymentTopUpErr,
+  PaymentTopUpSource,
+} from './protocol/v1/payments.js';
 export {
   Arrangement,
   BorderStyle,
@@ -96,3 +124,4 @@ export {
   TransactionStopV1_request,
   TransactionStopV1_response,
 } from './protocol/v1/chainInteraction.js';
+export { Theme } from './protocol/v1/theme.js';

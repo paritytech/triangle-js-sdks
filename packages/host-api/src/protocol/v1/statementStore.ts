@@ -1,5 +1,5 @@
 import { Enum, ErrEnum } from '@novasamatech/scale';
-import { Bytes, Option, Result, Struct, Tuple, Vector, _void, u64 } from 'scale-ts';
+import { Bytes, Option, Result, Struct, Tuple, Vector, _void, bool, u64 } from 'scale-ts';
 
 import { GenericErr, GenericError } from '../commonCodecs.js';
 
@@ -60,8 +60,18 @@ export const SignedStatement = Struct({
 
 // subscription
 
-export const StatementStoreSubscribeV1_start = Vector(Topic);
-export const StatementStoreSubscribeV1_receive = Vector(SignedStatement);
+export const TopicFilter = Enum({
+  MatchAll: Vector(Topic),
+  MatchAny: Vector(Topic),
+});
+
+export const SignedStatementsPage = Struct({
+  statements: Vector(SignedStatement),
+  isComplete: bool,
+});
+
+export const StatementStoreSubscribeV1_start = TopicFilter;
+export const StatementStoreSubscribeV1_receive = SignedStatementsPage;
 
 // creating proof
 

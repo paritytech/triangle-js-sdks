@@ -1,9 +1,12 @@
-import type { JsonRpcConnection, JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import { createNanoEvents } from 'nanoevents';
+import type { JsonRpcProvider } from 'polkadot-api';
 
 import { id } from './helpers.js';
 import { createRefCounter } from './refCounter.js';
 import type { BranchedProvider } from './types.js';
+
+type JsonRpcConnection = ReturnType<JsonRpcProvider>;
+type JsonRpcMessage = Parameters<Parameters<JsonRpcProvider>[0]>[0];
 
 type Params = {
   enhanceBranch?(branch: JsonRpcProvider): JsonRpcProvider;
@@ -12,7 +15,7 @@ type Params = {
 export const createBranchedProvider = (provider: JsonRpcProvider, params?: Params): BranchedProvider => {
   const enhancer = params?.enhanceBranch ?? id;
 
-  const messages = createNanoEvents<{ incoming: (v: string) => void }>();
+  const messages = createNanoEvents<{ incoming: (v: JsonRpcMessage) => void }>();
   const refs = createRefCounter<'connection'>();
   let connection: JsonRpcConnection | null = null;
 

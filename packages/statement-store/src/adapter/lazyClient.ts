@@ -1,8 +1,7 @@
 import type { RequestFn, SubscribeFn } from '@novasamatech/sdk-statement';
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import type { SubstrateClient } from '@polkadot-api/substrate-client';
 import { createClient as createSubstrateClient } from '@polkadot-api/substrate-client';
-import type { PolkadotClient } from 'polkadot-api';
+import type { JsonRpcProvider, PolkadotClient } from 'polkadot-api';
 import { createClient as createPolkadotClient } from 'polkadot-api';
 
 export type LazyClient = ReturnType<typeof createLazyClient>;

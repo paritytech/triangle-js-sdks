@@ -9,23 +9,24 @@ import type {
   VersionedProtocolSubscription,
 } from '@novasamatech/host-api';
 import { CustomRendererNode } from '@novasamatech/host-api';
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import type { ResultAsync, errAsync } from 'neverthrow';
 import { okAsync } from 'neverthrow';
+import type { JsonRpcProvider } from 'polkadot-api';
 
 type SuccessResponse<T> = T extends { success: true; value: infer U } ? U : never;
 type ErrorResponse<T> = T extends { success: false; value: infer U } ? U : never;
 
-type Value<T extends Codec<any> | Codec<never>> = T extends Codec<any> ? CodecType<T> : unknown;
+export type CodecValue<T extends Codec<any> | Codec<never>> = T extends Codec<any> ? CodecType<T> : unknown;
 type OrPromise<T> = T | Promise<T>;
 type ExtractEnumValue<T> = T extends { tag: string; value: infer V } ? V : never;
-type WithVersion<V extends string, T> = ExtractEnumValue<Extract<T, { tag: V }>>;
 
-type UnwrapSuccessResponse<V extends string, T> = T extends { tag: infer Tag; value: infer Value }
+export type WithVersion<V extends string, T> = ExtractEnumValue<Extract<T, { tag: V }>>;
+
+export type UnwrapSuccessResponse<V extends string, T> = T extends { tag: infer Tag; value: infer Value }
   ? WithVersion<V, { tag: Tag; value: SuccessResponse<Value> }>
   : never;
 
-type UnwrapErrorResponse<V extends string, T> = T extends { tag: infer Tag; value: infer Value }
+export type UnwrapErrorResponse<V extends string, T> = T extends { tag: infer Tag; value: infer Value }
   ? WithVersion<V, { tag: Tag; value: ErrorResponse<Value> }>
   : never;
 
@@ -36,20 +37,22 @@ type UnwrapVersionedResult<V extends string, T> = T extends { tag: infer Tag; va
     >
   : never;
 
+export type ContainerRequestHandler<V extends string, T extends VersionedProtocolRequest> = (
+  params: WithVersion<V, CodecValue<T['request']>>,
+  helpers: {
+    ok: typeof okAsync<UnwrapSuccessResponse<V, CodecValue<T['response']>>>;
+    err: typeof errAsync<never, UnwrapErrorResponse<V, CodecValue<T['response']>>>;
+  },
+) => OrPromise<UnwrapVersionedResult<V, CodecValue<T['response']>>>;
+
 type InferRequestHandler<V extends string, T extends VersionedProtocolRequest> = (
-  callback: (
-    params: WithVersion<V, Value<T['request']>>,
-    helpers: {
-      ok: typeof okAsync<UnwrapSuccessResponse<V, Value<T['response']>>>;
-      err: typeof errAsync<never, UnwrapErrorResponse<V, Value<T['response']>>>;
-    },
-  ) => OrPromise<UnwrapVersionedResult<V, Value<T['response']>>>,
+  callback: ContainerRequestHandler<V, T>,
 ) => VoidFunction;
 
 type InferSubscribeHandler<V extends string, T extends VersionedProtocolSubscription> = (
   callback: (
-    params: WithVersion<V, Value<T['start']>>,
-    send: (payload: WithVersion<V, Value<T['receive']>>) => void,
+    params: WithVersion<V, CodecValue<T['start']>>,
+    send: (payload: WithVersion<V, CodecValue<T['receive']>>) => void,
     interrupt: VoidFunction,
   ) => VoidFunction,
 ) => VoidFunction;
@@ -63,6 +66,8 @@ type InferHandler<
     ? InferSubscribeHandler<V, T>
     : never;
 
+export type ContainerHandlerOf<T extends (...args: any[]) => any> = Parameters<T>[0];
+
 export type Container = {
   // host
 
@@ -72,6 +77,10 @@ export type Container = {
   handlePushNotification: InferHandler<'v1', HostApiProtocol['host_push_notification']>;
   handleNavigateTo: InferHandler<'v1', HostApiProtocol['host_navigate_to']>;
 
+  // entropy derivation
+
+  handleDeriveEntropy: InferHandler<'v1', HostApiProtocol['host_derive_entropy']>;
+
   // storage
 
   handleLocalStorageRead: InferHandler<'v1', HostApiProtocol['host_local_storage_read']>;
@@ -80,24 +89,29 @@ export type Container = {
 
   // accounts
 
+  handleAccountGetRoot: InferHandler<'v1', HostApiProtocol['host_account_get_root']>;
+  handleRequestLogin: InferHandler<'v1', HostApiProtocol['host_request_login']>;
   handleAccountConnectionStatusSubscribe: InferHandler<
     'v1',
     HostApiProtocol['host_account_connection_status_subscribe']
   >;
+  handleThemeSubscribe: InferHandler<'v1', HostApiProtocol['host_theme_subscribe']>;
   handleAccountGet: InferHandler<'v1', HostApiProtocol['host_account_get']>;
   handleAccountGetAlias: InferHandler<'v1', HostApiProtocol['host_account_get_alias']>;
   handleAccountCreateProof: InferHandler<'v1', HostApiProtocol['host_account_create_proof']>;
-  handleGetNonProductAccounts: InferHandler<'v1', HostApiProtocol['host_get_non_product_accounts']>;
+  handleGetLegacyAccounts: InferHandler<'v1', HostApiProtocol['host_get_legacy_accounts']>;
 
   // signing
 
   handleCreateTransaction: InferHandler<'v1', HostApiProtocol['host_create_transaction']>;
-  handleCreateTransactionWithNonProductAccount: InferHandler<
+  handleCreateTransactionWithLegacyAccount: InferHandler<
     'v1',
-    HostApiProtocol['host_create_transaction_with_non_product_account']
+    HostApiProtocol['host_create_transaction_with_legacy_account']
   >;
   handleSignRaw: InferHandler<'v1', HostApiProtocol['host_sign_raw']>;
   handleSignPayload: InferHandler<'v1', HostApiProtocol['host_sign_payload']>;
+  handleSignRawWithLegacyAccount: InferHandler<'v1', HostApiProtocol['host_sign_raw_with_legacy_account']>;
+  handleSignPayloadWithLegacyAccount: InferHandler<'v1', HostApiProtocol['host_sign_payload_with_legacy_account']>;
 
   // chat
 
@@ -122,6 +136,13 @@ export type Container = {
 
   handlePreimageLookupSubscribe: InferHandler<'v1', HostApiProtocol['remote_preimage_lookup_subscribe']>;
   handlePreimageSubmit: InferHandler<'v1', HostApiProtocol['remote_preimage_submit']>;
+
+  // payments
+
+  handlePaymentBalanceSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_balance_subscribe']>;
+  handlePaymentTopUp: InferHandler<'v1', HostApiProtocol['host_payment_top_up']>;
+  handlePaymentRequest: InferHandler<'v1', HostApiProtocol['host_payment_request']>;
+  handlePaymentStatusSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_status_subscribe']>;
 
   // chain interaction
 

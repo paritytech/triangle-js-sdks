@@ -1,8 +1,8 @@
 import type { Statement } from '@novasamatech/sdk-statement';
 import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
-import { toHex } from '@polkadot-api/utils';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, fromPromise, fromThrowable, ok, okAsync } from 'neverthrow';
+import { toHex } from 'polkadot-api/utils';
 import type { Codec, CodecType } from 'scale-ts';
 
 import type { StatementStoreAdapter } from '../adapter/types.js';
@@ -214,14 +214,9 @@ export function createSession({
   }
 
   function ensureStoreSubscription(): void {
-    if (storeUnsub) {
-      console.info('[session] ensureStoreSubscription: already subscribed');
-      return;
-    }
-    console.info('[session] ensureStoreSubscription: subscribing to', toHex(incomingSessionId));
-    storeUnsub = statementStore.subscribeStatements([incomingSessionId], statements => {
-      console.info('[session] subscribeStatements callback fired — statements:', statements.length);
-      for (const statement of statements) {
+    if (storeUnsub) return;
+    storeUnsub = statementStore.subscribeStatements({ matchAll: [incomingSessionId] }, page => {
+      for (const statement of page.statements) {
         processIncomingStatement(statement);
       }
     });
@@ -229,7 +224,7 @@ export function createSession({
     // Subscribe to outgoing topic to receive peer ACK responses.
     // Only process response-type statements — request-type statements on this topic
     // are our own submissions echoed back and must be ignored.
-    responseStoreUnsub = statementStore.subscribeStatements([outgoingSessionId], statements => {
+    responseStoreUnsub = statementStore.subscribeStatements({ matchAll: [outgoingSessionId] }, ({ statements }) => {
       for (const statement of statements) {
         processIncomingStatement(statement, true);
       }
@@ -238,8 +233,8 @@ export function createSession({
 
   async function init(): Promise<void> {
     const [ownResult, peerResult] = await Promise.all([
-      statementStore.queryStatements([outgoingSessionId]),
-      statementStore.queryStatements([incomingSessionId]),
+      statementStore.queryStatements({ matchAll: [outgoingSessionId] }),
+      statementStore.queryStatements({ matchAll: [incomingSessionId] }),
     ]);
 
     if (ownResult.isErr() || peerResult.isErr()) return;
@@ -380,7 +375,6 @@ export function createSession({
         callback: callback as Callback<Message<unknown>[]>,
       };
       subscribers.push(sub);
-      console.info('[session] subscribe: subscriber count now', subscribers.length);
       ensureStoreSubscription();
 
       // Deliver buffered init messages to this subscriber
@@ -391,10 +385,8 @@ export function createSession({
 
       return () => {
         subscribers = subscribers.filter(s => s !== sub);
-        console.info('[session] unsubscribe: subscriber count now', subscribers.length);
         if (subscribers.length === 0) {
           if (storeUnsub) {
-            console.warn('[session] ALL subscribers removed — killing store subscription!');
             storeUnsub();
             storeUnsub = null;
           }

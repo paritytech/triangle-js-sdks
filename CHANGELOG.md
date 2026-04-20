@@ -1,3 +1,57 @@
+## 0.7.0 (2026-04-13)
+
+See [migration guide](./docs/migration/v0.7.md) for details.
+
+### 🚀 Features
+
+- **host-papp:** update to polkadot-api v2.0
+- **host-api:** add `host_theme_subscribe` protocol method
+- **host-api:** add payment API (RFC-0006)
+- **host-api:** add `host_derive_entropy` protocol method for deterministic entropy derivation (RFC-0007)
+- **host-api:** replace `address: string` with `ProductAccountId` in `host_sign_raw` and `host_sign_payload` methods
+- **host-api:** add legacy account signing methods (`host_sign_raw_with_legacy_account`, `host_sign_payload_with_legacy_account`)
+- **host-api:** expand `DevicePermission` with new variants: `Notifications`, `NFC`, `Clipboard`, `OpenUrl`, `Biometrics`
+- **host-api:** update `RemotePermission` to support `Remote`, `WebRTC`, `ChainSubmit`, `PreimageSubmit`, `StatementSubmit`
+- **host-api:** update `remote_statement_store_subscribe` method to support latest changes in SS API (RFC-0008)
+- **host-api:** add `host_account_get_root` protocol method (RFC-0010)
+- **host-api:** add `host_request_login` protocol method and `LoginErr`/`LoginResult` codecs (RFC-0009)
+- **host-container:** add `handleDeriveEntropy` handler slot
+- **host-container:** add permission-gated request handling for preimage and statement submit
+- **host-container:** add handler slots for `handleThemeSubscribe`, `handlePaymentBalanceSubscribe`, `handlePaymentTopUp`, `handlePaymentRequest`, `handlePaymentStatusSubscribe`, `handleSignRawWithLegacyAccount`, `handleSignPayloadWithLegacyAccount`
+- **host-container:** add `handleAccountGetRoot` handler slot for JIT permission-prompted root account access
+- **host-container:** add `handleRequestLogin` handler slot (RFC-0009)
+- **product-sdk:** add `deriveEntropy` function
+- **product-sdk:** add `createThemeProvider` for theme subscription
+- **product-sdk:** add `createPaymentManager` and `paymentManager` for payment operations
+- **product-sdk:** add `requestDevicePermission` and `requestPermission` for RFC-0002 permission model
+- **product-sdk:** update `createStatementStore().subscribe` to accept `StatementTopicFilter` and deliver `StatementsPage` with `isComplete` flag (RFC-0008)
+- **product-sdk:** add `getRootAccount()` method to `createAccountsProvider()` — returns `ResultAsync<Account, RequestCredentialsErr>`
+- **product-sdk:** add `requestLogin()` method to `createAccountsProvider()` (RFC-0009)
+
+### ⚠️ Breaking Changes
+
+- **host-api:** renamed all `*_with_non_product_account` wire methods to `*_with_legacy_account` (`host_get_legacy_accounts`, `host_create_transaction_with_legacy_account`, `host_sign_raw_with_legacy_account`, `host_sign_payload_with_legacy_account`)
+- **host-api:** `host_sign_raw` and `host_sign_payload` request payloads now use `account: ProductAccountId` instead of `address: string`
+- **host-api:** `RemotePermission` enum restructured — old `ExternalRequest` and `TransactionSubmit` variants replaced
+- **host-api:** `remote_statement_store_subscribe` start payload changed from `Vec<Topic>` to `TopicFilter`; receive payload changed from `Vec<SignedStatement>` to `SignedStatementsPage`
+- **host-container:** renamed handler slots `handleGetNonProductAccounts`, `handleCreateTransactionWithNonProductAccount`, `handleSignRawWithNonProductAccount`, `handleSignPayloadWithNonProductAccount` to their `LegacyAccount` equivalents
+- **host-container:** `JsonRpcProvider` is now imported from `polkadot-api` (polkadot-api v2.0)
+- **product-sdk:** renamed `getNonProductAccounts` → `getLegacyAccounts`, `getNonProductAccountSigner` → `getLegacyAccountSigner`, `createNonProductExtensionEnableFactory` → `createLegacyExtensionEnableFactory`
+- **product-sdk:** `createStatementStore().subscribe` first argument changed from `Topic[]` to `StatementTopicFilter`; callback argument changed from `SignedStatement[]` to `StatementsPage`
+- **statement-store:** `StatementStoreAdapter.queryStatements` and `subscribeStatements` first argument changed from `Uint8Array[]` to `TopicFilter`; `subscribeStatements` callback argument changed from `Statement[]` to `StatementsPage`
+
+### Chore
+
+- Optimize internal `hostApi` and container wrappers
+- Add `knip` for dead code detection
+
+### ❤️ Thank You
+
+- Filippo
+- Sergey Zhuravlev @johnthecat
+- Yanaty
+- valentunn @valentunn
+
 ## 0.6.18 (2026-04-15)
 
 ### 🚀 Features

@@ -2,8 +2,8 @@ import type { LocalSessionAccount, RemoteSessionAccount } from '@novasamatech/st
 import { LocalSessionAccountCodec, RemoteSessionAccountCodec } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { fieldListView } from '@novasamatech/storage-adapter';
-import { fromHex, toHex } from '@polkadot-api/utils';
 import { nanoid } from 'nanoid';
+import { fromHex, toHex } from 'polkadot-api/utils';
 import { Struct, Vector, str } from 'scale-ts';
 
 export type UserSessionRepository = ReturnType<typeof createUserSessionRepository>;

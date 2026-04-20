@@ -1,9 +1,9 @@
 import type { SignedStatement, Statement } from '@novasamatech/sdk-statement';
 import { getStatementSigner, statementCodec } from '@novasamatech/sdk-statement';
 import { compact } from '@polkadot-api/substrate-bindings';
-import { fromHex } from '@polkadot-api/utils';
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, fromPromise, fromThrowable, okAsync } from 'neverthrow';
+import { fromHex } from 'polkadot-api/utils';
 
 import { deriveSr25519PublicKey, signWithSr25519Secret, verifySr25519Signature } from '../crypto.js';
 import { toError } from '../helpers.js';

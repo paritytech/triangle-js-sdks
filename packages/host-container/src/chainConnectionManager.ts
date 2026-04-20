@@ -1,6 +1,9 @@
 import type { HexString } from '@novasamatech/host-api';
 import { enumValue } from '@novasamatech/host-api';
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
+import type { JsonRpcProvider } from 'polkadot-api';
+
+type JsonRpcConnection = ReturnType<JsonRpcProvider>;
+type JsonRpcRequest = Extract<Parameters<Parameters<JsonRpcProvider>[0]>[0], { method: string }>;
 
 type PendingRequest = {
   resolve: (result: unknown) => void;
@@ -14,7 +17,7 @@ type FollowSubscription = {
 };
 
 type ChainEntry = {
-  connection: { send: (msg: string) => void; disconnect: () => void };
+  connection: JsonRpcConnection;
   pendingRequests: Map<string, PendingRequest>;
   followSubscriptions: Map<string, FollowSubscription>;
   refCount: number;
@@ -53,36 +56,31 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
       refCount: 1,
     };
 
-    entry.connection = provider((message: string) => {
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(message);
-      } catch {
-        return;
-      }
-
-      // Request-response (has 'id' field)
-      if ('id' in parsed && parsed.id != null) {
-        const pending = pendingRequests.get(String(parsed.id));
+    entry.connection = provider(message => {
+      // Response: has 'id' but no 'method'
+      if ('id' in message && message.id != null && !('method' in message)) {
+        const pending = pendingRequests.get(String(message.id));
         if (pending) {
-          pendingRequests.delete(String(parsed.id));
-          if ('error' in parsed) {
-            pending.reject(parsed.error);
+          pendingRequests.delete(String(message.id));
+          if ('error' in message) {
+            pending.reject((message as { error: unknown }).error);
           } else {
-            pending.resolve(parsed.result);
+            pending.resolve((message as { result: unknown }).result);
           }
           return;
         }
       }
 
-      // Subscription notification (has params.subscription)
-      const params = parsed.params as Record<string, unknown> | undefined;
-      if (params?.subscription) {
-        const subId = String(params.subscription);
-        for (const follow of followSubscriptions.values()) {
-          if (follow.chainSubId === subId) {
-            follow.eventListener(params.result);
-            break;
+      // Subscription notification: has 'method' and 'params'
+      if ('method' in message && 'params' in message) {
+        const params = (message as { params: Record<string, unknown> }).params;
+        if (params?.subscription) {
+          const subId = String(params.subscription);
+          for (const follow of followSubscriptions.values()) {
+            if (follow.chainSubId === subId) {
+              follow.eventListener(params.result);
+              break;
+            }
           }
         }
       }
@@ -99,7 +97,7 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
     const id = getNextId();
     return new Promise((resolve, reject) => {
       entry.pendingRequests.set(id, { resolve, reject });
-      entry.connection.send(JSON.stringify({ jsonrpc: '2.0', id, method, params }));
+      entry.connection.send({ jsonrpc: '2.0', id, method, params } satisfies JsonRpcRequest);
     });
   }
 
@@ -133,9 +131,12 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
         entry.followSubscriptions.delete(followId);
       },
     });
-    entry.connection.send(
-      JSON.stringify({ jsonrpc: '2.0', id: requestId, method: 'chainHead_v1_follow', params: [withRuntime] }),
-    );
+    entry.connection.send({
+      jsonrpc: '2.0',
+      id: requestId,
+      method: 'chainHead_v1_follow',
+      params: [withRuntime],
+    } satisfies JsonRpcRequest);
 
     return { followId };
   }
@@ -151,9 +152,12 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
 
     if (follow.chainSubId) {
       const id = getNextId();
-      entry.connection.send(
-        JSON.stringify({ jsonrpc: '2.0', id, method: 'chainHead_v1_unfollow', params: [follow.chainSubId] }),
-      );
+      entry.connection.send({
+        jsonrpc: '2.0',
+        id,
+        method: 'chainHead_v1_unfollow',
+        params: [follow.chainSubId],
+      } satisfies JsonRpcRequest);
     } else if (follow.pendingRequestId) {
       // Follow response hasn't arrived yet — replace the pending resolve to send unfollow when it does
       entry.pendingRequests.set(follow.pendingRequestId, {
@@ -161,9 +165,12 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
           const chainSubId = result as string;
           if (chainSubId) {
             const unfollowId = getNextId();
-            entry.connection.send(
-              JSON.stringify({ jsonrpc: '2.0', id: unfollowId, method: 'chainHead_v1_unfollow', params: [chainSubId] }),
-            );
+            entry.connection.send({
+              jsonrpc: '2.0',
+              id: unfollowId,
+              method: 'chainHead_v1_unfollow',
+              params: [chainSubId],
+            } satisfies JsonRpcRequest);
           }
         },
         reject: () => {
@@ -193,9 +200,12 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
       for (const follow of entry.followSubscriptions.values()) {
         if (follow.chainSubId) {
           const id = getNextId();
-          entry.connection.send(
-            JSON.stringify({ jsonrpc: '2.0', id, method: 'chainHead_v1_unfollow', params: [follow.chainSubId] }),
-          );
+          entry.connection.send({
+            jsonrpc: '2.0',
+            id,
+            method: 'chainHead_v1_unfollow',
+            params: [follow.chainSubId],
+          } satisfies JsonRpcRequest);
         }
       }
       entry.followSubscriptions.clear();
@@ -209,9 +219,12 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
       for (const follow of entry.followSubscriptions.values()) {
         if (follow.chainSubId) {
           const id = getNextId();
-          entry.connection.send(
-            JSON.stringify({ jsonrpc: '2.0', id, method: 'chainHead_v1_unfollow', params: [follow.chainSubId] }),
-          );
+          entry.connection.send({
+            jsonrpc: '2.0',
+            id,
+            method: 'chainHead_v1_unfollow',
+            params: [follow.chainSubId],
+          } satisfies JsonRpcRequest);
         }
       }
       entry.followSubscriptions.clear();
@@ -307,7 +320,7 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
       });
     }
     if (rt.type === 'invalid') {
-      return enumValue('Invalid', { error: (rt as Record<string, unknown>).error as string });
+      return enumValue('Invalid', { error: rt.error as string });
     }
 
     return undefined;

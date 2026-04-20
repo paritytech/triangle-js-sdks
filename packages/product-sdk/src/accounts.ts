@@ -6,8 +6,13 @@ import type {
 } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  LoginErr,
   RequestCredentialsErr,
   RingLocation,
+  SigningPayload,
+  SigningPayloadWithoutAccount,
+  SigningRawPayload,
+  SigningRawPayloadWithoutAccount,
   assertEnumVariant,
   createHostApi,
   enumValue,
@@ -15,9 +20,9 @@ import {
   isEnumVariant,
   toHex,
 } from '@novasamatech/host-api';
-import { getPolkadotSignerFromPjs } from '@polkadot-api/pjs-signer';
 import { err, ok } from 'neverthrow';
 import type { PolkadotSigner } from 'polkadot-api';
+import { getPolkadotSignerFromPjs } from 'polkadot-api/pjs-signer';
 
 import { sandboxTransport } from './sandboxTransport.js';
 
@@ -35,6 +40,30 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
   const hostApi = createHostApi(transport);
 
   return {
+    getRootAccount() {
+      return hostApi
+        .accountGetRoot(enumValue('v1', undefined))
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
+    },
+    requestLogin(reason?: string) {
+      return hostApi
+        .requestLogin(enumValue('v1', reason))
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new LoginErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
+    },
     getProductAccount(dotNsIdentifier: string, derivationIndex = 0) {
       return hostApi
         .accountGet(enumValue('v1', [dotNsIdentifier, derivationIndex]))
@@ -59,9 +88,9 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
-    getNonProductAccounts() {
+    getLegacyAccounts() {
       return hostApi
-        .getNonProductAccounts(enumValue('v1', undefined))
+        .getLegacyAccounts(enumValue('v1', undefined))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -92,21 +121,9 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
       return getPolkadotSignerFromPjs(
         toHex(account.publicKey),
         async payload => {
-          const codecPayload = {
-            ...payload,
-            blockHash: payload.blockHash as HexString,
-            blockNumber: payload.blockNumber as HexString,
-            era: payload.era as HexString,
-            genesisHash: payload.genesisHash as HexString,
-            nonce: payload.nonce as HexString,
-            method: payload.method as HexString,
-            specVersion: payload.specVersion as HexString,
-            transactionVersion: payload.transactionVersion as HexString,
-            metadataHash: payload.metadataHash as HexString | undefined,
-            tip: payload.tip as HexString,
-            assetId: payload.assetId as never as HexString | undefined,
-            mode: payload.mode,
-            withSignedTransaction: payload.withSignedTransaction,
+          const codecPayload: CodecType<typeof SigningPayload> = {
+            account: [account.dotNsIdentifier, account.derivationIndex],
+            payload: buildSigningPayloadFields(payload),
           };
 
           const response = await hostApi.signPayload(enumValue('v1', codecPayload));
@@ -127,16 +144,16 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           );
         },
         async raw => {
-          const payload = {
-            address: raw.address,
-            data:
+          const payload: CodecType<typeof SigningRawPayload> = {
+            account: [account.dotNsIdentifier, account.derivationIndex],
+            payload:
               raw.type === 'bytes'
                 ? {
-                    tag: 'Bytes' as const,
-                    value: fromHex(raw.data),
+                    tag: 'Bytes',
+                    value: fromHex(asHex(raw.data)),
                   }
                 : {
-                    tag: 'Payload' as const,
+                    tag: 'Payload',
                     value: raw.data,
                   },
           };
@@ -167,28 +184,16 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         }
       });
     },
-    getNonProductAccountSigner(account: ProductAccount): PolkadotSigner {
+    getLegacyAccountSigner(account: ProductAccount): PolkadotSigner {
       return getPolkadotSignerFromPjs(
         toHex(account.publicKey),
         async payload => {
-          const codecPayload = {
-            ...payload,
-            blockHash: payload.blockHash as HexString,
-            blockNumber: payload.blockNumber as HexString,
-            era: payload.era as HexString,
-            genesisHash: payload.genesisHash as HexString,
-            nonce: payload.nonce as HexString,
-            method: payload.method as HexString,
-            specVersion: payload.specVersion as HexString,
-            transactionVersion: payload.transactionVersion as HexString,
-            metadataHash: payload.metadataHash as HexString | undefined,
-            tip: payload.tip as HexString,
-            assetId: payload.assetId as never as HexString | undefined,
-            mode: payload.mode,
-            withSignedTransaction: payload.withSignedTransaction,
+          const codecPayload: CodecType<typeof SigningPayloadWithoutAccount> = {
+            signer: payload.address,
+            payload: buildSigningPayloadFields(payload),
           };
 
-          const response = await hostApi.signPayload(enumValue('v1', codecPayload));
+          const response = await hostApi.signPayloadWithLegacyAccount(enumValue('v1', codecPayload));
 
           return response.match(
             response => {
@@ -206,21 +211,12 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           );
         },
         async raw => {
-          const payload = {
-            address: raw.address,
-            data:
-              raw.type === 'bytes'
-                ? {
-                    tag: 'Bytes' as const,
-                    value: fromHex(raw.data),
-                  }
-                : {
-                    tag: 'Payload' as const,
-                    value: raw.data,
-                  },
+          const payload: CodecType<typeof SigningRawPayloadWithoutAccount> = {
+            signer: raw.address,
+            payload: { tag: 'Bytes', value: fromHex(asHex(raw.data)) },
           };
 
-          const response = await hostApi.signRaw(enumValue('v1', payload));
+          const response = await hostApi.signRawWithLegacyAccount(enumValue('v1', payload));
 
           return response.match(
             response => {
@@ -241,3 +237,44 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
     },
   };
 };
+
+function asHex(v: string): HexString {
+  if (v.startsWith('0x')) return v as HexString;
+  return `0x${v}`;
+}
+
+function buildSigningPayloadFields(payload: {
+  blockHash: string;
+  blockNumber: string;
+  era: string;
+  genesisHash: string;
+  nonce: string;
+  method: string;
+  specVersion: string;
+  transactionVersion: string;
+  metadataHash?: string;
+  tip: string;
+  assetId?: unknown;
+  mode?: number;
+  withSignedTransaction?: boolean;
+  signedExtensions: string[];
+  version: number;
+}): CodecType<typeof SigningPayload>['payload'] {
+  return {
+    blockHash: asHex(payload.blockHash),
+    blockNumber: asHex(payload.blockNumber),
+    era: asHex(payload.era),
+    genesisHash: asHex(payload.genesisHash),
+    nonce: asHex(payload.nonce),
+    method: asHex(payload.method),
+    specVersion: asHex(payload.specVersion),
+    transactionVersion: asHex(payload.transactionVersion),
+    metadataHash: payload.metadataHash ? asHex(payload.metadataHash) : undefined,
+    tip: asHex(payload.tip),
+    assetId: payload.assetId !== undefined ? (payload.assetId as never as HexString) : undefined,
+    mode: payload.mode,
+    withSignedTransaction: payload.withSignedTransaction,
+    signedExtensions: payload.signedExtensions,
+    version: payload.version,
+  };
+}

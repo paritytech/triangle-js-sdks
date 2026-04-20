@@ -1,4 +1,5 @@
 import { StorageErr, createTransport } from '@novasamatech/host-api';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 import { createLocalStorage } from '@novasamatech/product-sdk';
 
@@ -22,7 +23,9 @@ describe('Host API: LocalStorage', () => {
       const key = 'test-key';
       const expectedValue = new Uint8Array([1, 2, 3, 4]);
 
-      const handler = vi.fn<Parameters<typeof container.handleLocalStorageRead>[0]>((_, { ok }) => ok(expectedValue));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleLocalStorageRead>>((_, { ok }) =>
+        ok(expectedValue),
+      );
       container.handleLocalStorageRead(handler);
 
       const result = await localStorage.readBytes(key);
@@ -48,7 +51,7 @@ describe('Host API: LocalStorage', () => {
       const key = 'test-key';
       const value = new Uint8Array([5, 6, 7, 8]);
 
-      const handler = vi.fn<Parameters<typeof container.handleLocalStorageWrite>[0]>((_, { ok }) => ok(undefined));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleLocalStorageWrite>>((_, { ok }) => ok(undefined));
       container.handleLocalStorageWrite(handler);
 
       await localStorage.writeBytes(key, value);
@@ -73,7 +76,7 @@ describe('Host API: LocalStorage', () => {
       const { container, localStorage } = setup();
       const key = 'test-key';
 
-      const handler = vi.fn<Parameters<typeof container.handleLocalStorageClear>[0]>((_, { ok }) => ok(undefined));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleLocalStorageClear>>((_, { ok }) => ok(undefined));
       container.handleLocalStorageClear(handler);
 
       await localStorage.clear(key);
@@ -114,7 +117,7 @@ describe('Host API: LocalStorage', () => {
       const value = 'Hello, World!';
       const expectedBytes = new TextEncoder().encode(value);
 
-      const handler = vi.fn<Parameters<typeof container.handleLocalStorageWrite>[0]>((_, { ok }) => ok(undefined));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleLocalStorageWrite>>((_, { ok }) => ok(undefined));
       container.handleLocalStorageWrite(handler);
 
       await localStorage.writeString(key, value);
@@ -155,7 +158,7 @@ describe('Host API: LocalStorage', () => {
       const value = { name: 'test', count: 42, nested: { active: true } };
       const expectedBytes = new TextEncoder().encode(JSON.stringify(value));
 
-      const handler = vi.fn<Parameters<typeof container.handleLocalStorageWrite>[0]>((_, { ok }) => ok(undefined));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleLocalStorageWrite>>((_, { ok }) => ok(undefined));
       container.handleLocalStorageWrite(handler);
 
       await localStorage.writeJSON(key, value);
@@ -169,7 +172,7 @@ describe('Host API: LocalStorage', () => {
       const value = [1, 2, 3, 'four', { five: 5 }];
       const expectedBytes = new TextEncoder().encode(JSON.stringify(value));
 
-      const handler = vi.fn<Parameters<typeof container.handleLocalStorageWrite>[0]>((_, { ok }) => ok(undefined));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleLocalStorageWrite>>((_, { ok }) => ok(undefined));
       container.handleLocalStorageWrite(handler);
 
       await localStorage.writeJSON(key, value);

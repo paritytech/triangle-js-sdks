@@ -123,11 +123,11 @@ container.handleAccountCreateProof(async ([[dotnsId, derivationIndex], ringLocat
 });
 ```
 
-### handleGetNonProductAccounts
+### handleGetLegacyAccounts
 
 ```ts
-container.handleGetNonProductAccounts(async (_, { ok, err }) => {
-  const accounts = await getNonProductAccounts();
+container.handleGetLegacyAccounts(async (_, { ok, err }) => {
+  const accounts = await getLegacyAccounts();
   return ok(accounts);
 });
 ```
@@ -145,12 +145,12 @@ container.handleCreateTransaction(async ([productAccountId, payload], { ok, err 
 });
 ```
 
-### handleCreateTransactionWithNonProductAccount
+### handleCreateTransactionWithLegacyAccount
 
 ```ts
-container.handleCreateTransactionWithNonProductAccount(async (payload, { ok, err }) => {
+container.handleCreateTransactionWithLegacyAccount(async (payload, { ok, err }) => {
   try {
-    const signedTx = await createTransactionWithNonProductAccount(payload);
+    const signedTx = await createTransactionWithLegacyAccount(payload);
     return ok(signedTx);
   } catch (e) {
     return err({ tag: 'Rejected' });
