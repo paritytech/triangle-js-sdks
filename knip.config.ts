@@ -2,20 +2,23 @@ import type { KnipConfig } from 'knip';
 
 const config: KnipConfig = {
   workspaces: {
-    '.': {
-      entry: ['__tests__/**/*.ts'],
-      project: ['__tests__/**/*.ts'],
-    },
     'packages/*': {
-      entry: ['src/index.ts', 'src/**/*.spec.ts', '__tests__/**/*.ts'],
-      project: ['src/**/*.ts', '__tests__/**/*.ts'],
+      project: ['src/**/*.ts', 'src/**/*.tsx'],
+    },
+    'packages/host-papp': {
+      entry: ['__tests__/**/*.ts'],
+      project: ['src/**/*.ts', 'src/**/*.tsx', '__tests__/**/*.ts'],
     },
     'packages/host-papp-react-ui': {
-      entry: ['src/index.ts', 'vite.config.ts', 'src/**/*.stories.tsx'],
-      project: ['src/**/*.ts'],
+      entry: ['src/**/*.stories.tsx'],
+      project: ['src/**/*.ts', 'src/**/*.tsx'],
+    },
+    'packages/product-react-renderer': {
+      project: ['src/**/*.ts', 'src/**/*.tsx'],
     },
   },
-  ignore: ['**/.papi/**'],
+  ignore: ['__tests__/**'],
+  ignoreDependencies: ['ts-node', 'tslib'],
   nx: true,
   typescript: true,
   vitest: true,

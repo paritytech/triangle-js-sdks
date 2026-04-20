@@ -28,7 +28,8 @@
     "@noble/hashes": "2.2.0",
     "polkadot-api": ">=2",
     "@novasamatech/host-api": "0.7.0",
-    "nanoid": "5.1.9"
+    "nanoid": "5.1.9",
+    "neverthrow": "^8.2.0"
   },
   "devDependencies": {
     "electron": "^41.2.0"

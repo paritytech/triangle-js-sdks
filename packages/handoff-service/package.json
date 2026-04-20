@@ -25,7 +25,6 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/scale": "0.7.0",
     "@noble/ciphers": "2.2.0",
     "@noble/hashes": "2.2.0",
     "@polkadot-api/utils": "^0.4.0",
