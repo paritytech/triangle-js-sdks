@@ -8,7 +8,7 @@
 
 ## Summary
 
-Products can read the user's host-managed address book. Each contact pairs local metadata with a context-scoped map keyed by `DotNsIdentifier` — the same namespace used for Ring VRF alias derivation. By default a product only sees entries for its own context; cross-context access is a separate privilege.
+Products can read the user's host-managed address book. Each contact pairs local metadata with a context-scoped map keyed by `ProductAccountId` (`DotNsIdentifier` + `DerivationIndex`) — the same namespace used for Ring VRF alias derivation. By default a product only sees entries for its own context; cross-context access is a separate privilege.
 
 ## Motivation
 
@@ -26,7 +26,7 @@ Exposing the contact list:
 ### Data Model
 
 ```rust
-type ContactContext = DotNsIdentifier; // str
+type ContactContext = ProductAccountId; // (DotNsIdentifier, DerivationIndex)
 
 struct ContextContactInfo {
   alias: Option<Vec<u8>>,
@@ -43,7 +43,7 @@ struct Contact {
 }
 ```
 
-`ContactContext` is a `DotNsIdentifier` (a human-readable string). The host derives the `[u8; 32]` Ring VRF context by hashing this identifier — the same derivation used elsewhere in the protocol. The contacts map is keyed by the string form; the host performs the hash internally when resolving aliases.
+`ContactContext` is a `ProductAccountId` (`DotNsIdentifier` + `DerivationIndex`) — the same tuple used for Ring VRF alias derivation. The host derives the `[u8; 32]` Ring VRF context by hashing this identifier internally.
 
 `ContextContactInfo` fields are optional; either or both may be present.
 
@@ -51,7 +51,7 @@ struct Contact {
 
 #### Tier 1: Own-context (default)
 
-The host filters `entries` to only the requesting product's `DotNsIdentifier`. `LocalContactInfo` is always included. This is safe because the product could already derive this information through its own alias system.
+The host filters `entries` to only the requesting product's `ProductAccountId`. `LocalContactInfo` is always included. This is safe because the product could already derive this information through its own alias system.
 
 #### Tier 2: Cross-context (privileged)
 
@@ -99,19 +99,19 @@ The tier 2 prompt SHOULD warn that the product can correlate contacts across con
 ### Example
 
 ```
-Product "voting.dot" calls host_contacts_get():
+Product ("voting.dot", 0) calls host_contacts_get():
 
 → Host checks DevicePermission::Contacts grant
-→ Host filters each contact's entries to key "voting.dot"
+→ Host filters each contact's entries to key ("voting.dot", 0)
 → Returns:
   [
     Contact {
       local: { display_name: "Alice" },
-      entries: { "voting.dot": { alias: 0xab.., account_id: 0x12.. } }
+      entries: { ("voting.dot", 0): { alias: 0xab.., account_id: 0x12.. } }
     },
     Contact {
       local: { display_name: "Bob" },
-      entries: {}  // Bob has no entry in "voting.dot" context
+      entries: {}  // Bob has no entry in ("voting.dot", 0) context
     }
   ]
 ```
