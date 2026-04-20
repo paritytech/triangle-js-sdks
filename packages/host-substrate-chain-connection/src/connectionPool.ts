@@ -19,6 +19,22 @@ export type ChainConnection<C extends ChainConfig, T = PolkadotClient> = {
   getProvider(chain: C): JsonRpcProvider;
   status(genesisHash: string): ConnectionStatus;
   onStatusChanged(genesisHash: string, callback: (status: ConnectionStatus) => void): VoidFunction;
+  /**
+   * Drop the inner socket of every active provider that supports pausing
+   * (e.g. providers built via `createWsJsonRpcProvider`). Clients and
+   * refcounts are preserved; tracked subscriptions are re-sent on
+   * {@link resumeAll} via the replay wrapper, so server-side
+   * chainHead_follow state cannot accumulate across silent reconnects.
+   */
+  pauseAll(): void;
+  resumeAll(): void;
+};
+
+type PausableLike = { pause: () => void; resume: () => void };
+
+const isPausable = (provider: JsonRpcProvider): provider is JsonRpcProvider & PausableLike => {
+  const maybe = provider as unknown as Partial<PausableLike>;
+  return typeof maybe.pause === 'function' && typeof maybe.resume === 'function';
 };
 
 export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>({
@@ -48,11 +64,11 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     const existing = existingClients.get(chain.genesisHash);
     if (existing) return existing;
 
-    const provider = createProvider(chain, status => connections.update(chain.genesisHash, status));
-    const branchedProvider = createBranchedProvider(provider);
+    const rawProvider = createProvider(chain, status => connections.update(chain.genesisHash, status));
+    const branchedProvider = createBranchedProvider(rawProvider);
     const client = createClient(branchedProvider.branch(), clientOptions?.(chain));
 
-    const pooled: PooledClient = { client, provider: branchedProvider };
+    const pooled: PooledClient = { client, provider: branchedProvider, rawProvider };
     existingClients.set(chain.genesisHash, pooled);
     return pooled;
   };
@@ -158,6 +174,18 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
 
     onStatusChanged(genesisHash, callback) {
       return connections.onStatusChange(genesisHash, callback);
+    },
+
+    pauseAll() {
+      for (const { rawProvider } of existingClients.values()) {
+        if (isPausable(rawProvider)) rawProvider.pause();
+      }
+    },
+
+    resumeAll() {
+      for (const { rawProvider } of existingClients.values()) {
+        if (isPausable(rawProvider)) rawProvider.resume();
+      }
     },
   };
 };

@@ -13,4 +13,5 @@ export type BranchedProvider = {
 export type PooledClient = {
   client: PolkadotClient;
   provider: BranchedProvider;
+  rawProvider: JsonRpcProvider;
 };
