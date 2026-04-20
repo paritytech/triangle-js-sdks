@@ -56,4 +56,4 @@ Run `npm run build` before `typecheck` since typecheck depends on built artifact
 
 ## Implementation Notes
 
-- **IMPORTANT**: Always align implementation if host api package with `docs/design/host-api-protocol.md`. This document is source of truth. If something needs to be changed in host api package, it should be done in specification first and then synced to all packages.
+- **IMPORTANT**: `docs/design/host-api-protocol.md` is the source of truth for the host ↔ product protocol. Any protocol change must land in the specification first, then be synced to `host-api` and any other affected packages — never the other way around.
