@@ -6,6 +6,7 @@ import { createBranchedProvider } from './branchedProvider.js';
 import { createConnectionManager } from './connectionManager.js';
 import { createRefCounter } from './refCounter.js';
 import type { ChainConfig, ConnectionStatus, PooledClient } from './types.js';
+import { isPausable } from './wsProvider.js';
 
 export type ChainConnectionConfig<C extends ChainConfig, T = PolkadotClient> = {
   createProvider(chain: C, onStatusChanged: (status: ConnectionStatus) => void): JsonRpcProvider;
@@ -23,18 +24,10 @@ export type ChainConnection<C extends ChainConfig, T = PolkadotClient> = {
    * Drop the inner socket of every active provider that supports pausing
    * (e.g. providers built via `createWsJsonRpcProvider`). Clients and
    * refcounts are preserved; tracked subscriptions are re-sent on
-   * {@link resumeAll} via the replay wrapper, so server-side
-   * chainHead_follow state cannot accumulate across silent reconnects.
+   * {@link resumeAll} via the replay wrapper.
    */
   pauseAll(): void;
   resumeAll(): void;
-};
-
-type PausableLike = { pause: () => void; resume: () => void };
-
-const isPausable = (provider: JsonRpcProvider): provider is JsonRpcProvider & PausableLike => {
-  const maybe = provider as unknown as Partial<PausableLike>;
-  return typeof maybe.pause === 'function' && typeof maybe.resume === 'function';
 };
 
 export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>({
@@ -64,11 +57,11 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     const existing = existingClients.get(chain.genesisHash);
     if (existing) return existing;
 
-    const rawProvider = createProvider(chain, status => connections.update(chain.genesisHash, status));
-    const branchedProvider = createBranchedProvider(rawProvider);
+    const rootProvider = createProvider(chain, status => connections.update(chain.genesisHash, status));
+    const branchedProvider = createBranchedProvider(rootProvider);
     const client = createClient(branchedProvider.branch(), clientOptions?.(chain));
 
-    const pooled: PooledClient = { client, provider: branchedProvider, rawProvider };
+    const pooled: PooledClient = { client, provider: branchedProvider, rootProvider };
     existingClients.set(chain.genesisHash, pooled);
     return pooled;
   };
@@ -177,14 +170,14 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     },
 
     pauseAll() {
-      for (const { rawProvider } of existingClients.values()) {
-        if (isPausable(rawProvider)) rawProvider.pause();
+      for (const { rootProvider } of existingClients.values()) {
+        if (isPausable(rootProvider)) rootProvider.pause();
       }
     },
 
     resumeAll() {
-      for (const { rawProvider } of existingClients.values()) {
-        if (isPausable(rawProvider)) rawProvider.resume();
+      for (const { rootProvider } of existingClients.values()) {
+        if (isPausable(rootProvider)) rootProvider.resume();
       }
     },
   };

@@ -86,7 +86,7 @@ describe('withSubscriptionReplay', () => {
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send(req(1, 'chain_subscribeNewHeads') as any);
+    conn.send(req(1, 'statement_subscribeStatement') as any);
     // intentionally no simulateMessage — subscription not confirmed by server
     mock.send.mockClear();
 
@@ -99,7 +99,7 @@ describe('withSubscriptionReplay', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const subscribeMsg = req(1, 'chain_subscribeNewHeads');
+    const subscribeMsg = req(1, 'statement_subscribeStatement');
 
     conn.send(subscribeMsg as any);
     mock.simulateMessage(res(1, 'sub-id-1'));
@@ -114,7 +114,7 @@ describe('withSubscriptionReplay', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const msg1 = req(1, 'chain_subscribeNewHeads');
+    const msg1 = req(1, 'statement_subscribeStatement');
     const msg2 = req(2, 'state_subscribeStorage', [[]]);
 
     conn.send(msg1 as any);
@@ -134,7 +134,7 @@ describe('withSubscriptionReplay', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const subscribeMsg = req(1, 'chain_subscribeNewHeads');
+    const subscribeMsg = req(1, 'statement_subscribeStatement');
 
     conn.send(subscribeMsg as any);
     mock.simulateMessage(res(1, 'old-sub-id'));
@@ -145,7 +145,7 @@ describe('withSubscriptionReplay', () => {
     mock.simulateMessage(res(1, 'new-sub-id'));
 
     // Unsubscribing with the old ID should have no effect (old ID is no longer tracked)
-    conn.send(req(2, 'chain_unsubscribeNewHeads', ['old-sub-id']) as any);
+    conn.send(req(2, 'statement_unsubscribeStatement', ['old-sub-id']) as any);
     mock.send.mockClear();
 
     // Second reconnect — subscription is still active (new-sub-id was not removed)
@@ -159,9 +159,9 @@ describe('withSubscriptionReplay', () => {
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send(req(1, 'chain_subscribeNewHeads') as any);
+    conn.send(req(1, 'statement_subscribeStatement') as any);
     mock.simulateMessage(res(1, 'sub-id-1'));
-    conn.send(req(2, 'chain_unsubscribeNewHeads', ['sub-id-1']) as any);
+    conn.send(req(2, 'statement_unsubscribeStatement', ['sub-id-1']) as any);
     mock.send.mockClear();
 
     control.triggerReconnect();
@@ -174,7 +174,7 @@ describe('withSubscriptionReplay', () => {
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send(req(1, 'chain_subscribeNewHeads') as any);
+    conn.send(req(1, 'statement_subscribeStatement') as any);
     mock.simulateMessage(res(1, 'sub-id-1'));
 
     conn.disconnect();
@@ -188,63 +188,18 @@ describe('withSubscriptionReplay', () => {
     expect(mock.send).not.toHaveBeenCalled();
   });
 
-  it('does not replay chainHead_v1_follow when pending (no server response yet)', () => {
+  it('should ignore chain subscriptions', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
+    const subscribeMsg = req(1, 'chain_subscribeNewHeads');
 
-    conn.send(req(1, 'chainHead_v1_follow', [true]) as any);
-    // intentionally no simulateMessage — subscription not confirmed by server
+    conn.send(subscribeMsg as any);
+    mock.simulateMessage(res(1, 'sub-id-1'));
     mock.send.mockClear();
 
     control.triggerReconnect();
 
-    expect(mock.send).not.toHaveBeenCalled();
-  });
-
-  it('replays active chainHead_v1_follow subscription on reconnect', () => {
-    const mock = createMockProvider();
-    const control = createReconnectControl();
-    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const followMsg = req(1, 'chainHead_v1_follow', [true]);
-
-    conn.send(followMsg as any);
-    mock.simulateMessage(res(1, 'follow-sub-id'));
-    mock.send.mockClear();
-
-    control.triggerReconnect();
-
-    expect(mock.send).toHaveBeenCalledWith(followMsg);
-  });
-
-  it('does not replay chainHead_v1_follow after chainHead_v1_unfollow', () => {
-    const mock = createMockProvider();
-    const control = createReconnectControl();
-    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-
-    conn.send(req(1, 'chainHead_v1_follow', [true]) as any);
-    mock.simulateMessage(res(1, 'follow-sub-id'));
-    conn.send(req(2, 'chainHead_v1_unfollow', ['follow-sub-id']) as any);
-    mock.send.mockClear();
-
-    control.triggerReconnect();
-
-    expect(mock.send).not.toHaveBeenCalled();
-  });
-
-  it('keeps chainHead_v1_follow active when chainHead_v1_unfollow uses wrong sub-id', () => {
-    const mock = createMockProvider();
-    const control = createReconnectControl();
-    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
-    const followMsg = req(1, 'chainHead_v1_follow', [true]);
-
-    conn.send(followMsg as any);
-    mock.simulateMessage(res(1, 'follow-sub-id'));
-    conn.send(req(2, 'chainHead_v1_unfollow', ['wrong-sub-id']) as any);
-    mock.send.mockClear();
-
-    control.triggerReconnect();
-
-    expect(mock.send).toHaveBeenCalledWith(followMsg);
+    expect(mock.send).not.toHaveBeenCalledWith(subscribeMsg);
   });
 });

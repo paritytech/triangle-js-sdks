@@ -1,15 +1,35 @@
+import type { SocketLoggerFn } from '@polkadot-api/ws-provider';
+import { WsEvent, getWsProvider } from '@polkadot-api/ws-provider';
 import type { JsonRpcProvider } from 'polkadot-api';
-import { WsEvent, getWsProvider } from 'polkadot-api/ws';
 
 import { noop } from './helpers.js';
-import type { PausableJsonRpcProvider } from './pausableProvider.js';
-import { createPausableProvider } from './pausableProvider.js';
+import { createPauseController } from './pauseController.js';
 import { withSubscriptionReplay } from './subscriptionReplayProvider.js';
 import type { ConnectionStatus } from './types.js';
+
+export type PausableJsonRpcProvider = JsonRpcProvider & {
+  pause(): void;
+  resume(): void;
+};
+
+export const isPausable = (provider: JsonRpcProvider): provider is PausableJsonRpcProvider => {
+  const maybe = provider as Partial<PausableJsonRpcProvider>;
+  return typeof maybe.pause === 'function' && typeof maybe.resume === 'function';
+};
+
+const STATUS_BY_WS_EVENT: Record<WsEvent, ConnectionStatus> = {
+  [WsEvent.CONNECTING]: 'connecting',
+  [WsEvent.CONNECTED]: 'connected',
+  [WsEvent.ERROR]: 'disconnected',
+  [WsEvent.CLOSE]: 'disconnected',
+};
 
 export const createWsJsonRpcProvider = (options: {
   endpoints: string[];
   onStatusChanged?: (status: ConnectionStatus) => void;
+  websocketClass?: typeof WebSocket;
+  heartbeatTimeout?: number;
+  logger?: SocketLoggerFn;
 }): PausableJsonRpcProvider => {
   let notifyReconnect: VoidFunction = noop;
   const onReconnect = (cb: VoidFunction): VoidFunction => {
@@ -19,37 +39,26 @@ export const createWsJsonRpcProvider = (options: {
     };
   };
 
-  const innerWs: JsonRpcProvider = getWsProvider(options.endpoints, {
-    heartbeatTimeout: Number.POSITIVE_INFINITY,
+  const pauseController = createPauseController();
+
+  const baseProvider: JsonRpcProvider = getWsProvider(options.endpoints, {
+    logger: options.logger,
+    heartbeatTimeout: options.heartbeatTimeout,
+    middleware: inner => pauseController.middleware(inner),
+    websocketClass: options.websocketClass,
     onStatusChanged: event => {
-      let status: ConnectionStatus;
-
-      switch (event.type) {
-        case WsEvent.CONNECTING:
-          status = 'connecting';
-          break;
-        case WsEvent.CONNECTED:
-          notifyReconnect();
-          status = 'connected';
-          break;
-        case WsEvent.ERROR:
-        case WsEvent.CLOSE:
-          status = 'disconnected';
-          break;
-        default:
-          status = 'disconnected';
-          break;
+      const status = STATUS_BY_WS_EVENT[event.type];
+      if (status === 'connected') {
+        notifyReconnect();
       }
-
       options.onStatusChanged?.(status);
     },
   });
 
-  const pausable = createPausableProvider(innerWs);
-  const replayed = withSubscriptionReplay(pausable, onReconnect);
+  const replayProvider = withSubscriptionReplay(baseProvider, onReconnect);
 
-  return Object.assign(replayed, {
-    pause: () => pausable.pause(),
-    resume: () => pausable.resume(),
+  return Object.assign(replayProvider, {
+    pause: () => pauseController.pause(),
+    resume: () => pauseController.resume(),
   });
 };
