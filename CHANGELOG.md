@@ -1,3 +1,14 @@
+## 0.7.1-0 (2026-04-21)
+
+### 🚀 Features
+
+- **host-substrate-chain-connection:** add pause/resume to drop the inner socket cleanly.
+
+### ❤️ Thank You
+
+- cuteWarmFrog
+- Sergey Zhuravlev @johnthecat
+
 ## 0.7.0 (2026-04-13)
 
 See [migration guide](./docs/migration/v0.7.md) for details.
