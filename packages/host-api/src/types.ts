@@ -31,6 +31,17 @@ export type Subscription = {
   onInterrupt(callback: VoidFunction): VoidFunction;
 };
 
+/**
+ * Experimental debug event describing a single message observed on the transport,
+ * in its decoded (non-SCALE-encoded) form. Intended for host-side introspection.
+ */
+export type DebugMessageEvent = {
+  /** `outgoing` = sent by this side via `postMessage`; `incoming` = received from the peer. */
+  direction: 'incoming' | 'outgoing';
+  requestId: string;
+  payload: MessagePayloadSchema;
+};
+
 export type Transport = {
   readonly provider: Provider;
 
@@ -68,4 +79,11 @@ export type Transport = {
     callback: (requestId: string, data: PickMessagePayload<Action>) => void,
     onError?: (error: unknown) => void,
   ): VoidFunction;
+
+  /**
+   * EXPERIMENTAL: subscribe to every message crossing this transport in either
+   * direction, in decoded (non-SCALE-encoded) form. Intended for host-side
+   * debugging only. Returns an unsubscribe function.
+   */
+  onDebugMessage(callback: (event: DebugMessageEvent) => void): VoidFunction;
 };

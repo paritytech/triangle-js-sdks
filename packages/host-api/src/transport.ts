@@ -15,6 +15,7 @@ import { HandshakeErr } from './protocol/v1/handshake.js';
 import type { Provider } from './provider.js';
 import type {
   ConnectionStatus,
+  DebugMessageEvent,
   HostApiMethod,
   RequestHandler,
   Subscription,
@@ -54,7 +55,35 @@ export function createTransport(provider: Provider): Transport {
   const events = createNanoEvents<{
     connectionStatus: (status: ConnectionStatus) => void;
     destroy: VoidFunction;
+    debugMessage: (event: DebugMessageEvent) => void;
   }>();
+
+  // Lazily subscribe to the underlying provider only while at least one debug
+  // listener is active, so that the inbound decode cost is zero when unused.
+  let debugListenerCount = 0;
+  let debugProviderUnsubscribe: VoidFunction | null = null;
+
+  function ensureDebugProviderSubscription() {
+    if (debugProviderUnsubscribe) return;
+    debugProviderUnsubscribe = provider.subscribe(message => {
+      try {
+        const decoded = Message.dec(message);
+        events.emit('debugMessage', {
+          direction: 'incoming',
+          requestId: decoded.requestId,
+          payload: decoded.payload,
+        });
+      } catch {
+        /* swallow: debug hook must never break message delivery */
+      }
+    });
+  }
+
+  function maybeDisposeDebugProviderSubscription() {
+    if (debugListenerCount > 0) return;
+    debugProviderUnsubscribe?.();
+    debugProviderUnsubscribe = null;
+  }
 
   events.on('connectionStatus', value => {
     connectionStatus = value;
@@ -381,6 +410,14 @@ export function createTransport(provider: Provider): Transport {
     postMessage(requestId, payload) {
       checks();
 
+      if (debugListenerCount > 0) {
+        try {
+          events.emit('debugMessage', { direction: 'outgoing', requestId, payload });
+        } catch {
+          /* swallow: debug hook must never break message delivery */
+        }
+      }
+
       const encoded = Message.enc({ requestId, payload });
       provider.postMessage(encoded);
     },
@@ -409,12 +446,31 @@ export function createTransport(provider: Provider): Transport {
       return events.on('connectionStatus', callback);
     },
 
+    onDebugMessage(callback) {
+      debugListenerCount++;
+      ensureDebugProviderSubscription();
+
+      const unsubscribe = events.on('debugMessage', callback);
+
+      let disposed = false;
+      return () => {
+        if (disposed) return;
+        disposed = true;
+        unsubscribe();
+        debugListenerCount--;
+        maybeDisposeDebugProviderSubscription();
+      };
+    },
+
     onDestroy(callback) {
       return events.on('destroy', callback);
     },
 
     destroy() {
       disposed = true;
+      debugProviderUnsubscribe?.();
+      debugProviderUnsubscribe = null;
+      debugListenerCount = 0;
       provider.dispose();
       changeConnectionStatus('disconnected');
       events.emit('destroy');

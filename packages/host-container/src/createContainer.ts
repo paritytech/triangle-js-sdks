@@ -29,7 +29,8 @@ import type { Result } from 'neverthrow';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 
 import { createChainConnectionManager } from './chainConnectionManager.js';
-import type { Container } from './types.js';
+import { emitHostApiDebugMessage } from './debugBus.js';
+import type { Container, CreateContainerOptions } from './types.js';
 
 const UNSUPPORTED_MESSAGE_FORMAT_ERROR = 'Unsupported message format';
 
@@ -51,11 +52,21 @@ function guardVersion<const Enum extends { tag: string; value: unknown }, const 
   return err(error);
 }
 
-export function createContainer(provider: Provider): Container {
+export function createContainer(provider: Provider, options: CreateContainerOptions = {}): Container {
   const transport = createTransport(provider);
   if (!transport.isCorrectEnvironment()) {
     throw new Error('Transport is not available: dapp provider has incorrect environment');
   }
+
+  const { productId } = options;
+
+  // EXPERIMENTAL: forward every message to the global debug bus so that a
+  // single `onHostApiDebugMessage` subscriber sees traffic from every
+  // container in the process, tagged with its productId.
+  const unsubscribeGlobalDebug = transport.onDebugMessage(({ direction, requestId, payload }) => {
+    emitHostApiDebugMessage({ direction, productId, requestId, payload });
+  });
+  transport.onDestroy(unsubscribeGlobalDebug);
 
   function init() {
     // init status subscription
@@ -1029,6 +1040,12 @@ export function createContainer(provider: Provider): Container {
 
     dispose() {
       transport.destroy();
+    },
+
+    onDebugMessage(callback) {
+      return transport.onDebugMessage(({ direction, requestId, payload }) => {
+        callback({ direction, productId, requestId, payload });
+      });
     },
   };
 }
