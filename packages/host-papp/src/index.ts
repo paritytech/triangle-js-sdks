@@ -16,3 +16,7 @@ export type {
 } from './sso/sessionManager/scale/signingRequest.js';
 export type { SigningPayloadResponse } from './sso/sessionManager/scale/signingResponse.js';
 export type { RingVrfAliasRequest, RingVrfAliasResponse } from './sso/sessionManager/scale/ringVrf.js';
+
+// EXPERIMENTAL: debug hooks (SSO handshake / attestation / session actions).
+export { emitHostPappDebugMessage, hasHostPappDebugListeners, onHostPappDebugMessage } from './debugBus.js';
+export type { AttestationDebugEvent, HostPappDebugEvent, SessionDebugEvent, SsoDebugEvent } from './debugTypes.js';

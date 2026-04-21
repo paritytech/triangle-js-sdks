@@ -10,6 +10,7 @@ import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
 import type { CodecType } from 'scale-ts';
 
+import { emitHostPappDebugMessage } from '../../debugBus.js';
 import type { Callback } from '../../types.js';
 import type { StoredUserSession } from '../userSessionRepository.js';
 
@@ -94,6 +95,7 @@ export function createUserSession({
       }
 
       const messageId = nanoid();
+      emitHostActionSent(userSession.id, 'SignPayload', messageId);
       const request = session.request(RemoteMessageCodec, {
         messageId,
         data: enumValue(
@@ -122,11 +124,14 @@ export function createUserSession({
         .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
         .andThen(message => {
           if (message.success) {
+            emitHostActionResponseReceived(userSession.id, messageId, true);
             return ok(message.value);
           } else {
+            emitHostActionResponseReceived(userSession.id, messageId, false);
             return err(new Error(message.value));
           }
-        });
+        })
+        .orTee(e => emitHostActionFailed(userSession.id, messageId, e.message));
     },
 
     signRaw(payload) {
@@ -136,6 +141,7 @@ export function createUserSession({
       }
 
       const messageId = nanoid();
+      emitHostActionSent(userSession.id, 'SignRaw', messageId);
       const request = session.request(RemoteMessageCodec, {
         messageId,
         data: enumValue(
@@ -164,20 +170,27 @@ export function createUserSession({
         .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
         .andThen(message => {
           if (message.success) {
+            emitHostActionResponseReceived(userSession.id, messageId, true);
             return ok(message.value);
           } else {
+            emitHostActionResponseReceived(userSession.id, messageId, false);
             return err(new Error(message.value));
           }
-        });
+        })
+        .orTee(e => emitHostActionFailed(userSession.id, messageId, e.message));
     },
 
     sendDisconnectMessage() {
+      const messageId = nanoid();
+      emitHostActionSent(userSession.id, 'Disconnect', messageId);
       return session
         .submitRequestMessage(RemoteMessageCodec, {
-          messageId: nanoid(),
+          messageId,
           data: enumValue('v1', enumValue('Disconnected', undefined)),
         })
-        .map(() => undefined);
+        .map(() => undefined)
+        .andTee(() => emitHostActionResponseReceived(userSession.id, messageId, true))
+        .orTee(e => emitHostActionFailed(userSession.id, messageId, e.message));
     },
 
     subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>) {
@@ -192,11 +205,48 @@ export function createUserSession({
                 return okAsync({ processed: false });
               }
 
+              const peerMessageId = payload.value.messageId;
+              emitHostPappDebugMessage({
+                layer: 'session',
+                event: 'peer_action_received',
+                flowId: peerMessageId,
+                timestamp: Date.now(),
+                payload: {
+                  sessionId: userSession.id,
+                  actionKind: describePeerAction(payload.value.data),
+                  messageId: peerMessageId,
+                },
+              });
+
               return callback(payload.value)
                 .orTee(error => {
                   console.error('Error while processing sso message:', error);
+                  emitHostPappDebugMessage({
+                    layer: 'session',
+                    event: 'peer_action_failed',
+                    flowId: peerMessageId,
+                    timestamp: Date.now(),
+                    payload: {
+                      sessionId: userSession.id,
+                      messageId: peerMessageId,
+                      reason: error.message,
+                    },
+                  });
                 })
                 .orElse(() => okAsync(false))
+                .andTee(processed =>
+                  emitHostPappDebugMessage({
+                    layer: 'session',
+                    event: 'peer_action_processed',
+                    flowId: peerMessageId,
+                    timestamp: Date.now(),
+                    payload: {
+                      sessionId: userSession.id,
+                      messageId: peerMessageId,
+                      processed,
+                    },
+                  }),
+                )
                 .map(processed => (processed ? { processed, message: payload.value } : { processed }));
             }
             return okAsync({ processed: false });
@@ -215,6 +265,7 @@ export function createUserSession({
 
     getRingVrfAlias(productAccountId, productId) {
       const messageId = nanoid();
+      emitHostActionSent(userSession.id, 'RingVrfAliasRequest', messageId);
       const request = session.request(RemoteMessageCodec, {
         messageId,
         data: enumValue(
@@ -238,11 +289,57 @@ export function createUserSession({
 
       return request
         .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-        .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
+        .andThen(result => {
+          if (result.success) {
+            emitHostActionResponseReceived(userSession.id, messageId, true);
+            return ok(result.value);
+          }
+          emitHostActionResponseReceived(userSession.id, messageId, false);
+          return err(new Error(result.value));
+        })
+        .orTee(e => emitHostActionFailed(userSession.id, messageId, e.message));
     },
 
     dispose() {
       return session.dispose();
     },
   };
+}
+
+function emitHostActionSent(sessionId: string, actionKind: string, messageId: string): void {
+  emitHostPappDebugMessage({
+    layer: 'session',
+    event: 'host_action_sent',
+    flowId: messageId,
+    timestamp: Date.now(),
+    payload: { sessionId, actionKind, messageId },
+  });
+}
+
+function emitHostActionResponseReceived(sessionId: string, messageId: string, success: boolean): void {
+  emitHostPappDebugMessage({
+    layer: 'session',
+    event: 'host_action_response_received',
+    flowId: messageId,
+    timestamp: Date.now(),
+    payload: { sessionId, messageId, success },
+  });
+}
+
+function emitHostActionFailed(sessionId: string, messageId: string, reason: string): void {
+  emitHostPappDebugMessage({
+    layer: 'session',
+    event: 'host_action_failed',
+    flowId: messageId,
+    timestamp: Date.now(),
+    payload: { sessionId, messageId, reason },
+  });
+}
+
+/** Human-readable name for a remote message's inner variant. */
+function describePeerAction(data: RemoteMessage['data']): string {
+  if (data.tag === 'v1') {
+    return data.value.tag;
+  }
+  return data.tag;
 }

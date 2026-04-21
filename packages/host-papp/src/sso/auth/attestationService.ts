@@ -1,6 +1,6 @@
 import type { LazyClient } from '@novasamatech/statement-store';
 import { createAccountId } from '@novasamatech/statement-store';
-import { mergeUint8 } from '@polkadot-api/utils';
+import { mergeUint8, toHex } from '@polkadot-api/utils';
 import { blake2b256 } from '@polkadot-labs/hdkd-helpers';
 import { customAlphabet } from 'nanoid';
 import type { ResultAsync } from 'neverthrow';
@@ -14,6 +14,7 @@ import { member_from_entropy, sign } from 'verifiablejs/bundler';
 import type { People_lite } from '../../../.papi/descriptors/dist/index.js';
 import type { DerivedSr25519Account, EncrSecret } from '../../crypto.js';
 import { deriveSr25519Account, getEncrPub, stringToBytes } from '../../crypto.js';
+import { emitHostPappDebugMessage } from '../../debugBus.js';
 import { toError } from '../../helpers/utils.js';
 
 const accountId = AccountId();
@@ -31,7 +32,7 @@ export function withRetry<T>(fn: () => Promise<T>, maxRetries = 1): Promise<T> {
   });
 }
 
-export const createAttestationService = (lazyClient: LazyClient) => {
+export const createAttestationService = (lazyClient: LazyClient, debugFlowId?: string) => {
   const service = {
     claimUsername() {
       const nameSuffixFactory = customAlphabet('abcdefghijklmnopqrstuvwxyz', 4);
@@ -93,6 +94,16 @@ export const createAttestationService = (lazyClient: LazyClient) => {
 
       const candidateSignature = candidate.sign(message);
       const proofOfOwnership = sign(verifiableEntropy, message);
+
+      if (debugFlowId !== undefined) {
+        emitHostPappDebugMessage({
+          layer: 'attestation',
+          event: 'vrf_proof_generated',
+          flowId: debugFlowId,
+          timestamp: Date.now(),
+          payload: { candidateAddress: toHex(candidate.publicKey) },
+        });
+      }
 
       const ResourceSignatureCodec = Tuple(
         // candidate PublicKey (32 bytes)
@@ -180,7 +191,21 @@ export const createAttestationService = (lazyClient: LazyClient) => {
 
           return fromPromise(withRetry(submitAttestation), toError).map<void>(() => undefined);
         })
-        .andTee(() => console.log(`Attestation for ${accountId.dec(candidate.publicKey)} successfully passed.`));
+        .andTee(() => {
+          console.log(`Attestation for ${accountId.dec(candidate.publicKey)} successfully passed.`);
+          if (debugFlowId !== undefined) {
+            emitHostPappDebugMessage({
+              layer: 'attestation',
+              event: 'person_registered',
+              flowId: debugFlowId,
+              timestamp: Date.now(),
+              payload: {
+                username,
+                candidateAddress: toHex(candidate.publicKey),
+              },
+            });
+          }
+        });
     },
   };
 

@@ -13,6 +13,7 @@ import { Result, ResultAsync, err, fromPromise, fromThrowable, ok } from 'nevert
 
 import type { DerivedSr25519Account, EncrPublicKey, EncrSecret, SsPublicKey } from '../../crypto.js';
 import { createEncrSecret, createSharedSecret, deriveSr25519Account, getEncrPub, stringToBytes } from '../../crypto.js';
+import { createFlowId, emitHostPappDebugMessage } from '../../debugBus.js';
 import { AbortError } from '../../helpers/abortError.js';
 import { createState, readonly } from '../../helpers/state.js';
 import { toError } from '../../helpers/utils.js';
@@ -57,32 +58,82 @@ export function createAuth({
   let abort: AbortController | null = null;
 
   function attestAccount(account: DerivedSr25519Account, signal: AbortSignal) {
-    const attestationService = createAttestationService(lazyClient);
+    const flowId = createFlowId();
+    const attestationService = createAttestationService(lazyClient, flowId);
 
     const verifier = createSudoAliceVerifier();
+    const verifierAddress = toHex(verifier.publicKey);
+    const candidateAddress = toHex(account.publicKey);
     const username = attestationService.claimUsername();
 
     attestationStatus.write({ step: 'attestation', username });
 
+    emitHostPappDebugMessage({
+      layer: 'attestation',
+      event: 'started',
+      flowId,
+      timestamp: Date.now(),
+      payload: { candidateAddress },
+    });
+    emitHostPappDebugMessage({
+      layer: 'attestation',
+      event: 'username_claimed',
+      flowId,
+      timestamp: Date.now(),
+      payload: { username },
+    });
+
     return attestationService
       .grantVerifierAllowance(verifier)
+      .andTee(() => {
+        emitHostPappDebugMessage({
+          layer: 'attestation',
+          event: 'allowance_granted',
+          flowId,
+          timestamp: Date.now(),
+          payload: { verifierAddress },
+        });
+      })
       .andThrough(() => processSignal(signal))
       .andThen(() => attestationService.registerLitePerson(username, account, verifier))
       .andThrough(() => processSignal(signal))
       .andTee(() => {
         attestationStatus.write({ step: 'finished' });
+        emitHostPappDebugMessage({
+          layer: 'attestation',
+          event: 'completed',
+          flowId,
+          timestamp: Date.now(),
+          payload: { username },
+        });
       })
       .orTee(e => {
         if (!(e instanceof AbortError)) {
           attestationStatus.write({ step: 'attestationError', message: e.message });
         }
+        emitHostPappDebugMessage({
+          layer: 'attestation',
+          event: 'failed',
+          flowId,
+          timestamp: Date.now(),
+          payload: { reason: e.message },
+        });
       });
   }
 
   function handshake(account: DerivedSr25519Account, signal: AbortSignal) {
     const localAccount = createLocalSessionAccount(createAccountId(account.publicKey));
+    const flowId = createFlowId();
 
     pairingStatus.write({ step: 'initial' });
+
+    emitHostPappDebugMessage({
+      layer: 'sso',
+      event: 'pairing_started',
+      flowId,
+      timestamp: Date.now(),
+      payload: { metadata },
+    });
 
     const encrKeys = createEncrKeys(account.entropy);
     const handshakePayload = encrKeys.andThen(({ publicKey }) =>
@@ -95,11 +146,27 @@ export function createAuth({
     );
     const handshakeTopic = encrKeys.andThen(({ publicKey }) => createHandshakeTopic(localAccount, publicKey));
 
-    const dataPrepared = Result.combine([handshakePayload, handshakeTopic, encrKeys]).andTee(([payload]) =>
-      pairingStatus.write({ step: 'pairing', payload: createDeeplink(payload) }),
-    );
+    const dataPrepared = Result.combine([handshakePayload, handshakeTopic, encrKeys]).andTee(([payload, topic]) => {
+      const deeplink = createDeeplink(payload);
+      pairingStatus.write({ step: 'pairing', payload: deeplink });
+      emitHostPappDebugMessage({
+        layer: 'sso',
+        event: 'deeplink_generated',
+        flowId,
+        timestamp: Date.now(),
+        payload: { deeplink, handshakeTopic: toHex(topic) },
+      });
+    });
 
     return dataPrepared.asyncAndThen(([, handshakeTopic, encrKeys]) => {
+      emitHostPappDebugMessage({
+        layer: 'sso',
+        event: 'awaiting_response',
+        flowId,
+        timestamp: Date.now(),
+        payload: { handshakeTopic: toHex(handshakeTopic) },
+      });
+
       const pappResponse = waitForStatements<StoredUserSession>(
         callback => statementStore.subscribeStatements([handshakeTopic], callback),
         signal,
@@ -114,6 +181,13 @@ export function createAuth({
             }).unwrapOr(null);
 
             if (session) {
+              emitHostPappDebugMessage({
+                layer: 'sso',
+                event: 'response_received',
+                flowId,
+                timestamp: Date.now(),
+                payload: { sessionId: session.id },
+              });
               resolve(session);
               break;
             }
@@ -134,11 +208,25 @@ export function createAuth({
       return sessionWithSecretsPayload
         .andTee(({ session }) => {
           pairingStatus.write({ step: 'finished', session });
+          emitHostPappDebugMessage({
+            layer: 'sso',
+            event: 'session_established',
+            flowId,
+            timestamp: Date.now(),
+            payload: { sessionId: session.id },
+          });
         })
         .orTee(e => {
           if (!(e instanceof AbortError)) {
             pairingStatus.write({ step: 'pairingError', message: e.message });
           }
+          emitHostPappDebugMessage({
+            layer: 'sso',
+            event: 'pairing_failed',
+            flowId,
+            timestamp: Date.now(),
+            payload: { reason: e.message },
+          });
         });
     });
   }
