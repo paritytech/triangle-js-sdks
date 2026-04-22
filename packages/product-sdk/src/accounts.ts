@@ -2,6 +2,7 @@ import type {
   AccountConnectionStatus as AccountConnectionStatusCodec,
   CodecType,
   HexString,
+  Subscription,
   Transport,
 } from '@novasamatech/host-api';
 import {
@@ -177,12 +178,17 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         },
       );
     },
-    subscribeAccountConnectionStatus(callback: (status: AccountConnectionStatus) => void) {
-      return hostApi.accountConnectionStatusSubscribe(enumValue('v1', undefined), status => {
+    subscribeAccountConnectionStatus(callback: (status: AccountConnectionStatus) => void): Subscription<void> {
+      const subscriber = hostApi.accountConnectionStatusSubscribe(enumValue('v1', undefined), status => {
         if (status.tag === 'v1') {
           callback(status.value);
         }
       });
+
+      return {
+        unsubscribe: subscriber.unsubscribe,
+        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
+      };
     },
     getLegacyAccountSigner(account: ProductAccount): PolkadotSigner {
       return getPolkadotSignerFromPjs(

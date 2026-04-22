@@ -23,13 +23,17 @@ export type RequestHandler<Method extends string> = (
 export type SubscriptionHandler<Method extends string> = (
   params: PickMessagePayloadValue<ComposeMessageAction<Method, 'start'>>,
   send: (value: PickMessagePayloadValue<ComposeMessageAction<Method, 'receive'>>) => void,
-  interrupt: () => void,
+  interrupt: (value: PickMessagePayloadValue<ComposeMessageAction<Method, 'interrupt'>>) => void,
 ) => VoidFunction;
 
-export type Subscription = {
+export type Subscription<InterruptPayload = unknown> = {
   unsubscribe: VoidFunction;
-  onInterrupt(callback: VoidFunction): VoidFunction;
+  onInterrupt(callback: (payload: InterruptPayload) => void): VoidFunction;
 };
+
+export type SubscriptionFor<Method extends HostApiMethod> = Subscription<
+  PickMessagePayloadValue<ComposeMessageAction<Method, 'interrupt'>>
+>;
 
 export type Transport = {
   readonly provider: Provider;
@@ -52,7 +56,7 @@ export type Transport = {
     method: Method,
     payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'start'>>,
     callback: (payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'receive'>>) => void,
-  ): Subscription;
+  ): SubscriptionFor<Method>;
 
   handleSubscription<const Method extends HostApiMethod>(
     method: Method,

@@ -3,6 +3,7 @@ import type {
   ProductAccountId as ProductAccountIdCodec,
   SignedStatement as SignedStatementCodec,
   Statement as StatementCodec,
+  Subscription,
   Topic as TopicCodec,
   Transport,
 } from '@novasamatech/host-api';
@@ -27,14 +28,19 @@ export const createStatementStore = (transport: Transport = sandboxTransport) =>
   const hostApi = createHostApi(transport);
 
   return {
-    subscribe(filter: StatementTopicFilter, callback: (page: StatementsPage) => void) {
+    subscribe(filter: StatementTopicFilter, callback: (page: StatementsPage) => void): Subscription<void> {
       const scaleFilter =
         'matchAll' in filter ? enumValue('MatchAll', filter.matchAll) : enumValue('MatchAny', filter.matchAny);
-      return hostApi.statementStoreSubscribe(enumValue('v1', scaleFilter), payload => {
+      const subscriber = hostApi.statementStoreSubscribe(enumValue('v1', scaleFilter), payload => {
         if (payload.tag === 'v1') {
           callback(payload.value);
         }
       });
+
+      return {
+        unsubscribe: subscriber.unsubscribe,
+        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
+      };
     },
 
     async createProof(accountId: ProductAccountId, statement: Statement) {

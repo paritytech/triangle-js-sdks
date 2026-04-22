@@ -20,7 +20,9 @@ import {
   GenericError,
   LoginErr,
   NavigateToErr,
+  PaymentBalanceErr,
   PaymentRequestErr,
+  PaymentStatusErr,
   PaymentTopUpErr,
   PreimageSubmitErr,
   RemotePermission,
@@ -49,8 +51,16 @@ type RequestSlot<Method extends HostApiMethod> = {
   call: RequestHandler<Method>;
 };
 
+type SubscriptionSlot<Method extends HostApiMethod> = {
+  update(handler: SubscriptionHandler<Method>): VoidFunction;
+  makeDefaultInterrupt(): InterruptPayloadFor<HostApiProtocol[Method]>;
+};
+
 type ErrorResponse<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
   Call extends VersionedProtocolRequest ? UnwrapErrorResponse<'v1', CodecValue<Call['response']>> : never;
+
+type InterruptPayloadFor<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
+  Call extends VersionedProtocolSubscription ? CodecValue<Call['interrupt']> : never;
 
 type ContainerRequestHandlerGuard<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
   Call extends VersionedProtocolRequest ? ContainerRequestHandler<'v1', Call> : never;
@@ -132,16 +142,18 @@ export function createContainer(provider: Provider): Container {
 
   function makeInterruptSlot<const Method extends HostApiMethod>(
     method: Method,
-  ): (handler: SubscriptionHandler<Method>) => VoidFunction {
+    makeDefaultInterrupt: () => InterruptPayloadFor<HostApiProtocol[Method]>,
+  ): SubscriptionSlot<Method> {
     // Cast needed: the default handler ignores typed params/send which TypeScript can't verify
     // matches the generic Method's subscription type without evaluating template literal types.
-    const defaultHandler = ((_params: unknown, _send: unknown, interrupt: VoidFunction) => {
-      queueMicrotask(interrupt);
+    const defaultHandler = ((_params: unknown, _send: unknown, interrupt: (payload: unknown) => void) => {
+      queueMicrotask(() => interrupt(makeDefaultInterrupt()));
       return () => {
         /* nothing to clean up */
       };
     }) as SubscriptionHandler<Method>;
-    return makeSubscriptionSlot(method, defaultHandler);
+    const update = makeSubscriptionSlot(method, defaultHandler);
+    return { update, makeDefaultInterrupt };
   }
 
   function makePermissionGatedRequestSlot<const Method extends HostApiMethod>(
@@ -200,26 +212,26 @@ export function createContainer(provider: Provider): Container {
   }
 
   function handleV1Subscription<const Method extends HostApiMethod>(
-    slot: (handler: SubscriptionHandler<Method>) => VoidFunction,
-    handler: (params: never, send: never, interrupt: VoidFunction) => VoidFunction,
+    slot: SubscriptionSlot<Method>,
+    handler: (params: any, send: any, interrupt: any) => VoidFunction,
   ): VoidFunction {
     init();
     const version = 'v1' as const;
-    const slotHandler = ((params: unknown, send: unknown, interrupt: VoidFunction) => {
+    const slotHandler = ((params: unknown, send: unknown, interrupt: (v: unknown) => void) => {
       return guardVersion(params as { tag: string; value: unknown }, version, null)
         .map(p =>
           handler(
             p as never,
             ((payload: unknown) => (send as (v: unknown) => void)(enumValue(version, payload))) as never,
-            interrupt,
+            ((payload: unknown) => interrupt(enumValue(version, payload))) as never,
           ),
         )
-        .orTee(interrupt)
+        .orTee(() => interrupt(slot.makeDefaultInterrupt()))
         .unwrapOr(() => {
           /* empty */
         });
     }) as SubscriptionHandler<Method>;
-    return slot(slotHandler);
+    return slot.update(slotHandler);
   }
 
   // account slots
@@ -376,14 +388,26 @@ export function createContainer(provider: Provider): Container {
 
   // subscription slots — default interrupts on next microtask so that
   // the caller has a chance to register an onInterrupt listener first
-  const handleThemeSubscribeSlot = makeInterruptSlot('host_theme_subscribe');
-  const handleAccountConnectionStatusSubscribeSlot = makeInterruptSlot('host_account_connection_status_subscribe');
-  const handleChatListSubscribeSlot = makeInterruptSlot('host_chat_list_subscribe');
-  const handleChatActionSubscribeSlot = makeInterruptSlot('host_chat_action_subscribe');
-  const handleStatementStoreSubscribeSlot = makeInterruptSlot('remote_statement_store_subscribe');
-  const handlePreimageLookupSubscribeSlot = makeInterruptSlot('remote_preimage_lookup_subscribe');
-  const handlePaymentBalanceSubscribeSlot = makeInterruptSlot('host_payment_balance_subscribe');
-  const handlePaymentStatusSubscribeSlot = makeInterruptSlot('host_payment_status_subscribe');
+  const handleThemeSubscribeSlot = makeInterruptSlot('host_theme_subscribe', () => enumValue('v1', undefined));
+  const handleAccountConnectionStatusSubscribeSlot = makeInterruptSlot('host_account_connection_status_subscribe', () =>
+    enumValue('v1', undefined),
+  );
+  const handleChatListSubscribeSlot = makeInterruptSlot('host_chat_list_subscribe', () => enumValue('v1', undefined));
+  const handleChatActionSubscribeSlot = makeInterruptSlot('host_chat_action_subscribe', () =>
+    enumValue('v1', undefined),
+  );
+  const handleStatementStoreSubscribeSlot = makeInterruptSlot('remote_statement_store_subscribe', () =>
+    enumValue('v1', undefined),
+  );
+  const handlePreimageLookupSubscribeSlot = makeInterruptSlot('remote_preimage_lookup_subscribe', () =>
+    enumValue('v1', undefined),
+  );
+  const handlePaymentBalanceSubscribeSlot = makeInterruptSlot('host_payment_balance_subscribe', () =>
+    enumValue('v1', new PaymentBalanceErr.Unknown({ reason: NOT_IMPLEMENTED })),
+  );
+  const handlePaymentStatusSubscribeSlot = makeInterruptSlot('host_payment_status_subscribe', () =>
+    enumValue('v1', new PaymentStatusErr.Unknown({ reason: NOT_IMPLEMENTED })),
+  );
 
   return {
     handleFeatureSupported(handler) {
@@ -674,7 +698,7 @@ export function createContainer(provider: Provider): Container {
       cleanups.push(
         transport.handleSubscription('remote_chain_head_follow', (params, send, interrupt) => {
           if (!isEnumVariant(params, 'v1')) {
-            interrupt();
+            interrupt(enumValue('v1', undefined));
             return () => {
               /* unsupported version */
             };
@@ -683,7 +707,7 @@ export function createContainer(provider: Provider): Container {
 
           const entry = manager.getOrCreateChain(genesisHash);
           if (!entry) {
-            interrupt();
+            interrupt(enumValue('v1', undefined));
             return () => {
               /* no chain provider available */
             };

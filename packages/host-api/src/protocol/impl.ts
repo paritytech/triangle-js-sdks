@@ -3,6 +3,7 @@ import { Enum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
 
 import {
+  AccountConnectionStatusV1_interrupt,
   AccountConnectionStatusV1_receive,
   AccountConnectionStatusV1_start,
   AccountCreateProofV1_request,
@@ -25,6 +26,7 @@ import {
   ChainHeadCallV1_response,
   ChainHeadContinueV1_request,
   ChainHeadContinueV1_response,
+  ChainHeadFollowV1_interrupt,
   ChainHeadFollowV1_receive,
   ChainHeadFollowV1_start,
   ChainHeadHeaderV1_request,
@@ -47,12 +49,15 @@ import {
   TransactionStopV1_response,
 } from './v1/chainInteraction.js';
 import {
+  ChatActionSubscribeV1_interrupt,
   ChatActionSubscribeV1_receive,
   ChatActionSubscribeV1_start,
   ChatCreateRoomV1_request,
   ChatCreateRoomV1_response,
+  ChatCustomMessageRenderingV1_interrupt,
   ChatCustomMessageRenderingV1_receive,
   ChatCustomMessageRenderingV1_start,
+  ChatListSubscribeV1_interrupt,
   ChatListSubscribeV1_receive,
   ChatListSubscribeV1_start,
   ChatPostMessageV1_request,
@@ -73,6 +78,7 @@ import { HandshakeV1_request, HandshakeV1_response } from './v1/handshake.js';
 import {
   JsonRpcMessageSendV1_request,
   JsonRpcMessageSendV1_response,
+  JsonRpcMessageSubscribeV1_interrupt,
   JsonRpcMessageSubscribeV1_receive,
   JsonRpcMessageSubscribeV1_start,
 } from './v1/jsonRpc.js';
@@ -87,16 +93,19 @@ import {
 import { NavigateToV1_request, NavigateToV1_response } from './v1/navigation.js';
 import { PushNotificationV1_request, PushNotificationV1_response } from './v1/notification.js';
 import {
+  PaymentBalanceSubscribeV1_interrupt,
   PaymentBalanceSubscribeV1_receive,
   PaymentBalanceSubscribeV1_start,
   PaymentRequestV1_request,
   PaymentRequestV1_response,
+  PaymentStatusSubscribeV1_interrupt,
   PaymentStatusSubscribeV1_receive,
   PaymentStatusSubscribeV1_start,
   PaymentTopUpV1_request,
   PaymentTopUpV1_response,
 } from './v1/payments.js';
 import {
+  PreimageLookupSubscribeV1_interrupt,
   PreimageLookupSubscribeV1_receive,
   PreimageLookupSubscribeV1_start,
   PreimageSubmitV1_request,
@@ -118,32 +127,40 @@ import {
   StatementStoreCreateProofV1_response,
   StatementStoreSubmitV1_request,
   StatementStoreSubmitV1_response,
+  StatementStoreSubscribeV1_interrupt,
   StatementStoreSubscribeV1_receive,
   StatementStoreSubscribeV1_start,
 } from './v1/statementStore.js';
-import { ThemeSubscribeV1_receive, ThemeSubscribeV1_start } from './v1/theme.js';
+import { ThemeSubscribeV1_interrupt, ThemeSubscribeV1_receive, ThemeSubscribeV1_start } from './v1/theme.js';
 
 // helpers
 
-export type VersionedArguments = Record<string, [Codec<any>, Codec<any>]>;
+export type VersionedRequestArguments = Record<string, [Codec<any>, Codec<any>]>;
+export type VersionedSubscriptionArguments = Record<string, [Codec<any>, Codec<any>, Codec<any>]>;
 
-type InferVersionedArgument<EnumValues extends VersionedArguments, N extends number> = {
+export type VersionedArguments = VersionedRequestArguments;
+
+type InferVersionedArgument<EnumValues extends Record<string, Codec<any>[]>, N extends number> = {
   [V in keyof EnumValues]: EnumValues[V][N];
 };
 
-export type VersionedProtocolRequest<T extends VersionedArguments = VersionedArguments> = {
+export type VersionedProtocolRequest<T extends VersionedRequestArguments = VersionedRequestArguments> = {
   method: 'request';
   request: EnumCodec<InferVersionedArgument<T, 0>>;
   response: EnumCodec<InferVersionedArgument<T, 1>>;
 };
 
-export type VersionedProtocolSubscription<T extends VersionedArguments = VersionedArguments> = {
+export type VersionedProtocolSubscription<T extends VersionedSubscriptionArguments = VersionedSubscriptionArguments> = {
   method: 'subscribe';
   start: EnumCodec<InferVersionedArgument<T, 0>>;
   receive: EnumCodec<InferVersionedArgument<T, 1>>;
+  interrupt: EnumCodec<InferVersionedArgument<T, 2>>;
 };
 
-const enumFromArg = <const Values extends VersionedArguments, const N extends number>(enumValues: Values, n: N) => {
+const enumFromArg = <const Values extends Record<string, Codec<any>[]>, const N extends number>(
+  enumValues: Values,
+  n: N,
+) => {
   return Enum(
     Object.fromEntries(Object.entries(enumValues).map(([key, value]) => [key, value[n]])) as InferVersionedArgument<
       Values,
@@ -152,7 +169,7 @@ const enumFromArg = <const Values extends VersionedArguments, const N extends nu
   );
 };
 
-const versionedRequest = <const EnumValues extends VersionedArguments>(
+const versionedRequest = <const EnumValues extends VersionedRequestArguments>(
   values: EnumValues,
 ): VersionedProtocolRequest<EnumValues> => {
   return {
@@ -162,13 +179,14 @@ const versionedRequest = <const EnumValues extends VersionedArguments>(
   };
 };
 
-const versionedSubscription = <const EnumValues extends VersionedArguments>(
+const versionedSubscription = <const EnumValues extends VersionedSubscriptionArguments>(
   values: EnumValues,
 ): VersionedProtocolSubscription<EnumValues> => {
   return {
     method: 'subscribe',
     start: enumFromArg(values, 0),
     receive: enumFromArg(values, 1),
+    interrupt: enumFromArg(values, 2),
   };
 };
 
@@ -192,7 +210,7 @@ export const hostApiProtocol = {
   }),
 
   host_theme_subscribe: versionedSubscription({
-    v1: [ThemeSubscribeV1_start, ThemeSubscribeV1_receive],
+    v1: [ThemeSubscribeV1_start, ThemeSubscribeV1_receive, ThemeSubscribeV1_interrupt],
   }),
 
   host_navigate_to: versionedRequest({
@@ -238,7 +256,7 @@ export const hostApiProtocol = {
   }),
 
   host_account_connection_status_subscribe: versionedSubscription({
-    v1: [AccountConnectionStatusV1_start, AccountConnectionStatusV1_receive],
+    v1: [AccountConnectionStatusV1_start, AccountConnectionStatusV1_receive, AccountConnectionStatusV1_interrupt],
   }),
 
   host_account_get: versionedRequest({
@@ -294,7 +312,7 @@ export const hostApiProtocol = {
   }),
 
   host_chat_list_subscribe: versionedSubscription({
-    v1: [ChatListSubscribeV1_start, ChatListSubscribeV1_receive],
+    v1: [ChatListSubscribeV1_start, ChatListSubscribeV1_receive, ChatListSubscribeV1_interrupt],
   }),
 
   host_chat_post_message: versionedRequest({
@@ -302,17 +320,21 @@ export const hostApiProtocol = {
   }),
 
   host_chat_action_subscribe: versionedSubscription({
-    v1: [ChatActionSubscribeV1_start, ChatActionSubscribeV1_receive],
+    v1: [ChatActionSubscribeV1_start, ChatActionSubscribeV1_receive, ChatActionSubscribeV1_interrupt],
   }),
 
   product_chat_custom_message_render_subscribe: versionedSubscription({
-    v1: [ChatCustomMessageRenderingV1_start, ChatCustomMessageRenderingV1_receive],
+    v1: [
+      ChatCustomMessageRenderingV1_start,
+      ChatCustomMessageRenderingV1_receive,
+      ChatCustomMessageRenderingV1_interrupt,
+    ],
   }),
 
   // Statement store (remote namespace)
 
   remote_statement_store_subscribe: versionedSubscription({
-    v1: [StatementStoreSubscribeV1_start, StatementStoreSubscribeV1_receive],
+    v1: [StatementStoreSubscribeV1_start, StatementStoreSubscribeV1_receive, StatementStoreSubscribeV1_interrupt],
   }),
 
   remote_statement_store_create_proof: versionedRequest({
@@ -326,7 +348,7 @@ export const hostApiProtocol = {
   // Preimage lookup
 
   remote_preimage_lookup_subscribe: versionedSubscription({
-    v1: [PreimageLookupSubscribeV1_start, PreimageLookupSubscribeV1_receive],
+    v1: [PreimageLookupSubscribeV1_start, PreimageLookupSubscribeV1_receive, PreimageLookupSubscribeV1_interrupt],
   }),
 
   remote_preimage_submit: versionedRequest({
@@ -336,7 +358,7 @@ export const hostApiProtocol = {
   // Payments
 
   host_payment_balance_subscribe: versionedSubscription({
-    v1: [PaymentBalanceSubscribeV1_start, PaymentBalanceSubscribeV1_receive],
+    v1: [PaymentBalanceSubscribeV1_start, PaymentBalanceSubscribeV1_receive, PaymentBalanceSubscribeV1_interrupt],
   }),
 
   host_payment_top_up: versionedRequest({
@@ -348,7 +370,7 @@ export const hostApiProtocol = {
   }),
 
   host_payment_status_subscribe: versionedSubscription({
-    v1: [PaymentStatusSubscribeV1_start, PaymentStatusSubscribeV1_receive],
+    v1: [PaymentStatusSubscribeV1_start, PaymentStatusSubscribeV1_receive, PaymentStatusSubscribeV1_interrupt],
   }),
 
   // json rpc (deprecated: use remote_chain_* methods instead)
@@ -358,13 +380,13 @@ export const hostApiProtocol = {
   }),
 
   host_jsonrpc_message_subscribe: versionedSubscription({
-    v1: [JsonRpcMessageSubscribeV1_start, JsonRpcMessageSubscribeV1_receive],
+    v1: [JsonRpcMessageSubscribeV1_start, JsonRpcMessageSubscribeV1_receive, JsonRpcMessageSubscribeV1_interrupt],
   }),
 
   // chain interaction (remote namespace)
 
   remote_chain_head_follow: versionedSubscription({
-    v1: [ChainHeadFollowV1_start, ChainHeadFollowV1_receive],
+    v1: [ChainHeadFollowV1_start, ChainHeadFollowV1_receive, ChainHeadFollowV1_interrupt],
   }),
 
   remote_chain_head_header: versionedRequest({

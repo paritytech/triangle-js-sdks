@@ -27,6 +27,7 @@ created: 2026-03-13
 - Changed `remote_statement_store_subscribe` callback argument from `Vec<SignedStatement>` to `SignedStatementsPage` (RFC-0008).
 - Added `host_request_login` method (RFC-0009). Products can explicitly trigger the host login UI; returns `LoginResult` (`success | alreadyConnected | rejected`) or `LoginErr`.
 - Added `host_account_get_root` method to the Accounts section (RFC-0010). Returns the user's root account after JIT permission approval.
+- Parametrized subscription `interrupt` messages with a per-subscription payload type `I` (defaults to `()`). `Subscriber` is now `Subscriber<I = ()>` with `onInterrupt: fn(fn(I))`; the `*_interrupt` action carries `Versioned<InterruptReason>` instead of no argument.
 
 
 ### v0.6 - 2026-02-06
@@ -385,7 +386,7 @@ Actions MUST be derived from Host API methods using the following algorithm:
     - Argument: none
   - Interrupt
     - Name: `method_name + '_interrupt'`
-    - Argument: none
+    - Argument: `Versioned<InterruptReason>`
   - Receive
     - Name: `method_name + '_receive'`
     - Argument: versioned argument of callback function `Versioned<Message>`
@@ -407,7 +408,7 @@ enum Payload {
 
   message_subscribe_start(Versioned::V1(ChainId)),
   message_subscribe_stop,
-  message_subscribe_interrupt,
+  message_subscribe_interrupt(Versioned::V1(InterruptReason)),
   message_subscribe_receive(Versioned::V1(str)),
 
   // ...
@@ -428,13 +429,15 @@ Request and response MUST share the same `requestId` for matching on each side.
 When a subscription starts, the consumer MUST notify the provider with a `start` message.
 When the consumer wants to unsubscribe, it MUST send a `stop` message.
 The provider MUST send data updates with a `receive` message.
-If the provider has trouble providing data, it CAN send an `interrupt` message to the consumer. The consumer MAY react to an `interrupt` message by notifying the application layer.
+If the provider has trouble providing data, it CAN send an `interrupt` message to the consumer carrying a subscription-specific payload that describes the reason. The consumer MAY react to an `interrupt` message by notifying the application layer.
+
+Each subscription method declares its own interrupt payload type `I`. Subscriptions that do not need to communicate a reason default `I` to `()`. The interrupt payload type is orthogonal to the `receive` callback type and is surfaced on the returned `Subscriber<I>`.
 
 The returned `Subscriber` interface depends on the implementation, but a generic interface may look like this:
 ```rust
-struct Subscriber {
+struct Subscriber<I = ()> {
   unsubscribe: fn(),
-  onInterrupt: fn(fn())
+  onInterrupt: fn(fn(I))
 }
 ```
 
@@ -1236,7 +1239,7 @@ enum PaymentStatusErr {
 /// Denial is communicated via subscription interrupt.
 fn host_payment_balance_subscribe(
   callback: fn(PaymentBalance)
-) -> Result<Subscriber, PaymentBalanceErr>;
+) -> Result<Subscriber<PaymentBalanceErr>, GenericErr>;
 
 /// Top up user balance from a product-controlled source. No user consent required.
 fn host_payment_top_up(
@@ -1257,7 +1260,7 @@ fn host_payment_request(
 fn host_payment_status_subscribe(
   payment_id: PaymentId,
   callback: fn(PaymentStatus)
-) -> Result<Subscriber, PaymentStatusErr>;
+) -> Result<Subscriber<PaymentStatusErr>, GenericErr>;
 ```
 
 ### Chain connection

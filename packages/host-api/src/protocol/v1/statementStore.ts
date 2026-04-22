@@ -72,6 +72,7 @@ export const SignedStatementsPage = Struct({
 
 export const StatementStoreSubscribeV1_start = TopicFilter;
 export const StatementStoreSubscribeV1_receive = SignedStatementsPage;
+export const StatementStoreSubscribeV1_interrupt = _void;
 
 // creating proof
 
