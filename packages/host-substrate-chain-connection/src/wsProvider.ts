@@ -29,6 +29,7 @@ export const createWsJsonRpcProvider = (options: {
   onStatusChanged?: (status: ConnectionStatus) => void;
   websocketClass?: typeof WebSocket;
   heartbeatTimeout?: number;
+  connectionTimeout?: number;
   logger?: SocketLoggerFn;
 }): PausableJsonRpcProvider => {
   let notifyReconnect: VoidFunction = noop;
@@ -43,7 +44,12 @@ export const createWsJsonRpcProvider = (options: {
 
   const baseProvider: JsonRpcProvider = getWsProvider(options.endpoints, {
     logger: options.logger,
-    heartbeatTimeout: options.heartbeatTimeout,
+    // Forward only when defined: getWsProvider merges via `{...defaults, ...config}`,
+    // so an explicit `undefined` clobbers the library's 40 s default and Node's
+    // setTimeout clamps undefined/Infinity to 1 ms — which would kill every socket
+    // right after open and drive a reconnect loop.
+    ...(options.heartbeatTimeout !== undefined && { heartbeatTimeout: options.heartbeatTimeout }),
+    ...(options.connectionTimeout !== undefined && { timeout: options.connectionTimeout }),
     middleware: inner => pauseController.middleware(inner),
     websocketClass: options.websocketClass,
     onStatusChanged: event => {
