@@ -6,7 +6,6 @@
 - **product-sdk:** subscription helpers (`subscribeTheme`, `subscribeAccountConnectionStatus`, `subscribeBalance`, `subscribePaymentStatus`, `subscribeChatList`, `subscribeAction`, `subscribeStatementStore`, preimage `lookup`) now return `Subscription<I>` and surface `onInterrupt`.
 - **host-substrate-chain-connection:** add pause/resume to drop the inner socket cleanly.
 
-
 ### ⚠️ Breaking Changes
 
 - **host-api:** `remote_permission` request changed from `Vec<RemotePermission>` to a single `RemotePermission`. Callers must now issue one call per permission.
