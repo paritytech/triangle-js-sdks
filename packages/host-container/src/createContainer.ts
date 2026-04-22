@@ -156,7 +156,7 @@ export function createContainer(provider: Provider): Container {
 
     transport.handleRequest(method, async params => {
       const permissionResponse = await handleRemotePermissionSlot.call(
-        enumValue('v1', [enumValue(permissionVariant as never, undefined)]),
+        enumValue('v1', enumValue(permissionVariant as never, undefined)),
       );
       const permissionGranted =
         isEnumVariant(permissionResponse, 'v1') &&
@@ -952,7 +952,7 @@ export function createContainer(provider: Provider): Container {
 
           try {
             const permissionResponse = await handleRemotePermissionSlot.call(
-              enumValue('v1', [enumValue('ChainSubmit', undefined)]),
+              enumValue('v1', enumValue('ChainSubmit', undefined)),
             );
             const permissionGranted =
               isEnumVariant(permissionResponse, 'v1') &&

@@ -74,9 +74,9 @@ container.handleDevicePermission(async (request, { ok, err }) => {
 
 ### handlePermission
 
-The `request` parameter is an **array** of `RemotePermission` items. Return `ok(true)` only when **all** permissions in the batch are granted.
+The `request` parameter is a single `RemotePermission` item. Return `ok(true)` when the permission is granted, `ok(false)` when denied.
 
-Each item has one of these shapes:
+The item has one of these shapes:
 - `{ tag: 'Remote', value: string[] }` — HTTP/WS domain patterns (exact or `*.wildcard`)
 - `{ tag: 'WebRTC', value: undefined }` — WebRTC access (may expose user IP)
 - `{ tag: 'ChainSubmit', value: undefined }` — broadcast transactions via `remote_chain_transaction_broadcast`
@@ -84,37 +84,19 @@ Each item has one of these shapes:
 - `{ tag: 'StatementSubmit', value: undefined }` — submit statements via `remote_statement_store_submit`
 
 ```ts
-container.handlePermission(async (permissions, { ok, err }) => {
-  for (const permission of permissions) {
-    switch (permission.tag) {
-      case 'Remote': {
-        const allowed = await checkDomainPermissions(permission.value);
-        if (!allowed) return ok(false);
-        break;
-      }
-      case 'WebRTC': {
-        const allowed = await promptWebRTCPermission();
-        if (!allowed) return ok(false);
-        break;
-      }
-      case 'ChainSubmit': {
-        const allowed = await promptChainSubmitPermission();
-        if (!allowed) return ok(false);
-        break;
-      }
-      case 'PreimageSubmit': {
-        const allowed = await promptPreimageSubmitPermission();
-        if (!allowed) return ok(false);
-        break;
-      }
-      case 'StatementSubmit': {
-        const allowed = await promptStatementSubmitPermission();
-        if (!allowed) return ok(false);
-        break;
-      }
-    }
+container.handlePermission(async (permission, { ok, err }) => {
+  switch (permission.tag) {
+    case 'Remote':
+      return ok(await checkDomainPermissions(permission.value));
+    case 'WebRTC':
+      return ok(await promptWebRTCPermission());
+    case 'ChainSubmit':
+      return ok(await promptChainSubmitPermission());
+    case 'PreimageSubmit':
+      return ok(await promptPreimageSubmitPermission());
+    case 'StatementSubmit':
+      return ok(await promptStatementSubmitPermission());
   }
-  return ok(true);
 });
 ```
 

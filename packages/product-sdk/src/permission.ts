@@ -21,15 +21,15 @@ export function requestDevicePermission(permission: DevicePermissionKind) {
 }
 
 /**
- * Request one or more remote permissions from the host in a single batch.
+ * Request remote permission from the host.
  * Returns ResultAsync<boolean, GenericError>:
- *   - ok(true)  — all permissions granted
- *   - ok(false) — at least one permission denied
+ *   - ok(true)  — permission granted
+ *   - ok(false) — permission denied by the user
  *   - err(...)  — transport or encoding error
  */
-export function requestPermission(permissions: RemotePermissionItem[]) {
+export function requestPermission(permission: RemotePermissionItem) {
   return hostApi
-    .permission(enumValue('v1', permissions))
+    .permission(enumValue('v1', permission))
     .map(r => r.value)
     .mapErr(e => e.value);
 }

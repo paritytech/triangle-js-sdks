@@ -11,5 +11,5 @@ export const RemotePermission = Enum({
   StatementSubmit: _void,
 });
 
-export const RemotePermissionV1_request = Vector(RemotePermission);
+export const RemotePermissionV1_request = RemotePermission;
 export const RemotePermissionV1_response = Result(bool, GenericError);

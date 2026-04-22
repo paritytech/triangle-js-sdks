@@ -9,9 +9,6 @@ created: 2026-03-13
 
 ## Changelog
 
-### v0.8 - 2026-04-15
-
-- Added `host_account_get_root` method to the Accounts section (RFC-0010). Returns the user's root account after JIT permission approval.
 
 ### v0.7 - 2026-04-13
 
@@ -24,12 +21,13 @@ created: 2026-03-13
 - Renamed `DevicePermissionRequest` to `DevicePermission` for consistency (RFC-0002).
 - Extended `DevicePermission` with new variants: `Notifications`, `NFC`, `Clipboard`, `OpenUrl`, `Biometrics`.
 - Replaced `RemotePermission` variants `ExternalRequest(str)` and `TransactionSubmit` with `Remote(Vec<String>)`, `WebRTC`, `ChainSubmit`, `PreimageSubmit`, and `StatementSubmit`.
-- Changed `remote_permission` argument from a single `RemotePermission` to `Vec<RemotePermission>` to allow batched requests in one prompt.
 - Documented permission lifecycle: decisions are prompted once and persisted indefinitely, surviving app restarts.
 - Documented implicit permission triggering for `remote_chain_transaction_broadcast` (ChainSubmit), `remote_preimage_submit` (PreimageSubmit), and `remote_statement_store_submit` (StatementSubmit).
 - Changed `remote_statement_store_subscribe` start payload from `Vec<Topic>` to `TopicFilter` (RFC-0008).
 - Changed `remote_statement_store_subscribe` callback argument from `Vec<SignedStatement>` to `SignedStatementsPage` (RFC-0008).
 - Added `host_request_login` method (RFC-0009). Products can explicitly trigger the host login UI; returns `LoginResult` (`success | alreadyConnected | rejected`) or `LoginErr`.
+- Added `host_account_get_root` method to the Accounts section (RFC-0010). Returns the user's root account after JIT permission approval.
+
 
 ### v0.6 - 2026-02-06
 
@@ -112,7 +110,7 @@ fn host_device_permission(
 ) -> Result<bool, GenericErr>;
 
 fn remote_permission(
-  permissions: Vec<RemotePermission>
+  permission: RemotePermission
 ) -> Result<bool, GenericErr>;
 
 // Storage
@@ -546,7 +544,7 @@ Each call requests a single device permission. Batching is not supported for dev
 
 #### Remote permissions request
 
-Products can request remote permissions to access network resources or submit data to chains. Remote permissions can be batched: a single call declares all of a product's needs and results in one user prompt.
+Products can request remote permissions to access network resources or submit data to chains.
 
 ```rust
 enum RemotePermission {
@@ -568,11 +566,11 @@ enum RemotePermission {
 }
 
 fn remote_permission(
-  permissions: Vec<RemotePermission>
+  permission: RemotePermission
 ) -> Result<bool, GenericErr>;
 ```
 
-`true` means all requested permissions were granted. `false` means the user denied at least one; the Host MAY persist partial grants. Products that need to know which specific permissions were denied should call `remote_permission` with individual entries.
+`true` means requested permission were granted. `false` means the user denied request; the Host MAY persist partial grants. Products that need to know which specific permissions were denied should call `remote_permission` with individual entries.
 
 ### Permission Lifecycle
 

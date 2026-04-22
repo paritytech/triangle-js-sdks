@@ -126,7 +126,7 @@ describe('Host API: StatementStore', () => {
     expect(handler).toBeCalledWith(signedStatement, { ok: expect.any(Function), err: expect.any(Function) });
     expect(permissionHandler).toHaveBeenCalledOnce();
     const [receivedParams] = permissionHandler.mock.calls[0]!;
-    expect(receivedParams).toContainEqual({ tag: 'StatementSubmit', value: undefined });
+    expect(receivedParams).toEqual({ tag: 'StatementSubmit', value: undefined });
   });
 
   it('should handle createProof error when account is unknown', async () => {
@@ -155,7 +155,7 @@ describe('Host API: StatementStore', () => {
 
     expect(permissionHandler).toHaveBeenCalledOnce();
     const [receivedParams] = permissionHandler.mock.calls[0]!;
-    expect(receivedParams).toContainEqual({ tag: 'StatementSubmit', value: undefined });
+    expect(receivedParams).toEqual({ tag: 'StatementSubmit', value: undefined });
   });
 
   it('should unsubscribe from statement updates', async () => {
