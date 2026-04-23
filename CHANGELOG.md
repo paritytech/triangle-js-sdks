@@ -3,6 +3,7 @@
 ### 🩹 Fixes
 
 - **host-api:** reorder actions in the protocol so all v0.7-new methods come after pre-v0.7 ones. Eliminating the ABI break that 0.7.0 introduced for existing methods.
+- **product-sdk:** add buffer detach before sending content to Electron IPC
 
 ### ⚠️ Breaking Changes
 
