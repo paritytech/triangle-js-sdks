@@ -1,3 +1,17 @@
+## 0.7.2 (2026-04-23)
+
+### 🩹 Fixes
+
+- **host-api:** reorder actions in the wire protocol so all v0.7-new methods come after pre-v0.7 ones. Eliminating the ABI break that 0.7.0 introduced for existing methods.
+
+### ⚠️ Breaking Changes
+
+- **product-sdk:** `TopUpSource.productAccount` now carries only `derivationIndex`; the `dotNsIdentifier` field is gone.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.7.1 (2026-04-22)
 
 ### 🚀 Features
