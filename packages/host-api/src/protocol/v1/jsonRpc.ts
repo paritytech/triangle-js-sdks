@@ -7,3 +7,4 @@ export const JsonRpcMessageSendV1_response = Result(_void, GenericError);
 
 export const JsonRpcMessageSubscribeV1_start = GenesisHash;
 export const JsonRpcMessageSubscribeV1_receive = str;
+export const JsonRpcMessageSubscribeV1_interrupt = _void;

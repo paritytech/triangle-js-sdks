@@ -53,7 +53,7 @@ type InferRequestMethod<Method extends VersionedProtocolRequest> = (
 type InferSubscribeMethod<Method extends VersionedProtocolSubscription> = (
   args: Value<Method['start']>,
   callback: (payload: Value<Method['receive']>) => void,
-) => Subscription;
+) => Subscription<Value<Method['interrupt']>>;
 
 type InferMethod<Method extends VersionedProtocolRequest | VersionedProtocolSubscription> =
   Method extends VersionedProtocolRequest

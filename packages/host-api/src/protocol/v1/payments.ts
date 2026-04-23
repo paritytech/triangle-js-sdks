@@ -58,6 +58,7 @@ export const PaymentStatusErr = ErrEnum('PaymentStatusErr', {
 
 export const PaymentBalanceSubscribeV1_start = _void;
 export const PaymentBalanceSubscribeV1_receive = PaymentBalance;
+export const PaymentBalanceSubscribeV1_interrupt = PaymentBalanceErr;
 
 // host_payment_top_up
 
@@ -79,3 +80,4 @@ export const PaymentRequestV1_response = Result(PaymentReceipt, PaymentRequestEr
 
 export const PaymentStatusSubscribeV1_start = PaymentId;
 export const PaymentStatusSubscribeV1_receive = PaymentStatus;
+export const PaymentStatusSubscribeV1_interrupt = PaymentStatusErr;

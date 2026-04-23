@@ -1,4 +1,4 @@
-import type { Subscription, Transport } from '@novasamatech/host-api';
+import type { CodecType, PaymentBalanceErr, Subscription, Transport } from '@novasamatech/host-api';
 import { createHostApi, enumValue } from '@novasamatech/host-api';
 
 import { resultToPromise, unwrapVersionedResult } from './helpers.js';
@@ -19,12 +19,17 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
   const version = 'v1' as const;
 
   return {
-    subscribeBalance(callback: (balance: PaymentBalance) => void): Subscription {
-      return hostApi.paymentBalanceSubscribe(enumValue(version, undefined), payload => {
+    subscribeBalance(callback: (balance: PaymentBalance) => void): Subscription<CodecType<typeof PaymentBalanceErr>> {
+      const subscriber = hostApi.paymentBalanceSubscribe(enumValue(version, undefined), payload => {
         if (payload.tag === version) {
           callback(payload.value);
         }
       });
+
+      return {
+        unsubscribe: subscriber.unsubscribe,
+        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
+      };
     },
 
     topUp(amount: bigint, source: TopUpSource): Promise<void> {

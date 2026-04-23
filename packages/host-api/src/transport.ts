@@ -17,7 +17,7 @@ import type {
   ConnectionStatus,
   HostApiMethod,
   RequestHandler,
-  Subscription,
+  SubscriptionFor,
   SubscriptionHandler,
   Transport,
 } from './types.js';
@@ -230,10 +230,11 @@ export function createTransport(provider: Provider): Transport {
       method: Method,
       payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'start'>>,
       callback: (payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'receive'>>) => void,
-    ) {
+    ): SubscriptionFor<Method> {
       checks();
 
-      const events = createNanoEvents<{ interrupt: VoidFunction }>();
+      type InterruptPayload = PickMessagePayloadValue<ComposeMessageAction<Method, 'interrupt'>>;
+      const events = createNanoEvents<{ interrupt: (payload: InterruptPayload) => void }>();
 
       const startAction = composeAction(method, 'start');
       const startPayload = enumValue(startAction, payload) as never as PickMessagePayload<
@@ -261,7 +262,7 @@ export function createTransport(provider: Provider): Transport {
         unsubscribe: unsubscribeListener,
       };
 
-      const publicSubscription: Subscription = {
+      const publicSubscription: SubscriptionFor<Method> = {
         unsubscribe: unsubscribeListener,
         onInterrupt(callback) {
           return events.on('interrupt', callback);
@@ -287,9 +288,9 @@ export function createTransport(provider: Provider): Transport {
           }
         });
 
-        const unsubscribeInterrupt = transport.listenMessages(interruptAction, receivedId => {
+        const unsubscribeInterrupt = transport.listenMessages(interruptAction, (receivedId, data) => {
           if (receivedId === requestId) {
-            events.emit('interrupt');
+            events.emit('interrupt', data.value as InterruptPayload);
             stopSubscription();
           }
         });
@@ -348,12 +349,12 @@ export function createTransport(provider: Provider): Transport {
             >;
             transport.postMessage(requestId, receivePayload);
           },
-          () => {
+          value => {
             interrupted = true;
             subscriptions.delete(requestId);
             transport.postMessage(
               requestId,
-              enumValue(interruptAction, undefined) as never as PickMessagePayload<
+              enumValue(interruptAction, value) as never as PickMessagePayload<
                 ComposeMessageAction<Method, 'interrupt'>
               >,
             );

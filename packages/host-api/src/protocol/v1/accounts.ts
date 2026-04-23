@@ -56,6 +56,7 @@ export const AccountConnectionStatus = Status('disconnected', 'connected');
 
 export const AccountConnectionStatusV1_start = _void;
 export const AccountConnectionStatusV1_receive = AccountConnectionStatus;
+export const AccountConnectionStatusV1_interrupt = _void;
 
 // account_get_root
 

@@ -34,7 +34,7 @@ describe('Host API: Preimage', () => {
     expect(handler).toBeCalledWith(preimageData, { ok: expect.any(Function), err: expect.any(Function) });
     expect(permissionHandler).toHaveBeenCalledOnce();
     const [receivedParams] = permissionHandler.mock.calls[0]!;
-    expect(receivedParams).toContainEqual({ tag: 'PreimageSubmit', value: undefined });
+    expect(receivedParams).toEqual({ tag: 'PreimageSubmit', value: undefined });
   });
 
   it('should handle submit error and still gate on PreimageSubmit permission', async () => {
@@ -52,6 +52,6 @@ describe('Host API: Preimage', () => {
 
     expect(permissionHandler).toHaveBeenCalledOnce();
     const [receivedParams] = permissionHandler.mock.calls[0]!;
-    expect(receivedParams).toContainEqual({ tag: 'PreimageSubmit', value: undefined });
+    expect(receivedParams).toEqual({ tag: 'PreimageSubmit', value: undefined });
   });
 });

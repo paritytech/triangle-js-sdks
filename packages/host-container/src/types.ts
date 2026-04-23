@@ -53,7 +53,7 @@ type InferSubscribeHandler<V extends string, T extends VersionedProtocolSubscrip
   callback: (
     params: WithVersion<V, CodecValue<T['start']>>,
     send: (payload: WithVersion<V, CodecValue<T['receive']>>) => void,
-    interrupt: VoidFunction,
+    interrupt: (payload: WithVersion<V, CodecValue<T['interrupt']>>) => void,
   ) => VoidFunction,
 ) => VoidFunction;
 

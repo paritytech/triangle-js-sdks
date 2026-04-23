@@ -7,10 +7,11 @@ export type ChainConfig = {
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
 export type BranchedProvider = {
-  branch(onDisconnect?: VoidFunction): JsonRpcProvider;
+  branch(onHalt?: VoidFunction): JsonRpcProvider;
 };
 
 export type PooledClient = {
   client: PolkadotClient;
   provider: BranchedProvider;
+  rootProvider: JsonRpcProvider;
 };

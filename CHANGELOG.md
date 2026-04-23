@@ -1,3 +1,21 @@
+## 0.7.1 (2026-04-22)
+
+### 🚀 Features
+
+- **host-api:** parametrize subscription `interrupt` messages with a per-subscription payload type. `Subscription` is now generic (`Subscription<InterruptPayload = unknown>`) and exposes `onInterrupt(cb)`. Every `{method}_interrupt` codec is explicit in `protocol/v1`: `_void` for subscriptions without a reason.
+- **product-sdk:** subscription helpers (`subscribeTheme`, `subscribeAccountConnectionStatus`, `subscribeBalance`, `subscribePaymentStatus`, `subscribeChatList`, `subscribeAction`, `subscribeStatementStore`, preimage `lookup`) now return `Subscription<I>` and surface `onInterrupt`.
+- **host-substrate-chain-connection:** add pause/resume to drop the inner socket cleanly.
+
+### ⚠️ Breaking Changes
+
+- **host-api:** `remote_permission` request changed from `Vec<RemotePermission>` to a single `RemotePermission`. Callers must now issue one call per permission.
+- **host-container:** subscription `interrupt` messages carry a payload. `handleSubscription` handlers must call `interrupt(payload)` — the no-arg form is gone. `Transport.subscribe` return type is now `Subscription<InterruptPayload>`.
+
+### ❤️ Thank You
+
+- cuteWarmFrog
+- Sergey Zhuravlev @johnthecat
+
 ## 0.7.0 (2026-04-13)
 
 See [migration guide](./docs/migration/v0.7.md) for details.
