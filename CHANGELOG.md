@@ -2,7 +2,7 @@
 
 ### 🩹 Fixes
 
-- **host-api:** reorder actions in the wire protocol so all v0.7-new methods come after pre-v0.7 ones. Eliminating the ABI break that 0.7.0 introduced for existing methods.
+- **host-api:** reorder actions in the protocol so all v0.7-new methods come after pre-v0.7 ones. Eliminating the ABI break that 0.7.0 introduced for existing methods.
 
 ### ⚠️ Breaking Changes
 
