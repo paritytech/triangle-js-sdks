@@ -205,12 +205,15 @@ export function createPapiProvider(
           const [withRuntime] = params as [boolean];
           const syntheticSubId = getNextSubId();
 
-          const subscription = hostApi.chainHeadFollow(enumValue(version, { genesisHash, withRuntime }), payload => {
-            if (payload.tag === version) {
-              const jsonRpcEvent = convertTypedEventToJsonRpc(payload.value as { tag: string; value: unknown });
-              sendFollowEvent(syntheticSubId, jsonRpcEvent);
-            }
-          });
+          const subscription = hostApi.chainHeadFollowSubscribe(
+            enumValue(version, { genesisHash, withRuntime }),
+            payload => {
+              if (payload.tag === version) {
+                const jsonRpcEvent = convertTypedEventToJsonRpc(payload.value as { tag: string; value: unknown });
+                sendFollowEvent(syntheticSubId, jsonRpcEvent);
+              }
+            },
+          );
 
           activeFollows.set(syntheticSubId, { syntheticSubId, subscription, genesisHash });
           sendJsonRpcResponse(id, syntheticSubId);

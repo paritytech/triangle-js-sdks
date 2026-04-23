@@ -78,8 +78,6 @@ Host API is language-agnostic. All code examples are written in Rust, but author
 ## General Interface
 
 ```rust
-// Host
-
 fn host_handshake(
   version: ProtocolVersion
 ) -> Result<(), HandshakeErr>;
@@ -92,19 +90,9 @@ fn host_push_notification(
   text: str
 ) -> Result<(), GenericErr>;
 
-fn host_theme_subscribe(
-  callback: fn(Theme)
-) -> Result<Subscriber, GenericErr>;
-
 fn host_navigate_to(
   deeplink: str
 ) -> Result<(), NavigateToErr>;
-
-fn host_derive_entropy(
-  message: Vec<u8>
-) -> Result<Entropy, DeriveEntropyErr>;
-
-// Permissions
 
 fn host_device_permission(
   permission: DevicePermission
@@ -113,8 +101,6 @@ fn host_device_permission(
 fn remote_permission(
   permission: RemotePermission
 ) -> Result<bool, GenericErr>;
-
-// Storage
 
 fn host_local_storage_read(
   key: LocalStorageKey
@@ -128,12 +114,6 @@ fn host_local_storage_write(
 fn host_local_storage_clear(
   key: LocalStorageKey
 ) -> Result<(), LocalStorageErr>;
-
-// Account
-
-fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
-
-fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
 
 fn host_account_connection_status_subscribe(
   callback: fn(AccountConnectionStatus)
@@ -155,8 +135,6 @@ fn host_account_create_proof(
 
 fn host_get_legacy_accounts() -> Result<Vec<Account>, RequestCredentialsErr>;
 
-// Signing
-
 fn host_create_transaction(
   accountId: ProductAccountId,
   payload: VersionedTxPayload
@@ -171,19 +149,9 @@ fn host_sign_raw(
   payload: SigningPayloadRaw
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_raw_with_legacy_account(
-  payload: SigningPayloadRawWithoutAccount
-) -> Result<SigningResult, SigningErr>;
-
 fn host_sign_payload(
   payload: SigningPayload
 ) -> Result<SigningResult, SigningErr>;
-
-fn host_sign_payload_with_legacy_account(
-  payload: SigningPayloadWithoutAccount
-) -> Result<SigningResult, SigningErr>;
-
-// Chat
 
 fn host_chat_create_room(
   room: ChatRoomRequest
@@ -206,28 +174,10 @@ fn host_chat_action_subscribe(
   callback: fn(ChatAction)
 ) -> Result<Subscriber, GenericErr>;
 
-fn product_chat_custom_message_subscribe(
-  payload: ChatCustomMessagePayload,
-  callback: fn(SerializedCustomChatMessage)
-) -> Result<Subscriber, GenericErr>;
-
 fn product_chat_custom_message_render_subscribe(
   payload: ChatCustomMessagePayload,
   callback: fn(SerializedCustomChatMessage)
 ) -> Result<Subscriber, GenericErr>;
-
-// Pocket (TODO)
-
-// fn host_pocket_add_card(
-//  card: PocketCard
-// ) -> Result<PocketCardAddResult, PocketCardAddErr>;
-// fn host_pocket_remove_card(
-//  cardId: str
-// ) -> Result<(), GenericErr>;
-// fn host_pocket_rendering_subscribe() <- TODO
-// fn host_pocket_action_triggered() <- TODO
-
-// Statement Store
 
 fn remote_statement_store_subscribe(
   filter: TopicFilter,
@@ -243,8 +193,6 @@ fn remote_statement_store_submit(
   statement: SignedStatement
 ) -> Result<(), GenericErr>;
 
-// Preimage lookup
-
 fn remote_preimage_lookup_subscribe(
   key: Vec<u8>,
   callback: fn(Option<Vec<u8>>)
@@ -253,29 +201,6 @@ fn remote_preimage_lookup_subscribe(
 fn remote_preimage_submit(
   value: Vec<u8>
 ) -> Result<Vec<u8>, PreimageSubmitErr>;
-
-// Payments
-
-fn host_payment_balance_subscribe(
-  callback: fn(PaymentBalance)
-) -> Result<Subscriber, PaymentBalanceErr>;
-
-fn host_payment_top_up(
-  amount: Balance,
-  source: PaymentTopUpSource
-) -> Result<(), PaymentTopUpErr>;
-
-fn host_payment_request(
-  amount: Balance,
-  destination: AccountId
-) -> Result<PaymentReceipt, PaymentRequestErr>;
-
-fn host_payment_status_subscribe(
-  payment_id: PaymentId,
-  callback: fn(PaymentStatus)
-) -> Result<Subscriber, PaymentStatusErr>;
-
-// Chain interaction
 
 fn remote_chain_head_follow_subscribe(
   request: ChainHeadFollow,
@@ -329,6 +254,45 @@ fn remote_chain_transaction_broadcast(
 fn remote_chain_transaction_stop(
   request: TransactionStop
 ) -> Result<(), GenericErr>;
+
+fn host_theme_subscribe(
+  callback: fn(Theme)
+) -> Result<Subscriber, GenericErr>;
+
+fn host_derive_entropy(
+  message: Vec<u8>
+) -> Result<Entropy, DeriveEntropyErr>;
+
+fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
+
+fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
+
+fn host_sign_raw_with_legacy_account(
+  payload: SigningPayloadRawWithoutAccount
+) -> Result<SigningResult, SigningErr>;
+
+fn host_sign_payload_with_legacy_account(
+  payload: SigningPayloadWithoutAccount
+) -> Result<SigningResult, SigningErr>;
+
+fn host_payment_balance_subscribe(
+  callback: fn(PaymentBalance)
+) -> Result<Subscriber, PaymentBalanceErr>;
+
+fn host_payment_top_up(
+  amount: Balance,
+  source: PaymentTopUpSource
+) -> Result<(), PaymentTopUpErr>;
+
+fn host_payment_request(
+  amount: Balance,
+  destination: AccountId
+) -> Result<PaymentReceipt, PaymentRequestErr>;
+
+fn host_payment_status_subscribe(
+  payment_id: PaymentId,
+  callback: fn(PaymentStatus)
+) -> Result<Subscriber, PaymentStatusErr>;
 ```
 
 ## Transport
@@ -346,7 +310,7 @@ All examples in this proposal skip JAM codec derive implementation calls, but th
 
 [JAM codec](https://github.com/paritytech/jam-codec) is based on SCALE codec with native support for the `Compact` type.
 
-### Interface
+### Interface (ABI)
 
 Each message can be defined as:
 
@@ -358,7 +322,6 @@ struct Message {
 ```
 
 `Payload` is an enum of possible **actions**.
-Actions MUST follow the order of Host API methods defined above for correct indices during serialization.
 Actions with defined payload MUST be versioned using `VersionedMessage` enum:
 
 ```rust
@@ -367,6 +330,8 @@ enum VersionedMessage {
   // ...
 }
 ```
+
+Actions MUST follow the order of Host API methods defined above for correct indices during serialization.
 
 Actions MUST be derived from Host API methods using the following algorithm:
 
@@ -1194,7 +1159,7 @@ type PaymentId = str;
 
 enum PaymentTopUpSource {
   /// Fund from one of the calling product's scoped accounts.
-  ProductAccount(ProductAccountId),
+  ProductAccount(DerivationIndex),
   /// Fund from a one-time account whose Ed25519 private key the product possesses.
   PrivateKey([u8; 32])
 }

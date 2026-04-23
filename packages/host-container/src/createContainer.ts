@@ -696,7 +696,7 @@ export function createContainer(provider: Provider): Container {
 
       // Follow subscription
       cleanups.push(
-        transport.handleSubscription('remote_chain_head_follow', (params, send, interrupt) => {
+        transport.handleSubscription('remote_chain_head_follow_subscribe', (params, send, interrupt) => {
           if (!isEnumVariant(params, 'v1')) {
             interrupt(enumValue('v1', undefined));
             return () => {

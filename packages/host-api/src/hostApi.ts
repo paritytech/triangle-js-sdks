@@ -314,21 +314,10 @@ export function createHostApi(transport: Transport): HostApi {
       return transport.subscribe('host_payment_status_subscribe', args, callback);
     },
 
-    jsonrpcMessageSend(payload) {
-      return makeRequest(transport.request('host_jsonrpc_message_send', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    jsonrpcMessageSubscribe(args, callback) {
-      return transport.subscribe('host_jsonrpc_message_subscribe', args, callback);
-    },
-
     // chain interaction
 
-    chainHeadFollow(args, callback) {
-      return transport.subscribe('remote_chain_head_follow', args, callback);
+    chainHeadFollowSubscribe(args, callback) {
+      return transport.subscribe('remote_chain_head_follow_subscribe', args, callback);
     },
 
     chainHeadHeader(payload) {

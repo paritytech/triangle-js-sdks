@@ -3,7 +3,7 @@ import { Bytes, Result, Struct, _void, str, u128 } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
 
-import { ProductAccountId } from './accounts.js';
+import { DerivationIndex } from './accounts.js';
 
 // common types
 
@@ -12,7 +12,7 @@ export const Ed25519PrivateKey = Bytes(32);
 export const PaymentId = str;
 
 export const PaymentTopUpSource = Enum({
-  ProductAccount: ProductAccountId,
+  ProductAccount: DerivationIndex,
   PrivateKey: Ed25519PrivateKey,
 });
 

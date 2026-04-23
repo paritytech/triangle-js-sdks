@@ -10,9 +10,7 @@ export type PaymentBalance = {
 
 export type PaymentStatus = { type: 'processing' } | { type: 'completed' } | { type: 'failed'; reason: string };
 
-export type TopUpSource =
-  | { type: 'productAccount'; dotNsIdentifier: string; derivationIndex: number }
-  | { type: 'privateKey'; key: Uint8Array };
+export type TopUpSource = { type: 'productAccount'; derivationIndex: number } | { type: 'privateKey'; key: Uint8Array };
 
 export const createPaymentManager = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
@@ -37,7 +35,7 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
         source.type === 'productAccount'
           ? {
               tag: 'ProductAccount' as const,
-              value: [source.dotNsIdentifier, source.derivationIndex] as [string, number],
+              value: source.derivationIndex,
             }
           : { tag: 'PrivateKey' as const, value: source.key };
 
