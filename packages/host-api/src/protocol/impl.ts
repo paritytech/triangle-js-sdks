@@ -1,6 +1,7 @@
 import type { EnumCodec } from '@novasamatech/scale';
 import { Enum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
+import { Result, _void } from 'scale-ts';
 
 import {
   AccountConnectionStatusV1_interrupt,
@@ -306,6 +307,16 @@ export const hostApiProtocol = {
 
   remote_preimage_submit: versionedRequest({
     v1: [PreimageSubmitV1_request, PreimageSubmitV1_response],
+  }),
+
+  // json rpc (deprecated: use remote_chain_* methods instead)
+  host_jsonrpc_message_send: versionedRequest({
+    v1: [_void, Result(_void, _void)],
+  }),
+
+  // json rpc (deprecated: use remote_chain_* methods instead)
+  host_jsonrpc_message_subscribe: versionedSubscription({
+    v1: [_void, _void, _void],
   }),
 
   remote_chain_head_follow_subscribe: versionedSubscription({
