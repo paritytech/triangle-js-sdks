@@ -1,16 +1,8 @@
-## 0.7.2-2 (2026-04-24)
+## 0.7.2 (2026-04-24)
 
-### 🩹 Fixes
+### 🚀 Features
 
-- refine spec, moved all new methods to the end to remove breaking change in ABI ([65bf070](https://github.com/paritytech/triangle-js-sdks/commit/65bf070))
-- add buffer detach before sending content to Electron IPC ([1550ac9](https://github.com/paritytech/triangle-js-sdks/commit/1550ac9))
-- restored deprecated jsonrpc methods for backward compatability ([3e93b44](https://github.com/paritytech/triangle-js-sdks/commit/3e93b44))
-
-### ❤️ Thank You
-
-- Sergey Zhuravlev @johnthecat
-
-## 0.7.2 (2026-04-23)
+- **host-container:** added an automatic permission gate for `handlePushNotification` method.
 
 ### 🩹 Fixes
 
