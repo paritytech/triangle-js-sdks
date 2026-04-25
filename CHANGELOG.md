@@ -1,3 +1,17 @@
+## 0.7.3 (2026-04-24)
+
+### 🩹 Fixes
+
+- **host-api:** optimized message parsing in transport
+
+### Chore
+
+- Update typescript to v6
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.7.2 (2026-04-24)
 
 ### 🚀 Features

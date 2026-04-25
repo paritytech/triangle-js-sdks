@@ -1,5 +1,6 @@
 import { enumValue, isEnumVariant, resultErr, resultOk, toHex } from '@novasamatech/scale';
 import { createNanoEvents } from 'nanoevents';
+import type { CodecType } from 'scale-ts';
 
 import { HANDSHAKE_INTERVAL, HANDSHAKE_TIMEOUT, JAM_CODEC_PROTOCOL_ID } from './constants.js';
 import { composeAction, createRequestId, delay, promiseWithResolvers } from './helpers.js';
@@ -16,6 +17,7 @@ import type { Provider } from './provider.js';
 import type {
   ConnectionStatus,
   HostApiMethod,
+  MessageProvider,
   RequestHandler,
   SubscriptionFor,
   SubscriptionHandler,
@@ -28,6 +30,41 @@ function isConnected(status: ConnectionStatus) {
 
 function getSubscriptionKey(method: string, payload: MessagePayloadSchema) {
   return `${method}_${toHex(MessagePayload.enc(payload))}`;
+}
+
+function createMessageProvider(provider: Provider): MessageProvider {
+  const subscribers = new Set<(message: CodecType<typeof Message>) => void>();
+  let unsubscribeProvider: VoidFunction | null = null;
+
+  return {
+    postMessage(message) {
+      provider.postMessage(Message.enc(message));
+    },
+    subscribe(fn) {
+      if (subscribers.size === 0) {
+        unsubscribeProvider = provider.subscribe(payload => {
+          try {
+            const message = Message.dec(payload);
+            for (const subscriber of subscribers) {
+              subscriber(message);
+            }
+          } catch (e) {
+            provider.logger.error('Transport error', e);
+          }
+        });
+      }
+
+      subscribers.add(fn);
+      return () => {
+        subscribers.delete(fn);
+
+        if (subscribers.size === 0 && unsubscribeProvider) {
+          unsubscribeProvider();
+          unsubscribeProvider = null;
+        }
+      };
+    },
+  };
 }
 
 type InternalListener = {
@@ -88,6 +125,8 @@ export function createTransport(provider: Provider): Transport {
     throwIfInvalidCodecVersion();
   }
 
+  const messageProvider = createMessageProvider(provider);
+
   // subscriptions management (multiplexing)
   const activeSubscriptions: Map<string, InternalSubscription> = new Map();
 
@@ -115,7 +154,7 @@ export function createTransport(provider: Provider): Transport {
         const id = createRequestId();
         let resolved = false;
 
-        const cleanup = (interval: NodeJS.Timeout, unsubscribe: VoidFunction) => {
+        const cleanup = (interval: ReturnType<typeof setInterval>, unsubscribe: VoidFunction) => {
           clearInterval(interval);
           unsubscribe();
           handshakeAbortController.signal.removeEventListener('abort', unsubscribe);
@@ -382,8 +421,7 @@ export function createTransport(provider: Provider): Transport {
     postMessage(requestId, payload) {
       checks();
 
-      const encoded = Message.enc({ requestId, payload });
-      provider.postMessage(encoded);
+      messageProvider.postMessage({ requestId, payload });
     },
 
     listenMessages<const Action extends MessageAction>(
@@ -391,12 +429,10 @@ export function createTransport(provider: Provider): Transport {
       callback: (requestId: string, data: PickMessagePayload<Action>) => void,
       onError?: (error: unknown) => void,
     ) {
-      return provider.subscribe(message => {
+      return messageProvider.subscribe(message => {
         try {
-          const result = Message.dec(message);
-
-          if (isEnumVariant(result.payload, action)) {
-            callback(result.requestId, result.payload as PickMessagePayload<Action>);
+          if (isEnumVariant(message.payload, action)) {
+            callback(message.requestId, message.payload as PickMessagePayload<Action>);
           }
         } catch (e) {
           onError?.(e);

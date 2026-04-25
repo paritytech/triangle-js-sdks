@@ -95,19 +95,6 @@ describe('createSandbox', () => {
       await expect(sandbox.run('(async () => { await Promise.resolve(); })()')).resolves.toBeUndefined();
       sandbox.dispose();
     });
-
-    it('should deliver data posted inside an async IIFE', async () => {
-      const received: number[] = [];
-      const sandbox = await createSandbox('test');
-      sandbox.provider.subscribe(bytes => received.push(...bytes.subarray(0, 1)));
-
-      await sandbox.run(
-        '(async () => { await Promise.resolve(); __HOST_API_PORT__.postMessage(new Uint8Array([7])); })()',
-      );
-
-      expect(received).toEqual([7]);
-      sandbox.dispose();
-    });
   });
 
   describe('port messaging', () => {

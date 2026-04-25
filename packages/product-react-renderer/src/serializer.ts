@@ -116,7 +116,7 @@ function serializeNode(node: WidgetInstance | TextInstance): CustomRendererNodeT
  * Serialize the reconciler tree and deliver the result via the render callback.
  * Clears stale callbacks, serializes the tree, and wraps multiple roots in a Column.
  */
-export function serializeAndRender(children: (WidgetInstance | TextInstance)[]) {
+export function serializeAndRender(children: (WidgetInstance | TextInstance)[]): CustomRendererNodeType {
   const serialized = children.map(serializeNode);
 
   let rootNode: CustomRendererNodeType;
