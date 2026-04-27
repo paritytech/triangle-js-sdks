@@ -33,7 +33,7 @@
     "@novasamatech/scale": "0.7.2",
     "@novasamatech/statement-store": "0.7.2",
     "@novasamatech/storage-adapter": "0.7.2",
-    "@polkadot-labs/hdkd-helpers": "^0.0.29",
+    "@polkadot-labs/hdkd-helpers": "^0.0.30",
     "nanoevents": "9.1.0",
     "nanoid": "5.1.9",
     "neverthrow": "^8.2.0",
