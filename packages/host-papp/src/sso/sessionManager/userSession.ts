@@ -6,7 +6,7 @@ import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { fieldListView } from '@novasamatech/storage-adapter';
 import { nanoid } from 'nanoid';
-import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
+import { ResultAsync, err, ok, okAsync } from 'neverthrow';
 import { AccountId } from 'polkadot-api';
 import type { CodecType } from 'scale-ts';
 
@@ -70,7 +70,7 @@ export function createUserSession({
   });
 
   function toAccountId(address: string) {
-    // already account id
+    // already an account id
     if (address.startsWith('0x') && address.length === 64 + 2) {
       return address as HexString;
     }
@@ -88,11 +88,6 @@ export function createUserSession({
     remoteAccount: userSession.remoteAccount,
 
     signPayload(payload) {
-      const accountId = toAccountId(payload.address);
-      if (accountId !== toHex(userSession.remoteAccount.accountId)) {
-        return errAsync(new Error(`Invalid address, got ${payload.address}`));
-      }
-
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
@@ -102,7 +97,7 @@ export function createUserSession({
             'SignRequest',
             enumValue('Payload', {
               ...payload,
-              address: toAddress(accountId),
+              address: toAddress(toAccountId(payload.address)),
             }),
           ),
         ),
@@ -130,11 +125,6 @@ export function createUserSession({
     },
 
     signRaw(payload) {
-      const accountId = toAccountId(payload.address);
-      if (accountId !== toHex(userSession.remoteAccount.accountId)) {
-        return errAsync(new Error(`Invalid address, got ${payload.address}`));
-      }
-
       const messageId = nanoid();
       const request = session.request(RemoteMessageCodec, {
         messageId,
@@ -144,7 +134,7 @@ export function createUserSession({
             'SignRequest',
             enumValue('Raw', {
               ...payload,
-              address: toAddress(accountId),
+              address: toAddress(toAccountId(payload.address)),
             }),
           ),
         ),
