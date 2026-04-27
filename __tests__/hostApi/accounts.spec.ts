@@ -469,7 +469,7 @@ describe('Host API: Accounts', () => {
 
     it('should pass reason string to handler', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn((_, { ok }) => ok('success'));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleRequestLogin>>((_, { ok }) => ok('success'));
       container.handleRequestLogin(handler);
 
       await accountsProvider.requestLogin('Sign in to vote');
@@ -479,7 +479,7 @@ describe('Host API: Accounts', () => {
 
     it('should pass undefined reason when no reason given', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn((_, { ok }) => ok('success'));
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleRequestLogin>>((_, { ok }) => ok('success'));
       container.handleRequestLogin(handler);
 
       await accountsProvider.requestLogin();

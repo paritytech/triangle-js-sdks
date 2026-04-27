@@ -1,3 +1,38 @@
+## 0.7.3 (2026-04-27)
+
+### 🩹 Fixes
+
+- **host-api:** optimized message parsing in transport
+- **host-papp:** queue session requests
+- **host-papp:** remove redundant address check in sso sign methods
+
+### Chore
+
+- Update typescript to v6
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
+## 0.7.2 (2026-04-24)
+
+### 🚀 Features
+
+- **host-container:** added an automatic permission gate for `handlePushNotification` method.
+
+### 🩹 Fixes
+
+- **host-api:** reorder actions in the protocol so all v0.7-new methods come after pre-v0.7 ones. Eliminating the ABI break that 0.7.0 introduced for existing methods.
+- **product-sdk:** add buffer detach before sending content to Electron IPC
+
+### ⚠️ Breaking Changes
+
+- **product-sdk:** `TopUpSource.productAccount` now carries only `derivationIndex`; the `dotNsIdentifier` field is gone.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.7.1 (2026-04-22)
 
 ### 🚀 Features

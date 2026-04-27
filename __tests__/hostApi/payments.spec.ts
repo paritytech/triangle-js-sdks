@@ -1,4 +1,5 @@
 import { PaymentRequestErr, PaymentTopUpErr, createTransport } from '@novasamatech/host-api';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 import type { PaymentBalance, PaymentStatus } from '@novasamatech/product-sdk';
 import { createPaymentManager } from '@novasamatech/product-sdk';
@@ -57,9 +58,7 @@ describe('Host API: Payments', () => {
 
       container.handlePaymentTopUp((_params, { ok }) => ok(undefined));
 
-      await expect(
-        payments.topUp(100n, { type: 'productAccount', dotNsIdentifier: 'product.dot', derivationIndex: 0 }),
-      ).resolves.toBeUndefined();
+      await expect(payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 })).resolves.toBeUndefined();
     });
 
     it('should resolve with PrivateKey source', async () => {
@@ -73,13 +72,15 @@ describe('Host API: Payments', () => {
 
     it('should pass amount and source to handler', async () => {
       const { container, payments } = setup();
-      const handler = vi.fn((_params: unknown, { ok }: { ok: (v: undefined) => unknown }) => ok(undefined));
-      container.handlePaymentTopUp(handler as never);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
+        ok(undefined),
+      );
+      container.handlePaymentTopUp(handler);
 
-      await payments.topUp(200n, { type: 'productAccount', dotNsIdentifier: 'myproduct.dot', derivationIndex: 2 });
+      await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 });
 
       expect(handler).toHaveBeenCalledWith(
-        { amount: 200n, source: { tag: 'ProductAccount', value: ['myproduct.dot', 2] } },
+        { amount: 200n, source: { tag: 'ProductAccount', value: 2 } },
         expect.anything(),
       );
     });
@@ -89,9 +90,9 @@ describe('Host API: Payments', () => {
 
       container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.InsufficientFunds()));
 
-      await expect(
-        payments.topUp(999n, { type: 'productAccount', dotNsIdentifier: 'product.dot', derivationIndex: 0 }),
-      ).rejects.toBeInstanceOf(PaymentTopUpErr.InsufficientFunds);
+      await expect(payments.topUp(999n, { type: 'productAccount', derivationIndex: 0 })).rejects.toBeInstanceOf(
+        PaymentTopUpErr.InsufficientFunds,
+      );
     });
 
     it('should reject with InvalidSource', async () => {
@@ -99,9 +100,9 @@ describe('Host API: Payments', () => {
 
       container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.InvalidSource()));
 
-      await expect(
-        payments.topUp(100n, { type: 'productAccount', dotNsIdentifier: 'product.dot', derivationIndex: 0 }),
-      ).rejects.toBeInstanceOf(PaymentTopUpErr.InvalidSource);
+      await expect(payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 })).rejects.toBeInstanceOf(
+        PaymentTopUpErr.InvalidSource,
+      );
     });
   });
 
@@ -119,8 +120,10 @@ describe('Host API: Payments', () => {
 
     it('should pass amount and destination to handler', async () => {
       const { container, payments } = setup();
-      const handler = vi.fn((_params: unknown, { ok }: { ok: (v: { id: string }) => unknown }) => ok({ id: 'p-1' }));
-      container.handlePaymentRequest(handler as never);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentRequest>>((_params, { ok }) =>
+        ok({ id: 'p-1' }),
+      );
+      container.handlePaymentRequest(handler);
 
       await payments.requestPayment(300n, destination);
 
@@ -182,8 +185,8 @@ describe('Host API: Payments', () => {
 
     it('should pass payment id to handler', async () => {
       const { container, payments } = setup();
-      const handler = vi.fn((_id: unknown, _send: unknown, _interrupt: unknown) => noop);
-      container.handlePaymentStatusSubscribe(handler as never);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentStatusSubscribe>>(() => noop);
+      container.handlePaymentStatusSubscribe(handler);
 
       payments.subscribePaymentStatus('my-payment-id', noop);
 

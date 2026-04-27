@@ -1,6 +1,7 @@
 import type { EnumCodec } from '@novasamatech/scale';
 import { Enum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
+import { Result, _void } from 'scale-ts';
 
 import {
   AccountConnectionStatusV1_interrupt,
@@ -75,13 +76,6 @@ import { DeriveEntropyV1_request, DeriveEntropyV1_response } from './v1/deriveEn
 import { DevicePermissionV1_request, DevicePermissionV1_response } from './v1/devicePermission.js';
 import { FeatureV1_request, FeatureV1_response } from './v1/feature.js';
 import { HandshakeV1_request, HandshakeV1_response } from './v1/handshake.js';
-import {
-  JsonRpcMessageSendV1_request,
-  JsonRpcMessageSendV1_response,
-  JsonRpcMessageSubscribeV1_interrupt,
-  JsonRpcMessageSubscribeV1_receive,
-  JsonRpcMessageSubscribeV1_start,
-} from './v1/jsonRpc.js';
 import {
   StorageClearV1_request,
   StorageClearV1_response,
@@ -195,8 +189,6 @@ const versionedSubscription = <const EnumValues extends VersionedSubscriptionArg
 export type HostApiProtocol = typeof hostApiProtocol;
 
 export const hostApiProtocol = {
-  // Host calls
-
   host_handshake: versionedRequest({
     v1: [HandshakeV1_request, HandshakeV1_response],
   }),
@@ -209,19 +201,9 @@ export const hostApiProtocol = {
     v1: [PushNotificationV1_request, PushNotificationV1_response],
   }),
 
-  host_theme_subscribe: versionedSubscription({
-    v1: [ThemeSubscribeV1_start, ThemeSubscribeV1_receive, ThemeSubscribeV1_interrupt],
-  }),
-
   host_navigate_to: versionedRequest({
     v1: [NavigateToV1_request, NavigateToV1_response],
   }),
-
-  host_derive_entropy: versionedRequest({
-    v1: [DeriveEntropyV1_request, DeriveEntropyV1_response],
-  }),
-
-  // Permissions
 
   host_device_permission: versionedRequest({
     v1: [DevicePermissionV1_request, DevicePermissionV1_response],
@@ -230,8 +212,6 @@ export const hostApiProtocol = {
   remote_permission: versionedRequest({
     v1: [RemotePermissionV1_request, RemotePermissionV1_response],
   }),
-
-  // Local storage
 
   host_local_storage_read: versionedRequest({
     v1: [StorageReadV1_request, StorageReadV1_response],
@@ -243,16 +223,6 @@ export const hostApiProtocol = {
 
   host_local_storage_clear: versionedRequest({
     v1: [StorageClearV1_request, StorageClearV1_response],
-  }),
-
-  // Account management
-
-  host_account_get_root: versionedRequest({
-    v1: [AccountGetRootV1_request, AccountGetRootV1_response],
-  }),
-
-  host_request_login: versionedRequest({
-    v1: [RequestLoginV1_request, RequestLoginV1_response],
   }),
 
   host_account_connection_status_subscribe: versionedSubscription({
@@ -275,8 +245,6 @@ export const hostApiProtocol = {
     v1: [GetLegacyAccountsV1_request, GetLegacyAccountsV1_response],
   }),
 
-  // Signing
-
   host_create_transaction: versionedRequest({
     v1: [CreateTransactionV1_request, CreateTransactionV1_response],
   }),
@@ -289,19 +257,9 @@ export const hostApiProtocol = {
     v1: [SignRawV1_request, SignRawV1_response],
   }),
 
-  host_sign_raw_with_legacy_account: versionedRequest({
-    v1: [SignRawWithLegacyAccountV1_request, SignRawWithLegacyAccountV1_response],
-  }),
-
   host_sign_payload: versionedRequest({
     v1: [SignPayloadV1_request, SignPayloadV1_response],
   }),
-
-  host_sign_payload_with_legacy_account: versionedRequest({
-    v1: [SignPayloadWithLegacyAccountV1_request, SignPayloadWithLegacyAccountV1_response],
-  }),
-
-  // Chat
 
   host_chat_create_room: versionedRequest({
     v1: [ChatCreateRoomV1_request, ChatCreateRoomV1_response],
@@ -331,8 +289,6 @@ export const hostApiProtocol = {
     ],
   }),
 
-  // Statement store (remote namespace)
-
   remote_statement_store_subscribe: versionedSubscription({
     v1: [StatementStoreSubscribeV1_start, StatementStoreSubscribeV1_receive, StatementStoreSubscribeV1_interrupt],
   }),
@@ -345,8 +301,6 @@ export const hostApiProtocol = {
     v1: [StatementStoreSubmitV1_request, StatementStoreSubmitV1_response],
   }),
 
-  // Preimage lookup
-
   remote_preimage_lookup_subscribe: versionedSubscription({
     v1: [PreimageLookupSubscribeV1_start, PreimageLookupSubscribeV1_receive, PreimageLookupSubscribeV1_interrupt],
   }),
@@ -355,37 +309,17 @@ export const hostApiProtocol = {
     v1: [PreimageSubmitV1_request, PreimageSubmitV1_response],
   }),
 
-  // Payments
-
-  host_payment_balance_subscribe: versionedSubscription({
-    v1: [PaymentBalanceSubscribeV1_start, PaymentBalanceSubscribeV1_receive, PaymentBalanceSubscribeV1_interrupt],
-  }),
-
-  host_payment_top_up: versionedRequest({
-    v1: [PaymentTopUpV1_request, PaymentTopUpV1_response],
-  }),
-
-  host_payment_request: versionedRequest({
-    v1: [PaymentRequestV1_request, PaymentRequestV1_response],
-  }),
-
-  host_payment_status_subscribe: versionedSubscription({
-    v1: [PaymentStatusSubscribeV1_start, PaymentStatusSubscribeV1_receive, PaymentStatusSubscribeV1_interrupt],
+  // json rpc (deprecated: use remote_chain_* methods instead)
+  host_jsonrpc_message_send: versionedRequest({
+    v1: [_void, Result(_void, _void)],
   }),
 
   // json rpc (deprecated: use remote_chain_* methods instead)
-
-  host_jsonrpc_message_send: versionedRequest({
-    v1: [JsonRpcMessageSendV1_request, JsonRpcMessageSendV1_response],
-  }),
-
   host_jsonrpc_message_subscribe: versionedSubscription({
-    v1: [JsonRpcMessageSubscribeV1_start, JsonRpcMessageSubscribeV1_receive, JsonRpcMessageSubscribeV1_interrupt],
+    v1: [_void, _void, _void],
   }),
 
-  // chain interaction (remote namespace)
-
-  remote_chain_head_follow: versionedSubscription({
+  remote_chain_head_follow_subscribe: versionedSubscription({
     v1: [ChainHeadFollowV1_start, ChainHeadFollowV1_receive, ChainHeadFollowV1_interrupt],
   }),
 
@@ -435,5 +369,45 @@ export const hostApiProtocol = {
 
   remote_chain_transaction_stop: versionedRequest({
     v1: [TransactionStopV1_request, TransactionStopV1_response],
+  }),
+
+  host_theme_subscribe: versionedSubscription({
+    v1: [ThemeSubscribeV1_start, ThemeSubscribeV1_receive, ThemeSubscribeV1_interrupt],
+  }),
+
+  host_derive_entropy: versionedRequest({
+    v1: [DeriveEntropyV1_request, DeriveEntropyV1_response],
+  }),
+
+  host_account_get_root: versionedRequest({
+    v1: [AccountGetRootV1_request, AccountGetRootV1_response],
+  }),
+
+  host_request_login: versionedRequest({
+    v1: [RequestLoginV1_request, RequestLoginV1_response],
+  }),
+
+  host_sign_raw_with_legacy_account: versionedRequest({
+    v1: [SignRawWithLegacyAccountV1_request, SignRawWithLegacyAccountV1_response],
+  }),
+
+  host_sign_payload_with_legacy_account: versionedRequest({
+    v1: [SignPayloadWithLegacyAccountV1_request, SignPayloadWithLegacyAccountV1_response],
+  }),
+
+  host_payment_balance_subscribe: versionedSubscription({
+    v1: [PaymentBalanceSubscribeV1_start, PaymentBalanceSubscribeV1_receive, PaymentBalanceSubscribeV1_interrupt],
+  }),
+
+  host_payment_top_up: versionedRequest({
+    v1: [PaymentTopUpV1_request, PaymentTopUpV1_response],
+  }),
+
+  host_payment_request: versionedRequest({
+    v1: [PaymentRequestV1_request, PaymentRequestV1_response],
+  }),
+
+  host_payment_status_subscribe: versionedSubscription({
+    v1: [PaymentStatusSubscribeV1_start, PaymentStatusSubscribeV1_receive, PaymentStatusSubscribeV1_interrupt],
   }),
 } as const;

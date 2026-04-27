@@ -6,7 +6,6 @@ import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
 import type { JsonRpcMessage, JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import { describe, expect, it } from 'vitest';
-import { WebSocket } from 'ws';
 
 import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
@@ -20,12 +19,12 @@ function createWebSocketProvider(url: string): JsonRpcProvider {
     const ws = new WebSocket(url);
     const pending: JsonRpcMessage[] = [];
 
-    ws.on('open', () => {
+    ws.addEventListener('open', () => {
       for (const msg of pending) ws.send(JSON.stringify(msg));
       pending.length = 0;
     });
 
-    ws.on('message', (data: Buffer) => onMessage(JSON.parse(data.toString())));
+    ws.addEventListener('message', event => onMessage(JSON.parse(event.data.toString())));
 
     return {
       send(message) {

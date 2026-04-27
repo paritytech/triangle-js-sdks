@@ -1,3 +1,5 @@
+import type { CodecType } from 'scale-ts';
+
 import type { HostApiProtocol } from './protocol/impl.js';
 import type {
   ComposeMessageAction,
@@ -6,6 +8,7 @@ import type {
   PickMessagePayload,
   PickMessagePayloadValue,
 } from './protocol/messageCodec.js';
+import { Message } from './protocol/messageCodec.js';
 import type { Provider } from './provider.js';
 
 export type HostApiMethod = keyof HostApiProtocol;
@@ -34,6 +37,11 @@ export type Subscription<InterruptPayload = unknown> = {
 export type SubscriptionFor<Method extends HostApiMethod> = Subscription<
   PickMessagePayloadValue<ComposeMessageAction<Method, 'interrupt'>>
 >;
+
+export type MessageProvider = {
+  postMessage(message: CodecType<typeof Message>): void;
+  subscribe(fn: (message: CodecType<typeof Message>) => void): VoidFunction;
+};
 
 export type Transport = {
   readonly provider: Provider;

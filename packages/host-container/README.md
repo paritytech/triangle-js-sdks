@@ -102,6 +102,8 @@ container.handlePermission(async (permission, { ok, err }) => {
 
 ### handlePushNotification
 
+Gated by the `Notifications` device permission: the container consults `handleDevicePermission` with `'Notifications'` before invoking this handler. If the device permission is denied or errors, the handler is skipped and the request fails.
+
 ```ts
 container.handlePushNotification(async (notification, { ok, err }) => {
   await showNotification(notification);
