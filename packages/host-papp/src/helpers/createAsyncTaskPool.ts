@@ -63,7 +63,6 @@ class AsyncTaskPool {
 
     return new Promise<void>(resolve => {
       const handler = (done: string) => {
-        console.log('settled', this.queue, this.activeTasks);
         if (done === pool) {
           unsubscribe();
           resolve();

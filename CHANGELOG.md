@@ -1,8 +1,10 @@
-## 0.7.3 (2026-04-24)
+## 0.7.3 (2026-04-27)
 
 ### 🩹 Fixes
 
 - **host-api:** optimized message parsing in transport
+- **host-papp:** queue session requests
+- **host-papp:** remove redundant address check in sso sign methods
 
 ### Chore
 
