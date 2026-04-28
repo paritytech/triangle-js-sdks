@@ -19,6 +19,22 @@ export type Sandbox = {
   dispose: VoidFunction;
 };
 
+// Debug instrumentation: each sandbox gets a monotonic seq so logs from
+// concurrent sandboxes (e.g. dashboard remounts after an error) can be
+// correlated. See PB-? — investigating QuickJS runtime abort on dispose
+// observed in polkadot-desktop 0.3.0 ("dashboard not loading").
+let nextSandboxSeq = 0;
+const tag = (seq: number, productId: string) => `[Sandbox#${seq}/${productId}]`;
+
+function safeDumpMemoryUsage(vm: QuickJSContext): string {
+  try {
+    const dump = vm.runtime.dumpMemoryUsage();
+    return typeof dump === 'string' ? dump : JSON.stringify(dump);
+  } catch (e) {
+    return `<dumpMemoryUsage threw: ${(e as Error).message}>`;
+  }
+}
+
 // Shared mutable state for the onmessage property descriptor.
 // Extracted as a plain object so it can be captured in function expressions
 // without aliasing `this` (which is banned by @typescript-eslint/no-this-alias).
@@ -47,12 +63,14 @@ class SandboxPort {
   private readonly messageListeners: QuickJSHandle[] = [];
   private readonly subscribers = new Set<(message: Uint8Array) => void>();
   private readonly toUint8ArrayFn: QuickJSHandle;
+  private readonly logTag: string;
   private disposed = false;
   readonly provider: Provider;
 
-  constructor(productId: string, vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle) {
+  constructor(productId: string, vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle, logTag: string) {
     this.vm = vm;
     this.toUint8ArrayFn = toUint8ArrayFn;
+    this.logTag = logTag;
     this.provider = this.makeProvider(productId);
   }
 
@@ -186,16 +204,33 @@ class SandboxPort {
   }
 
   private disposeHandles(): void {
-    this.onMessageState.handle?.dispose();
+    const onMessagePresent = this.onMessageState.handle != null;
+    const listenerCount = this.messageListeners.length;
+    if (onMessagePresent || listenerCount > 0) {
+      console.info(`${this.logTag} port.disposeHandles: onMessage=${onMessagePresent} listeners=${listenerCount}`);
+    }
+    try {
+      this.onMessageState.handle?.dispose();
+    } catch (e) {
+      console.error(`${this.logTag} port.disposeHandles: onMessage.dispose threw`, e);
+    }
     this.onMessageState.handle = null;
-    for (const h of this.messageListeners) h.dispose();
+    for (let i = 0; i < this.messageListeners.length; i++) {
+      try {
+        this.messageListeners[i]?.dispose();
+      } catch (e) {
+        console.error(`${this.logTag} port.disposeHandles: listener[${i}].dispose threw`, e);
+      }
+    }
     this.messageListeners.length = 0;
   }
 
   dispose(): void {
+    console.info(`${this.logTag} port.dispose start: subscribers=${this.subscribers.size}`);
     this.disposed = true;
     this.disposeHandles();
     this.subscribers.clear();
+    console.info(`${this.logTag} port.dispose end`);
   }
 }
 
@@ -204,6 +239,8 @@ class QuickJsSandbox implements Sandbox {
   private readonly port: SandboxPort;
   private readonly toUint8ArrayFn: QuickJSHandle;
   private readonly disposeTimers: VoidFunction;
+  private readonly seq: number;
+  private readonly logTag: string;
   private disposed = false;
 
   readonly productId: string;
@@ -213,19 +250,38 @@ class QuickJsSandbox implements Sandbox {
   constructor(productId: string, vm: QuickJSContext) {
     this.productId = productId;
     this.vm = vm;
+    this.seq = nextSandboxSeq++;
+    this.logTag = tag(this.seq, productId);
+
+    console.info(`${this.logTag} ctor start`);
 
     const helperResult = vm.evalCode('(buf) => new Uint8Array(buf)');
     if (helperResult.error) {
       const msg = vm.dump(helperResult.error);
       helperResult.error.dispose();
+      console.error(`${this.logTag} ctor: helper evalCode failed`, msg);
       throw new Error(`Sandbox setup error: ${JSON.stringify(msg)}`);
     }
     this.toUint8ArrayFn = helperResult.value;
-    this.port = new SandboxPort(productId, vm, this.toUint8ArrayFn);
+    this.port = new SandboxPort(productId, vm, this.toUint8ArrayFn, this.logTag);
     this.provider = this.port.provider;
     this.container = createContainer(this.provider);
 
     this.disposeTimers = this.injectGlobals();
+    console.info(`${this.logTag} ctor end`);
+  }
+
+  // Wrap each global-injection step so we can pin which one mis-tracks a
+  // QuickJSHandle if the runtime later aborts in JS_FreeRuntime with a
+  // non-empty gc_obj_list. Each inject* is expected to be net-neutral on
+  // outstanding handles; a throw here would be the smoking gun.
+  private runInject(name: string, fn: () => void): void {
+    try {
+      fn();
+    } catch (e) {
+      console.error(`${this.logTag} inject:${name} threw`, e);
+      throw e;
+    }
   }
 
   private injectGlobals(): VoidFunction {
@@ -239,25 +295,57 @@ class QuickJsSandbox implements Sandbox {
     vm.setProp(vm.global, 'top', vm.global);
     vm.setProp(vm.global, 'window', vm.global);
 
-    injectConsole(vm, this.provider.logger);
-    injectTextEncoder(vm, this.toUint8ArrayFn);
-    injectTextDecoder(vm);
-    injectCrypto(vm, this.toUint8ArrayFn);
-    injectAbortController(vm);
-    const disposeQueueMicrotask = injectQueueMicrotask(vm);
-    const disposeIntervals = injectIntervals(vm);
-    const disposeTimeouts = injectTimeouts(vm);
+    this.runInject('console', () => injectConsole(vm, this.provider.logger));
+    this.runInject('TextEncoder', () => injectTextEncoder(vm, this.toUint8ArrayFn));
+    this.runInject('TextDecoder', () => injectTextDecoder(vm));
+    this.runInject('crypto', () => injectCrypto(vm, this.toUint8ArrayFn));
+    this.runInject('AbortController', () => injectAbortController(vm));
+
+    let disposeQueueMicrotask: VoidFunction = () => undefined;
+    let disposeIntervals: VoidFunction = () => undefined;
+    let disposeTimeouts: VoidFunction = () => undefined;
+    this.runInject('queueMicrotask', () => {
+      disposeQueueMicrotask = injectQueueMicrotask(vm);
+    });
+    this.runInject('intervals', () => {
+      disposeIntervals = injectIntervals(vm);
+    });
+    this.runInject('timeouts', () => {
+      disposeTimeouts = injectTimeouts(vm);
+    });
 
     return () => {
-      disposeTimeouts();
-      disposeIntervals();
-      disposeQueueMicrotask();
+      try {
+        disposeTimeouts();
+      } catch (e) {
+        console.error(`${this.logTag} disposeTimers: timeouts threw`, e);
+      }
+      try {
+        disposeIntervals();
+      } catch (e) {
+        console.error(`${this.logTag} disposeTimers: intervals threw`, e);
+      }
+      try {
+        disposeQueueMicrotask();
+      } catch (e) {
+        console.error(`${this.logTag} disposeTimers: queueMicrotask threw`, e);
+      }
     };
   }
 
   async run(code: string | Uint8Array): Promise<void> {
+    if (this.disposed) {
+      // Fail fast with a typed error rather than letting `vm.evalCode` throw
+      // a deep `QuickJSUseAfterFree: Lifetime not alive` from inside the
+      // WASM bridge — that error is hard to attribute and, more importantly,
+      // can leave inject-side handles dangling so the next vm.dispose() trips
+      // the `JS_FreeRuntime` assertion and crash-loops the dashboard.
+      throw new Error(`${this.logTag} run() called on disposed sandbox`);
+    }
     const { vm } = this;
     const str = typeof code === 'string' ? code : new TextDecoder().decode(code);
+    const codeBytes = typeof code === 'string' ? code.length : code.byteLength;
+    console.info(`${this.logTag} run start: ${codeBytes} bytes`);
     const result = vm.evalCode(str, `${this.productId ?? 'unknown_product'}/worker.js`, {
       type: 'module',
       strict: true,
@@ -266,6 +354,7 @@ class QuickJsSandbox implements Sandbox {
     if (result.error) {
       const message = vm.dump(result.error);
       result.error.dispose();
+      console.error(`${this.logTag} run: evalCode error`, message);
       throw new Error(`Sandbox error: ${JSON.stringify(message)}`);
     }
 
@@ -314,6 +403,7 @@ class QuickJsSandbox implements Sandbox {
     if (response) {
       await response;
     }
+    console.info(`${this.logTag} run end (disposed=${this.disposed})`);
   }
 
   private flushJobs(): void {
@@ -325,22 +415,68 @@ class QuickJsSandbox implements Sandbox {
   }
 
   dispose(): void {
-    if (this.disposed) return;
+    if (this.disposed) {
+      console.info(`${this.logTag} dispose: noop (already disposed)`);
+      return;
+    }
     this.disposed = true;
 
     const { vm } = this;
+    // Capture the caller — useful when React unmounts in a loop and we need
+    // to know which component / route is triggering the tear-down.
+    console.info(`${this.logTag} dispose start; caller:\n${new Error('dispose').stack}`);
 
-    this.disposeTimers();
-    this.port.dispose();
-    this.toUint8ArrayFn.dispose();
+    try {
+      this.disposeTimers();
+    } catch (e) {
+      console.error(`${this.logTag} dispose: disposeTimers threw`, e);
+    }
 
-    vm.runtime.executePendingJobs(-1);
-    vm.dispose();
+    try {
+      this.port.dispose();
+    } catch (e) {
+      console.error(`${this.logTag} dispose: port.dispose threw`, e);
+    }
+
+    try {
+      this.toUint8ArrayFn.dispose();
+    } catch (e) {
+      console.error(`${this.logTag} dispose: toUint8ArrayFn.dispose threw`, e);
+    }
+
+    try {
+      const jobResult = vm.runtime.executePendingJobs(-1);
+      if (jobResult.error) {
+        console.error(`${this.logTag} dispose: pending job error`, vm.dump(jobResult.error));
+        jobResult.error.dispose();
+      }
+    } catch (e) {
+      console.error(`${this.logTag} dispose: executePendingJobs threw`, e);
+    }
+
+    // Snapshot what QuickJS thinks is still live right before the runtime
+    // tear-down. The next time we hit `Aborted(... list_empty(&rt->gc_obj_list) ...)`
+    // this dump tells us how many objects/strings/atoms are still allocated,
+    // which narrows the suspect inject* / lifecycle code path.
+    console.info(`${this.logTag} dispose: pre-vm.dispose memory:\n${safeDumpMemoryUsage(vm)}`);
+
+    try {
+      vm.dispose();
+      console.info(`${this.logTag} dispose end (clean)`);
+    } catch (e) {
+      // Don't rethrow — the QuickJS WASM `abort()` blowing up here is what's
+      // currently propagating into React's CatchBoundary and crash-looping
+      // the dashboard. Swallow + log so the host stays usable while we fix
+      // the underlying handle leak.
+      console.error(`${this.logTag} dispose: vm.dispose threw — host kept alive, runtime is now leaked`, e);
+    }
   }
 }
 
 export async function createSandbox(productId: string): Promise<Sandbox> {
+  console.info(`[Sandbox/${productId}] createSandbox: getQuickJS()`);
   const QuickJS = await getQuickJS();
+  console.info(`[Sandbox/${productId}] createSandbox: newContext()`);
   const vm = QuickJS.newContext();
   return new QuickJsSandbox(productId, vm);
 }

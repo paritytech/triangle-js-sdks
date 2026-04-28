@@ -106,11 +106,14 @@ export function injectQueueMicrotask(vm: QuickJSContext): VoidFunction {
     const ref = funcHandle.dup();
     pendingRefs.add(ref);
     queueMicrotask(() => {
+      // The cleanup returned by `injectQueueMicrotask` disposes everything
+      // still in `pendingRefs` synchronously. If `disposed` is set when we
+      // get here, our ref was already disposed by that cleanup — touching
+      // it again (including `pendingRefs.delete` + `ref.dispose()`) would
+      // double-free the underlying JSValue and corrupt the runtime's GC
+      // list, tripping the `JS_FreeRuntime` assertion later.
+      if (disposed) return;
       pendingRefs.delete(ref);
-      if (disposed) {
-        ref.dispose();
-        return;
-      }
       const result = vm.callFunction(ref, vm.global);
       ref.dispose();
       if (result.error) {
