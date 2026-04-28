@@ -43,7 +43,7 @@ const StatementProof = Enum({
 export const Statement = Struct({
   proof: Option(StatementProof),
   decryptionKey: Option(DecryptionKey),
-  expiry: Option(u64),
+  expiry: u64,
   channel: Option(Channel),
   topics: Vector(Topic),
   data: Option(Bytes()),
@@ -52,7 +52,7 @@ export const Statement = Struct({
 export const SignedStatement = Struct({
   proof: StatementProof,
   decryptionKey: Option(DecryptionKey),
-  expiry: Option(u64),
+  expiry: u64,
   channel: Option(Channel),
   topics: Vector(Topic),
   data: Option(Bytes()),
