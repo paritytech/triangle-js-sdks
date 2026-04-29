@@ -9,7 +9,6 @@ created: 2026-03-13
 
 ## Changelog
 
-
 ### v0.7 - 2026-04-13
 
 - Renamed all `*_with_non_product_account` methods to `*_with_legacy_account`; renamed `host_get_non_product_accounts` to `host_get_legacy_accounts`; updated glossary term "Non-product account (NPA)" to "Legacy account".
@@ -26,8 +25,9 @@ created: 2026-03-13
 - Changed `remote_statement_store_subscribe` start payload from `Vec<Topic>` to `TopicFilter` (RFC-0008).
 - Changed `remote_statement_store_subscribe` callback argument from `Vec<SignedStatement>` to `SignedStatementsPage` (RFC-0008).
 - Added `host_request_login` method (RFC-0009). Products can explicitly trigger the host login UI; returns `LoginResult` (`success | alreadyConnected | rejected`) or `LoginErr`.
-- Added `host_account_get_root` method to the Accounts section (RFC-0010). Returns the user's root account after JIT permission approval.
+- Added `host_get_user_id` method (RFC-0014). Returns the user's primary DotNS username scoped to the calling product.
 - Parametrized subscription `interrupt` messages with a per-subscription payload type `I` (defaults to `()`). `Subscriber` is now `Subscriber<I = ()>` with `onInterrupt: fn(fn(I))`; the `*_interrupt` action carries `Versioned<InterruptReason>` instead of no argument.
+- Split `Account` into `ProductAccount` (no `name`) and `LegacyAccount` (`name: Option<str>`). `host_account_get` now returns `ProductAccount`; `host_get_legacy_accounts` now returns `Vec<LegacyAccount>`.
 
 
 ### v0.6 - 2026-02-06
@@ -121,7 +121,7 @@ fn host_account_connection_status_subscribe(
 
 fn host_account_get(
   domain: ProductAccountId
-) -> Result<Account, RequestCredentialsErr>;
+) -> Result<ProductAccount, RequestCredentialsErr>;
 
 fn host_account_get_alias(
   domain: ProductAccountId
@@ -133,7 +133,7 @@ fn host_account_create_proof(
   message: Vec<u8>
 ) -> Result<RingVrfProof, CreateProofErr>;
 
-fn host_get_legacy_accounts() -> Result<Vec<Account>, RequestCredentialsErr>;
+fn host_get_legacy_accounts() -> Result<Vec<LegacyAccount>, RequestCredentialsErr>;
 
 fn host_create_transaction(
   accountId: ProductAccountId,
@@ -145,12 +145,12 @@ fn host_create_transaction_with_legacy_account(
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
-fn host_sign_raw(
-  payload: SigningPayloadRaw
+fn host_sign_raw_with_legacy_account(
+  payload: SigningPayloadRawWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_payload(
-  payload: SigningPayload
+fn host_sign_payload_with_legacy_account(
+  payload: SigningPayloadWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 
 fn host_chat_create_room(
@@ -263,16 +263,16 @@ fn host_derive_entropy(
   message: Vec<u8>
 ) -> Result<Entropy, DeriveEntropyErr>;
 
-fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
+fn host_get_user_id() -> Result<UserIdentity, GetUserIdErr>;
 
 fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
 
-fn host_sign_raw_with_legacy_account(
-  payload: SigningPayloadRawWithoutAccount
+fn host_sign_raw(
+  payload: SigningPayloadRaw
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_payload_with_legacy_account(
-  payload: SigningPayloadWithoutAccount
+fn host_sign_payload(
+  payload: SigningPayload
 ) -> Result<SigningResult, SigningErr>;
 
 fn host_payment_balance_subscribe(
@@ -617,15 +617,34 @@ enum CreateProofErr {
   Unknown(GenericErr)
 }
 
+enum GetUserIdErr {
+  /// User denied the disclosure request.
+  PermissionDenied,
+  /// User is not logged in.
+  NotConnected,
+  Unknown(GenericErr)
+}
+
 type AccountId = [u8; 32];
 type PublicKey = Vec<u8>;
 type DotNsIdentifier = str;
 type DerivationIndex = u32;
 type ProductAccountId = (DotNsIdentifier, DerivationIndex);
 
-struct Account {
+/// Protocol-derived, product-scoped. No user-chosen label.
+struct ProductAccount {
+  public_key: PublicKey
+}
+
+/// User-imported into the Account Holder. May carry a user-chosen label.
+struct LegacyAccount {
   public_key: PublicKey,
   name: Option<str>
+}
+
+struct UserIdentity {
+  /// The user's primary DotNS username scoped to the calling product.
+  primary_username: DotNsIdentifier
 }
 
 struct ContextualAlias {
@@ -653,7 +672,15 @@ enum AccountConnectionStatus {
   Connected
 }
 
-fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
+/// Returns the user's primary DotNS username scoped to the calling product.
+///
+/// Behavior:
+/// - **Connection precedence.** No connected account → `NotConnected` without prompting. `NotConnected` strictly precedes `PermissionDenied`.
+/// - **Consent.** If connected and not previously granted, the host prompts using the existing permission model (one-time vs persistent). On denial → `PermissionDenied`.
+/// - **Source-agnostic and host-chosen.** The host picks what counts as primary for this product (lite username, full username, custom — products MUST NOT assume). When the user is connected, the host is guaranteed to be able to pick one.
+/// - **Per-product scope.** Whether two products see the same identifier is a host implementation choice. Simple hosts will return the same to all; sophisticated hosts MAY let users pick distinct primaries per product.
+/// - **Per-call freshness, no revocation.** Each call reflects current host state; if the user changes their primary, subsequent calls return the new value. Once disclosed, a value cannot be retracted from the product.
+fn host_get_user_id() -> Result<UserIdentity, GetUserIdErr>;
 
 enum LoginResult {
   Success,
@@ -673,7 +700,7 @@ fn host_account_connection_status_subscribe(
 
 fn host_account_get(
   domain: ProductAccountId
-) -> Result<Account, RequestCredentialsErr>;
+) -> Result<ProductAccount, RequestCredentialsErr>;
 
 fn host_account_get_alias(
   domain: ProductAccountId
@@ -685,7 +712,7 @@ fn host_account_create_proof(
   message: Vec<u8>
 ) -> Result<RingVrfProof, CreateProofErr>;
 
-fn host_get_legacy_accounts() -> Result<Vec<Account>, RequestCredentialsErr>;
+fn host_get_legacy_accounts() -> Result<Vec<LegacyAccount>, RequestCredentialsErr>;
 ```
 
 ### Signing

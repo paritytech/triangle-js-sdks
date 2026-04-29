@@ -19,6 +19,7 @@ import {
   DeriveEntropyErr,
   DevicePermission,
   GenericError,
+  GetUserIdErr,
   LoginErr,
   NavigateToErr,
   PaymentBalanceErr,
@@ -272,9 +273,9 @@ export function createContainer(provider: Provider): Container {
   }
 
   // account slots
-  const handleAccountGetRootSlot = makeNotImplementedSlot(
-    'host_account_get_root',
-    () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  const handleGetUserIdSlot = makeNotImplementedSlot(
+    'host_get_user_id',
+    () => new GetUserIdErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
   const handleRequestLoginSlot = makeNotImplementedSlot(
@@ -524,10 +525,10 @@ export function createContainer(provider: Provider): Container {
       return handleV1Subscription(handleThemeSubscribeSlot, handler);
     },
 
-    handleAccountGetRoot(handler) {
+    handleGetUserId(handler) {
       return handleV1Request(
-        handleAccountGetRootSlot,
-        () => new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handleGetUserIdSlot,
+        () => new GetUserIdErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
     },

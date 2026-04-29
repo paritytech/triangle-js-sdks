@@ -11,12 +11,12 @@ import {
   AccountCreateProofV1_response,
   AccountGetAliasV1_request,
   AccountGetAliasV1_response,
-  AccountGetRootV1_request,
-  AccountGetRootV1_response,
   AccountGetV1_request,
   AccountGetV1_response,
   GetLegacyAccountsV1_request,
   GetLegacyAccountsV1_response,
+  GetUserIdV1_request,
+  GetUserIdV1_response,
   RequestLoginV1_request,
   RequestLoginV1_response,
 } from './v1/accounts.js';
@@ -253,12 +253,12 @@ export const hostApiProtocol = {
     v1: [CreateTransactionWithLegacyAccountV1_request, CreateTransactionWithLegacyAccountV1_response],
   }),
 
-  host_sign_raw: versionedRequest({
-    v1: [SignRawV1_request, SignRawV1_response],
+  host_sign_raw_with_legacy_account: versionedRequest({
+    v1: [SignRawWithLegacyAccountV1_request, SignRawWithLegacyAccountV1_response],
   }),
 
-  host_sign_payload: versionedRequest({
-    v1: [SignPayloadV1_request, SignPayloadV1_response],
+  host_sign_payload_with_legacy_account: versionedRequest({
+    v1: [SignPayloadWithLegacyAccountV1_request, SignPayloadWithLegacyAccountV1_response],
   }),
 
   host_chat_create_room: versionedRequest({
@@ -379,20 +379,20 @@ export const hostApiProtocol = {
     v1: [DeriveEntropyV1_request, DeriveEntropyV1_response],
   }),
 
-  host_account_get_root: versionedRequest({
-    v1: [AccountGetRootV1_request, AccountGetRootV1_response],
+  host_get_user_id: versionedRequest({
+    v1: [GetUserIdV1_request, GetUserIdV1_response],
   }),
 
   host_request_login: versionedRequest({
     v1: [RequestLoginV1_request, RequestLoginV1_response],
   }),
 
-  host_sign_raw_with_legacy_account: versionedRequest({
-    v1: [SignRawWithLegacyAccountV1_request, SignRawWithLegacyAccountV1_response],
+  host_sign_raw: versionedRequest({
+    v1: [SignRawV1_request, SignRawV1_response],
   }),
 
-  host_sign_payload_with_legacy_account: versionedRequest({
-    v1: [SignPayloadWithLegacyAccountV1_request, SignPayloadWithLegacyAccountV1_response],
+  host_sign_payload: versionedRequest({
+    v1: [SignPayloadV1_request, SignPayloadV1_response],
   }),
 
   host_payment_balance_subscribe: versionedSubscription({

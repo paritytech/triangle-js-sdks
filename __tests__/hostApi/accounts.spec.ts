@@ -1,6 +1,7 @@
 import type { CodecType } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  GetUserIdErr,
   LoginErr,
   RequestCredentialsErr,
   RingLocation,
@@ -41,49 +42,38 @@ const mockRingLocation: CodecType<typeof RingLocation> = {
 };
 
 describe('Host API: Accounts', () => {
-  describe('getRootAccount', () => {
-    it('should return root account on success', async () => {
+  describe('getUserId', () => {
+    it('should return primary username on success', async () => {
       const { container, accountsProvider } = setup();
-      const expected = { publicKey: mockPublicKey, name: 'alice.dot' };
+      const expected = { primaryUsername: 'alice.dot' };
 
-      container.handleAccountGetRoot((_, { ok }) => ok(expected));
+      container.handleGetUserId((_, { ok }) => ok(expected));
 
-      const result = await accountsProvider.getRootAccount();
+      const result = await accountsProvider.getUserId();
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual(expected);
     });
 
-    it('should return root account with no name', async () => {
+    it('should return PermissionDenied error when user denies disclosure', async () => {
       const { container, accountsProvider } = setup();
+      const error = new GetUserIdErr.PermissionDenied();
 
-      container.handleAccountGetRoot((_, { ok }) => ok({ publicKey: mockPublicKey, name: undefined }));
+      container.handleGetUserId((_, { err }) => err(error));
 
-      const result = await accountsProvider.getRootAccount();
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().name).toBeUndefined();
-    });
-
-    it('should return Rejected error when user denies permission', async () => {
-      const { container, accountsProvider } = setup();
-      const error = new RequestCredentialsErr.Rejected();
-
-      container.handleAccountGetRoot((_, { err }) => err(error));
-
-      const result = await accountsProvider.getRootAccount();
+      const result = await accountsProvider.getUserId();
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
     });
 
-    it('should return NotConnected error when user has no root account', async () => {
+    it('should return NotConnected error when user is not logged in', async () => {
       const { container, accountsProvider } = setup();
-      const error = new RequestCredentialsErr.NotConnected();
+      const error = new GetUserIdErr.NotConnected();
 
-      container.handleAccountGetRoot((_, { err }) => err(error));
+      container.handleGetUserId((_, { err }) => err(error));
 
-      const result = await accountsProvider.getRootAccount();
+      const result = await accountsProvider.getUserId();
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
@@ -91,11 +81,11 @@ describe('Host API: Accounts', () => {
 
     it('should return Unknown error on unexpected failure', async () => {
       const { container, accountsProvider } = setup();
-      const error = new RequestCredentialsErr.Unknown({ reason: 'unexpected' });
+      const error = new GetUserIdErr.Unknown({ reason: 'unexpected' });
 
-      container.handleAccountGetRoot((_, { err }) => err(error));
+      container.handleGetUserId((_, { err }) => err(error));
 
-      const result = await accountsProvider.getRootAccount();
+      const result = await accountsProvider.getUserId();
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
@@ -105,7 +95,7 @@ describe('Host API: Accounts', () => {
   describe('getProductAccount', () => {
     it('should return account on success', async () => {
       const { container, accountsProvider } = setup();
-      const expected = { publicKey: mockPublicKey, name: 'Alice' };
+      const expected = { publicKey: mockPublicKey };
 
       container.handleAccountGet((_, { ok }) => ok(expected));
 
@@ -118,7 +108,7 @@ describe('Host API: Accounts', () => {
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
       const { container, accountsProvider } = setup();
       const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
-        ok({ publicKey: mockPublicKey, name: undefined }),
+        ok({ publicKey: mockPublicKey }),
       );
       container.handleAccountGet(handler);
 
@@ -130,7 +120,7 @@ describe('Host API: Accounts', () => {
     it('should use derivation index 0 by default', async () => {
       const { container, accountsProvider } = setup();
       const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
-        ok({ publicKey: mockPublicKey, name: undefined }),
+        ok({ publicKey: mockPublicKey }),
       );
       container.handleAccountGet(handler);
 
@@ -149,17 +139,6 @@ describe('Host API: Accounts', () => {
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
-    });
-
-    it('should handle account with no name', async () => {
-      const { container, accountsProvider } = setup();
-
-      container.handleAccountGet((_, { ok }) => ok({ publicKey: mockPublicKey, name: undefined }));
-
-      const result = await accountsProvider.getProductAccount('product.dot', 0);
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().name).toBeUndefined();
     });
   });
 

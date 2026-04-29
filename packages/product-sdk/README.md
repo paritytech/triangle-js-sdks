@@ -217,19 +217,19 @@ import type { ProductAccount } from '@novasamatech/product-sdk';
 // Create accounts provider instance
 const accountsProvider = createAccountsProvider();
 
-// Get the root (primary) account — prompts for permission on first call
-const rootResult = await accountsProvider.getRootAccount();
+// Get the user's primary DotNS username (RFC-0014)
+// — prompts for permission on first call
+const userIdResult = await accountsProvider.getUserId();
 
-if (rootResult.isOk()) {
-  const root = rootResult.value;
-  console.log('Root account public key:', root.publicKey);
-  console.log('Root DotNS name:', root.name);
+if (userIdResult.isOk()) {
+  const { primaryUsername } = userIdResult.value;
+  console.log('Primary username:', primaryUsername);
 } else {
-  const rootErr = rootResult.error;
-  if (rootErr.tag === 'Rejected') {
-    console.log('User denied access to root account');
-  } else if (rootErr.tag === 'NotFound') {
-    console.log('User has no DotNS account yet');
+  const err = userIdResult.error;
+  if (err.tag === 'NotConnected') {
+    console.log('User is not logged in');
+  } else if (err.tag === 'PermissionDenied') {
+    console.log('User denied disclosure of their primary username');
   }
 }
 

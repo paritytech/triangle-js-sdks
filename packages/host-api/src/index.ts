@@ -38,16 +38,19 @@ export {
 export { GenericError } from './protocol/commonCodecs.js';
 export { CreateTransactionErr, VersionedPublicTxPayload } from './protocol/v1/createTransaction.js';
 export {
-  Account,
   AccountConnectionStatus,
   AccountId,
   ContextualAlias,
   CreateProofErr,
+  GetUserIdErr,
+  LegacyAccount,
   LoginErr,
   LoginResult,
+  ProductAccount,
   ProductAccountId,
   RequestCredentialsErr,
   RingLocation,
+  UserIdentity,
 } from './protocol/v1/accounts.js';
 export {
   ChatActionPayload,

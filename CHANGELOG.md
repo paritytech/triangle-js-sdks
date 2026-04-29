@@ -1,3 +1,30 @@
+## 0.7.4 (2026-04-29)
+
+### 🚀 Features
+
+- **host-api:** add `host_get_user_id` protocol method (RFC-0014). Returns the user's primary DotNS username scoped to the calling product, with `GetUserIdErr` (`PermissionDenied | NotConnected | Unknown`).
+- **host-container:** add `handleGetUserId` handler slot (RFC-0014).
+- **product-sdk:** add `getUserId()` method to `createAccountsProvider()`.
+
+### 🩹 Fixes
+
+- **host-api:** fixed order of `host_sign_raw` and `host_sign_payload` methods in protocol to match the order of the methods in v0.6.
+- **host-papp-react-ui:** bump tr-ui and fix storybook
+
+### ⚠️ Breaking Changes
+
+- **host-api:** order of methods inside Host API protocol changed. Affected all users of `0.7.0` - `0.7.3` releases.
+- **host-api:** removed `host_account_get_root` (RFC-0010 superseded by RFC-0014). Use `host_get_user_id` to obtain the user's primary username.
+- **host-api:** split `Account` into `ProductAccount` (no `name`) and `LegacyAccount` (carries `name`). `host_account_get` now returns `ProductAccount`; `host_get_legacy_accounts` now returns `Vec<LegacyAccount>`.
+- **host-container:** removed `handleAccountGetRoot` (replaced by `handleGetUserId`).
+- **product-sdk:** removed `getRootAccount()` (replaced by `getUserId()` returning `{ primaryUsername }`).
+- **product-sdk:** `getProductAccount()` no longer returns `name` — use `getUserId()` for the user's display name.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- valentunn @valentunn
+
 ## 0.7.3 (2026-04-27)
 
 ### 🩹 Fixes

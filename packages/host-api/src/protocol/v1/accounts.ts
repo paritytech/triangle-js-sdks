@@ -15,9 +15,17 @@ export const RingVrgAlias = Bytes();
 
 // structs
 
-export const Account = Struct({
+export const ProductAccount = Struct({
+  publicKey: PublicKey,
+});
+
+export const LegacyAccount = Struct({
   publicKey: PublicKey,
   name: Option(str),
+});
+
+export const UserIdentity = Struct({
+  primaryUsername: DotNsIdentifier,
 });
 
 export const ContextualAlias = Struct({
@@ -50,6 +58,12 @@ export const CreateProofErr = ErrEnum('CreateProofErr', {
   Unknown: [GenericErr, 'CreateProof: unknown error'],
 });
 
+export const GetUserIdErr = ErrEnum('GetUserIdErr', {
+  PermissionDenied: [_void, 'GetUserId: permission denied'],
+  NotConnected: [_void, 'GetUserId: not connected'],
+  Unknown: [GenericErr, 'GetUserId: unknown error'],
+});
+
 // account connection status
 
 export const AccountConnectionStatus = Status('disconnected', 'connected');
@@ -58,15 +72,15 @@ export const AccountConnectionStatusV1_start = _void;
 export const AccountConnectionStatusV1_receive = AccountConnectionStatus;
 export const AccountConnectionStatusV1_interrupt = _void;
 
-// account_get_root
+// get_user_id
 
-export const AccountGetRootV1_request = _void;
-export const AccountGetRootV1_response = Result(Account, RequestCredentialsErr);
+export const GetUserIdV1_request = _void;
+export const GetUserIdV1_response = Result(UserIdentity, GetUserIdErr);
 
 // account_get
 
 export const AccountGetV1_request = ProductAccountId;
-export const AccountGetV1_response = Result(Account, RequestCredentialsErr);
+export const AccountGetV1_response = Result(ProductAccount, RequestCredentialsErr);
 
 // account_get_alias
 
@@ -81,7 +95,7 @@ export const AccountCreateProofV1_response = Result(RingVrfProof, CreateProofErr
 // get_legacy_accounts
 
 export const GetLegacyAccountsV1_request = _void;
-export const GetLegacyAccountsV1_response = Result(Vector(Account), RequestCredentialsErr);
+export const GetLegacyAccountsV1_response = Result(Vector(LegacyAccount), RequestCredentialsErr);
 
 // request_login
 
