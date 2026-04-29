@@ -1,3 +1,17 @@
+## 0.7.4 (2026-04-29)
+
+### 🩹 Fixes
+
+- **host-api:** fixed order of `host_sign_raw` and `host_sign_payload` methods in protocol to match the order of the methods in v0.6.
+
+### ⚠️ Breaking Changes
+
+- **host-api:** order of methods inside Host API protocol changed. Affected all users of `0.7.0` - `0.7.3` releases. 
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.7.3 (2026-04-27)
 
 ### 🩹 Fixes

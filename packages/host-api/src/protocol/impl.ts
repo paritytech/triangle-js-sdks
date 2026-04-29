@@ -253,12 +253,12 @@ export const hostApiProtocol = {
     v1: [CreateTransactionWithLegacyAccountV1_request, CreateTransactionWithLegacyAccountV1_response],
   }),
 
-  host_sign_raw: versionedRequest({
-    v1: [SignRawV1_request, SignRawV1_response],
+  host_sign_raw_with_legacy_account: versionedRequest({
+    v1: [SignRawWithLegacyAccountV1_request, SignRawWithLegacyAccountV1_response],
   }),
 
-  host_sign_payload: versionedRequest({
-    v1: [SignPayloadV1_request, SignPayloadV1_response],
+  host_sign_payload_with_legacy_account: versionedRequest({
+    v1: [SignPayloadWithLegacyAccountV1_request, SignPayloadWithLegacyAccountV1_response],
   }),
 
   host_chat_create_room: versionedRequest({
@@ -387,12 +387,12 @@ export const hostApiProtocol = {
     v1: [RequestLoginV1_request, RequestLoginV1_response],
   }),
 
-  host_sign_raw_with_legacy_account: versionedRequest({
-    v1: [SignRawWithLegacyAccountV1_request, SignRawWithLegacyAccountV1_response],
+  host_sign_raw: versionedRequest({
+    v1: [SignRawV1_request, SignRawV1_response],
   }),
 
-  host_sign_payload_with_legacy_account: versionedRequest({
-    v1: [SignPayloadWithLegacyAccountV1_request, SignPayloadWithLegacyAccountV1_response],
+  host_sign_payload: versionedRequest({
+    v1: [SignPayloadV1_request, SignPayloadV1_response],
   }),
 
   host_payment_balance_subscribe: versionedSubscription({
