@@ -11,12 +11,12 @@ import {
   AccountCreateProofV1_response,
   AccountGetAliasV1_request,
   AccountGetAliasV1_response,
-  AccountGetRootV1_request,
-  AccountGetRootV1_response,
   AccountGetV1_request,
   AccountGetV1_response,
   GetLegacyAccountsV1_request,
   GetLegacyAccountsV1_response,
+  GetUserIdV1_request,
+  GetUserIdV1_response,
   RequestLoginV1_request,
   RequestLoginV1_response,
 } from './v1/accounts.js';
@@ -379,8 +379,8 @@ export const hostApiProtocol = {
     v1: [DeriveEntropyV1_request, DeriveEntropyV1_response],
   }),
 
-  host_account_get_root: versionedRequest({
-    v1: [AccountGetRootV1_request, AccountGetRootV1_response],
+  host_get_user_id: versionedRequest({
+    v1: [GetUserIdV1_request, GetUserIdV1_response],
   }),
 
   host_request_login: versionedRequest({

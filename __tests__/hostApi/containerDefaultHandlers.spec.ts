@@ -70,7 +70,7 @@ describe('Container default handlers', () => {
       const { container, accountsProvider } = setup();
 
       // Register user handler
-      const cleanup = container.handleAccountGet((_, { ok }) => ok({ publicKey: new Uint8Array(32), name: 'Alice' }));
+      const cleanup = container.handleAccountGet((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
 
       // Verify user handler works
       const okResult = await accountsProvider.getProductAccount('product.dot', 0);
@@ -90,8 +90,8 @@ describe('Container default handlers', () => {
     it('second handleAccountGet call replaces first without cleanup', async () => {
       const { container, accountsProvider } = setup();
 
-      const firstHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32), name: 'First' }));
-      const secondHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32), name: 'Second' }));
+      const firstHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
+      const secondHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
 
       container.handleAccountGet(firstHandler);
       container.handleAccountGet(secondHandler); // replaces first

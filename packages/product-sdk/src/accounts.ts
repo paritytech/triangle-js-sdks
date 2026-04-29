@@ -7,6 +7,7 @@ import type {
 } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  GetUserIdErr,
   LoginErr,
   RequestCredentialsErr,
   RingLocation,
@@ -41,16 +42,16 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
   const hostApi = createHostApi(transport);
 
   return {
-    getRootAccount() {
+    getUserId() {
       return hostApi
-        .accountGetRoot(enumValue('v1', undefined))
+        .getUserId(enumValue('v1', undefined))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
             return ok(response.value);
           }
           // @ts-expect-error response.tag is never here
-          return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+          return err(new GetUserIdErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
     requestLogin(reason?: string) {

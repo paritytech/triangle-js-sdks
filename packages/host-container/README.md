@@ -181,23 +181,25 @@ container.handleThemeSubscribe((_, send, interrupt) => {
 });
 ```
 
-### handleAccountGetRoot
+### handleGetUserId
 
-Called when a product requests the user's root (primary) account. Show a permission prompt on first call; cache the grant for the session. Return `NotFound` if the user has no DotNS username.
+Called when a product requests the user's primary DotNS username (RFC-0014). Show a disclosure prompt on first call; the host decides what counts as "primary" for the calling product. Return `NotConnected` without prompting if no user is connected; return `PermissionDenied` if the user denies disclosure.
 
 ```ts
-import { RequestCredentialsErr } from '@novasamatech/host-api';
+import { GetUserIdErr } from '@novasamatech/host-api';
 
-container.handleAccountGetRoot(async (_, { ok, err }) => {
-  const granted = await promptUserForRootAccountAccess();
+container.handleGetUserId(async (_, { ok, err }) => {
+  const username = await pickPrimaryUsernameForCallingProduct();
+  if (!username) {
+    return err(new GetUserIdErr.NotConnected());
+  }
+
+  const granted = await promptUserForUsernameDisclosure();
   if (!granted) {
-    return err(new RequestCredentialsErr.Rejected());
+    return err(new GetUserIdErr.PermissionDenied());
   }
-  const rootAccount = await getRootAccount();
-  if (!rootAccount) {
-    return err(new RequestCredentialsErr.NotConnected());
-  }
-  return ok({ publicKey: rootAccount.publicKey, name: rootAccount.name ?? undefined });
+
+  return ok({ primaryUsername: username });
 });
 ```
 
@@ -225,7 +227,7 @@ container.handleRequestLogin(async (reason, { ok, err }) => {
 container.handleAccountGet(async ([dotnsId, derivationIndex], { ok, err }) => {
   const account = await getProductAccount(dotnsId, derivationIndex);
   if (account) {
-    return ok({ publicKey: account.publicKey, name: account.name ?? null });
+    return ok({ publicKey: account.publicKey });
   }
   return err({ tag: 'NotConnected' });
 });
