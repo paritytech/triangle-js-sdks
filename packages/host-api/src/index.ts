@@ -43,7 +43,6 @@ export {
   ContextualAlias,
   CreateProofErr,
   GetUserIdErr,
-  GetUserIdResponse,
   LegacyAccount,
   LoginErr,
   LoginResult,
@@ -51,6 +50,7 @@ export {
   ProductAccountId,
   RequestCredentialsErr,
   RingLocation,
+  UserIdentity,
 } from './protocol/v1/accounts.js';
 export {
   ChatActionPayload,

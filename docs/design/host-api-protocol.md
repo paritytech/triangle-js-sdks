@@ -263,7 +263,7 @@ fn host_derive_entropy(
   message: Vec<u8>
 ) -> Result<Entropy, DeriveEntropyErr>;
 
-fn host_get_user_id() -> Result<GetUserIdResponse, GetUserIdErr>;
+fn host_get_user_id() -> Result<UserIdentity, GetUserIdErr>;
 
 fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
 
@@ -642,7 +642,7 @@ struct LegacyAccount {
   name: Option<str>
 }
 
-struct GetUserIdResponse {
+struct UserIdentity {
   /// The user's primary DotNS username scoped to the calling product.
   primary_username: DotNsIdentifier
 }
@@ -680,7 +680,7 @@ enum AccountConnectionStatus {
 /// - **Source-agnostic and host-chosen.** The host picks what counts as primary for this product (lite username, full username, custom — products MUST NOT assume). When the user is connected, the host is guaranteed to be able to pick one.
 /// - **Per-product scope.** Whether two products see the same identifier is a host implementation choice. Simple hosts will return the same to all; sophisticated hosts MAY let users pick distinct primaries per product.
 /// - **Per-call freshness, no revocation.** Each call reflects current host state; if the user changes their primary, subsequent calls return the new value. Once disclosed, a value cannot be retracted from the product.
-fn host_get_user_id() -> Result<GetUserIdResponse, GetUserIdErr>;
+fn host_get_user_id() -> Result<UserIdentity, GetUserIdErr>;
 
 enum LoginResult {
   Success,

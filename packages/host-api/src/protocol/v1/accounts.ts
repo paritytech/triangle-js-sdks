@@ -24,7 +24,7 @@ export const LegacyAccount = Struct({
   name: Option(str),
 });
 
-export const GetUserIdResponse = Struct({
+export const UserIdentity = Struct({
   primaryUsername: DotNsIdentifier,
 });
 
@@ -75,7 +75,7 @@ export const AccountConnectionStatusV1_interrupt = _void;
 // get_user_id
 
 export const GetUserIdV1_request = _void;
-export const GetUserIdV1_response = Result(GetUserIdResponse, GetUserIdErr);
+export const GetUserIdV1_response = Result(UserIdentity, GetUserIdErr);
 
 // account_get
 
