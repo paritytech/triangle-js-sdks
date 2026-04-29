@@ -10,7 +10,7 @@
 
 A new host call, `host_get_user_id`, returns the user's primary DotNS username scoped to the calling product. The existing `Account` type is split into `ProductAccount` (no name) and `LegacyAccount` (with name) so that the presence of a `name` field always means "user-chosen label."
 
-Supersedes RFC-0010, which was merged without review.
+Supersedes [RFC-0010](https://github.com/paritytech/triangle-js-sdks/blob/main/docs/rfcs/0010-get-root-account.md), which was merged without review.
 
 ## Motivation
 
@@ -52,7 +52,6 @@ Behavior:
 - **Source-agnostic and host-chosen.** The host picks what counts as primary for this product (lite username, full username, custom — products MUST NOT assume). When the user is connected, the host is guaranteed to be able to pick one.
 - **Per-product scope.** Whether two products see the same identifier is a host implementation choice. Simple hosts will return the same to all; sophisticated hosts MAY let users pick distinct primaries per product.
 - **Per-call freshness, no revocation.** Each call reflects current host state; if the user changes their primary, subsequent calls return the new value. Once disclosed, a value cannot be retracted from the product.
-- **Sync semantics.** The signature is synchronous in the language-agnostic protocol; concrete bindings may expose it as `Promise`/`Future`/etc.
 
 ### Account type split
 
@@ -95,7 +94,7 @@ Breaking change:
 
 ## Prior Art
 
-- **RFC-0010** (Host API root account access) — superseded. Returned `{ public_key, name }`, coupling username retrieval to account retrieval.
+- **[RFC-0010](https://github.com/paritytech/triangle-js-sdks/blob/main/docs/rfcs/0010-get-root-account.md)** (Host API root account access) — superseded. Returned `{ public_key, name }`, coupling username retrieval to account retrieval.
 - **v0.6 → v0.7 migration** — established the "legacy account" vocabulary.
 - **`host_account_get_alias`** — privacy-preserving alternative when a user-readable handle is not needed.
 
