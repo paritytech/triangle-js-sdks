@@ -9,7 +9,6 @@ created: 2026-03-13
 
 ## Changelog
 
-
 ### v0.7 - 2026-04-13
 
 - Renamed all `*_with_non_product_account` methods to `*_with_legacy_account`; renamed `host_get_non_product_accounts` to `host_get_legacy_accounts`; updated glossary term "Non-product account (NPA)" to "Legacy account".
@@ -145,12 +144,12 @@ fn host_create_transaction_with_legacy_account(
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
-fn host_sign_raw(
-  payload: SigningPayloadRaw
+fn host_sign_raw_with_legacy_account(
+  payload: SigningPayloadRawWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_payload(
-  payload: SigningPayload
+fn host_sign_payload_with_legacy_account(
+  payload: SigningPayloadWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 
 fn host_chat_create_room(
@@ -267,12 +266,12 @@ fn host_account_get_root() -> Result<Account, RequestCredentialsErr>;
 
 fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
 
-fn host_sign_raw_with_legacy_account(
-  payload: SigningPayloadRawWithoutAccount
+fn host_sign_raw(
+  payload: SigningPayloadRaw
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_payload_with_legacy_account(
-  payload: SigningPayloadWithoutAccount
+fn host_sign_payload(
+  payload: SigningPayload
 ) -> Result<SigningResult, SigningErr>;
 
 fn host_payment_balance_subscribe(
