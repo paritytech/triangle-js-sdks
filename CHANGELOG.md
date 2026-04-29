@@ -3,6 +3,7 @@
 ### 🩹 Fixes
 
 - **host-api:** fixed order of `host_sign_raw` and `host_sign_payload` methods in protocol to match the order of the methods in v0.6.
+- **host-papp-react-ui:** bump tr-ui and fix storybook
 
 ### ⚠️ Breaking Changes
 
