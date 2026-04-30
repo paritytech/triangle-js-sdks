@@ -78,6 +78,17 @@ export function createChainConnectionManager(factory: (genesisHash: HexString) =
           const subId = String(params.subscription);
           for (const follow of followSubscriptions.values()) {
             if (follow.chainSubId === subId) {
+              // A `stop` event means the server-side follow is dead — either
+              // because the chain explicitly stopped it, or because the
+              // underlying provider's getProxy synthesized one after a
+              // pause/resume reconnect. Either way the chainSubId is no
+              // longer valid: clear it before forwarding the event so any
+              // chain-head operations that arrive before the papp issues a
+              // fresh Follow do not target a dead subId.
+              const result = params.result as { event?: string } | undefined;
+              if (result?.event === 'stop') {
+                follow.chainSubId = '';
+              }
               follow.eventListener(params.result);
               break;
             }
