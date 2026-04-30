@@ -43,6 +43,7 @@ export const createLazyClient = (provider: JsonRpcProvider) => {
     disconnect() {
       if (polkadotClient) {
         polkadotClient.destroy();
+        polkadotClient = null;
       }
     },
   };

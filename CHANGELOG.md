@@ -1,3 +1,20 @@
+## 0.7.5 (2026-04-30)
+
+### 🚀 Features
+
+- **scale:** now `ErrEnum` can perform instanceof check against Enum itself. e.g. `err instanceof ErrEnum`.
+
+### 🩹 Fixes
+
+- **host-container:** switch chain-head request flow to direct substrate-client operations and validate active follow state before requests
+- **host-substrate-chain-connection:** fix subscription replay across reconnects by remapping notification/unsubscribe IDs between consumer and server subscription IDs
+- **statement-store:** reset `lazyClient` instance to `null` on disconnect to ensure clean re-initialization
+- **statement-store:** simplified subscription method in `lazyClient`.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.7.4 (2026-04-29)
 
 ### 🚀 Features

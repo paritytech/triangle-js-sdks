@@ -27,6 +27,7 @@
   "dependencies": {
     "@noble/hashes": "2.2.0",
     "polkadot-api": ">=2",
+    "@polkadot-api/substrate-client": "^0.7.0",
     "@novasamatech/host-api": "0.7.4",
     "nanoid": "5.1.9",
     "neverthrow": "^8.2.0"

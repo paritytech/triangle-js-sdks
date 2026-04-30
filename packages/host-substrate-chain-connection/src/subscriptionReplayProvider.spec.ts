@@ -130,7 +130,61 @@ describe('withSubscriptionReplay', () => {
     expect(mock.send).toHaveBeenCalledWith(msg2);
   });
 
-  it('re-registers subscriptions under new server IDs after reconnect', () => {
+  it('translates inbound notifications from the new server subId back to the consumer-facing subId after reconnect', () => {
+    const mock = createMockProvider();
+    const control = createReconnectControl();
+    const onMessage = vi.fn();
+    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(onMessage);
+
+    conn.send(req(1, 'statement_subscribeStatement') as any);
+    mock.simulateMessage(res(1, 'old-sub-id'));
+
+    control.triggerReconnect();
+    mock.simulateMessage(res(1, 'new-sub-id'));
+
+    // The post-reconnect re-confirmation must NOT reach the consumer; it would be
+    // a duplicate response for a request whose callback was consumed on first connect.
+    expect(onMessage).not.toHaveBeenCalledWith(res(1, 'new-sub-id'));
+
+    // Notifications from the server now arrive under the new server subId. The
+    // middleware must rewrite them to the consumer's stable subId, otherwise
+    // the consumer's subscription manager (which only ever saw 'old-sub-id')
+    // would route them nowhere.
+    onMessage.mockClear();
+    mock.simulateMessage({
+      jsonrpc: '2.0',
+      method: 'state_storage',
+      params: { subscription: 'new-sub-id', result: { changes: [] } },
+    });
+    expect(onMessage).toHaveBeenCalledWith({
+      jsonrpc: '2.0',
+      method: 'state_storage',
+      params: { subscription: 'old-sub-id', result: { changes: [] } },
+    });
+  });
+
+  it('translates outbound unsubscribe requests from the consumer-facing subId to the current server subId', () => {
+    const mock = createMockProvider();
+    const control = createReconnectControl();
+    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
+
+    conn.send(req(1, 'statement_subscribeStatement') as any);
+    mock.simulateMessage(res(1, 'old-sub-id'));
+
+    control.triggerReconnect();
+    mock.simulateMessage(res(1, 'new-sub-id'));
+
+    mock.send.mockClear();
+    // Consumer only knows 'old-sub-id' (the first response it ever received).
+    // Middleware must rewrite the unsubscribe params to use the current server subId.
+    conn.send(req(2, 'statement_unsubscribeStatement', ['old-sub-id']) as any);
+
+    expect(mock.send).toHaveBeenCalledWith(
+      expect.objectContaining({ method: 'statement_unsubscribeStatement', params: ['new-sub-id'] }),
+    );
+  });
+
+  it('drops a subscription on consumer-side unsubscribe so it is not replayed on the next reconnect', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
@@ -139,19 +193,17 @@ describe('withSubscriptionReplay', () => {
     conn.send(subscribeMsg as any);
     mock.simulateMessage(res(1, 'old-sub-id'));
 
-    // First reconnect — replays and moves to pending
     control.triggerReconnect();
-    // Server assigns new subscription ID
     mock.simulateMessage(res(1, 'new-sub-id'));
 
-    // Unsubscribing with the old ID should have no effect (old ID is no longer tracked)
+    // Consumer unsubscribes using the only subId it knows about.
     conn.send(req(2, 'statement_unsubscribeStatement', ['old-sub-id']) as any);
     mock.send.mockClear();
 
-    // Second reconnect — subscription is still active (new-sub-id was not removed)
     control.triggerReconnect();
 
-    expect(mock.send).toHaveBeenCalledWith(subscribeMsg);
+    // Subscription was unsubscribed; nothing should be re-sent.
+    expect(mock.send).not.toHaveBeenCalled();
   });
 
   it('does not replay unsubscribed subscriptions on reconnect', () => {
