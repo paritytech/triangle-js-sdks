@@ -208,9 +208,14 @@ export function createPapiProvider(
           const subscription = hostApi.chainHeadFollowSubscribe(
             enumValue(version, { genesisHash, withRuntime }),
             payload => {
-              if (payload.tag === version) {
-                const jsonRpcEvent = convertTypedEventToJsonRpc(payload.value as { tag: string; value: unknown });
-                sendFollowEvent(syntheticSubId, jsonRpcEvent);
+              if (payload.tag !== version) return;
+              const typed = payload.value;
+              sendFollowEvent(syntheticSubId, convertTypedEventToJsonRpc(typed));
+              // Stop ends the follow server-side; the consumer's substrate-client
+              // won't issue chainHead_v1_unfollow, so we release the host-api
+              // subscription here to let the host clean up its end.
+              if (typed.tag === 'Stop' && activeFollows.delete(syntheticSubId)) {
+                subscription.unsubscribe();
               }
             },
           );

@@ -145,7 +145,10 @@ export function createChainConnectionManager(
           // chain-head ops issued before the papp refollows queue rather
           // than fail. Non-Stop errors get no recovery window — those are
           // genuine failures, not protocol-driven restarts.
+          // Explicit unfollow defends against substrate-client retaining
+          // pinnedBlocks/runtime past Stop.
           entry.follows.delete(followId);
+          follow.response?.unfollow();
           follow.response = null;
           if (error instanceof StopError) {
             onEvent({ event: 'stop' });
