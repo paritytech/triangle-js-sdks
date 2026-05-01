@@ -6,11 +6,13 @@ import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { fieldListView } from '@novasamatech/storage-adapter';
 import { nanoid } from 'nanoid';
+import type { Result } from 'neverthrow';
 import { ResultAsync, err, ok, okAsync } from 'neverthrow';
 import { AccountId } from 'polkadot-api';
 import type { CodecType } from 'scale-ts';
 
 import { createAsyncTaskPool } from '../../helpers/createAsyncTaskPool.js';
+import { toError } from '../../helpers/utils.js';
 import type { Callback } from '../../types.js';
 import type { StoredUserSession } from '../userSessionRepository.js';
 
@@ -18,6 +20,19 @@ import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
 import type { SigningPayloadRequest, SigningRawRequest } from './scale/signingRequest.js';
 import type { SigningPayloadResponseData } from './scale/signingResponse.js';
+
+// Timeout for the inner queue task. Without it the queue wedges forever when
+// the remote signer doesn't respond — e.g. the request
+// payload is for an SDK version the mobile app doesn't support yet. After
+// this timeout the queue task fails, freeing the pool for the next request.
+const QUEUE_TASK_TIMEOUT_MS = 180_000;
+
+function withQueueTimeout<T>(resultAsync: ResultAsync<T, Error>, label: string): ResultAsync<T, Error> {
+  const timeoutPromise = new Promise<Result<T, Error>>(resolve =>
+    setTimeout(() => resolve(err(new Error(`${label} timed out — queue freed`))), QUEUE_TASK_TIMEOUT_MS),
+  );
+  return ResultAsync.fromPromise(Promise.race([resultAsync, timeoutPromise]), toError).andThen(r => r);
+}
 
 type ProcessedMessage =
   | {
@@ -117,7 +132,7 @@ export function createUserSession({
           }
         };
 
-        return request
+        const inner = request
           .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
           .andThen(message => {
             if (message.success) {
@@ -126,6 +141,8 @@ export function createUserSession({
               return err(new Error(message.value));
             }
           });
+
+        return withQueueTimeout(inner, 'signPayload');
       });
     },
 
@@ -156,7 +173,7 @@ export function createUserSession({
           }
         };
 
-        return request
+        const inner = request
           .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
           .andThen(message => {
             if (message.success) {
@@ -165,6 +182,8 @@ export function createUserSession({
               return err(new Error(message.value));
             }
           });
+
+        return withQueueTimeout(inner, 'signRaw');
       });
     },
 

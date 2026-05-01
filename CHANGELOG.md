@@ -12,6 +12,7 @@
 - **host-substrate-chain-connection:** subscriptions on non-chainHead RPCs (e.g. `state_subscribeStorage`, `statement_subscribeStatement`) keep emitting events after a reconnect. Previously they could silently go quiet because the server had assigned a new subscription ID that the consumer never adopted.
 - **statement-store:** after `lazyClient.disconnect()`, subsequent calls to `getClient()` / `getRequestFn()` / `getSubscribeFn()` create a fresh connection instead of returning a destroyed one.
 - **host-worker-sandbox:** each sandbox now runs in its own isolated QuickJS WASM instance instead of sharing a process-wide module. Previously, disposing a sandbox with live JS state (event listeners, in-flight async chains, captured closures) tripped QuickJS's `JS_FreeRuntime` assertion and aborted the shared WASM module — killing every other product worker (signing, accounts, chat) until page reload. The dispose path is now wrapped in try/catch so a contained abort no longer bubbles. Trade: ~50–200ms extra startup and ~2–3MB resident memory per sandbox.
+- **host-papp:** SSO `signPayload` / `signRaw` queue tasks now time out after 180s instead of wedging the per-session request queue forever.
 
 ### ❤️ Thank You
 
