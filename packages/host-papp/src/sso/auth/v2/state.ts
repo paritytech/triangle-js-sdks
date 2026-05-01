@@ -24,6 +24,13 @@ export type HandshakeSubmittedState = { tag: 'Submitted' };
 export type HandshakePendingState = { tag: 'Pending'; reason: 'AllowanceAllocation' };
 export type HandshakeSuccessState = {
   tag: 'Success';
+  /**
+   * Derived locally from `identityChatPrivateKey` via P-256 scalar
+   * multiplication on the multi-device wire format; read directly from the
+   * `encryption_key` wire field on legacy 161-byte responses. Either way
+   * `IDENTITY_SIGNATURE_PAYLOAD_BYTES = accountId || identityChatPublicKey`
+   * is the canonical form `identitySignature` commits to.
+   */
   identityChatPublicKey: Uint8Array;
   userIdentityAccountId: Uint8Array;
   identitySignature: Uint8Array;
