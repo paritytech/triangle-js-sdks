@@ -64,12 +64,65 @@ export const VersionedHandshakeProposal = Enum({
 
 // ── Response (V2) ───────────────────────────────────────────────────────
 
-export const HandshakeSuccessV2 = Struct({
+/**
+ * Pinned wire structs — `HandshakeSuccessV2Legacy` (161 bytes) for PApp builds
+ * before the multi-device priv-key extension, `HandshakeSuccessV2WithChatPriv`
+ * (193 bytes) for builds shipping the spec'd identityChatPrivateKey. Length
+ * dispatch in `EncryptedHandshakeResponseV2` picks the right one. Once every
+ * PApp build has the priv key we can collapse to a single struct.
+ */
+export const HandshakeSuccessV2Legacy = Struct({
+  encryptionKey: PublicKeyCodec,
+  accountId: AccountIdCodec,
+  identitySignature: SignatureCodec,
+});
+
+export const HandshakeSuccessV2WithChatPriv = Struct({
   encryptionKey: PublicKeyCodec,
   accountId: AccountIdCodec,
   identitySignature: SignatureCodec,
   identityChatPrivateKey: PrivateKeyCodec,
 });
+
+/**
+ * Backwards-compatible Success codec.
+ *
+ * Encode always emits the new (193-byte) shape; decode accepts both lengths
+ * and surfaces `identityChatPrivateKey: undefined` when the legacy format is
+ * received so consumers can branch on availability without crashing.
+ */
+type HandshakeSuccessV2Value = {
+  encryptionKey: Uint8Array;
+  accountId: Uint8Array;
+  identitySignature: Uint8Array;
+  identityChatPrivateKey?: Uint8Array;
+};
+
+export const HandshakeSuccessV2: Codec<HandshakeSuccessV2Value> = createCodec(
+  v => {
+    if (v.identityChatPrivateKey) {
+      return HandshakeSuccessV2WithChatPriv.enc({
+        encryptionKey: v.encryptionKey,
+        accountId: v.accountId,
+        identitySignature: v.identitySignature,
+        identityChatPrivateKey: v.identityChatPrivateKey,
+      });
+    }
+    return HandshakeSuccessV2Legacy.enc({
+      encryptionKey: v.encryptionKey,
+      accountId: v.accountId,
+      identitySignature: v.identitySignature,
+    });
+  },
+  raw => {
+    const bytes = toBytes(raw);
+    if (bytes.length === SUCCESS_LEN_WITH_CHAT_PRIV) {
+      return HandshakeSuccessV2WithChatPriv.dec(bytes);
+    }
+    const legacy = HandshakeSuccessV2Legacy.dec(bytes);
+    return { ...legacy, identityChatPrivateKey: undefined };
+  },
+);
 
 /**
  * Inner Pending sub-statuses; only `AllowanceAllocation` today. Kept for
@@ -81,19 +134,15 @@ export const HandshakeStatusV2 = Enum({
   AllowanceAllocation: _void,
 });
 
-const SUCCESS_LEN = 65 + 32 + 64 + 32;
+const SUCCESS_LEN_LEGACY = 65 + 32 + 64;
+const SUCCESS_LEN_WITH_CHAT_PRIV = 65 + 32 + 64 + 32;
 const PENDING_BYTE = 0x00;
 
 export type EncryptedHandshakeResponseV2Value =
   | { tag: 'Pending'; value: undefined }
   | {
       tag: 'Success';
-      value: {
-        encryptionKey: Uint8Array;
-        accountId: Uint8Array;
-        identitySignature: Uint8Array;
-        identityChatPrivateKey: Uint8Array;
-      };
+      value: HandshakeSuccessV2Value;
     }
   | { tag: 'Failed'; value: string };
 
@@ -115,8 +164,8 @@ const toBytes = (value: Uint8Array | ArrayBuffer | string): Uint8Array => {
  *
  *   - Pending → 1 byte:    0x00 (the inner `AllowanceAllocation` tag; the
  *                          outer Pending wrapper emits nothing)
- *   - Success → 193 bytes: HandshakeSuccessV2 fields concatenated
- *                          (encryptionKey 65 || accountId 32 || signature 64 || chatPriv 32)
+ *   - Success → 161 bytes (legacy PApp): encryptionKey 65 || accountId 32 || signature 64
+ *   - Success → 193 bytes (multi-device PApp): legacy fields || identityChatPrivateKey 32
  *   - Failed  → variable:  SCALE-encoded UTF-8 reason string
  *
  * Disambiguation is purely by byte length; protocol-state context further
@@ -138,7 +187,7 @@ export const EncryptedHandshakeResponseV2: Codec<EncryptedHandshakeResponseV2Val
     if (bytes.length === 1 && bytes[0] === PENDING_BYTE) {
       return { tag: 'Pending', value: undefined };
     }
-    if (bytes.length === SUCCESS_LEN) {
+    if (bytes.length === SUCCESS_LEN_LEGACY || bytes.length === SUCCESS_LEN_WITH_CHAT_PRIV) {
       return { tag: 'Success', value: HandshakeSuccessV2.dec(bytes) };
     }
     return { tag: 'Failed', value: str.dec(bytes) };
