@@ -124,6 +124,7 @@ describe('startPairingV2', () => {
       identityChatPublicKey: new Uint8Array(65).fill(0x04),
       userIdentityAccountId: new Uint8Array(32).fill(0xb2),
       identitySignature: new Uint8Array(64).fill(0xcc),
+      identityChatPrivateKey: new Uint8Array(32).fill(0xdd),
     };
     const successBytes = EncryptedHandshakeResponseV2.enc({
       tag: 'Success',
@@ -131,6 +132,7 @@ describe('startPairingV2', () => {
         encryptionKey: success.identityChatPublicKey,
         accountId: success.userIdentityAccountId,
         identitySignature: success.identitySignature,
+        identityChatPrivateKey: success.identityChatPrivateKey,
       },
     });
     store.emit([buildStatement(device, successBytes)]);
