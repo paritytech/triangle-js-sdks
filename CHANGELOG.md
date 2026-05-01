@@ -2,14 +2,15 @@
 
 ### 🚀 Features
 
-- **scale:** now `ErrEnum` can perform instanceof check against Enum itself. e.g. `err instanceof ErrEnum`.
+- **scale:** `instanceof` now works against an `ErrEnum` itself in addition to its variants — `err instanceof MyErrors` narrows to the union of all variant errors.
 
 ### 🩹 Fixes
 
-- **host-container:** switch chain-head request flow to direct substrate-client operations and validate active follow state before requests
-- **host-substrate-chain-connection:** fix subscription replay across reconnects by remapping notification/unsubscribe IDs between consumer and server subscription IDs
-- **statement-store:** reset `lazyClient` instance to `null` on disconnect to ensure clean re-initialization
-- **statement-store:** simplified subscription method in `lazyClient`.
+- **host-container:** chain operations no longer surface transient `"No active follow for this chain"` errors when the host pauses and resumes (visibility blur, app backgrounding, network blips). The chain layer waits briefly for the papp's refollow and routes operations issued during that window through the new follow once it's established.
+- **host-container:** dead chain-head follow state is cleaned up after server-driven stops, so long-running papps no longer accumulate stale follow records across many reconnect cycles.
+- **host-substrate-chain-connection:** `chains.pauseAll()` / `resumeAll()` continue to drive the socket over the full lifetime of the host. Previously, after a chain was destroyed and re-acquired (the typical pattern when the host caches one provider per chain), pause and resume could silently no-op.
+- **host-substrate-chain-connection:** subscriptions on non-chainHead RPCs (e.g. `state_subscribeStorage`, `statement_subscribeStatement`) keep emitting events after a reconnect. Previously they could silently go quiet because the server had assigned a new subscription ID that the consumer never adopted.
+- **statement-store:** after `lazyClient.disconnect()`, subsequent calls to `getClient()` / `getRequestFn()` / `getSubscribeFn()` create a fresh connection instead of returning a destroyed one.
 
 ### ❤️ Thank You
 

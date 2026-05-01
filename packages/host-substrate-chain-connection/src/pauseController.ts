@@ -36,6 +36,12 @@ export const createPauseController = (): PauseController => {
     base = b;
     return (onMsg, onH) => {
       reinvocationPending = false;
+      // A new inner invocation means a fresh consumer (e.g. the host cached
+      // this provider across destroy → re-acquire). Clear `destroyed` so
+      // pause/resume work on the new connection. The flag's job is to gate
+      // pause/resume between the previous inner.disconnect and the next
+      // inner re-invocation — outside that window it should not stick.
+      destroyed = false;
       onMessage = onMsg;
       onHalt = onH;
       real = null;

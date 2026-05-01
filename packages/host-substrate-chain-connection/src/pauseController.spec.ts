@@ -236,4 +236,33 @@ describe('createPauseController', () => {
 
     expect(mock.latest.send).not.toHaveBeenCalled();
   });
+
+  it('pause/resume work again after disconnect + a fresh inner invocation', () => {
+    // The host caches one provider per chain. After destroyClient cascades
+    // through the inner connection's disconnect, the same pauseController is
+    // reused on the next lockApi. pause/resume must drive the new socket; the
+    // `destroyed` flag from the prior teardown must not stick.
+    const mock = createMockBase();
+    const pc = createPauseController();
+    const inner = pc.middleware(mock.base);
+
+    const firstConn = inner(vi.fn(), vi.fn());
+    firstConn.disconnect(); // sets destroyed = true under the old design
+
+    const secondOnHalt = vi.fn();
+    inner(vi.fn(), secondOnHalt);
+    expect(mock.invocations).toHaveLength(2); // new socket opened
+
+    pc.pause();
+    expect(pc.isPaused()).toBe(true);
+    expect(mock.invocations[1]!.disconnect).toHaveBeenCalledTimes(1);
+    expect(secondOnHalt).toHaveBeenCalledWith({ type: 'paused' });
+
+    inner(vi.fn(), vi.fn()); // simulate the post-halt re-invocation
+    expect(mock.invocations).toHaveLength(2); // still paused → no new base connection
+
+    pc.resume();
+    expect(pc.isPaused()).toBe(false);
+    expect(mock.invocations).toHaveLength(3); // resume opens a fresh socket
+  });
 });
