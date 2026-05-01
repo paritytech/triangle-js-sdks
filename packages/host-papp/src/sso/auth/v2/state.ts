@@ -33,8 +33,13 @@ export type HandshakeSuccessState = {
    * incoming chat traffic addressed to the user identity. Sensitive; the
    * device should persist it in OS-keychain-backed secure storage and never
    * forward it.
+   *
+   * `undefined` when the responder is a legacy PApp build that hasn't shipped
+   * the multi-device priv-key extension yet. The device can still send V2
+   * chat traffic (signed by its own keys); inbound decryption is gated on
+   * this field being present.
    */
-  identityChatPrivateKey: Uint8Array;
+  identityChatPrivateKey: Uint8Array | undefined;
 };
 export type HandshakeFailedState = { tag: 'Failed'; reason: string };
 
