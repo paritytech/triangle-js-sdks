@@ -210,13 +210,16 @@ export function createPapiProvider(
             payload => {
               if (payload.tag !== version) return;
               const typed = payload.value;
-              sendFollowEvent(syntheticSubId, convertTypedEventToJsonRpc(typed));
-              // Stop ends the follow server-side; the consumer's substrate-client
-              // won't issue chainHead_v1_unfollow, so we release the host-api
-              // subscription here to let the host clean up its end.
+              // On Stop, release the host-api subscription BEFORE forwarding
+              // the event. The consumer's substrate-client refollows
+              // synchronously inside the event handler; transport.subscribe
+              // dedupes by (method, payload-hash), so unless this dead
+              // subscription is gone first, the refollow's subscribe shares
+              // it and never reaches the host — events stop flowing.
               if (typed.tag === 'Stop' && activeFollows.delete(syntheticSubId)) {
                 subscription.unsubscribe();
               }
+              sendFollowEvent(syntheticSubId, convertTypedEventToJsonRpc(typed));
             },
           );
 
