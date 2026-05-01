@@ -10,9 +10,13 @@
  * | Failed`.
  *
  * `Success` carries the user identity chat encryption pubkey, the user
- * identity sr25519 accountId, and a 64-byte sr25519 signature over
+ * identity sr25519 accountId, a 64-byte sr25519 signature over
  * `statementAccountId || encryptionPublicKey` (97 bytes — see
- * `IDENTITY_SIGNATURE_PAYLOAD_BYTES`) proving the user authorised this device.
+ * `IDENTITY_SIGNATURE_PAYLOAD_BYTES`) proving the user authorised this device,
+ * and the user identity chat P-256 private key (32 bytes raw scalar). The
+ * private key is shared per the multi-device spec so the device can decrypt
+ * incoming traffic addressed to the user identity. Transit security comes
+ * from the outer envelope's ECDH-AES wrap, not from a separate per-field key.
  */
 
 import type { Codec } from 'scale-ts';
@@ -21,6 +25,7 @@ import { Bytes, Enum, Struct, Tuple, Vector, _void, createCodec, str } from 'sca
 const AccountIdCodec = Bytes(32);
 const PublicKeyCodec = Bytes(65);
 const SignatureCodec = Bytes(64);
+const PrivateKeyCodec = Bytes(32);
 
 /** Bytes the user identity sr25519 signs to authorise a device: accountId(32) || encPub(65). */
 export const IDENTITY_SIGNATURE_PAYLOAD_BYTES = 32 + 65;
@@ -63,6 +68,7 @@ export const HandshakeSuccessV2 = Struct({
   encryptionKey: PublicKeyCodec,
   accountId: AccountIdCodec,
   identitySignature: SignatureCodec,
+  identityChatPrivateKey: PrivateKeyCodec,
 });
 
 /**
@@ -75,14 +81,19 @@ export const HandshakeStatusV2 = Enum({
   AllowanceAllocation: _void,
 });
 
-const SUCCESS_LEN = 65 + 32 + 64;
+const SUCCESS_LEN = 65 + 32 + 64 + 32;
 const PENDING_BYTE = 0x00;
 
 export type EncryptedHandshakeResponseV2Value =
   | { tag: 'Pending'; value: undefined }
   | {
       tag: 'Success';
-      value: { encryptionKey: Uint8Array; accountId: Uint8Array; identitySignature: Uint8Array };
+      value: {
+        encryptionKey: Uint8Array;
+        accountId: Uint8Array;
+        identitySignature: Uint8Array;
+        identityChatPrivateKey: Uint8Array;
+      };
     }
   | { tag: 'Failed'; value: string };
 
@@ -104,8 +115,8 @@ const toBytes = (value: Uint8Array | ArrayBuffer | string): Uint8Array => {
  *
  *   - Pending → 1 byte:    0x00 (the inner `AllowanceAllocation` tag; the
  *                          outer Pending wrapper emits nothing)
- *   - Success → 161 bytes: HandshakeSuccessV2 fields concatenated
- *                          (encryptionKey 65 || accountId 32 || signature 64)
+ *   - Success → 193 bytes: HandshakeSuccessV2 fields concatenated
+ *                          (encryptionKey 65 || accountId 32 || signature 64 || chatPriv 32)
  *   - Failed  → variable:  SCALE-encoded UTF-8 reason string
  *
  * Disambiguation is purely by byte length; protocol-state context further

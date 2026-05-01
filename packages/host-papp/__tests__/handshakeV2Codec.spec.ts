@@ -93,11 +93,12 @@ describe('VersionedHandshakeProposal', () => {
 });
 
 describe('HandshakeSuccessV2', () => {
-  it('round-trips encryptionKey, accountId, and identity signature', () => {
+  it('round-trips encryptionKey, accountId, identity signature, and chat priv', () => {
     const s = {
       encryptionKey: new Uint8Array(65).fill(0x04),
       accountId: new Uint8Array(32).fill(0xb2),
       identitySignature: new Uint8Array(64).fill(0xcc),
+      identityChatPrivateKey: new Uint8Array(32).fill(0xdd),
     };
     expect(HandshakeSuccessV2.dec(HandshakeSuccessV2.enc(s))).toEqual(s);
   });
@@ -121,30 +122,33 @@ describe('EncryptedHandshakeResponseV2', () => {
         encryptionKey: new Uint8Array(65).fill(0x04),
         accountId: new Uint8Array(32).fill(0xb2),
         identitySignature: new Uint8Array(64).fill(0xcc),
+        identityChatPrivateKey: new Uint8Array(32).fill(0xdd),
       },
     };
     expect(EncryptedHandshakeResponseV2.dec(EncryptedHandshakeResponseV2.enc(r))).toEqual(r);
   });
 
-  // Pinned wire format: Success is 161 bytes, no outer discriminant — just
-  // the three fixed-length fields concatenated.
-  it('encodes Success as 161 bytes (peer wire-compat)', () => {
+  // Pinned wire format: Success is 193 bytes, no outer discriminant — just
+  // the four fixed-length fields concatenated.
+  it('encodes Success as 193 bytes (peer wire-compat)', () => {
     const encoded = EncryptedHandshakeResponseV2.enc({
       tag: 'Success',
       value: {
         encryptionKey: new Uint8Array(65).fill(0x04),
         accountId: new Uint8Array(32).fill(0xb2),
         identitySignature: new Uint8Array(64).fill(0xcc),
+        identityChatPrivateKey: new Uint8Array(32).fill(0xdd),
       },
     });
-    expect(encoded.length).toBe(161);
+    expect(encoded.length).toBe(193);
     expect(encoded[0]).toBe(0x04);
     expect(encoded[65]).toBe(0xb2);
     expect(encoded[97]).toBe(0xcc);
+    expect(encoded[161]).toBe(0xdd);
   });
 
-  it('decodes a 161-byte payload as Success even though it has no discriminant byte', () => {
-    const bytes = new Uint8Array(161);
+  it('decodes a 193-byte payload as Success even though it has no discriminant byte', () => {
+    const bytes = new Uint8Array(193);
     bytes[0] = 0x04; // P-256 uncompressed marker — first byte of encryptionKey
     const decoded = EncryptedHandshakeResponseV2.dec(bytes);
     expect(decoded.tag).toBe('Success');

@@ -26,13 +26,14 @@ describe('fromInnerResponse', () => {
     expect(fromInnerResponse(r)).toEqual({ tag: 'Pending', reason: 'AllowanceAllocation' });
   });
 
-  it('maps Success to Success state with all three key fields', () => {
+  it('maps Success to Success state with all four key fields', () => {
     const r = decode({
       tag: 'Success',
       value: {
         encryptionKey: new Uint8Array(65).fill(0x04),
         accountId: new Uint8Array(32).fill(0xb2),
         identitySignature: new Uint8Array(64).fill(0xcc),
+        identityChatPrivateKey: new Uint8Array(32).fill(0xdd),
       },
     });
     const state = fromInnerResponse(r);
@@ -41,6 +42,7 @@ describe('fromInnerResponse', () => {
       expect(state.identityChatPublicKey.length).toBe(65);
       expect(state.userIdentityAccountId.length).toBe(32);
       expect(state.identitySignature.length).toBe(64);
+      expect(state.identityChatPrivateKey.length).toBe(32);
     }
   });
 
@@ -67,6 +69,7 @@ describe('advance', () => {
       identityChatPublicKey: new Uint8Array(65),
       userIdentityAccountId: new Uint8Array(32),
       identitySignature: new Uint8Array(64),
+      identityChatPrivateKey: new Uint8Array(32),
     };
     expect(advance(pending, success)).toEqual(success);
   });
@@ -77,6 +80,7 @@ describe('advance', () => {
       identityChatPublicKey: new Uint8Array(65),
       userIdentityAccountId: new Uint8Array(32),
       identitySignature: new Uint8Array(64),
+      identityChatPrivateKey: new Uint8Array(32),
     };
     const pending: HandshakeState = { tag: 'Pending', reason: 'AllowanceAllocation' };
     expect(advance(success, pending)).toEqual(success);
@@ -128,6 +132,7 @@ describe('canSubmitV2Statements', () => {
       identityChatPublicKey: new Uint8Array(65),
       userIdentityAccountId: new Uint8Array(32),
       identitySignature: new Uint8Array(64),
+      identityChatPrivateKey: new Uint8Array(32),
     };
     expect(canSubmitV2Statements(success)).toBe(true);
     expect(canSubmitV2Statements(idle())).toBe(false);

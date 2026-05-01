@@ -27,6 +27,14 @@ export type HandshakeSuccessState = {
   identityChatPublicKey: Uint8Array;
   userIdentityAccountId: Uint8Array;
   identitySignature: Uint8Array;
+  /**
+   * The user identity chat P-256 private key (32 bytes raw scalar) shared by
+   * PApp with this device per the multi-device spec — required to decrypt
+   * incoming chat traffic addressed to the user identity. Sensitive; the
+   * device should persist it in OS-keychain-backed secure storage and never
+   * forward it.
+   */
+  identityChatPrivateKey: Uint8Array;
 };
 export type HandshakeFailedState = { tag: 'Failed'; reason: string };
 
@@ -56,6 +64,7 @@ export const fromInnerResponse = (response: CodecType<typeof EncryptedHandshakeR
         identityChatPublicKey: response.value.encryptionKey,
         userIdentityAccountId: response.value.accountId,
         identitySignature: response.value.identitySignature,
+        identityChatPrivateKey: response.value.identityChatPrivateKey,
       };
     case 'Failed':
       return { tag: 'Failed', reason: response.value };
