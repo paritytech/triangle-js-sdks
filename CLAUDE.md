@@ -9,6 +9,12 @@ This is an Nx monorepo for the host-product integration SDKs — a set of TypeSc
 **Repository:** `paritytech/triangle-js-sdks`
 **License:** Apache-2.0
 
+### Glossary
+
+- **host** — the embedding browser application (e.g. a wallet/SSO surface). Owns the page and runs `host-container`, `host-api`, etc.
+- **product** — a Polkadot ecosystem app embedded inside the host. Built against `product-sdk`; its worker code runs inside `host-worker-sandbox`.
+- **papp** — short for "Polkadot Mobile". `host-papp` is the host-side integration layer that pairs with it via deeplink handshake and routes signing requests.
+
 ## Common Commands
 
 ```bash
@@ -17,18 +23,29 @@ npm run build           # All packages
 npm run build:watch     # Watch mode
 
 # Test
-npm test                # Run all tests with Vitest
+npm test                # Run all tests with Vitest (per-package + __tests__/)
 
 # Lint & type-check
 npm run lint            # ESLint (all packages + __tests__)
 npm run lint:fix        # ESLint with auto-fix
 npm run typecheck       # TypeScript type checking
 
+# Other
+npm run storybook:papp  # Storybook for host-papp-react-ui
+npm run knip            # Detect unused exports/files/deps
+
 # Release
 npm run release         # Nx release (version bump)
 ```
 
 Run `npm run build` before `typecheck` since typecheck depends on built artifacts from dependencies.
+
+`prepublishOnly` runs `build && lint && test` — publishing is gated on all three, not just `npm test`.
+
+### Tests
+
+- **Per-package unit tests** live next to source under `packages/*/src/**/*.spec.ts`.
+- **Integration tests** live in top-level `__tests__/` and exercise full host ↔ product flows across packages (transport, container, product-sdk wired together). Shared test helpers live in `__tests__/hostApi/__mocks__/`.
 
 ## Tech Stack
 
