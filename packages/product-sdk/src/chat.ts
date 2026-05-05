@@ -5,6 +5,7 @@ import type {
   ChatRoomRegistrationStatus as ChatRoomRegistrationStatusCodec,
   CodecType,
   ReceivedChatAction as ReceivedChatActionCodec,
+  Subscription,
   Transport,
 } from '@novasamatech/host-api';
 import { CustomRendererNode, createHostApi, enumValue } from '@novasamatech/host-api';
@@ -101,15 +102,20 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
         },
       );
     },
-    subscribeChatList(callback: (rooms: ChatRoom[]) => void) {
-      return hostApi.chatListSubscribe(enumValue('v1', undefined), action => {
+    subscribeChatList(callback: (rooms: ChatRoom[]) => void): Subscription<void> {
+      const subscriber = hostApi.chatListSubscribe(enumValue('v1', undefined), action => {
         if (action.tag === 'v1') {
           callback(action.value);
         }
       });
+
+      return {
+        unsubscribe: subscriber.unsubscribe,
+        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
+      };
     },
-    subscribeAction(callback: (action: ChatReceivedAction) => void) {
-      return hostApi.chatActionSubscribe(enumValue('v1', undefined), action => {
+    subscribeAction(callback: (action: ChatReceivedAction) => void): Subscription<void> {
+      const subscriber = hostApi.chatActionSubscribe(enumValue('v1', undefined), action => {
         switch (action.tag) {
           case 'v1':
             callback(action.value);
@@ -118,13 +124,18 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
             console.error(`Unknown message version ${action.tag}`);
         }
       });
+
+      return {
+        unsubscribe: subscriber.unsubscribe,
+        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
+      };
     },
 
     onCustomMessageRenderingRequest(callback: ChatCustomMessageRenderer) {
       return transport.handleSubscription('product_chat_custom_message_render_subscribe', (params, send, interrupt) => {
         if (params.tag !== 'v1') {
           // unsupported version
-          interrupt();
+          interrupt(enumValue('v1', undefined));
           return () => {
             /* empty */
           };

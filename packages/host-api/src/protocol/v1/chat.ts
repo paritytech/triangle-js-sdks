@@ -62,6 +62,7 @@ export const ChatRoom = Struct({
 
 export const ChatListSubscribeV1_start = _void;
 export const ChatListSubscribeV1_receive = Vector(ChatRoom);
+export const ChatListSubscribeV1_interrupt = _void;
 
 // message format
 
@@ -159,8 +160,10 @@ export const ReceivedChatAction = Struct({
 
 export const ChatActionSubscribeV1_start = _void;
 export const ChatActionSubscribeV1_receive = ReceivedChatAction;
+export const ChatActionSubscribeV1_interrupt = _void;
 
 // custom message rendering
 
 export const ChatCustomMessageRenderingV1_start = Struct({ messageId: str, messageType: str, payload: Bytes() });
 export const ChatCustomMessageRenderingV1_receive: Codec<CustomRendererNodeType> = CustomRendererNode;
+export const ChatCustomMessageRenderingV1_interrupt = _void;

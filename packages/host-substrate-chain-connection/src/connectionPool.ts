@@ -1,12 +1,12 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import { getSyncProvider } from '@polkadot-api/json-rpc-provider-proxy';
-import type { PolkadotClient } from 'polkadot-api';
+import type { JsonRpcProvider, PolkadotClient } from 'polkadot-api';
 import { createClient } from 'polkadot-api';
 
 import { createBranchedProvider } from './branchedProvider.js';
 import { createConnectionManager } from './connectionManager.js';
 import { createRefCounter } from './refCounter.js';
 import type { ChainConfig, ConnectionStatus, PooledClient } from './types.js';
+import { isPausable } from './wsProvider.js';
 
 export type ChainConnectionConfig<C extends ChainConfig, T = PolkadotClient> = {
   createProvider(chain: C, onStatusChanged: (status: ConnectionStatus) => void): JsonRpcProvider;
@@ -20,6 +20,14 @@ export type ChainConnection<C extends ChainConfig, T = PolkadotClient> = {
   getProvider(chain: C): JsonRpcProvider;
   status(genesisHash: string): ConnectionStatus;
   onStatusChanged(genesisHash: string, callback: (status: ConnectionStatus) => void): VoidFunction;
+  /**
+   * Drop the inner socket of every active provider that supports pausing
+   * (e.g. providers built via `createWsJsonRpcProvider`). Clients and
+   * refcounts are preserved; tracked subscriptions are re-sent on
+   * {@link resumeAll} via the replay wrapper.
+   */
+  pauseAll(): void;
+  resumeAll(): void;
 };
 
 export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>({
@@ -49,11 +57,11 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     const existing = existingClients.get(chain.genesisHash);
     if (existing) return existing;
 
-    const provider = createProvider(chain, status => connections.update(chain.genesisHash, status));
-    const branchedProvider = createBranchedProvider(provider);
+    const rootProvider = createProvider(chain, status => connections.update(chain.genesisHash, status));
+    const branchedProvider = createBranchedProvider(rootProvider);
     const client = createClient(branchedProvider.branch(), clientOptions?.(chain));
 
-    const pooled: PooledClient = { client, provider: branchedProvider };
+    const pooled: PooledClient = { client, provider: branchedProvider, rootProvider };
     existingClients.set(chain.genesisHash, pooled);
     return pooled;
   };
@@ -138,9 +146,18 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     },
 
     getProvider(chain) {
-      return getSyncProvider(async () => {
-        const { pooled, unlock } = await rawAcquire(chain);
-        return pooled.provider.branch(unlock);
+      return getSyncProvider(onResult => {
+        rawAcquire(chain)
+          .then(({ pooled, unlock }) => {
+            onResult((onMessage, _onHalt) => pooled.provider.branch(unlock)(onMessage));
+          })
+          .catch(() => {
+            onResult(null);
+          });
+
+        return () => {
+          /* empty */
+        };
       });
     },
 
@@ -150,6 +167,18 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
 
     onStatusChanged(genesisHash, callback) {
       return connections.onStatusChange(genesisHash, callback);
+    },
+
+    pauseAll() {
+      for (const { rootProvider } of existingClients.values()) {
+        if (isPausable(rootProvider)) rootProvider.pause();
+      }
+    },
+
+    resumeAll() {
+      for (const { rootProvider } of existingClients.values()) {
+        if (isPausable(rootProvider)) rootProvider.resume();
+      }
     },
   };
 };

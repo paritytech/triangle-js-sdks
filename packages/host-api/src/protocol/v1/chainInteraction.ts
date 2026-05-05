@@ -108,6 +108,7 @@ export const ChainHeadEvent = Enum({
 });
 
 export const ChainHeadFollowV1_receive = ChainHeadEvent;
+export const ChainHeadFollowV1_interrupt = _void;
 
 // === ChainHead Header ===
 

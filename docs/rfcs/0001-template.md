@@ -1,9 +1,6 @@
 ---
 title: "RFC Title"
-type: rfc
-status: draft
 owner: "@ownerhandle"
-pr:
 ---
 
 # RFC 0001 — Title

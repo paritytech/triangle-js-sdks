@@ -7,7 +7,7 @@ export function injectCrypto(vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle) 
     const bufferPropHandle = vm.getProp(arg, 'buffer');
     const buffer = vm.getArrayBuffer(bufferPropHandle);
     bufferPropHandle.dispose();
-    const bytes = crypto.getRandomValues(buffer.value);
+    const bytes = crypto.getRandomValues(buffer.value as Uint8Array<ArrayBuffer>);
     buffer.dispose();
 
     const buf =

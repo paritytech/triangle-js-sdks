@@ -3,7 +3,7 @@ import { assertEnumVariant, createHostApi, enumValue, fromHex, toHex } from '@no
 import { injectExtension } from '@polkadot/extension-inject';
 import type { InjectedAccount, InjectedAccounts } from '@polkadot/extension-inject/types';
 import type { SignerPayloadJSON, SignerPayloadRaw, SignerResult } from '@polkadot/types/types/extrinsic';
-import { AccountId } from '@polkadot-api/substrate-bindings';
+import { AccountId } from 'polkadot-api';
 
 import { SpektrExtensionName, Version } from './constants.js';
 import { sandboxTransport } from './sandboxTransport.js';
@@ -30,7 +30,7 @@ interface Injected {
   signer: Signer;
 }
 
-export async function createNonProductExtensionEnableFactory(transport: Transport) {
+export async function createLegacyExtensionEnableFactory(transport: Transport) {
   const ready = await transport.isReady();
   if (!ready) return null;
 
@@ -39,7 +39,7 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
 
   async function enable(): Promise<Injected> {
     async function getAccounts() {
-      const response = await hostApi.getNonProductAccounts(enumValue('v1', undefined));
+      const response = await hostApi.getLegacyAccounts(enumValue('v1', undefined));
 
       return response.match(
         response => {
@@ -74,8 +74,8 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
       signer: {
         async signRaw(raw) {
           const payload = {
-            address: raw.address,
-            data:
+            signer: raw.address,
+            payload:
               raw.type === 'bytes'
                 ? {
                     tag: 'Bytes' as const,
@@ -87,7 +87,7 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
                   },
           };
 
-          const response = await hostApi.signRaw(enumValue('v1', payload));
+          const response = await hostApi.signRawWithLegacyAccount(enumValue('v1', payload));
 
           return response.match(
             response => {
@@ -106,15 +106,27 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
         },
         async signPayload(payload) {
           const codecPayload = {
-            ...payload,
-            method: payload.method as HexString,
-            assetId: payload.assetId,
-            mode: payload.mode,
-            withSignedTransaction: payload.withSignedTransaction,
-            metadataHash: payload.metadataHash,
+            signer: payload.address,
+            payload: {
+              blockHash: payload.blockHash as HexString,
+              blockNumber: payload.blockNumber as HexString,
+              era: payload.era as HexString,
+              genesisHash: payload.genesisHash as HexString,
+              nonce: payload.nonce as HexString,
+              method: payload.method as HexString,
+              specVersion: payload.specVersion as HexString,
+              transactionVersion: payload.transactionVersion as HexString,
+              metadataHash: payload.metadataHash as HexString | undefined,
+              tip: payload.tip as HexString,
+              assetId: payload.assetId as never as HexString | undefined,
+              mode: payload.mode,
+              withSignedTransaction: payload.withSignedTransaction,
+              signedExtensions: payload.signedExtensions,
+              version: payload.version,
+            },
           };
 
-          const response = await hostApi.signPayload(enumValue('v1', codecPayload));
+          const response = await hostApi.signPayloadWithLegacyAccount(enumValue('v1', codecPayload));
 
           return response.match(
             response => {
@@ -132,7 +144,7 @@ export async function createNonProductExtensionEnableFactory(transport: Transpor
           );
         },
         async createTransaction(payload) {
-          const response = await hostApi.createTransactionWithNonProductAccount(enumValue('v1', payload));
+          const response = await hostApi.createTransactionWithLegacyAccount(enumValue('v1', payload));
 
           return response.match<HexString, HexString>(
             response => {
@@ -156,7 +168,7 @@ export async function injectSpektrExtension(transport: Transport | null = sandbo
   if (!transport) return false;
 
   try {
-    const enable = await createNonProductExtensionEnableFactory(transport);
+    const enable = await createLegacyExtensionEnableFactory(transport);
 
     if (enable) {
       injectExtension(enable, { name: SpektrExtensionName, version: Version });

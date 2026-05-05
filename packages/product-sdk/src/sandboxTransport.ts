@@ -60,6 +60,15 @@ function isValidWebviewMessage(event: MessageEvent) {
   return event.data && event.data.constructor.name === 'Uint8Array';
 }
 
+// Copy into a tight-fitting ArrayBuffer. Required before handing the array across
+// an Electron IPC / structured-clone boundary: structured clone serializes the full
+// underlying ArrayBuffer.
+function detach(view: Uint8Array): Uint8Array {
+  const copy = new Uint8Array(view.byteLength);
+  copy.set(view);
+  return copy;
+}
+
 function createDefaultSdkProvider(): Provider {
   const subscribers = new Set<(message: Uint8Array) => void>();
 
@@ -72,8 +81,9 @@ function createDefaultSdkProvider(): Provider {
 
   const handleWebviewMessage = (event: MessageEvent) => {
     if (!isValidWebviewMessage(event)) return;
+    const detached = detach(event.data);
     for (const subscriber of subscribers) {
-      subscriber(event.data);
+      subscriber(detached);
     }
   };
 
@@ -92,7 +102,8 @@ function createDefaultSdkProvider(): Provider {
       if (isIframe()) {
         getParentWindow().postMessage(message, '*', [message.buffer]);
       } else if (isWebview()) {
-        getWebviewPort().then(port => port.postMessage(message, [message.buffer]));
+        const detached = detach(message);
+        getWebviewPort().then(port => port.postMessage(detached, [detached.buffer]));
       }
     },
     subscribe(callback) {

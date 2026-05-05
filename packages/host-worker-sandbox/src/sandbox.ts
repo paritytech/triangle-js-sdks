@@ -3,7 +3,7 @@ import { createDefaultLogger } from '@novasamatech/host-api';
 import type { Container } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 import type { QuickJSContext, QuickJSHandle, VmPropertyDescriptor } from 'quickjs-emscripten';
-import { getQuickJS } from 'quickjs-emscripten';
+import { newQuickJSWASMModule } from 'quickjs-emscripten';
 
 import { injectAbortController } from './globals/AbortController.js';
 import { injectTextDecoder } from './globals/TextDecoder.js';
@@ -84,7 +84,7 @@ class SandboxPort {
           subscriber(bytes);
         }
       } catch (e) {
-        console.error('[Sandbox] port.postMessage: failed to extract bytes', e);
+        this.provider.logger.error('[Sandbox] port.postMessage: failed to extract bytes', e);
       }
     });
     vm.setProp(port, 'postMessage', postMessageFn);
@@ -153,7 +153,7 @@ class SandboxPort {
     bufferHandle.dispose();
 
     if (uint8Result.error) {
-      console.error('[Sandbox] port: failed to create Uint8Array', vm.dump(uint8Result.error));
+      this.provider.logger.error('[Sandbox] port: failed to create Uint8Array', vm.dump(uint8Result.error));
       uint8Result.error.dispose();
       return;
     }
@@ -169,7 +169,7 @@ class SandboxPort {
     for (const handler of handlers) {
       const result = vm.callFunction(handler, vm.undefined, event);
       if (result.error) {
-        console.error('[Sandbox] port.onmessage error:', vm.dump(result.error));
+        this.provider.logger.error('[Sandbox] port.onmessage error:', vm.dump(result.error));
         result.error.dispose();
       } else {
         result.value.dispose();
@@ -180,7 +180,7 @@ class SandboxPort {
 
     const jobResult = vm.runtime.executePendingJobs(-1);
     if (jobResult.error) {
-      console.error('[Sandbox] job error after port message:', vm.dump(jobResult.error));
+      this.provider.logger.error('[Sandbox] job error after port message:', vm.dump(jobResult.error));
       jobResult.error.dispose();
     }
   }
@@ -319,7 +319,7 @@ class QuickJsSandbox implements Sandbox {
   private flushJobs(): void {
     const result = this.vm.runtime.executePendingJobs(-1);
     if (result.error) {
-      console.error('[Sandbox] job error:', this.vm.dump(result.error));
+      this.provider.logger.error('[Sandbox] job error:', this.vm.dump(result.error));
       result.error.dispose();
     }
   }
@@ -334,13 +334,30 @@ class QuickJsSandbox implements Sandbox {
     this.port.dispose();
     this.toUint8ArrayFn.dispose();
 
-    vm.runtime.executePendingJobs(-1);
-    vm.dispose();
+    // `vm.dispose()` ends in `JS_FreeRuntime`, which asserts
+    // `list_empty(&rt->gc_obj_list)`. Real product code (event listeners,
+    // in-flight async chains, captured closures) almost always leaves objects
+    // in the GC list, so the assertion fires and the QuickJS WASM module
+    // aborts. We isolate each sandbox in its own WASM instance (see
+    // `createSandbox`), so the abort kills only this sandbox's instance — the
+    // host JS GC then reclaims it. Wrap in try/catch so the abort doesn't
+    // bubble out of dispose().
+    try {
+      vm.runtime.executePendingJobs(-1);
+      vm.dispose();
+    } catch (e) {
+      this.provider.logger.warn('[Sandbox] vm.dispose aborted; instance abandoned', e);
+    }
   }
 }
 
 export async function createSandbox(productId: string): Promise<Sandbox> {
-  const QuickJS = await getQuickJS();
+  // One WASM instance per sandbox. `getQuickJS()` returns a process-wide
+  // singleton, which means an abort inside `JS_FreeRuntime` (see
+  // `dispose()`) tears down every other sandbox in the renderer.
+  // `newQuickJSWASMModule()` instantiates a fresh module so the blast
+  // radius of a bad dispose is contained to this sandbox.
+  const QuickJS = await newQuickJSWASMModule();
   const vm = QuickJS.newContext();
   return new QuickJsSandbox(productId, vm);
 }

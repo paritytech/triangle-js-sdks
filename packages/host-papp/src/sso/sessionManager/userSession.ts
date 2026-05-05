@@ -5,11 +5,14 @@ import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasa
 import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { fieldListView } from '@novasamatech/storage-adapter';
-import { AccountId } from '@polkadot-api/substrate-bindings';
 import { nanoid } from 'nanoid';
-import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { ResultAsync, err, ok, okAsync } from 'neverthrow';
+import { AccountId } from 'polkadot-api';
 import type { CodecType } from 'scale-ts';
 
+import { createAsyncTaskPool } from '../../helpers/createAsyncTaskPool.js';
+import { toError } from '../../helpers/utils.js';
 import type { Callback } from '../../types.js';
 import type { StoredUserSession } from '../userSessionRepository.js';
 
@@ -17,6 +20,19 @@ import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
 import type { SigningPayloadRequest, SigningRawRequest } from './scale/signingRequest.js';
 import type { SigningPayloadResponseData } from './scale/signingResponse.js';
+
+// Timeout for the inner queue task. Without it the queue wedges forever when
+// the remote signer doesn't respond — e.g. the request
+// payload is for an SDK version the mobile app doesn't support yet. After
+// this timeout the queue task fails, freeing the pool for the next request.
+const QUEUE_TASK_TIMEOUT_MS = 180_000;
+
+function withQueueTimeout<T>(resultAsync: ResultAsync<T, Error>, label: string): ResultAsync<T, Error> {
+  const timeoutPromise = new Promise<Result<T, Error>>(resolve =>
+    setTimeout(() => resolve(err(new Error(`${label} timed out — queue freed`))), QUEUE_TASK_TIMEOUT_MS),
+  );
+  return ResultAsync.fromPromise(Promise.race([resultAsync, timeoutPromise]), toError).andThen(r => r);
+}
 
 type ProcessedMessage =
   | {
@@ -54,6 +70,8 @@ export function createUserSession({
 }): UserSession {
   const accountId = AccountId();
 
+  const requestQueue = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
+
   const session = createSession({
     localAccount: userSession.localAccount,
     remoteAccount: userSession.remoteAccount,
@@ -70,7 +88,7 @@ export function createUserSession({
   });
 
   function toAccountId(address: string) {
-    // already account id
+    // already an account id
     if (address.startsWith('0x') && address.length === 64 + 2) {
       return address as HexString;
     }
@@ -88,96 +106,126 @@ export function createUserSession({
     remoteAccount: userSession.remoteAccount,
 
     signPayload(payload) {
-      const accountId = toAccountId(payload.address);
-      if (accountId !== toHex(userSession.remoteAccount.accountId)) {
-        return errAsync(new Error(`Invalid address, got ${payload.address}`));
-      }
-
-      const messageId = nanoid();
-      const request = session.request(RemoteMessageCodec, {
-        messageId,
-        data: enumValue(
-          'v1',
-          enumValue(
-            'SignRequest',
-            enumValue('Payload', {
-              ...payload,
-              address: toAddress(accountId),
-            }),
+      return requestQueue.call(() => {
+        const messageId = nanoid();
+        const request = session.request(RemoteMessageCodec, {
+          messageId,
+          data: enumValue(
+            'v1',
+            enumValue(
+              'SignRequest',
+              enumValue('Payload', {
+                ...payload,
+                address: toAddress(toAccountId(payload.address)),
+              }),
+            ),
           ),
-        ),
-      });
-
-      const responseFilter = (message: RemoteMessage) => {
-        if (
-          message.data.tag === 'v1' &&
-          message.data.value.tag === 'SignResponse' &&
-          message.data.value.value.respondingTo === messageId
-        ) {
-          return message.data.value.value.payload;
-        }
-      };
-
-      return request
-        .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-        .andThen(message => {
-          if (message.success) {
-            return ok(message.value);
-          } else {
-            return err(new Error(message.value));
-          }
         });
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'SignResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        const inner = request
+          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+          .andThen(message => {
+            if (message.success) {
+              return ok(message.value);
+            } else {
+              return err(new Error(message.value));
+            }
+          });
+
+        return withQueueTimeout(inner, 'signPayload');
+      });
     },
 
     signRaw(payload) {
-      const accountId = toAccountId(payload.address);
-      if (accountId !== toHex(userSession.remoteAccount.accountId)) {
-        return errAsync(new Error(`Invalid address, got ${payload.address}`));
-      }
-
-      const messageId = nanoid();
-      const request = session.request(RemoteMessageCodec, {
-        messageId,
-        data: enumValue(
-          'v1',
-          enumValue(
-            'SignRequest',
-            enumValue('Raw', {
-              ...payload,
-              address: toAddress(accountId),
-            }),
+      return requestQueue.call(() => {
+        const messageId = nanoid();
+        const request = session.request(RemoteMessageCodec, {
+          messageId,
+          data: enumValue(
+            'v1',
+            enumValue(
+              'SignRequest',
+              enumValue('Raw', {
+                ...payload,
+                address: toAddress(toAccountId(payload.address)),
+              }),
+            ),
           ),
-        ),
-      });
-
-      const responseFilter = (message: RemoteMessage) => {
-        if (
-          message.data.tag === 'v1' &&
-          message.data.value.tag === 'SignResponse' &&
-          message.data.value.value.respondingTo === messageId
-        ) {
-          return message.data.value.value.payload;
-        }
-      };
-
-      return request
-        .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-        .andThen(message => {
-          if (message.success) {
-            return ok(message.value);
-          } else {
-            return err(new Error(message.value));
-          }
         });
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'SignResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        const inner = request
+          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+          .andThen(message => {
+            if (message.success) {
+              return ok(message.value);
+            } else {
+              return err(new Error(message.value));
+            }
+          });
+
+        return withQueueTimeout(inner, 'signRaw');
+      });
     },
 
     sendDisconnectMessage() {
-      return session
-        .submitRequestMessage(RemoteMessageCodec, {
-          messageId: nanoid(),
-          data: enumValue('v1', enumValue('Disconnected', undefined)),
-        })
-        .map(() => undefined);
+      return requestQueue.call(() =>
+        session
+          .submitRequestMessage(RemoteMessageCodec, {
+            messageId: nanoid(),
+            data: enumValue('v1', enumValue('Disconnected', undefined)),
+          })
+          .map(() => undefined),
+      );
+    },
+
+    getRingVrfAlias(productAccountId, productId) {
+      return requestQueue.call(() => {
+        const messageId = nanoid();
+        const request = session.request(RemoteMessageCodec, {
+          messageId,
+          data: enumValue(
+            'v1',
+            enumValue('RingVrfAliasRequest', {
+              productAccountId,
+              productId,
+            }),
+          ),
+        });
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'RingVrfAliasResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        return request
+          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+          .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
+      });
     },
 
     subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>) {
@@ -211,34 +259,6 @@ export function createUserSession({
           });
         });
       });
-    },
-
-    getRingVrfAlias(productAccountId, productId) {
-      const messageId = nanoid();
-      const request = session.request(RemoteMessageCodec, {
-        messageId,
-        data: enumValue(
-          'v1',
-          enumValue('RingVrfAliasRequest', {
-            productAccountId,
-            productId,
-          }),
-        ),
-      });
-
-      const responseFilter = (message: RemoteMessage) => {
-        if (
-          message.data.tag === 'v1' &&
-          message.data.value.tag === 'RingVrfAliasResponse' &&
-          message.data.value.value.respondingTo === messageId
-        ) {
-          return message.data.value.value.payload;
-        }
-      };
-
-      return request
-        .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-        .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
     },
 
     dispose() {

@@ -1,14 +1,37 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
+import type { SocketLoggerFn } from '@polkadot-api/ws-provider';
 import { WsEvent, getWsProvider } from '@polkadot-api/ws-provider';
+import type { JsonRpcProvider } from 'polkadot-api';
 
 import { noop } from './helpers.js';
+import { createPauseController } from './pauseController.js';
 import { withSubscriptionReplay } from './subscriptionReplayProvider.js';
 import type { ConnectionStatus } from './types.js';
+
+export type PausableJsonRpcProvider = JsonRpcProvider & {
+  pause(): void;
+  resume(): void;
+};
+
+export const isPausable = (provider: JsonRpcProvider): provider is PausableJsonRpcProvider => {
+  const maybe = provider as Partial<PausableJsonRpcProvider>;
+  return typeof maybe.pause === 'function' && typeof maybe.resume === 'function';
+};
+
+const STATUS_BY_WS_EVENT: Record<WsEvent, ConnectionStatus> = {
+  [WsEvent.CONNECTING]: 'connecting',
+  [WsEvent.CONNECTED]: 'connected',
+  [WsEvent.ERROR]: 'disconnected',
+  [WsEvent.CLOSE]: 'disconnected',
+};
 
 export const createWsJsonRpcProvider = (options: {
   endpoints: string[];
   onStatusChanged?: (status: ConnectionStatus) => void;
-}): JsonRpcProvider => {
+  websocketClass?: typeof WebSocket;
+  heartbeatTimeout?: number;
+  connectionTimeout?: number;
+  logger?: SocketLoggerFn;
+}): PausableJsonRpcProvider => {
   let notifyReconnect: VoidFunction = noop;
   const onReconnect = (cb: VoidFunction): VoidFunction => {
     notifyReconnect = cb;
@@ -17,32 +40,31 @@ export const createWsJsonRpcProvider = (options: {
     };
   };
 
-  return withSubscriptionReplay(
-    getWsProvider(options.endpoints, {
-      heartbeatTimeout: Number.POSITIVE_INFINITY,
-      onStatusChanged: event => {
-        let status: ConnectionStatus;
+  const pauseController = createPauseController();
 
-        switch (event.type) {
-          case WsEvent.CONNECTING:
-            status = 'connecting';
-            break;
-          case WsEvent.CONNECTED:
-            notifyReconnect();
-            status = 'connected';
-            break;
-          case WsEvent.ERROR:
-          case WsEvent.CLOSE:
-            status = 'disconnected';
-            break;
-          default:
-            status = 'disconnected';
-            break;
-        }
+  const baseProvider: JsonRpcProvider = getWsProvider(options.endpoints, {
+    logger: options.logger,
+    // Forward only when defined: getWsProvider merges via `{...defaults, ...config}`,
+    // so an explicit `undefined` clobbers the library's 40 s default and Node's
+    // setTimeout clamps undefined/Infinity to 1 ms — which would kill every socket
+    // right after open and drive a reconnect loop.
+    ...(options.heartbeatTimeout !== undefined && { heartbeatTimeout: options.heartbeatTimeout }),
+    ...(options.connectionTimeout !== undefined && { timeout: options.connectionTimeout }),
+    middleware: inner => pauseController.middleware(inner),
+    websocketClass: options.websocketClass,
+    onStatusChanged: event => {
+      const status = STATUS_BY_WS_EVENT[event.type];
+      if (status === 'connected') {
+        notifyReconnect();
+      }
+      options.onStatusChanged?.(status);
+    },
+  });
 
-        options.onStatusChanged?.(status);
-      },
-    }),
-    onReconnect,
-  );
+  const replayProvider = withSubscriptionReplay(baseProvider, onReconnect);
+
+  return Object.assign(replayProvider, {
+    pause: () => pauseController.pause(),
+    resume: () => pauseController.resume(),
+  });
 };

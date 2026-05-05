@@ -3,6 +3,8 @@ import { Bytes, Option, Result, Struct, Vector, _void, bool, str, u32 } from 'sc
 
 import { GenericErr, GenesisHash } from '../commonCodecs.js';
 
+import { ProductAccountId } from './accounts.js';
+
 // common structures
 
 export const SigningErr = ErrEnum('SigningErr', {
@@ -19,23 +21,30 @@ export const SigningResult = Struct({
 
 // sign raw
 
-const RawPayload = Enum({
+export const RawPayload = Enum({
   Bytes: Bytes(),
   Payload: str,
 });
 
-const SigningRawPayload = Struct({
-  address: str,
-  data: RawPayload,
+export const SigningRawPayload = Struct({
+  account: ProductAccountId,
+  payload: RawPayload,
+});
+
+export const SigningRawPayloadWithoutAccount = Struct({
+  signer: str,
+  payload: RawPayload,
 });
 
 export const SignRawV1_request = SigningRawPayload;
 export const SignRawV1_response = Result(SigningResult, SigningErr);
 
+export const SignRawWithLegacyAccountV1_request = SigningRawPayloadWithoutAccount;
+export const SignRawWithLegacyAccountV1_response = Result(SigningResult, SigningErr);
+
 // sign payload
 
-export const SigningPayload = Struct({
-  address: str,
+const SigningPayloadPayload = Struct({
   blockHash: Hex(),
   blockNumber: Hex(),
   era: Hex(),
@@ -53,5 +62,18 @@ export const SigningPayload = Struct({
   withSignedTransaction: Option(bool),
 });
 
+export const SigningPayload = Struct({
+  account: ProductAccountId,
+  payload: SigningPayloadPayload,
+});
+
+export const SigningPayloadWithoutAccount = Struct({
+  signer: str,
+  payload: SigningPayloadPayload,
+});
+
 export const SignPayloadV1_request = SigningPayload;
 export const SignPayloadV1_response = Result(SigningResult, SigningErr);
+
+export const SignPayloadWithLegacyAccountV1_request = SigningPayloadWithoutAccount;
+export const SignPayloadWithLegacyAccountV1_response = Result(SigningResult, SigningErr);

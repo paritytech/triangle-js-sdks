@@ -1,23 +1,23 @@
 import type { CodecType } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  GetUserIdErr,
+  LoginErr,
   RequestCredentialsErr,
   RingLocation,
   SigningErr,
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 import type { AccountConnectionStatus, ProductAccount } from '@novasamatech/product-sdk';
 import { createAccountsProvider } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
-
-function delay(ttl: number) {
-  return new Promise(resolve => setTimeout(resolve, ttl));
-}
 
 function setup() {
   const providers = createHostApiProviders();
@@ -42,10 +42,60 @@ const mockRingLocation: CodecType<typeof RingLocation> = {
 };
 
 describe('Host API: Accounts', () => {
+  describe('getUserId', () => {
+    it('should return primary username on success', async () => {
+      const { container, accountsProvider } = setup();
+      const expected = { primaryUsername: 'alice.dot' };
+
+      container.handleGetUserId((_, { ok }) => ok(expected));
+
+      const result = await accountsProvider.getUserId();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual(expected);
+    });
+
+    it('should return PermissionDenied error when user denies disclosure', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new GetUserIdErr.PermissionDenied();
+
+      container.handleGetUserId((_, { err }) => err(error));
+
+      const result = await accountsProvider.getUserId();
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+
+    it('should return NotConnected error when user is not logged in', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new GetUserIdErr.NotConnected();
+
+      container.handleGetUserId((_, { err }) => err(error));
+
+      const result = await accountsProvider.getUserId();
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+
+    it('should return Unknown error on unexpected failure', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new GetUserIdErr.Unknown({ reason: 'unexpected' });
+
+      container.handleGetUserId((_, { err }) => err(error));
+
+      const result = await accountsProvider.getUserId();
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+  });
+
   describe('getProductAccount', () => {
     it('should return account on success', async () => {
       const { container, accountsProvider } = setup();
-      const expected = { publicKey: mockPublicKey, name: 'Alice' };
+      const expected = { publicKey: mockPublicKey };
 
       container.handleAccountGet((_, { ok }) => ok(expected));
 
@@ -57,8 +107,8 @@ describe('Host API: Accounts', () => {
 
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountGet>[0]>((_, { ok }) =>
-        ok({ publicKey: mockPublicKey, name: undefined }),
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
+        ok({ publicKey: mockPublicKey }),
       );
       container.handleAccountGet(handler);
 
@@ -69,8 +119,8 @@ describe('Host API: Accounts', () => {
 
     it('should use derivation index 0 by default', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountGet>[0]>((_, { ok }) =>
-        ok({ publicKey: mockPublicKey, name: undefined }),
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
+        ok({ publicKey: mockPublicKey }),
       );
       container.handleAccountGet(handler);
 
@@ -90,17 +140,6 @@ describe('Host API: Accounts', () => {
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
     });
-
-    it('should handle account with no name', async () => {
-      const { container, accountsProvider } = setup();
-
-      container.handleAccountGet((_, { ok }) => ok({ publicKey: mockPublicKey, name: undefined }));
-
-      const result = await accountsProvider.getProductAccount('product.dot', 0);
-
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap().name).toBeUndefined();
-    });
   });
 
   describe('getProductAccountAlias', () => {
@@ -118,7 +157,7 @@ describe('Host API: Accounts', () => {
 
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountGetAlias>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGetAlias>>((_, { ok }) =>
         ok({ context: new Uint8Array(32), alias: new Uint8Array(0) }),
       );
       container.handleAccountGetAlias(handler);
@@ -130,7 +169,7 @@ describe('Host API: Accounts', () => {
 
     it('should use derivation index 0 by default', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountGetAlias>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGetAlias>>((_, { ok }) =>
         ok({ context: new Uint8Array(32), alias: new Uint8Array(0) }),
       );
       container.handleAccountGetAlias(handler);
@@ -153,7 +192,7 @@ describe('Host API: Accounts', () => {
     });
   });
 
-  describe('getNonProductAccounts', () => {
+  describe('getLegacyAccounts', () => {
     it('should return list of accounts', async () => {
       const { container, accountsProvider } = setup();
       const accounts = [
@@ -161,9 +200,9 @@ describe('Host API: Accounts', () => {
         { publicKey: new Uint8Array(32).fill(2), name: undefined },
       ];
 
-      container.handleGetNonProductAccounts((_, { ok }) => ok(accounts));
+      container.handleGetLegacyAccounts((_, { ok }) => ok(accounts));
 
-      const result = await accountsProvider.getNonProductAccounts();
+      const result = await accountsProvider.getLegacyAccounts();
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual(accounts);
@@ -172,9 +211,9 @@ describe('Host API: Accounts', () => {
     it('should return empty list when no accounts', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleGetNonProductAccounts((_, { ok }) => ok([]));
+      container.handleGetLegacyAccounts((_, { ok }) => ok([]));
 
-      const result = await accountsProvider.getNonProductAccounts();
+      const result = await accountsProvider.getLegacyAccounts();
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual([]);
@@ -184,9 +223,9 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new RequestCredentialsErr.Rejected();
 
-      container.handleGetNonProductAccounts((_, { err }) => err(error));
+      container.handleGetLegacyAccounts((_, { err }) => err(error));
 
-      const result = await accountsProvider.getNonProductAccounts();
+      const result = await accountsProvider.getLegacyAccounts();
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
@@ -209,7 +248,7 @@ describe('Host API: Accounts', () => {
     it('should pass correct params to handler', async () => {
       const { container, accountsProvider } = setup();
       const message = new Uint8Array([7, 8, 9]);
-      const handler = vi.fn<Parameters<typeof container.handleAccountCreateProof>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
         ok(new Uint8Array(0)),
       );
       container.handleAccountCreateProof(handler);
@@ -224,7 +263,7 @@ describe('Host API: Accounts', () => {
 
     it('should use derivation index 0 by default', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<Parameters<typeof container.handleAccountCreateProof>[0]>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
         ok(new Uint8Array(0)),
       );
       container.handleAccountCreateProof(handler);
@@ -274,17 +313,20 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const rawData = new Uint8Array([1, 2, 3, 4]);
       const signatureBytes = new Uint8Array(64).fill(0xab);
-      let capturedData: unknown;
+      let capturedParams: unknown;
 
       container.handleSignRaw((params, { ok }) => {
-        capturedData = params.data;
+        capturedParams = params;
         return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
       });
 
       const signer = accountsProvider.getProductAccountSigner(mockAccount);
       const result = await signer.signBytes(rawData);
 
-      expect(capturedData).toEqual({ tag: 'Bytes', value: rawData });
+      expect(capturedParams).toEqual({
+        account: [mockAccount.dotNsIdentifier, mockAccount.derivationIndex],
+        payload: { tag: 'Bytes', value: rawData },
+      });
       expect(result).toEqual(signatureBytes);
     });
 
@@ -332,29 +374,29 @@ describe('Host API: Accounts', () => {
     });
   });
 
-  describe('getNonProductAccountSigner', () => {
+  describe('getLegacyAccountSigner', () => {
     it('should expose the correct public key', () => {
       const { accountsProvider } = setup();
-      const signer = accountsProvider.getNonProductAccountSigner(mockAccount);
+      const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
 
       expect(signer.publicKey).toEqual(mockPublicKey);
     });
 
-    it('should sign bytes via handleSignRaw', async () => {
+    it('should sign bytes via handleSignRawWithLegacyAccount', async () => {
       const { container, accountsProvider } = setup();
       const rawData = new Uint8Array([5, 6, 7, 8]);
       const signatureBytes = new Uint8Array(64).fill(0xef);
-      let capturedData: unknown;
+      let capturedParams: unknown;
 
-      container.handleSignRaw((params, { ok }) => {
-        capturedData = params.data;
+      container.handleSignRawWithLegacyAccount((params, { ok }) => {
+        capturedParams = params;
         return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
       });
 
-      const signer = accountsProvider.getNonProductAccountSigner(mockAccount);
+      const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
       const result = await signer.signBytes(rawData);
 
-      expect(capturedData).toEqual({ tag: 'Bytes', value: rawData });
+      expect(capturedParams).toMatchObject({ payload: { tag: 'Bytes', value: rawData } });
       expect(result).toEqual(signatureBytes);
     });
 
@@ -362,11 +404,78 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new SigningErr.Rejected();
 
-      container.handleSignRaw((_, { err }) => err(error));
+      container.handleSignRawWithLegacyAccount((_, { err }) => err(error));
 
-      const signer = accountsProvider.getNonProductAccountSigner(mockAccount);
+      const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
 
       await expect(signer.signBytes(new Uint8Array([1, 2, 3]))).rejects.toEqual(error);
+    });
+  });
+
+  describe('requestLogin', () => {
+    it('should return success when login completes', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleRequestLogin((_, { ok }) => ok('success'));
+
+      const result = await accountsProvider.requestLogin();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe('success');
+    });
+
+    it('should return alreadyConnected when user is already logged in', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleRequestLogin((_, { ok }) => ok('alreadyConnected'));
+
+      const result = await accountsProvider.requestLogin('some reason');
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe('alreadyConnected');
+    });
+
+    it('should return rejected when user dismisses login UI', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleRequestLogin((_, { ok }) => ok('rejected'));
+
+      const result = await accountsProvider.requestLogin();
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe('rejected');
+    });
+
+    it('should pass reason string to handler', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleRequestLogin>>((_, { ok }) => ok('success'));
+      container.handleRequestLogin(handler);
+
+      await accountsProvider.requestLogin('Sign in to vote');
+
+      expect(handler).toBeCalledWith('Sign in to vote', expect.anything());
+    });
+
+    it('should pass undefined reason when no reason given', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleRequestLogin>>((_, { ok }) => ok('success'));
+      container.handleRequestLogin(handler);
+
+      await accountsProvider.requestLogin();
+
+      expect(handler).toBeCalledWith(undefined, expect.anything());
+    });
+
+    it('should return error on unknown failure', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new LoginErr.Unknown({ reason: 'host crashed' });
+
+      container.handleRequestLogin((_, { err }) => err(error));
+
+      const result = await accountsProvider.requestLogin();
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
     });
   });
 

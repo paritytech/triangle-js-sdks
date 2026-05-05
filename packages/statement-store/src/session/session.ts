@@ -1,8 +1,8 @@
 import type { Statement } from '@novasamatech/sdk-statement';
 import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
-import { toHex } from '@polkadot-api/utils';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, fromPromise, fromThrowable, ok, okAsync } from 'neverthrow';
+import { toHex } from 'polkadot-api/utils';
 import type { Codec, CodecType } from 'scale-ts';
 
 import type { StatementStoreAdapter } from '../adapter/types.js';
@@ -91,6 +91,7 @@ export function createSession({
   let subscribers: Subscriber[] = [];
   const bufferedMessages: CodecType<typeof StatementData>[] = [];
   let storeUnsub: VoidFunction | null = null;
+  let responseStoreUnsub: VoidFunction | null = null;
 
   function submitStatementData(
     channel: Uint8Array,
@@ -121,12 +122,15 @@ export function createSession({
   }
 
   function deliverStatementData(statementData: CodecType<typeof StatementData>): void {
-    if (subscribers.length === 0) {
-      if (state.phase === 'initialization') {
-        bufferedMessages.push(statementData);
-      }
-      return;
+    // Buffer 'request' statements unconditionally so that waitForRequestMessage
+    // registered after delivery (race condition) still receives them via subscribe() replay.
+    // Buffer everything else during initialization when there are no subscribers yet.
+    if (statementData.tag === 'request' || (subscribers.length === 0 && state.phase === 'initialization')) {
+      bufferedMessages.push(statementData);
     }
+
+    if (subscribers.length === 0) return;
+
     for (const sub of subscribers) {
       const messages = toMessage(statementData, sub.codec);
       if (messages.length > 0) sub.callback(messages);
@@ -144,7 +148,7 @@ export function createSession({
       .orElse(() => ok(null));
   }
 
-  function processIncomingStatement(statement: Statement): void {
+  function processIncomingStatement(statement: Statement, responsesOnly = false): void {
     if (!statement.data) return;
     const key = toHex(statement.data);
     if (state.seenStatements.has(key)) return;
@@ -154,6 +158,7 @@ export function createSession({
       if (!statementData) return;
 
       if (statementData.tag === 'request') {
+        if (responsesOnly) return;
         if (statementData.value.requestId === state.incomingRequest?.requestId) return;
         state.incomingRequest = { requestId: statementData.value.requestId };
         state.respondedIncomingRequest = false;
@@ -210,17 +215,26 @@ export function createSession({
 
   function ensureStoreSubscription(): void {
     if (storeUnsub) return;
-    storeUnsub = statementStore.subscribeStatements([incomingSessionId], statements => {
-      for (const statement of statements) {
+    storeUnsub = statementStore.subscribeStatements({ matchAll: [incomingSessionId] }, page => {
+      for (const statement of page.statements) {
         processIncomingStatement(statement);
+      }
+    });
+
+    // Subscribe to outgoing topic to receive peer ACK responses.
+    // Only process response-type statements — request-type statements on this topic
+    // are our own submissions echoed back and must be ignored.
+    responseStoreUnsub = statementStore.subscribeStatements({ matchAll: [outgoingSessionId] }, ({ statements }) => {
+      for (const statement of statements) {
+        processIncomingStatement(statement, true);
       }
     });
   }
 
   async function init(): Promise<void> {
     const [ownResult, peerResult] = await Promise.all([
-      statementStore.queryStatements([outgoingSessionId]),
-      statementStore.queryStatements([incomingSessionId]),
+      statementStore.queryStatements({ matchAll: [outgoingSessionId] }),
+      statementStore.queryStatements({ matchAll: [incomingSessionId] }),
     ]);
 
     if (ownResult.isErr() || peerResult.isErr()) return;
@@ -256,8 +270,7 @@ export function createSession({
     const peerResponse = peerDecoded.find(d => d.tag === 'response');
 
     if (ownRequest?.tag === 'request') {
-      const hasResponse =
-        peerResponse?.tag === 'response' && peerResponse.value.requestId === ownRequest.value.requestId;
+      const hasResponse = ownResponse?.tag === 'response' && ownResponse.value.requestId === ownRequest.value.requestId;
       if (!hasResponse) {
         state.outgoingRequest = {
           requestId: ownRequest.value.requestId,
@@ -270,7 +283,7 @@ export function createSession({
     if (peerRequest?.tag === 'request') {
       state.incomingRequest = { requestId: peerRequest.value.requestId };
       state.respondedIncomingRequest =
-        ownResponse?.tag === 'response' && ownResponse.value.requestId === peerRequest.value.requestId;
+        peerResponse?.tag === 'response' && peerResponse.value.requestId === peerRequest.value.requestId;
     }
 
     // Notify app of any unresponded incoming request.
@@ -372,9 +385,15 @@ export function createSession({
 
       return () => {
         subscribers = subscribers.filter(s => s !== sub);
-        if (subscribers.length === 0 && storeUnsub) {
-          storeUnsub();
-          storeUnsub = null;
+        if (subscribers.length === 0) {
+          if (storeUnsub) {
+            storeUnsub();
+            storeUnsub = null;
+          }
+          if (responseStoreUnsub) {
+            responseStoreUnsub();
+            responseStoreUnsub = null;
+          }
         }
       };
     },
@@ -382,6 +401,8 @@ export function createSession({
     dispose() {
       storeUnsub?.();
       storeUnsub = null;
+      responseStoreUnsub?.();
+      responseStoreUnsub = null;
       subscribers = [];
       for (const [, deferred] of state.pendingDelivery) {
         deferred.reject(new Error('Session disposed'));
@@ -394,8 +415,6 @@ export function createSession({
 
   return session;
 }
-
-// ── module-level helpers ──────────────────────────────────────────────────────
 
 function mapResponseCode(responseCode: ResponseStatus) {
   switch (responseCode) {

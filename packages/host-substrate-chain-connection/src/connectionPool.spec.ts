@@ -1,5 +1,4 @@
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
-import type { PolkadotClient } from 'polkadot-api';
+import type { JsonRpcProvider, PolkadotClient } from 'polkadot-api';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChainConnectionConfig } from './connectionPool.js';
@@ -15,14 +14,17 @@ const createMockClient = (): PolkadotClient => ({ destroy: vi.fn() }) as unknown
 const createMockProvider = () => {
   const send = vi.fn();
   const disconnect = vi.fn();
-  let onMessage: ((msg: string) => void) | null = null;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let onMessage: ((msg: any) => void) | null = null;
 
   const provider: JsonRpcProvider = cb => {
-    onMessage = cb;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onMessage = cb as any;
     return { send, disconnect };
   };
 
-  return { provider, send, disconnect, simulateMessage: (msg: string) => onMessage?.(msg) };
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  return { provider, send, disconnect, simulateMessage: (msg: any) => onMessage?.(msg) };
 };
 
 const testChain = (id: string): ChainConfig => ({ genesisHash: id });
@@ -263,6 +265,79 @@ describe('createChainConnection', () => {
 
         u2();
       });
+    });
+  });
+
+  describe('pauseAll / resumeAll', () => {
+    const createPausableMockProvider = () => {
+      const pause = vi.fn();
+      const resume = vi.fn();
+      const provider: JsonRpcProvider = Object.assign(() => ({ send: vi.fn(), disconnect: vi.fn() }), {
+        pause,
+        resume,
+      });
+
+      return { provider, pause, resume };
+    };
+
+    it('calls pause on every pausable provider created so far', async () => {
+      const chainA = createPausableMockProvider();
+      const chainB = createPausableMockProvider();
+      const providerByChain: Record<string, JsonRpcProvider> = { a: chainA.provider, b: chainB.provider };
+
+      const connection = createChainConnection<ChainConfig>({
+        createProvider: chain => providerByChain[chain.genesisHash]!,
+      });
+
+      const { unlock: u1 } = await connection.lockApi(testChain('a'));
+      const { unlock: u2 } = await connection.lockApi(testChain('b'));
+
+      connection.pauseAll();
+
+      expect(chainA.pause).toHaveBeenCalledTimes(1);
+      expect(chainB.pause).toHaveBeenCalledTimes(1);
+
+      u1();
+      u2();
+    });
+
+    it('calls resume on every pausable provider', async () => {
+      const chainA = createPausableMockProvider();
+
+      const connection = createChainConnection<ChainConfig>({ createProvider: () => chainA.provider });
+      const { unlock } = await connection.lockApi(testChain('a'));
+
+      connection.pauseAll();
+      connection.resumeAll();
+
+      expect(chainA.resume).toHaveBeenCalledTimes(1);
+      unlock();
+    });
+
+    it('skips providers that do not expose pause/resume', async () => {
+      const { connection } = createTestConnection();
+      const { unlock } = await connection.lockApi(testChain('a'));
+
+      expect(() => {
+        connection.pauseAll();
+        connection.resumeAll();
+      }).not.toThrow();
+
+      unlock();
+    });
+
+    it('does not call pause on providers for chains that have been destroyed', async () => {
+      const chainA = createPausableMockProvider();
+      const connection = createChainConnection<ChainConfig>({
+        createProvider: () => chainA.provider,
+        destroyDelay: 0,
+      });
+
+      const { unlock } = await connection.lockApi(testChain('a'));
+      unlock();
+
+      connection.pauseAll();
+      expect(chainA.pause).not.toHaveBeenCalled();
     });
   });
 });

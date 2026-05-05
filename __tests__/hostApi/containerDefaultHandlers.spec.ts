@@ -1,4 +1,4 @@
-import { RequestCredentialsErr, StorageErr, createTransport } from '@novasamatech/host-api';
+import { LoginErr, RequestCredentialsErr, StorageErr, createTransport } from '@novasamatech/host-api';
 import { createContainer } from '@novasamatech/host-container';
 import { createAccountsProvider, createLocalStorage } from '@novasamatech/product-sdk';
 
@@ -18,6 +18,18 @@ function setup() {
 
 describe('Container default handlers', () => {
   describe('unregistered request handler returns not-implemented error', () => {
+    it('handleRequestLogin default returns LoginErr.Unknown', async () => {
+      const { accountsProvider } = setup();
+      // No container.handleRequestLogin(...) call — default is active
+
+      const result = await accountsProvider.requestLogin();
+
+      expect(result.isErr()).toBe(true);
+      const error = result._unsafeUnwrapErr();
+      expect(error).toBeInstanceOf(LoginErr.Unknown);
+      expect(error.payload?.reason).toBe('Not implemented');
+    });
+
     it('handleAccountGet default returns RequestCredentialsErr.Unknown', async () => {
       const { accountsProvider } = setup();
       // No container.handleAccountGet(...) call — default is active
@@ -58,7 +70,7 @@ describe('Container default handlers', () => {
       const { container, accountsProvider } = setup();
 
       // Register user handler
-      const cleanup = container.handleAccountGet((_, { ok }) => ok({ publicKey: new Uint8Array(32), name: 'Alice' }));
+      const cleanup = container.handleAccountGet((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
 
       // Verify user handler works
       const okResult = await accountsProvider.getProductAccount('product.dot', 0);
@@ -78,8 +90,8 @@ describe('Container default handlers', () => {
     it('second handleAccountGet call replaces first without cleanup', async () => {
       const { container, accountsProvider } = setup();
 
-      const firstHandler = vi.fn((_, { ok }: any) => ok({ publicKey: new Uint8Array(32), name: 'First' }));
-      const secondHandler = vi.fn((_, { ok }: any) => ok({ publicKey: new Uint8Array(32), name: 'Second' }));
+      const firstHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
+      const secondHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
 
       container.handleAccountGet(firstHandler);
       container.handleAccountGet(secondHandler); // replaces first
@@ -94,7 +106,7 @@ describe('Container default handlers', () => {
   it('should dispose correctly', async () => {
     const { container } = setup();
 
-    const unsub = container.handleGetNonProductAccounts((_, { ok }) => {
+    const unsub = container.handleGetLegacyAccounts((_, { ok }) => {
       return ok([]);
     });
 

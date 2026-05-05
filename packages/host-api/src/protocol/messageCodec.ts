@@ -18,7 +18,7 @@ type InferSubscription<Method extends string, R extends VersionedProtocolSubscri
   R['start']
 > &
   Record<`${Method}_receive`, R['receive']> &
-  Record<`${Method}_interrupt`, Codec<undefined>> &
+  Record<`${Method}_interrupt`, R['interrupt']> &
   Record<`${Method}_stop`, Codec<undefined>>;
 
 type InferHostApiMethod<Method extends string, Payload> =
@@ -45,7 +45,7 @@ const createPayload = (hostApi: HostApiProtocol): EnumCodec<HostApiPayloadFields
     if (payload.method === 'subscribe') {
       fields[`${method}_start`] = payload.start;
       fields[`${method}_stop`] = _void;
-      fields[`${method}_interrupt`] = _void;
+      fields[`${method}_interrupt`] = payload.interrupt;
       fields[`${method}_receive`] = payload.receive;
     }
   }

@@ -1,8 +1,10 @@
 import type { HostMetadata, SigningPayloadRequest, UserSession } from '@novasamatech/host-papp';
-import { createPappAdapter } from '@novasamatech/host-papp';
+import { SS_PASEO_STABLE_STAGE_ENDPOINTS, createPappAdapter } from '@novasamatech/host-papp';
+import { createLazyClient } from '@novasamatech/statement-store';
 import { Button } from '@novasamatech/tr-ui';
 import { AccountId } from '@polkadot-api/substrate-bindings';
 import type { Meta, StoryObj } from '@storybook/react-vite';
+import { getWsProvider } from 'polkadot-api/ws';
 
 import { PairingModal } from './flow/PairingModal.js';
 import { PairingPopover } from './flow/PairingPopover.js';
@@ -71,7 +73,7 @@ const ConnectButton = () => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-      <PairingPopover size={210}>
+      <PairingPopover theme="light" size={210}>
         <Button onClick={() => auth.authenticate('popover')}>Open auth Popover</Button>
       </PairingPopover>
       <Button onClick={() => auth.authenticate('modal')}>Open auth Modal</Button>
@@ -86,6 +88,9 @@ const meta: Meta<typeof PappProvider> = {
     adapter: createPappAdapter({
       appId: 'https://test.com',
       metadata: 'https://shorturl.at/zGkir',
+      adapters: {
+        lazyClient: createLazyClient(getWsProvider(SS_PASEO_STABLE_STAGE_ENDPOINTS)),
+      },
       hostMetadata: {
         hostVersion: '1.2.3',
         osType: 'macOS',

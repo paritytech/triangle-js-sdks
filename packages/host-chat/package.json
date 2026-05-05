@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-chat",
   "type": "module",
-  "version": "0.6.17",
+  "version": "0.7.5",
   "private": "true",
   "description": "Host statement store chat integration",
   "license": "Apache-2.0",
@@ -12,6 +12,9 @@
   "keywords": [
     "polkadot"
   ],
+  "scripts": {
+    "papi:update": "papi update"
+  },
   "main": "dist/index.js",
   "exports": {
     "./package.json": "./package.json",
@@ -19,6 +22,18 @@
       "#/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./codec/message": {
+      "types": "./dist/codec/message.d.ts",
+      "default": "./dist/codec/message.js"
+    },
+    "./codec/attachment": {
+      "types": "./dist/codec/attachment.d.ts",
+      "default": "./dist/codec/attachment.js"
+    },
+    "./session": {
+      "types": "./dist/session.d.ts",
+      "default": "./dist/session.js"
     }
   },
   "files": [
@@ -26,10 +41,10 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/scale": "0.6.17",
-    "@novasamatech/statement-store": "0.6.17",
-    "@novasamatech/storage-adapter": "0.6.17",
-    "nanoid": "5.1.7",
+    "@novasamatech/scale": "0.7.5",
+    "@novasamatech/statement-store": "0.7.5",
+    "@novasamatech/storage-adapter": "0.7.5",
+    "nanoid": "5.1.9",
     "neverthrow": "^8.2.0"
   },
   "publishConfig": {

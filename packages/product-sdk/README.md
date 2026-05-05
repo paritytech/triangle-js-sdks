@@ -166,7 +166,7 @@ It can be used for various purposes like p2p communication, storing temp data, e
 
 ```ts
 import { createStatementStore } from '@novasamatech/product-sdk';
-import type { Topic, Statement, SignedStatement } from '@novasamatech/product-sdk';
+import type { Topic, Statement, SignedStatement, StatementTopicFilter } from '@novasamatech/product-sdk';
 
 // Create statement store instance
 const statementStore = createStatementStore();
@@ -174,9 +174,11 @@ const statementStore = createStatementStore();
 // Define topics (32-byte identifiers) to categorize statements
 const topic: Topic = new Uint8Array(32);
 
-// Subscribe to statement updates for specific topics
-const subscription = statementStore.subscribe([topic], (statements) => {
-  console.log('Received statement updates:', statements);
+// Subscribe to statements matching ALL listed topics (AND semantics)
+const filter: StatementTopicFilter = { matchAll: [topic] };
+const subscription = statementStore.subscribe(filter, (page) => {
+  // page.isComplete is true once the initial historical dump is done
+  console.log('Received statements:', page.statements, 'synced:', page.isComplete);
 });
 
 // Create a proof for a new statement
@@ -215,6 +217,34 @@ import type { ProductAccount } from '@novasamatech/product-sdk';
 // Create accounts provider instance
 const accountsProvider = createAccountsProvider();
 
+// Get the user's primary DotNS username (RFC-0014)
+// — prompts for permission on first call
+const userIdResult = await accountsProvider.getUserId();
+
+if (userIdResult.isOk()) {
+  const { primaryUsername } = userIdResult.value;
+  console.log('Primary username:', primaryUsername);
+} else {
+  const err = userIdResult.error;
+  if (err.tag === 'NotConnected') {
+    console.log('User is not logged in');
+  } else if (err.tag === 'PermissionDenied') {
+    console.log('User denied disclosure of their primary username');
+  }
+}
+
+// Request login — triggers host sign-in UI; reason is shown to the user
+const loginResult = await accountsProvider.requestLogin('Sign in to access your account');
+
+if (loginResult.isOk()) {
+  const outcome = loginResult.value; // 'success' | 'alreadyConnected' | 'rejected'
+  if (outcome === 'rejected') {
+    console.log('User cancelled login');
+  }
+} else {
+  console.error('Login error:', loginResult.error);
+}
+
 // Get a product account by DotNS identifier and derivation index
 const accountResult = await accountsProvider.getProductAccount('product.dot', 0);
 
@@ -230,11 +260,11 @@ if (aliasResult.isOk()) {
   console.log('Alias:', aliasResult.value);
 }
 
-// Get non-product accounts (external wallets)
-const nonProductAccountsResult = await accountsProvider.getNonProductAccounts();
+// Get legacy accounts (external wallets)
+const legacyAccountsResult = await accountsProvider.getLegacyAccounts();
 
-if (nonProductAccountsResult.isOk()) {
-  console.log('Non-product accounts:', nonProductAccountsResult.value);
+if (legacyAccountsResult.isOk()) {
+  console.log('Legacy accounts:', legacyAccountsResult.value);
 }
 
 // Subscribe to account connection status changes
@@ -251,13 +281,13 @@ const account: ProductAccount = {
 };
 const signer = accountsProvider.getProductAccountSigner(account);
 
-// Create a signer for a non-product account
-const nonProductSigner = accountsProvider.getNonProductAccountSigner(account);
+// Create a signer for a legacy account
+const legacySigner = accountsProvider.getLegacyAccountSigner(account);
 
 // PAPI transaction signing example
 
 const productAccountSignedTx = await tx.signAndSubmit(signer);
-const nonProductAccountSignedTx = await tx.signAndSubmit(nonProductSigner);
+const legacyAccountSignedTx = await tx.signAndSubmit(legacySigner);
 ```
 
 ### Local Storage
@@ -289,6 +319,50 @@ const config = await storage.readJSON('config');
 await storage.clear('key');
 ```
 
+### Derive Entropy
+
+The Derive Entropy function allows products to derive deterministic 32-byte entropy scoped to the product and a caller-chosen key.
+
+```ts
+import { deriveEntropy } from '@novasamatech/product-sdk';
+
+const result = await deriveEntropy(new Uint8Array([1, 2, 3]));
+
+if (result.isOk()) {
+  const entropy: Uint8Array = result.value;
+  console.log('Derived entropy:', entropy);
+}
+```
+
+### Permissions
+
+Products can request device and remote permissions from the host. Decisions are prompted once and persisted permanently — subsequent calls for the same permission resolve immediately without prompting.
+
+```ts
+import { requestDevicePermission, requestPermission } from '@novasamatech/product-sdk';
+
+// Request a single device permission
+const deviceResult = await requestDevicePermission('Camera');
+if (deviceResult.isOk()) {
+  console.log('Camera granted:', deviceResult.value); // boolean
+}
+
+// Request remote permissions in a batch (single user prompt for all)
+const remoteResult = await requestPermission([
+  { tag: 'Remote', value: ['api.coingecko.com', '*.example.com'] },
+  { tag: 'ChainSubmit', value: undefined },
+]);
+if (remoteResult.isOk()) {
+  console.log('All remote permissions granted:', remoteResult.value); // boolean
+}
+```
+
+Available device permission values: `'Notifications'`, `'Camera'`, `'Microphone'`, `'Bluetooth'`, `'NFC'`, `'Location'`, `'Clipboard'`, `'OpenUrl'`, `'Biometrics'`.
+
+Available remote permission tags: `'Remote'` (HTTP/WS domain patterns), `'WebRTC'`, `'ChainSubmit'`, `'PreimageSubmit'`, `'StatementSubmit'`.
+
+> **Note:** `remote_chain_transaction_broadcast`, `remote_preimage_submit`, and `remote_statement_store_submit` implicitly trigger a permission prompt if the relevant permission has not yet been resolved. Call `requestPermission(...)` proactively before entering those flows for a controlled UX.
+
 ### Preimage Manager
 
 The Preimage Manager allows you to lookup and submit preimages to the host application.
@@ -318,3 +392,34 @@ subscription.unsubscribe();
 const preimageKey = await manager.submit(new Uint8Array([1, 2, 3, 4]));
 ```
 
+### Payment manager
+
+```ts
+import { createPaymentManager } from '@novasamatech/product-sdk';
+
+const payments = createPaymentManager();
+
+// Subscribe to the user's payment balance (host will prompt for consent)
+const balanceSub = payments.subscribeBalance(balance => {
+  console.log('Available:', balance.available);
+  console.log('Pending:', balance.pending);
+});
+balanceSub.onInterrupt(() => console.log('Balance access denied or lost'));
+
+// Top up the user's balance from a product account
+await payments.topUp(1_000_000n, {
+  type: 'productAccount',
+  dotNsIdentifier: 'my-product.dot',
+  derivationIndex: 0,
+});
+
+// Request a payment from the user (host shows confirmation UI)
+const destination = new Uint8Array(32); // 32-byte AccountId
+const receipt = await payments.requestPayment(500_000n, destination);
+
+// Track payment settlement
+const statusSub = payments.subscribePaymentStatus(receipt.id, status => {
+  if (status.type === 'completed') console.log('Payment settled');
+  if (status.type === 'failed') console.log('Payment failed:', status.reason);
+});
+```
