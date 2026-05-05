@@ -11,6 +11,7 @@ import { ResultAsync, err, ok, okAsync } from 'neverthrow';
 import { AccountId } from 'polkadot-api';
 import type { CodecType } from 'scale-ts';
 
+import { emitHostPappDebugMessage } from '../../debugBus.js';
 import { createAsyncTaskPool } from '../../helpers/createAsyncTaskPool.js';
 import { toError } from '../../helpers/utils.js';
 import type { Callback } from '../../types.js';
@@ -42,6 +43,42 @@ type ProcessedMessage =
   | {
       processed: false;
     };
+
+function emitHostAction(messageId: string, actionKind: string, sessionId: string): void {
+  emitHostPappDebugMessage({
+    layer: 'session',
+    event: 'host_action_sent',
+    flowId: messageId,
+    timestamp: Date.now(),
+    payload: { sessionId, messageId, actionKind },
+  });
+}
+
+function withHostActionTrace<T>(
+  result: ResultAsync<T, Error>,
+  messageId: string,
+  sessionId: string,
+): ResultAsync<T, Error> {
+  return result
+    .andTee(() => {
+      emitHostPappDebugMessage({
+        layer: 'session',
+        event: 'host_action_response_received',
+        flowId: messageId,
+        timestamp: Date.now(),
+        payload: { sessionId, messageId },
+      });
+    })
+    .orTee(error => {
+      emitHostPappDebugMessage({
+        layer: 'session',
+        event: 'host_action_failed',
+        flowId: messageId,
+        timestamp: Date.now(),
+        payload: { sessionId, messageId, reason: error.message },
+      });
+    });
+}
 
 export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
@@ -108,6 +145,7 @@ export function createUserSession({
     signPayload(payload) {
       return requestQueue.call(() => {
         const messageId = nanoid();
+        emitHostAction(messageId, 'SignRequest:Payload', userSession.id);
         const request = session.request(RemoteMessageCodec, {
           messageId,
           data: enumValue(
@@ -142,13 +180,14 @@ export function createUserSession({
             }
           });
 
-        return withQueueTimeout(inner, 'signPayload');
+        return withHostActionTrace(withQueueTimeout(inner, 'signPayload'), messageId, userSession.id);
       });
     },
 
     signRaw(payload) {
       return requestQueue.call(() => {
         const messageId = nanoid();
+        emitHostAction(messageId, 'SignRequest:Raw', userSession.id);
         const request = session.request(RemoteMessageCodec, {
           messageId,
           data: enumValue(
@@ -183,7 +222,7 @@ export function createUserSession({
             }
           });
 
-        return withQueueTimeout(inner, 'signRaw');
+        return withHostActionTrace(withQueueTimeout(inner, 'signRaw'), messageId, userSession.id);
       });
     },
 
@@ -201,6 +240,7 @@ export function createUserSession({
     getRingVrfAlias(productAccountId, productId) {
       return requestQueue.call(() => {
         const messageId = nanoid();
+        emitHostAction(messageId, 'RingVrfAliasRequest', userSession.id);
         const request = session.request(RemoteMessageCodec, {
           messageId,
           data: enumValue(
@@ -222,9 +262,13 @@ export function createUserSession({
           }
         };
 
-        return request
-          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-          .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
+        return withHostActionTrace(
+          request
+            .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+            .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value)))),
+          messageId,
+          userSession.id,
+        );
       });
     },
 
@@ -240,9 +284,38 @@ export function createUserSession({
                 return okAsync({ processed: false });
               }
 
+              const messageId = payload.value.messageId;
+              const actionKind =
+                payload.value.data.tag === 'v1' ? payload.value.data.value.tag : payload.value.data.tag;
+              emitHostPappDebugMessage({
+                layer: 'session',
+                event: 'peer_action_received',
+                flowId: messageId,
+                timestamp: Date.now(),
+                payload: { sessionId: userSession.id, messageId, actionKind },
+              });
+
               return callback(payload.value)
+                .andTee(processed => {
+                  if (processed) {
+                    emitHostPappDebugMessage({
+                      layer: 'session',
+                      event: 'peer_action_processed',
+                      flowId: messageId,
+                      timestamp: Date.now(),
+                      payload: { sessionId: userSession.id, messageId },
+                    });
+                  }
+                })
                 .orTee(error => {
                   console.error('Error while processing sso message:', error);
+                  emitHostPappDebugMessage({
+                    layer: 'session',
+                    event: 'peer_action_failed',
+                    flowId: messageId,
+                    timestamp: Date.now(),
+                    payload: { sessionId: userSession.id, messageId, reason: error.message },
+                  });
                 })
                 .orElse(() => okAsync(false))
                 .map(processed => (processed ? { processed, message: payload.value } : { processed }));
