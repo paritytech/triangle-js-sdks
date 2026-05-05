@@ -25,33 +25,32 @@ import {
 import { dot } from '@polkadot-api/descriptors';
 
 const polkadot: ChainConfig = {
-  chainId: '0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3',
-  nodes: [{ url: 'wss://rpc.polkadot.io' }],
+  genesisHash: '0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3',
+  nodes: ['wss://rpc.polkadot.io'],
 };
 
 const chains = createChainConnection({
   createProvider: (chain, onStatusChanged) =>
     createWsJsonRpcProvider({
-      endpoints: chain.nodes.map((n) => n.url),
+      endpoints: chain.nodes,
       onStatusChanged,
     }),
 });
 
-// One-shot query - connection is acquired and released automatically
-const account = await chains.requestApi(polkadot, async (client) => {
-  const api = client.getTypedApi(dot);
-  return api.query.System.Account.getValue('5GrwvaEF...');
-});
+// Acquire a connection, run a query, then release
+const { api: client, unlock } = await chains.lockApi(polkadot);
+const api = client.getTypedApi(dot);
+const account = await api.query.System.Account.getValue('5GrwvaEF...');
+unlock();
 ```
 
 ## Table of contents
 
 - [API](#api)
   - [`createChainConnection`](#createchainconnectionconfig)
-  - [`requestApi`](#requestapichain-callback)
   - [`lockApi`](#lockapichain)
   - [`getProvider`](#getproviderchain)
-  - [`status` / `onStatusChanged`](#statuschainid--onstatuschangedchainid-callback)
+  - [`status` / `onStatusChanged`](#statusgenesishash--onstatuschangedgenesishash-callback)
   - [`createWsJsonRpcProvider`](#createwsjsonrpcprovideroptions)
   - [`createMetadataCache`](#createmetadatacacheoptions)
 - [Recipes](#recipes)
@@ -59,6 +58,7 @@ const account = await chains.requestApi(polkadot, async (client) => {
   - [Metadata caching](#metadata-caching)
   - [Smoldot light client](#smoldot-light-client)
   - [Multiple chains](#multiple-chains)
+  - [Raw JSON-RPC subscriptions](#raw-json-rpc-subscriptions)
 - [How it works](#how-it-works)
 - [Full example](#full-example)
 
@@ -81,38 +81,18 @@ function createChainConnection<C extends ChainConfig, T = PolkadotClient>(
 | `createProvider` | `(chain: C, onStatusChanged: (status: ConnectionStatus) => void) => JsonRpcProvider` | Factory for the underlying JSON-RPC transport. Called once per chain. Use `onStatusChanged` to feed connection status back into the pool. |
 | `clientOptions` | `(chain: C) => ClientOptions` | Optional. Returns [polkadot-api client options](https://papi.how/) - typically metadata cache hooks (`getMetadata` / `setMetadata`). |
 | `resolve` | `(chain: C, client: PolkadotClient) => Promise<T>` | Optional. Transforms the raw `PolkadotClient` into your app's API type. The result is cached per chain. If omitted, `T` defaults to `PolkadotClient`. |
+| `destroyDelay` | `number` | Optional. Milliseconds to wait before destroying a connection after the last caller releases. Defaults to `0` (destroy immediately). Useful to avoid reconnect churn when callers release and re-acquire in quick succession. |
 
 **`ChainConfig`** - minimum shape your chain objects must satisfy:
 
 ```ts
 type ChainConfig = {
-  chainId: string;
-  nodes: ReadonlyArray<{ url: string }>;
+  genesisHash: string;
+  nodes: string[];
 };
 ```
 
-Returns a [`ChainConnection<C, T>`](#requestapichain-callback) with the methods below.
-
----
-
-### `requestApi(chain, callback)`
-
-Acquires a connection, runs the callback, and releases automatically when it settles. Best for one-shot queries.
-
-**Signature:**
-
-```ts
-requestApi<Return>(chain: C, callback: (api: T) => Return): Promise<Awaited<Return>>
-```
-
-**Example:**
-
-```ts
-const account = await chains.requestApi(polkadot, async (client) => {
-  const api = client.getTypedApi(dot);
-  return api.query.System.Account.getValue('5GrwvaEF...');
-});
-```
+Returns a [`ChainConnection<C, T>`](#lockapichain) with the methods below.
 
 ---
 
@@ -123,7 +103,7 @@ Acquires a connection and holds it until `unlock()` is called. Use for subscript
 **Signature:**
 
 ```ts
-lockApi(chain: C): Promise<{ api: T; unlock: VoidFunction }>
+function lockApi(chain: C): Promise<{ api: T; unlock: VoidFunction }>
 ```
 
 **Example:**
@@ -156,7 +136,7 @@ Useful for passing a provider to an iframe, webview, or any library that expects
 **Signature:**
 
 ```ts
-getProvider(chain: C): JsonRpcProvider
+function getProvider(chain: C): JsonRpcProvider
 ```
 
 **Example:**
@@ -168,25 +148,25 @@ const provider = chains.getProvider(polkadot);
 
 ---
 
-### `status(chainId)` / `onStatusChanged(chainId, callback)`
+### `status(genesisHash)` / `onStatusChanged(genesisHash, callback)`
 
-Read or subscribe to connection status. Both take a `chainId` string (the genesis hash). Returns `'disconnected'` for chains that have never been connected.
+Read or subscribe to connection status. Both take a `genesisHash` string. Returns `'disconnected'` for chains that have never been connected.
 
 **Signature:**
 
 ```ts
-status(chainId: string): ConnectionStatus
+function status(genesisHash: string): ConnectionStatus
 // ConnectionStatus = 'connecting' | 'connected' | 'disconnected'
 
-onStatusChanged(chainId: string, callback: (status: ConnectionStatus) => void): VoidFunction
+function onStatusChanged(genesisHash: string, callback: (status: ConnectionStatus) => void): VoidFunction
 ```
 
 **Example:**
 
 ```ts
-const currentStatus = chains.status(polkadot.chainId);
+const currentStatus = chains.status(polkadot.genesisHash);
 
-const unsubscribe = chains.onStatusChanged(polkadot.chainId, (status) => {
+const unsubscribe = chains.onStatusChanged(polkadot.genesisHash, (status) => {
   console.info('Polkadot:', status);
 });
 
@@ -198,7 +178,7 @@ unsubscribe();
 
 ### `createWsJsonRpcProvider(options)`
 
-WebSocket provider factory. Wraps polkadot-api's `getWsProvider` with `polkadot-sdk-compat` and translates WebSocket events to `ConnectionStatus`.
+WebSocket provider factory. Wraps polkadot-api's `getWsProvider` and translates WebSocket events to `ConnectionStatus`. Active JSON-RPC subscriptions are automatically replayed after a reconnect — consumers using `getProvider` don't need to handle reconnects manually.
 
 **Signature:**
 
@@ -230,7 +210,7 @@ Caches chain metadata in memory, with optional persistence via a `StorageAdapter
 function createMetadataCache(options?: { storage?: StorageAdapter }): MetadataCache;
 
 type MetadataCache = {
-  forChain(chainId: string): ClientOptions;
+  forChain(genesisHash: string): ClientOptions;
 };
 ```
 
@@ -267,22 +247,25 @@ type ResolvedApi = {
 };
 
 const chains = createChainConnection<ChainConfig, ResolvedApi>({
-  createProvider: (chain, onStatusChanged) =>
-    createWsJsonRpcProvider({
-      endpoints: chain.nodes.map((n) => n.url),
+  createProvider(chain, onStatusChanged) {
+    return createWsJsonRpcProvider({
+      endpoints: chain.nodes,
       onStatusChanged,
-    }),
+    });
+  },
 
-  resolve: async (_chain, client) => ({
-    api: client.getTypedApi(dot),
-    client,
-  }),
+  async resolve (_chain, client) {
+    return {
+      api: client.getTypedApi(dot),
+      client,
+    };
+  },
 });
 
-// Now requestApi and lockApi return ResolvedApi instead of PolkadotClient
-const account = await chains.requestApi(polkadot, async ({ api }) => {
-  return api.query.System.Account.getValue('5GrwvaEF...');
-});
+// Now lockApi returns ResolvedApi instead of PolkadotClient
+const { api: resolved, unlock } = await chains.lockApi(polkadot);
+const account = await resolved.api.query.System.Account.getValue('5GrwvaEF...');
+unlock();
 ```
 
 ---
@@ -299,10 +282,10 @@ const metadataCache = createMetadataCache({
 const chains = createChainConnection({
   createProvider: (chain, onStatusChanged) =>
     createWsJsonRpcProvider({
-      endpoints: chain.nodes.map((n) => n.url),
+      endpoints: chain.nodes,
       onStatusChanged,
     }),
-  clientOptions: (chain) => metadataCache.forChain(chain.chainId),
+  clientOptions: (chain) => metadataCache.forChain(chain.genesisHash),
 });
 ```
 
@@ -333,7 +316,7 @@ const lightClientChainSpecs: Record<string, () => Promise<{ chainSpec: string }>
 let smoldot: SmoldotClient | null = null;
 
 const createLightClientProvider = (chain: MyChain): JsonRpcProvider => {
-  const getChainSpec = lightClientChainSpecs[chain.chainId];
+  const getChainSpec = lightClientChainSpecs[chain.genesisHash];
   if (!getChainSpec) {
     throw new Error(`Light client for chain "${chain.name}" is not supported`);
   }
@@ -350,14 +333,14 @@ const createLightClientProvider = (chain: MyChain): JsonRpcProvider => {
 
 const chains = createChainConnection<MyChain>({
   createProvider: (chain, onStatusChanged) => {
-    if (chain.lightClient && chain.chainId in lightClientChainSpecs) {
+    if (chain.lightClient && chain.genesisHash in lightClientChainSpecs) {
       // Light clients report connected immediately - Smoldot handles syncing internally.
       onStatusChanged('connected');
       return createLightClientProvider(chain);
     }
 
     return createWsJsonRpcProvider({
-      endpoints: chain.nodes.map((n) => n.url),
+      endpoints: chain.nodes,
       onStatusChanged,
     });
   },
@@ -381,8 +364,8 @@ import { dot, ksm, type DotDescriptor, type KsmDescriptor } from '@polkadot-api/
 import { type ChainDefinition, type CompatibilityToken, type TypedApi, getTypedCodecs } from 'polkadot-api';
 
 const descriptorMap: Record<string, ChainDefinition> = {
-  [polkadot.chainId]: dot,
-  [kusama.chainId]: ksm,
+  [polkadot.genesisHash]: dot,
+  [kusama.genesisHash]: ksm,
 };
 
 type ResolvedApi = {
@@ -395,12 +378,12 @@ type ResolvedApi = {
 const chains = createChainConnection<MyChain, ResolvedApi>({
   createProvider: (chain, onStatusChanged) =>
     createWsJsonRpcProvider({
-      endpoints: chain.nodes.map((n) => n.url),
+      endpoints: chain.nodes,
       onStatusChanged,
     }),
 
   resolve: async (chain, client) => {
-    const descriptor = descriptorMap[chain.chainId];
+    const descriptor = descriptorMap[chain.genesisHash];
     const api = client.getTypedApi(descriptor);
 
     // Pre-resolve once - these require async metadata fetches
@@ -415,6 +398,34 @@ const chains = createChainConnection<MyChain, ResolvedApi>({
 });
 ```
 
+### Raw JSON-RPC subscriptions
+
+`getProvider` returns a raw `JsonRpcProvider`. When used with subscription methods, active subscriptions are automatically resent after a WebSocket reconnect — no manual reconnect handling needed.
+
+```ts
+const provider = chains.getProvider(polkadot);
+
+const conn = provider(message => {
+  const parsed = JSON.parse(message);
+  if (parsed.method === 'chain_newHead') {
+    console.info('New head:', parsed.params.result);
+  }
+});
+
+// Subscribe to new block heads
+conn.send(JSON.stringify({ id: 1, method: 'chain_subscribeNewHeads', params: [] }));
+
+// If the WebSocket drops and reconnects, the subscription is automatically
+// resent. The server assigns a new subscription ID and notifications resume.
+
+// Cleanup
+conn.disconnect();
+```
+
+> **Note:** Use the most recently received server-assigned subscription ID when unsubscribing. IDs from before a reconnect are no longer valid.
+
+---
+
 ## How it works
 
 ```mermaid
@@ -425,7 +436,7 @@ graph LR
   end
 
   subgraph Host App
-    HA["requestApi() / lockApi()"]
+    HA["lockApi()"]
     Container
   end
 
@@ -444,7 +455,7 @@ graph LR
 
 Products embedded in iframes or webviews don't connect to RPC nodes directly. They send `remote_chain_*` requests to the **Container**, which obtains a provider from the **Connection Pool** via `getProvider(chain)`.
 
-The host app's own code uses the same pool through `requestApi` and `lockApi`. Everyone shares the same underlying connections - one per chain. The pool opens a connection on first use and closes it when the last consumer releases.
+The host app's own code uses the same pool through `lockApi` and `getProvider`. Everyone shares the same underlying connections - one per chain. The pool opens a connection on first use and closes it when the last consumer releases.
 
 ## Full example
 
@@ -486,7 +497,7 @@ type Chain = ChainConfig & {
 // ---------------------------------------------------------------------------
 // 2. Descriptor resolution
 //
-//    Maps specName → default descriptor, with chainId overrides for
+//    Maps specName → default descriptor, with genesisHash overrides for
 //    parachains that share a specName with their relay chain.
 // ---------------------------------------------------------------------------
 
@@ -510,7 +521,7 @@ const specNameDefaults: Record<string, Descriptor> = {
 };
 
 const getDescriptor = (chain: Chain): Descriptor => {
-  return parachainOverrides[chain.chainId]
+  return parachainOverrides[chain.genesisHash]
     ?? specNameDefaults[chain.specName]
     ?? { type: 'dot', def: dot };
 };
@@ -529,8 +540,8 @@ const lightClientChainSpecs: Record<string, () => Promise<{ chainSpec: string }>
 
 let smoldot: SmoldotClient | null = null;
 
-const createLightClientProvider = (chainId: string): JsonRpcProvider => {
-  const getChainSpec = lightClientChainSpecs[chainId]!;
+const createLightClientProvider = (genesisHash: string): JsonRpcProvider => {
+  const getChainSpec = lightClientChainSpecs[genesisHash]!;
 
   const smoldotChain = getChainSpec().then(({ chainSpec }) => {
     if (!smoldot) {
@@ -571,18 +582,18 @@ type TypedClient = {
 
 const chains = createChainConnection<Chain, TypedClient>({
   createProvider: (chain, onStatusChanged) => {
-    if (chain.chainId in lightClientChainSpecs) {
+    if (chain.genesisHash in lightClientChainSpecs) {
       onStatusChanged('connected');
-      return createLightClientProvider(chain.chainId);
+      return createLightClientProvider(chain.genesisHash);
     }
 
     return createWsJsonRpcProvider({
-      endpoints: chain.nodes.map((n) => n.url),
+      endpoints: chain.nodes,
       onStatusChanged,
     });
   },
 
-  clientOptions: (chain) => metadataCache.forChain(chain.chainId),
+  clientOptions: (chain) => metadataCache.forChain(chain.genesisHash),
 
   resolve: async (chain, client) => {
     const { type, def } = getDescriptor(chain);
@@ -602,16 +613,16 @@ const chains = createChainConnection<Chain, TypedClient>({
 // ---------------------------------------------------------------------------
 
 const polkadot: Chain = {
-  chainId: '0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3',
+  genesisHash: '0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3',
   specName: 'polkadot',
   name: 'Polkadot',
-  nodes: [{ url: 'wss://rpc.polkadot.io' }, { url: 'wss://polkadot-rpc.dwellir.com' }],
+  nodes: ['wss://rpc.polkadot.io', 'wss://polkadot-rpc.dwellir.com'],
 };
 
 // One-shot query
-const account = await chains.requestApi(polkadot, async ({ api }) => {
-  return api.query.System.Account.getValue('5GrwvaEF...');
-});
+const { api: queried, unlock: unlockQuery } = await chains.lockApi(polkadot);
+const account = await queried.api.query.System.Account.getValue('5GrwvaEF...');
+unlockQuery();
 
 // Long-lived subscription
 const { api: resolved, unlock } = await chains.lockApi(polkadot);
@@ -625,7 +636,7 @@ sub.unsubscribe();
 unlock();
 
 // Connection status
-const unsubscribe = chains.onStatusChanged(polkadot.chainId, (status) => {
+const unsubscribe = chains.onStatusChanged(polkadot.genesisHash, (status) => {
   console.info(`${polkadot.name}:`, status);
 });
 

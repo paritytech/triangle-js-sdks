@@ -1,15 +1,13 @@
 import { Enum, Hex, Nullable, Status } from '@novasamatech/scale';
 import { Option, Struct, Vector, _void, compact, str, u64 } from 'scale-ts';
 
+import { FileVariant } from './attachment.js';
+
 export const TextContent = str;
 
-export const Media = Struct({
-  imageRemoteUrl: str,
-});
-
 export const RichTextContent = Struct({
-  text: Option(TextContent), // markdown content
-  media: Option(Vector(Media)),
+  text: Option(TextContent),
+  attachments: Option(Vector(FileVariant)),
 });
 
 export const Platform = Status('Android', 'iOS');
@@ -41,22 +39,25 @@ export const EditContent = Struct({
   newContent: RichTextContent,
 });
 
-// Note: important to use correct scale indexes
+// Note: enum indices MUST match iOS/Android SCALE codecs.
+// Indices are auto-assigned sequentially, so order matters.
 export const MessageContent = Enum({
-  text: TextContent,
-  token: TokenContent,
-  send: SendContent,
-  contactAdded: _void,
-  reacted: ReactionContent,
-  reactionRemoved: ReactionContent,
-  richText: RichTextContent,
-  reply: ReplyContent,
-  callOffer: _void, // TBD
-  callAnswer: _void, // TBD
-  callCandidate: _void, // TBD
-  callEnded: _void, // TBD
-  edit: EditContent,
-  leftChat: _void,
+  text: TextContent, // 0
+  token: TokenContent, // 1
+  send: SendContent, // 2
+  contactAdded: _void, // 3
+  reacted: ReactionContent, // 4
+  reactionRemoved: ReactionContent, // 5
+  _reserved6: _void, // 6 — reserved (unused)
+  reply: ReplyContent, // 7
+  dataChannelOffer: _void, // 8
+  dataChannelAnswer: _void, // 9
+  dataChannelCandidates: _void, // 10
+  _reserved11: _void, // 11 — reserved (unused)
+  edit: EditContent, // 12
+  leftChat: _void, // 13
+  chatAccepted: _void, // 14
+  richText: RichTextContent, // 15
 });
 
 export const VersionedMessageContent = Enum({

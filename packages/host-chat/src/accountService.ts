@@ -23,7 +23,7 @@ type AccountService = {
   getConsumerInfo(address: string): ResultAsync<Identity | null, Error>;
 };
 
-type Network = 'stable' | 'unstable';
+type Network = 'paseo-next' | 'preview' | 'stable';
 
 type SearchResponse = {
   candidateAccountId: string;
@@ -86,6 +86,7 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
       });
     },
     getConsumerInfo(address) {
+      const textDecoder = new TextDecoder();
       const accountId = AccountId();
       const client = lazyClient.getClient();
       const api = client.getUnsafeApi<People_lite>();
@@ -102,14 +103,14 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
               }
             : {
                 type: 'Person',
-                alias: raw.credibility.value.alias.asHex(),
+                alias: raw.credibility.value.alias as HexString,
                 lastUpdate: raw.credibility.value.last_update.toString(),
               };
 
         return {
           accountId: toHex(accountId.enc(address)),
-          fullUsername: raw.full_username ? raw.full_username.asText() : null,
-          liteUsername: raw.lite_username.asText(),
+          fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
+          liteUsername: textDecoder.decode(raw.lite_username),
           credibility: credibility,
         };
       });
@@ -121,13 +122,19 @@ const NETWORK_CONFIGS: Record<Network, NetworkConfig> = {
   stable: {
     id: 'stable',
     name: 'PoP Stable',
-    wsUrl: 'wss://pop3-testnet.parity-lab.parity.io:443/7911',
+    wsUrl: 'wss://pop3-testnet.parity-lab.parity.io/people',
     apiUrl: 'https://polkadot-app.api.polkadotcommunity.foundation/api/v1',
   },
-  unstable: {
-    id: 'unstable',
-    name: 'PoP Unstable',
-    wsUrl: 'wss://pop-testnet.parity-lab.parity.io:443/9910',
+  preview: {
+    id: 'preview',
+    name: 'PoP Preview',
+    wsUrl: 'wss://previewnet.substrate.dev/people',
     apiUrl: 'https://polkadot-app-stg.parity.io/api/v1',
+  },
+  'paseo-next': {
+    id: 'paseo-next',
+    name: 'Paseo Next',
+    wsUrl: 'wss://paseo-people-next-rpc.polkadot.io',
+    apiUrl: 'https://identity-backend.parity-testnet.parity.io/api/v1',
   },
 };

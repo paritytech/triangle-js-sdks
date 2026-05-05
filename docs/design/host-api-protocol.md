@@ -9,6 +9,27 @@ created: 2026-03-13
 
 ## Changelog
 
+### v0.7 - 2026-04-13
+
+- Renamed all `*_with_non_product_account` methods to `*_with_legacy_account`; renamed `host_get_non_product_accounts` to `host_get_legacy_accounts`; updated glossary term "Non-product account (NPA)" to "Legacy account".
+- Replaced `address: str` with `account: ProductAccountId` in `SigningPayloadRaw` and `SigningPayload` (RFC-0005) for consistency with other account-bearing methods;
+- Added `host_sign_raw_with_legacy_account` and `host_sign_payload_with_legacy_account` methods that carry the same payloads minus the `account` field — the host resolves the signer from context, mirroring the `create_transaction_with_legacy_account` pattern.
+- Added `host_theme_subscribe` method to track host theme updates (`light`/`dark`).
+- Added payment API (RFC-0006): `host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`, `host_payment_status_subscribe`.
+- Added `host_derive_entropy` method for deterministic entropy derivation (RFC-0007)
+- Renamed `DevicePermissionRequest` to `DevicePermission` for consistency (RFC-0002).
+- Extended `DevicePermission` with new variants: `Notifications`, `NFC`, `Clipboard`, `OpenUrl`, `Biometrics`.
+- Replaced `RemotePermission` variants `ExternalRequest(str)` and `TransactionSubmit` with `Remote(Vec<String>)`, `WebRTC`, `ChainSubmit`, `PreimageSubmit`, and `StatementSubmit`.
+- Documented permission lifecycle: decisions are prompted once and persisted indefinitely, surviving app restarts.
+- Documented implicit permission triggering for `remote_chain_transaction_broadcast` (ChainSubmit), `remote_preimage_submit` (PreimageSubmit), and `remote_statement_store_submit` (StatementSubmit).
+- Changed `remote_statement_store_subscribe` start payload from `Vec<Topic>` to `TopicFilter` (RFC-0008).
+- Changed `remote_statement_store_subscribe` callback argument from `Vec<SignedStatement>` to `SignedStatementsPage` (RFC-0008).
+- Added `host_request_login` method (RFC-0009). Products can explicitly trigger the host login UI; returns `LoginResult` (`success | alreadyConnected | rejected`) or `LoginErr`.
+- Added `host_get_user_id` method (RFC-0014). Returns the user's primary DotNS username scoped to the calling product.
+- Parametrized subscription `interrupt` messages with a per-subscription payload type `I` (defaults to `()`). `Subscriber` is now `Subscriber<I = ()>` with `onInterrupt: fn(fn(I))`; the `*_interrupt` action carries `Versioned<InterruptReason>` instead of no argument.
+- Split `Account` into `ProductAccount` (no `name`) and `LegacyAccount` (`name: Option<str>`). `host_account_get` now returns `ProductAccount`; `host_get_legacy_accounts` now returns `Vec<LegacyAccount>`.
+
+
 ### v0.6 - 2026-02-06
 
 - Implemented `host_account_connection_status_subscribe` method to track sign in status;
@@ -57,8 +78,6 @@ Host API is language-agnostic. All code examples are written in Rust, but author
 ## General Interface
 
 ```rust
-// Host
-
 fn host_handshake(
   version: ProtocolVersion
 ) -> Result<(), HandshakeErr>;
@@ -75,17 +94,13 @@ fn host_navigate_to(
   deeplink: str
 ) -> Result<(), NavigateToErr>;
 
-// Permissions
-
 fn host_device_permission(
-  permission: DevicePermissionRequest
+  permission: DevicePermission
 ) -> Result<bool, GenericErr>;
 
 fn remote_permission(
   permission: RemotePermission
 ) -> Result<bool, GenericErr>;
-
-// Storage
 
 fn host_local_storage_read(
   key: LocalStorageKey
@@ -100,15 +115,13 @@ fn host_local_storage_clear(
   key: LocalStorageKey
 ) -> Result<(), LocalStorageErr>;
 
-// Account
-
 fn host_account_connection_status_subscribe(
   callback: fn(AccountConnectionStatus)
 ) -> Result<Subscriber, GenericErr>;
 
 fn host_account_get(
   domain: ProductAccountId
-) -> Result<Account, RequestCredentialsErr>;
+) -> Result<ProductAccount, RequestCredentialsErr>;
 
 fn host_account_get_alias(
   domain: ProductAccountId
@@ -120,29 +133,25 @@ fn host_account_create_proof(
   message: Vec<u8>
 ) -> Result<RingVrfProof, CreateProofErr>;
 
-fn host_get_non_product_accounts() -> Result<Vec<Account>, RequestCredentialsErr>;
-
-// Signing
+fn host_get_legacy_accounts() -> Result<Vec<LegacyAccount>, RequestCredentialsErr>;
 
 fn host_create_transaction(
   accountId: ProductAccountId,
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
-fn host_create_transaction_with_non_product_account(
+fn host_create_transaction_with_legacy_account(
   accountId: AccountId,
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
-fn host_sign_raw(
-  payload: SigningPayloadRaw
+fn host_sign_raw_with_legacy_account(
+  payload: SigningPayloadRawWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 
-fn host_sign_payload(
-  payload: SigningPayloadJSON
+fn host_sign_payload_with_legacy_account(
+  payload: SigningPayloadWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
-
-// Chat
 
 fn host_chat_create_room(
   room: ChatRoomRequest
@@ -165,32 +174,14 @@ fn host_chat_action_subscribe(
   callback: fn(ChatAction)
 ) -> Result<Subscriber, GenericErr>;
 
-fn product_chat_custom_message_subscribe(
-  payload: ChatCustomMessagePayload,
-  callback: fn(SerializedCustomChatMessage)
-) -> Result<Subscriber, GenericErr>;
-
 fn product_chat_custom_message_render_subscribe(
   payload: ChatCustomMessagePayload,
   callback: fn(SerializedCustomChatMessage)
 ) -> Result<Subscriber, GenericErr>;
 
-// Pocket (TODO)
-
-// fn host_pocket_add_card(
-//  card: PocketCard
-// ) -> Result<PocketCardAddResult, PocketCardAddErr>;
-// fn host_pocket_remove_card(
-//  cardId: str
-// ) -> Result<(), GenericErr>;
-// fn host_pocket_rendering_subscribe() <- TODO
-// fn host_pocket_action_triggered() <- TODO
-
-// Statement Store
-
 fn remote_statement_store_subscribe(
-  topics: Vec<Topic>,
-  callback: fn(Vec<SignedStatement>)
+  filter: TopicFilter,
+  callback: fn(SignedStatementsPage)
 ) -> Result<Subscriber, GenericErr>;
 
 fn remote_statement_store_create_proof(
@@ -202,8 +193,6 @@ fn remote_statement_store_submit(
   statement: SignedStatement
 ) -> Result<(), GenericErr>;
 
-// Preimage lookup
-
 fn remote_preimage_lookup_subscribe(
   key: Vec<u8>,
   callback: fn(Option<Vec<u8>>)
@@ -212,8 +201,6 @@ fn remote_preimage_lookup_subscribe(
 fn remote_preimage_submit(
   value: Vec<u8>
 ) -> Result<Vec<u8>, PreimageSubmitErr>;
-
-// Chain interaction
 
 fn remote_chain_head_follow_subscribe(
   request: ChainHeadFollow,
@@ -267,6 +254,45 @@ fn remote_chain_transaction_broadcast(
 fn remote_chain_transaction_stop(
   request: TransactionStop
 ) -> Result<(), GenericErr>;
+
+fn host_theme_subscribe(
+  callback: fn(Theme)
+) -> Result<Subscriber, GenericErr>;
+
+fn host_derive_entropy(
+  message: Vec<u8>
+) -> Result<Entropy, DeriveEntropyErr>;
+
+fn host_get_user_id() -> Result<UserIdentity, GetUserIdErr>;
+
+fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
+
+fn host_sign_raw(
+  payload: SigningPayloadRaw
+) -> Result<SigningResult, SigningErr>;
+
+fn host_sign_payload(
+  payload: SigningPayload
+) -> Result<SigningResult, SigningErr>;
+
+fn host_payment_balance_subscribe(
+  callback: fn(PaymentBalance)
+) -> Result<Subscriber, PaymentBalanceErr>;
+
+fn host_payment_top_up(
+  amount: Balance,
+  source: PaymentTopUpSource
+) -> Result<(), PaymentTopUpErr>;
+
+fn host_payment_request(
+  amount: Balance,
+  destination: AccountId
+) -> Result<PaymentReceipt, PaymentRequestErr>;
+
+fn host_payment_status_subscribe(
+  payment_id: PaymentId,
+  callback: fn(PaymentStatus)
+) -> Result<Subscriber, PaymentStatusErr>;
 ```
 
 ## Transport
@@ -284,7 +310,7 @@ All examples in this proposal skip JAM codec derive implementation calls, but th
 
 [JAM codec](https://github.com/paritytech/jam-codec) is based on SCALE codec with native support for the `Compact` type.
 
-### Interface
+### Interface (ABI)
 
 Each message can be defined as:
 
@@ -296,7 +322,6 @@ struct Message {
 ```
 
 `Payload` is an enum of possible **actions**.
-Actions MUST follow the order of Host API methods defined above for correct indices during serialization.
 Actions with defined payload MUST be versioned using `VersionedMessage` enum:
 
 ```rust
@@ -305,6 +330,8 @@ enum VersionedMessage {
   // ...
 }
 ```
+
+Actions MUST follow the order of Host API methods defined above for correct indices during serialization.
 
 Actions MUST be derived from Host API methods using the following algorithm:
 
@@ -324,7 +351,7 @@ Actions MUST be derived from Host API methods using the following algorithm:
     - Argument: none
   - Interrupt
     - Name: `method_name + '_interrupt'`
-    - Argument: none
+    - Argument: `Versioned<InterruptReason>`
   - Receive
     - Name: `method_name + '_receive'`
     - Argument: versioned argument of callback function `Versioned<Message>`
@@ -346,7 +373,7 @@ enum Payload {
 
   message_subscribe_start(Versioned::V1(ChainId)),
   message_subscribe_stop,
-  message_subscribe_interrupt,
+  message_subscribe_interrupt(Versioned::V1(InterruptReason)),
   message_subscribe_receive(Versioned::V1(str)),
 
   // ...
@@ -367,13 +394,15 @@ Request and response MUST share the same `requestId` for matching on each side.
 When a subscription starts, the consumer MUST notify the provider with a `start` message.
 When the consumer wants to unsubscribe, it MUST send a `stop` message.
 The provider MUST send data updates with a `receive` message.
-If the provider has trouble providing data, it CAN send an `interrupt` message to the consumer. The consumer MAY react to an `interrupt` message by notifying the application layer.
+If the provider has trouble providing data, it CAN send an `interrupt` message to the consumer carrying a subscription-specific payload that describes the reason. The consumer MAY react to an `interrupt` message by notifying the application layer.
+
+Each subscription method declares its own interrupt payload type `I`. Subscriptions that do not need to communicate a reason default `I` to `()`. The interrupt payload type is orthogonal to the `receive` callback type and is surfaced on the returned `Subscriber<I>`.
 
 The returned `Subscriber` interface depends on the implementation, but a generic interface may look like this:
 ```rust
-struct Subscriber {
+struct Subscriber<I = ()> {
   unsubscribe: fn(),
-  onInterrupt: fn(fn())
+  onInterrupt: fn(fn(I))
 }
 ```
 
@@ -426,21 +455,120 @@ enum Feature {
 fn host_feature_supported(feature: Feature) -> Result<bool, GenericErr>;
 ```
 
+### Host appearance
+
+The host can notify the product when the system or in-app color scheme changes so the embedded UI can match (e.g. light vs dark).
+
+```rust
+enum Theme {
+  Light,
+  Dark
+}
+
+fn host_theme_subscribe(
+  callback: fn(Theme)
+) -> Result<Subscriber, GenericErr>;
+```
+
+#### Deriving entropy
+
+```rust
+enum DeriveEntropyErr {
+  Unknown(GenericErr)
+}
+
+type Entropy = [u8; 32];
+
+fn host_derive_entropy(
+  message: Vec<u8>
+) -> Result<Entropy, DeriveEntropyErr>;
+```
+
 #### Device permissions request
 
-Products can request additional device permissions. This device permissions check should be implemented on top of platform permissions (web, iOS, Android) and add an additional security level.
+Products can request additional device permissions. This check is layered on top of platform permissions (web, iOS, Android) and adds a product-level security gate.
+
+The Host prompts the user the first time a permission is requested; subsequent calls resolve immediately from persisted state without prompting.
+
 ```rust
-enum DevicePermissionRequest {
+enum DevicePermission {
+  Notifications,
   Camera,
   Microphone,
   Bluetooth,
-  Location
+  NFC,
+  Location,
+  Clipboard,
+  OpenUrl,
+  Biometrics
 }
 
 fn host_device_permission(
-  permission: DevicePermissionRequest
+  permission: DevicePermission
 ) -> Result<bool, GenericErr>;
 ```
+
+Each call requests a single device permission. Batching is not supported for device permissions — each capability warrants its own prompt.
+
+#### Remote permissions request
+
+Products can request remote permissions to access network resources or submit data to chains.
+
+```rust
+enum RemotePermission {
+  // Access to HTTP/HTTPS/WS/WSS APIs.
+  // Each entry is a domain or wildcard subdomain pattern:
+  //   "api.coingecko.com"  — exact domain match
+  //   "*.coingecko.com"    — any single subdomain of coingecko.com (not coingecko.com itself)
+  //   "*"                  — allow all HTTP/WS requests (broad; host SHOULD show a prominent warning)
+  // Matching is case-insensitive. Scheme is always HTTP, HTTPS, WS, or WSS.
+  Remote(Vec<String>),
+  // Access to WebRTC (can expose the user's IP address).
+  WebRTC,
+  // Broadcast signed transactions via remote_chain_transaction_broadcast.
+  ChainSubmit,
+  // Submit preimage data via remote_preimage_submit.
+  PreimageSubmit,
+  // Submit statements to the statement store via remote_statement_store_submit.
+  StatementSubmit
+}
+
+fn remote_permission(
+  permission: RemotePermission
+) -> Result<bool, GenericErr>;
+```
+
+`true` means requested permission were granted. `false` means the user denied request; the Host MAY persist partial grants. Products that need to know which specific permissions were denied should call `remote_permission` with individual entries.
+
+### Permission Lifecycle
+
+1. **First request** — When a permission is requested for the first time (via explicit API call or implicitly by a business method), the Host presents an approval dialog.
+2. **Decision persisted** — The decision is stored by the Host, keyed to the product identity, and survives app restarts indefinitely.
+3. **Subsequent requests** — All subsequent calls for the same permission resolve immediately without prompting.
+4. **Revocation** — Out of scope for this version. Hosts MAY provide a settings UI; the protocol does not define a revocation notification to the product.
+
+Products MAY request permissions lazily (on first use) or upfront during initialization. Requesting upfront is recommended when the product can predict its needs, as it batches consent into a single moment.
+
+### Implicit Permission Triggering
+
+The following business methods gate on a specific `RemotePermission` and MUST internally trigger a permission prompt if the permission has not yet been resolved:
+
+| Business Method                      | Required Permission                |
+|--------------------------------------|------------------------------------|
+| `remote_chain_transaction_broadcast` | `RemotePermission::ChainSubmit`    |
+| `remote_preimage_submit`             | `RemotePermission::PreimageSubmit` |
+| `remote_statement_store_submit`      | `RemotePermission::StatementSubmit`|
+
+If the user has already granted the relevant permission, the business method proceeds without prompting. If the user denies, the method returns `GenericErr` with a permission-denied reason.
+
+The following business methods require user consent through their own signing-confirmation flow and return `PermissionDenied` when the user cancels — this is separate from the remote permission system:
+
+| Business Method                                    | Error on Denial                          |
+|----------------------------------------------------|------------------------------------------|
+| `host_sign_raw`                                    | `SigningErr::PermissionDenied`           |
+| `host_sign_payload`                                | `SigningErr::PermissionDenied`           |
+| `host_create_transaction`                          | `CreateTransactionErr::PermissionDenied` |
+| `host_create_transaction_with_legacy_account`       | `CreateTransactionErr::PermissionDenied` |
 
 ### Local storage
 
@@ -473,7 +601,7 @@ fn host_local_storage_clear(
 More on this part can be found [here](https://hackmd.io/@valentunn/BkXioNVbZe).
 
 - **Product account** - account that belongs to the derivation hierarchy described in Appendix. Those accounts are inherent to the Mobile App and are derived from the root user account
-- **Non-product account (NPA)** - other accounts that have been imported to PAPP in addition to the root account. Importing such an account allows user to utilize their existing account in the new system (e.g. in products)
+- **Legacy account** - other accounts that have been imported to PAPP in addition to the root account. Importing such an account allows user to utilize their existing account in the new system (e.g. in products)
 
 ```rust
 enum RequestCredentialsErr {
@@ -489,15 +617,34 @@ enum CreateProofErr {
   Unknown(GenericErr)
 }
 
+enum GetUserIdErr {
+  /// User denied the disclosure request.
+  PermissionDenied,
+  /// User is not logged in.
+  NotConnected,
+  Unknown(GenericErr)
+}
+
 type AccountId = [u8; 32];
 type PublicKey = Vec<u8>;
 type DotNsIdentifier = str;
 type DerivationIndex = u32;
 type ProductAccountId = (DotNsIdentifier, DerivationIndex);
 
-struct Account {
+/// Protocol-derived, product-scoped. No user-chosen label.
+struct ProductAccount {
+  public_key: PublicKey
+}
+
+/// User-imported into the Account Holder. May carry a user-chosen label.
+struct LegacyAccount {
   public_key: PublicKey,
   name: Option<str>
+}
+
+struct UserIdentity {
+  /// The user's primary DotNS username scoped to the calling product.
+  primary_username: DotNsIdentifier
 }
 
 struct ContextualAlias {
@@ -525,13 +672,35 @@ enum AccountConnectionStatus {
   Connected
 }
 
+/// Returns the user's primary DotNS username scoped to the calling product.
+///
+/// Behavior:
+/// - **Connection precedence.** No connected account → `NotConnected` without prompting. `NotConnected` strictly precedes `PermissionDenied`.
+/// - **Consent.** If connected and not previously granted, the host prompts using the existing permission model (one-time vs persistent). On denial → `PermissionDenied`.
+/// - **Source-agnostic and host-chosen.** The host picks what counts as primary for this product (lite username, full username, custom — products MUST NOT assume). When the user is connected, the host is guaranteed to be able to pick one.
+/// - **Per-product scope.** Whether two products see the same identifier is a host implementation choice. Simple hosts will return the same to all; sophisticated hosts MAY let users pick distinct primaries per product.
+/// - **Per-call freshness, no revocation.** Each call reflects current host state; if the user changes their primary, subsequent calls return the new value. Once disclosed, a value cannot be retracted from the product.
+fn host_get_user_id() -> Result<UserIdentity, GetUserIdErr>;
+
+enum LoginResult {
+  Success,
+  AlreadyConnected,
+  Rejected
+}
+
+enum LoginErr {
+  Unknown(GenericErr)
+}
+
+fn host_request_login(reason: Option<str>) -> Result<LoginResult, LoginErr>;
+
 fn host_account_connection_status_subscribe(
   callback: fn(AccountConnectionStatus)
 ) -> Result<Subscriber, GenericErr>;
 
 fn host_account_get(
   domain: ProductAccountId
-) -> Result<Account, RequestCredentialsErr>;
+) -> Result<ProductAccount, RequestCredentialsErr>;
 
 fn host_account_get_alias(
   domain: ProductAccountId
@@ -543,7 +712,7 @@ fn host_account_create_proof(
   message: Vec<u8>
 ) -> Result<RingVrfProof, CreateProofErr>;
 
-fn host_get_non_product_accounts() -> Result<Vec<Account>, RequestCredentialsErr>;
+fn host_get_legacy_accounts() -> Result<Vec<LegacyAccount>, RequestCredentialsErr>;
 ```
 
 ### Signing
@@ -552,7 +721,7 @@ fn host_get_non_product_accounts() -> Result<Vec<Account>, RequestCredentialsErr
 
 Based on [https://github.com/polkadot-js/api/issues/6213](https://github.com/polkadot-js/api/issues/6213), but omitting the `version` field.\
 This format is capable of supporting both V4 and V5 extrinsics.
-There are two different methods for creating a transaction: `create_transaction` and `create_transaction_with_non_product_account`. `create_transaction` is bound to the Host API account model; `create_transaction_with_non_product_account`, on the other hand, can request signing with any non-product account, and the host should decide how to find or derive accounts for signing using the `signer` field as a reference.
+There are two different methods for creating a transaction: `create_transaction` and `create_transaction_with_legacy_account`. `create_transaction` is bound to the Host API account model; `create_transaction_with_legacy_account`, on the other hand, can request signing with any legacy account, and the host should decide how to find or derive accounts for signing using the `signer` field as a reference.
 
 ```rust
 enum CreateTransactionErr {
@@ -594,7 +763,7 @@ fn host_create_transaction(
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
-fn host_create_transaction_with_non_product_account(
+fn host_create_transaction_with_legacy_account(
   payload: VersionedTxPayload
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 ```
@@ -602,6 +771,8 @@ fn host_create_transaction_with_non_product_account(
 #### Signing Raw
 
 Signing of raw bytes. The interface implementation is similar to `signRaw` from `injectedWeb3`, added for backward compatibility.
+
+There are two variants: `host_sign_raw` for product accounts (identified by `ProductAccountId`) and `host_sign_raw_with_legacy_account` for legacy accounts (the host resolves the signer from context, mirroring the `create_transaction_with_legacy_account` pattern).
 
 ```rust
 enum SigningErr {
@@ -617,8 +788,13 @@ enum RawPayload {
 }
 
 struct SigningPayloadRaw {
-  address: str,
-  data: RawPayload
+  account: ProductAccountId,
+  payload: RawPayload
+}
+
+struct SigningPayloadRawWithoutAccount {
+  signer: str,
+  payload: RawPayload
 }
 
 struct SigningResult {
@@ -629,22 +805,20 @@ struct SigningResult {
 fn host_sign_raw(
   payload: SigningPayloadRaw
 ) -> Result<SigningResult, SigningErr>;
+
+fn host_sign_raw_with_legacy_account(
+  payload: SigningPayloadRawWithoutAccount
+) -> Result<SigningResult, SigningErr>;
 ```
 
 #### Signing JSON Payload
 
 Signing of JSON payload. The interface implementation is similar to `signPayload` from `injectedWeb3`, added for backward compatibility.
 
-```rust
-enum SigningErr {
-  FailedToDecode,
-  Rejected,
-  PermissionDenied,
-  Unknown(GenericErr)
-}
+There are two variants: `host_sign_payload` for product accounts (identified by `ProductAccountId`) and `host_sign_payload_with_legacy_account` for legacy accounts (the host resolves the signer from context).
 
-struct SigningPayload {
-  address: str,
+```rust
+struct SigningPayloadPayload {
   block_hash: Vec<u8>,
   block_number: Vec<u8>,
   era: Vec<u8>,
@@ -662,13 +836,22 @@ struct SigningPayload {
   with_signed_transaction: Option<bool>
 }
 
-struct SigningResult {
-  signature: Vec<u8>,
-  signed_transaction: Option<Vec<u8>>
+struct SigningPayload {
+  account: ProductAccountId,
+  payload: SigningPayloadPayload
+}
+
+struct SigningPayloadWithoutAccount {
+  signer: str,
+  payload: SigningPayloadPayload
 }
 
 fn host_sign_payload(
   payload: SigningPayload
+) -> Result<SigningResult, SigningErr>;
+
+fn host_sign_payload_with_legacy_account(
+  payload: SigningPayloadWithoutAccount
 ) -> Result<SigningResult, SigningErr>;
 ```
 
@@ -943,9 +1126,23 @@ struct SignedStatement {
 #### Receiving Statements
 
 ```rust
+/// AND: statement must contain every listed topic (up to 4)
+/// OR: statement must contain at least one listed topic (up to 128)
+enum TopicFilter {
+  MatchAll(Vec<Topic>),
+  MatchAny(Vec<Topic>)
+}
+
+struct SignedStatementsPage {
+  statements: Vec<SignedStatement>,
+  /// false — intermediate page of the initial historical dump; more pages follow.
+  /// true  — initial dump is complete; all subsequent pages carry only live statements.
+  is_complete: bool
+}
+
 fn remote_statement_store_subscribe(
-  topics: Vec<Topic>,
-  callback: fn(Vec<SignedStatement>)
+  filter: TopicFilter,
+  callback: fn(SignedStatementsPage)
 ) -> Result<Subscriber, GenericErr>;
 ```
 
@@ -975,6 +1172,87 @@ After generating proof, the product can submit the statement to the store
 fn remote_statement_store_submit(
   statement: SignedStatement
 ) -> Result<(), GenericErr>;
+```
+
+### Payments
+
+Products can query the user's payment balance, top up the balance from product-controlled accounts, request payments from the user to a destination account, and track payment settlement asynchronously.
+
+The underlying payment medium is hidden from products. `Balance` values are interpreted as a fixed asset (e.g. pUSD) known to both host and product.
+
+```rust
+type Balance = u128;
+type PaymentId = str;
+
+enum PaymentTopUpSource {
+  /// Fund from one of the calling product's scoped accounts.
+  ProductAccount(DerivationIndex),
+  /// Fund from a one-time account whose Ed25519 private key the product possesses.
+  PrivateKey([u8; 32])
+}
+
+struct PaymentBalance {
+  available: Balance
+}
+
+struct PaymentReceipt {
+  id: PaymentId
+}
+
+enum PaymentStatus {
+  Processing,
+  Completed,
+  Failed(str)
+}
+
+enum PaymentBalanceErr {
+  PermissionDenied,
+  Unknown(GenericErr)
+}
+
+enum PaymentTopUpErr {
+  InsufficientFunds,
+  InvalidSource,
+  Unknown(GenericErr)
+}
+
+enum PaymentRequestErr {
+  Rejected,
+  InsufficientBalance,
+  Unknown(GenericErr)
+}
+
+enum PaymentStatusErr {
+  PaymentNotFound,
+  Unknown(GenericErr)
+}
+
+/// Subscribe to balance updates. Host MUST prompt user for consent on first call.
+/// Denial is communicated via subscription interrupt.
+fn host_payment_balance_subscribe(
+  callback: fn(PaymentBalance)
+) -> Result<Subscriber<PaymentBalanceErr>, GenericErr>;
+
+/// Top up user balance from a product-controlled source. No user consent required.
+fn host_payment_top_up(
+  amount: Balance,
+  source: PaymentTopUpSource
+) -> Result<(), PaymentTopUpErr>;
+
+/// Request a payment from the user. Host MUST show a confirmation prompt.
+/// Returns a PaymentReceipt immediately — settlement is asynchronous.
+fn host_payment_request(
+  amount: Balance,
+  destination: AccountId
+) -> Result<PaymentReceipt, PaymentRequestErr>;
+
+/// Subscribe to status updates for a previously requested payment.
+/// Subscription ends when a terminal state (Completed or Failed) is delivered.
+/// PaymentId is scoped to the calling product.
+fn host_payment_status_subscribe(
+  payment_id: PaymentId,
+  callback: fn(PaymentStatus)
+) -> Result<Subscriber<PaymentStatusErr>, GenericErr>;
 ```
 
 ### Chain connection

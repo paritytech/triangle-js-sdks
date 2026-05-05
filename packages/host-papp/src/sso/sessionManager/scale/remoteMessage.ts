@@ -1,6 +1,7 @@
 import type { CodecType } from 'scale-ts';
 import { Enum, Struct, _void, str } from 'scale-ts';
 
+import { RingVrfAliasRequestCodec, RingVrfAliasResponseCodec } from './ringVrf.js';
 import { SigningRequestCodec } from './signingRequest.js';
 import { SigningResponseCodec } from './signingResponse.js';
 
@@ -12,6 +13,8 @@ export const RemoteMessageCodec = Struct({
       Disconnected: _void,
       SignRequest: SigningRequestCodec,
       SignResponse: SigningResponseCodec,
+      RingVrfAliasRequest: RingVrfAliasRequestCodec,
+      RingVrfAliasResponse: RingVrfAliasResponseCodec,
     }),
   }),
 });

@@ -1,12 +1,12 @@
 {
   "name": "@novasamatech/scale",
   "type": "module",
-  "version": "0.6.6",
+  "version": "0.7.5",
   "description": "additional scale-ts bindings",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/novasamatech/spektr-sdk.git"
+    "url": "git+https://github.com/paritytech/triangle-js-sdks.git"
   },
   "keywords": [
     "polkadot"
@@ -25,7 +25,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@polkadot-api/utils": "^0.2.0",
+    "@polkadot-api/utils": "^0.4.0",
     "scale-ts": "1.6.1"
   },
   "publishConfig": {

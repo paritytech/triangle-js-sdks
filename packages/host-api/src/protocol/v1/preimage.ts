@@ -1,5 +1,5 @@
 import { ErrEnum, Hex, Nullable } from '@novasamatech/scale';
-import { Bytes, Result } from 'scale-ts';
+import { Bytes, Result, _void } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
 
@@ -8,6 +8,7 @@ export const PreimageValue = Bytes();
 
 export const PreimageLookupSubscribeV1_start = PreimageKey;
 export const PreimageLookupSubscribeV1_receive = Nullable(PreimageValue);
+export const PreimageLookupSubscribeV1_interrupt = _void;
 
 export const PreimageSubmitErr = ErrEnum('PreimageSubmitErr', {
   Unknown: [GenericErr, 'Unknown error'],

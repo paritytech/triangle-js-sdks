@@ -1,5 +1,5 @@
 import type { CustomRendererNodeType } from './context.js';
-import type { Background, BorderStyle, Dimensions, Modifier, Padding } from './types.js';
+import type { Background, BorderStyle, Dimensions, Modifier, Padding, Size } from './types.js';
 
 export type WidgetInstance = {
   type: string;
@@ -43,10 +43,10 @@ function convertModifiers(props: Record<string, unknown>): Modifier[] {
     const border = props.border as BorderStyle;
     modifiers.push({ tag: 'border', value: border });
   }
-  if (props.width !== undefined) modifiers.push({ tag: 'width', value: props.width as any });
-  if (props.height !== undefined) modifiers.push({ tag: 'height', value: props.height as any });
-  if (props.minWidth !== undefined) modifiers.push({ tag: 'minWidth', value: props.minWidth as any });
-  if (props.minHeight !== undefined) modifiers.push({ tag: 'minHeight', value: props.minHeight as any });
+  if (props.width !== undefined) modifiers.push({ tag: 'width', value: props.width as Size });
+  if (props.height !== undefined) modifiers.push({ tag: 'height', value: props.height as Size });
+  if (props.minWidth !== undefined) modifiers.push({ tag: 'minWidth', value: props.minWidth as Size });
+  if (props.minHeight !== undefined) modifiers.push({ tag: 'minHeight', value: props.minHeight as Size });
   if (props.fillMaxWidth) modifiers.push({ tag: 'fillWidth', value: true });
   if (props.fillMaxHeight) modifiers.push({ tag: 'fillHeight', value: true });
 
@@ -116,7 +116,7 @@ function serializeNode(node: WidgetInstance | TextInstance): CustomRendererNodeT
  * Serialize the reconciler tree and deliver the result via the render callback.
  * Clears stale callbacks, serializes the tree, and wraps multiple roots in a Column.
  */
-export function serializeAndRender(children: (WidgetInstance | TextInstance)[]) {
+export function serializeAndRender(children: (WidgetInstance | TextInstance)[]): CustomRendererNodeType {
   const serialized = children.map(serializeNode);
 
   let rootNode: CustomRendererNodeType;

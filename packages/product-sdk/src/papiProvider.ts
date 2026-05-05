@@ -1,7 +1,7 @@
 import type { HexString, Transport } from '@novasamatech/host-api';
 import { createHostApi, enumValue, unwrapResultOrThrow } from '@novasamatech/host-api';
-import type { JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
 import { getSyncProvider } from '@polkadot-api/json-rpc-provider-proxy';
+import type { JsonRpcProvider } from 'polkadot-api';
 
 import { sandboxTransport } from './sandboxTransport.js';
 
@@ -39,21 +39,19 @@ export function createPapiProvider(
     }
 
     function sendJsonRpcResponse(id: number | string, result: unknown) {
-      onMessage(JSON.stringify({ jsonrpc: '2.0', id, result }));
+      onMessage({ jsonrpc: '2.0', id, result } as Parameters<typeof onMessage>[0]);
     }
 
     function sendJsonRpcError(id: number | string, code: number, message: string) {
-      onMessage(JSON.stringify({ jsonrpc: '2.0', id, error: { code, message } }));
+      onMessage({ jsonrpc: '2.0', id, error: { code, message } } as Parameters<typeof onMessage>[0]);
     }
 
     function sendFollowEvent(syntheticSubId: string, event: unknown) {
-      onMessage(
-        JSON.stringify({
-          jsonrpc: '2.0',
-          method: 'chainHead_v1_followEvent',
-          params: { subscription: syntheticSubId, result: event },
-        }),
-      );
+      onMessage({
+        jsonrpc: '2.0',
+        method: 'chainHead_v1_followEvent',
+        params: { subscription: syntheticSubId, result: event },
+      } as Parameters<typeof onMessage>[0]);
     }
 
     function convertTypedEventToJsonRpc(event: { tag: string; value: unknown }): unknown {
@@ -197,27 +195,33 @@ export function createPapiProvider(
       return { result: 'limitReached' };
     }
 
-    function handleMessage(message: string) {
-      let parsed: { id: number | string; method: string; params: unknown[] };
-      try {
-        parsed = JSON.parse(message);
-      } catch {
-        return;
-      }
-
-      const { id, method, params } = parsed;
+    function handleMessage(message: { id?: number | string | null; method?: string; params?: unknown[] }) {
+      // eslint-disable-next-line @typescript-eslint/no-non-null-assertion
+      const id = message.id!;
+      const { method, params } = message;
 
       switch (method) {
         case 'chainHead_v1_follow': {
           const [withRuntime] = params as [boolean];
           const syntheticSubId = getNextSubId();
 
-          const subscription = hostApi.chainHeadFollow(enumValue(version, { genesisHash, withRuntime }), payload => {
-            if (payload.tag === version) {
-              const jsonRpcEvent = convertTypedEventToJsonRpc(payload.value as { tag: string; value: unknown });
-              sendFollowEvent(syntheticSubId, jsonRpcEvent);
-            }
-          });
+          const subscription = hostApi.chainHeadFollowSubscribe(
+            enumValue(version, { genesisHash, withRuntime }),
+            payload => {
+              if (payload.tag !== version) return;
+              const typed = payload.value;
+              // On Stop, release the host-api subscription BEFORE forwarding
+              // the event. The consumer's substrate-client refollows
+              // synchronously inside the event handler; transport.subscribe
+              // dedupes by (method, payload-hash), so unless this dead
+              // subscription is gone first, the refollow's subscribe shares
+              // it and never reaches the host — events stop flowing.
+              if (typed.tag === 'Stop' && activeFollows.delete(syntheticSubId)) {
+                subscription.unsubscribe();
+              }
+              sendFollowEvent(syntheticSubId, convertTypedEventToJsonRpc(typed));
+            },
+          );
 
           activeFollows.set(syntheticSubId, { syntheticSubId, subscription, genesisHash });
           sendJsonRpcResponse(id, syntheticSubId);
@@ -439,13 +443,14 @@ export function createPapiProvider(
     });
   }
 
-  return getSyncProvider(() =>
+  return getSyncProvider(onResult => {
     checkIfReady().then(ready => {
-      if (ready) return typedProvider;
-      if (__fallback) return __fallback;
-
-      return () => {
-        return {
+      if (ready) {
+        onResult((onMessage, _onHalt) => typedProvider(onMessage));
+      } else if (__fallback) {
+        onResult((onMessage, _onHalt) => __fallback(onMessage));
+      } else {
+        onResult((_onMessage, _onHalt) => ({
           send() {
             transport.provider.logger.error(
               `Provider for chain ${genesisHash} was not started because Host doesn't support it`,
@@ -454,8 +459,11 @@ export function createPapiProvider(
           disconnect() {
             /* empty */
           },
-        };
-      };
-    }),
-  );
+        }));
+      }
+    });
+    return () => {
+      /* empty */
+    };
+  });
 }

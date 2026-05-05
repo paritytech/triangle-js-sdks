@@ -34,14 +34,9 @@ export const EncrPubKey = BrandedBytesCodec<EncrPublicKey>(65);
 // helpers
 
 const textEncoder = new TextEncoder();
-const textDecoder = new TextDecoder();
 
 export function stringToBytes(str: string) {
   return textEncoder.encode(str);
-}
-
-export function bytesToString(bytes: Uint8Array) {
-  return textDecoder.decode(bytes);
 }
 
 // sr25519 account

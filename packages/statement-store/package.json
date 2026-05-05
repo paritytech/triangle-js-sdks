@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/statement-store",
   "type": "module",
-  "version": "0.6.6",
+  "version": "0.7.5",
   "description": "Statement store integration",
   "license": "Apache-2.0",
   "repository": {
@@ -25,15 +25,16 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/sdk-statement": "^0.5.0",
-    "@polkadot-api/substrate-bindings": "^0.17.0",
-    "@polkadot-api/substrate-client": "^0.5.0",
-    "@polkadot-api/utils": "0.2.0",
-    "@polkadot-labs/hdkd-helpers": "^0.0.28",
-    "@noble/hashes": "2.0.1",
-    "@noble/ciphers": "2.1.1",
-    "@scure/sr25519": "1.0.0",
-    "polkadot-api": "^1.23.3",
+    "@novasamatech/scale": "0.7.5",
+    "@novasamatech/sdk-statement": "^0.6.0",
+    "@polkadot-api/substrate-bindings": "^0.20.1",
+    "@polkadot-api/substrate-client": "^0.7.0",
+    "@polkadot-labs/hdkd-helpers": "^0.0.30",
+    "@noble/hashes": "2.2.0",
+    "@noble/ciphers": "2.2.0",
+    "@scure/sr25519": "2.2.0",
+    "polkadot-api": ">=2",
+    "nanoid": "5.1.9",
     "neverthrow": "^8.2.0",
     "scale-ts": "1.6.1"
   },
