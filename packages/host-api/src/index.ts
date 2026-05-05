@@ -1,5 +1,6 @@
 export type {
   ConnectionStatus,
+  DebugMessageEvent,
   HostApiMethod,
   Logger,
   RequestHandler,
@@ -7,6 +8,7 @@ export type {
   SubscriptionHandler,
   Transport,
 } from './types.js';
+export type { MessagePayloadSchema } from './protocol/messageCodec.js';
 export type { Provider } from './provider.js';
 export { createRequestId } from './helpers.js';
 
