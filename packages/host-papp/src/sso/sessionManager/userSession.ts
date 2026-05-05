@@ -29,10 +29,23 @@ const QUEUE_TASK_TIMEOUT_MS = 180_000;
 
 function withQueueTimeout<T>(resultAsync: ResultAsync<T, Error>, label: string): ResultAsync<T, Error> {
   const timeoutPromise = new Promise<Result<T, Error>>(resolve =>
-    setTimeout(() => resolve(err(new Error(`${label} timed out — queue freed`))), QUEUE_TASK_TIMEOUT_MS),
+    setTimeout(() => {
+      console.warn(`[host-papp][${label}] inner queue task TIMED OUT after ${QUEUE_TASK_TIMEOUT_MS}ms — freeing pool`);
+      resolve(err(new Error(`${label} timed out — queue freed`)));
+    }, QUEUE_TASK_TIMEOUT_MS),
   );
   return ResultAsync.fromPromise(Promise.race([resultAsync, timeoutPromise]), toError).andThen(r => r);
 }
+
+// Set of remote-message ids we are currently awaiting a response for. Used to
+// classify incoming SignResponse / RingVrfAliasResponse messages in the
+// `[sso-incoming]` log: messages whose `respondingTo` matches an id in this
+// set are "relevant" (we have a pending wait), everything else is "stale"
+// (typically a leftover from a previous session, since bulletin paseo retains
+// statements for ~7 days). On a fresh session start we end up receiving every
+// stale response from prior runs in one go; this set lets us bulk-count them
+// instead of dumping a wall of detail per message.
+const pendingExpectedMessageIds = new Set<string>();
 
 type ProcessedMessage =
   | {
@@ -106,8 +119,11 @@ export function createUserSession({
     remoteAccount: userSession.remoteAccount,
 
     signPayload(payload) {
+      console.info('[host-papp][signPayload] queueing in requestQueue');
       return requestQueue.call(() => {
         const messageId = nanoid();
+        pendingExpectedMessageIds.add(messageId);
+        console.info(`[host-papp][signPayload] task RUNNING — messageId=${messageId}`);
         const request = session.request(RemoteMessageCodec, {
           messageId,
           data: enumValue(
@@ -128,12 +144,19 @@ export function createUserSession({
             message.data.value.tag === 'SignResponse' &&
             message.data.value.value.respondingTo === messageId
           ) {
+            console.info(
+              `[host-papp][signPayload filter] MATCH expected=${messageId.slice(0, 12)} respondingTo=${message.data.value.value.respondingTo.slice(0, 12)}`,
+            );
             return message.data.value.value.payload;
           }
         };
 
         const inner = request
+          .andTee(() =>
+            console.info(`[host-papp][signPayload] request submitted — waiting for response messageId=${messageId}`),
+          )
           .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+          .andTee(() => console.info(`[host-papp][signPayload] response RECEIVED — messageId=${messageId}`))
           .andThen(message => {
             if (message.success) {
               return ok(message.value);
@@ -142,13 +165,17 @@ export function createUserSession({
             }
           });
 
-        return withQueueTimeout(inner, 'signPayload');
+        const cleanup = () => pendingExpectedMessageIds.delete(messageId);
+        return withQueueTimeout(inner, 'signPayload').andTee(cleanup).orTee(cleanup);
       });
     },
 
     signRaw(payload) {
+      console.info('[host-papp][signRaw] queueing in requestQueue');
       return requestQueue.call(() => {
         const messageId = nanoid();
+        pendingExpectedMessageIds.add(messageId);
+        console.info(`[host-papp][signRaw] task RUNNING — messageId=${messageId}`);
         const request = session.request(RemoteMessageCodec, {
           messageId,
           data: enumValue(
@@ -169,12 +196,19 @@ export function createUserSession({
             message.data.value.tag === 'SignResponse' &&
             message.data.value.value.respondingTo === messageId
           ) {
+            console.info(
+              `[host-papp][signRaw filter] MATCH expected=${messageId.slice(0, 12)} respondingTo=${message.data.value.value.respondingTo.slice(0, 12)}`,
+            );
             return message.data.value.value.payload;
           }
         };
 
         const inner = request
+          .andTee(() =>
+            console.info(`[host-papp][signRaw] request submitted — waiting for response messageId=${messageId}`),
+          )
           .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+          .andTee(() => console.info(`[host-papp][signRaw] response RECEIVED — messageId=${messageId}`))
           .andThen(message => {
             if (message.success) {
               return ok(message.value);
@@ -183,7 +217,8 @@ export function createUserSession({
             }
           });
 
-        return withQueueTimeout(inner, 'signRaw');
+        const cleanup = () => pendingExpectedMessageIds.delete(messageId);
+        return withQueueTimeout(inner, 'signRaw').andTee(cleanup).orTee(cleanup);
       });
     },
 
@@ -199,8 +234,11 @@ export function createUserSession({
     },
 
     getRingVrfAlias(productAccountId, productId) {
+      console.info('[host-papp][getRingVrfAlias] queueing in requestQueue');
       return requestQueue.call(() => {
         const messageId = nanoid();
+        pendingExpectedMessageIds.add(messageId);
+        console.info(`[host-papp][getRingVrfAlias] task RUNNING — messageId=${messageId}`);
         const request = session.request(RemoteMessageCodec, {
           messageId,
           data: enumValue(
@@ -218,18 +256,73 @@ export function createUserSession({
             message.data.value.tag === 'RingVrfAliasResponse' &&
             message.data.value.value.respondingTo === messageId
           ) {
+            console.info(
+              `[host-papp][getRingVrfAlias filter] MATCH expected=${messageId.slice(0, 12)} respondingTo=${message.data.value.value.respondingTo.slice(0, 12)}`,
+            );
             return message.data.value.value.payload;
           }
         };
 
-        return request
+        const inner = request
+          .andTee(() =>
+            console.info(
+              `[host-papp][getRingVrfAlias] request submitted — waiting for response messageId=${messageId}`,
+            ),
+          )
           .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+          .andTee(() => console.info(`[host-papp][getRingVrfAlias] response RECEIVED — messageId=${messageId}`))
           .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
+
+        const cleanup = () => pendingExpectedMessageIds.delete(messageId);
+        return inner.andTee(cleanup).orTee(cleanup);
       });
     },
 
     subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>) {
       return session.subscribe(RemoteMessageCodec, messages => {
+        let stale = 0;
+        const relevant: typeof messages = [];
+        for (const m of messages) {
+          // Stale = a SignResponse / RingVrfAliasResponse for a request we are no
+          // longer waiting on (typically left over on the bulletin chain from
+          // earlier sessions). Bulk-count them; only print details for messages
+          // we actively care about.
+          const respondingTo =
+            m?.type === 'request' && m.payload.status === 'parsed'
+              ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ((m.payload.value.data.value as any)?.value?.respondingTo as string | undefined)
+              : undefined;
+          if (respondingTo && !pendingExpectedMessageIds.has(respondingTo)) {
+            stale++;
+          } else {
+            relevant.push(m);
+          }
+        }
+        console.info(
+          `[sso-incoming] sess=${userSession.id?.slice?.(0, 8) ?? '?'} got ${messages.length} message(s) — ${relevant.length} relevant, ${stale} stale (pending=${pendingExpectedMessageIds.size})`,
+        );
+        for (const m of relevant) {
+          if (m.type !== 'request') {
+            console.info(`[sso-incoming]   type=${m.type}`);
+            continue;
+          }
+          const status = m.payload.status;
+          const messageId = status === 'parsed' ? m.payload.value.messageId : undefined;
+          const dataTag = status === 'parsed' ? m.payload.value.data.tag : undefined;
+          const subTag =
+            status === 'parsed'
+              ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ((m.payload.value.data.value as any)?.tag as string | undefined)
+              : undefined;
+          const respondingTo =
+            status === 'parsed'
+              ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                ((m.payload.value.data.value as any)?.value?.respondingTo as string | undefined)
+              : undefined;
+          console.info(
+            `[sso-incoming]   type=request status=${status} msgId=${messageId?.slice?.(0, 12) ?? '-'} tag=${dataTag}/${subTag} respondingTo=${respondingTo?.slice?.(0, 12) ?? '-'}`,
+          );
+        }
         processedMessages.read().andThen(processed => {
           const results = messages.map<ResultAsync<ProcessedMessage, Error>>(message => {
             if (message.type === 'request' && message.payload.status === 'parsed') {

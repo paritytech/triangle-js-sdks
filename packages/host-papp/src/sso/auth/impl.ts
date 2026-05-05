@@ -25,6 +25,10 @@ import { createAttestationService, createSudoAliceVerifier } from './attestation
 import { HandshakeData, HandshakeResponsePayload, HandshakeResponseSensitiveData } from './scale/handshake.js';
 import type { AttestationStatus, PairingStatus } from './types.js';
 
+declare global {
+  var __registerStatementStoreTopicLabel: ((topic: unknown, label: string) => void) | undefined;
+}
+
 export type AuthComponent = ReturnType<typeof createAuth>;
 
 export type HostMetadata = {
@@ -100,6 +104,8 @@ export function createAuth({
     );
 
     return dataPrepared.asyncAndThen(([, handshakeTopic, encrKeys]) => {
+      // Optional consumer-side hook — see statement-store/session.ts.
+      globalThis.__registerStatementStoreTopicLabel?.(handshakeTopic, 'handshake');
       const pappResponse = waitForStatements<StoredUserSession>(
         callback =>
           statementStore.subscribeStatements({ matchAll: [handshakeTopic] }, page => callback(page.statements)),
