@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-chat",
   "type": "module",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "private": "true",
   "description": "Host statement store chat integration",
   "license": "Apache-2.0",
@@ -41,9 +41,9 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/scale": "0.7.5",
-    "@novasamatech/statement-store": "0.7.5",
-    "@novasamatech/storage-adapter": "0.7.5",
+    "@novasamatech/scale": "0.7.6",
+    "@novasamatech/statement-store": "0.7.6",
+    "@novasamatech/storage-adapter": "0.7.6",
     "nanoid": "5.1.9",
     "neverthrow": "^8.2.0"
   },

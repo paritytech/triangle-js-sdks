@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-papp-react-ui",
   "type": "module",
-  "version": "0.7.5",
+  "version": "0.7.6",
   "description": "Polkadot app UI Flow",
   "license": "Apache-2.0",
   "repository": {
@@ -30,8 +30,8 @@
     "react-dom": ">=18"
   },
   "dependencies": {
-    "@novasamatech/host-papp": "0.7.5",
-    "@novasamatech/statement-store": "0.7.5",
+    "@novasamatech/host-papp": "0.7.6",
+    "@novasamatech/statement-store": "0.7.6",
     "@polkadot-api/utils": "^0.4.0",
     "@radix-ui/react-dialog": "1.1.15",
     "@radix-ui/react-popover": "1.1.15",
