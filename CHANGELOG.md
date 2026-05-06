@@ -7,11 +7,16 @@
 - **host-worker-sandbox:** `crypto.subtle` is available when the host passes a `subtleResolver`. Resolver args are typed per method, so handlers get full inference without casts.
 - **host-api / host-container / host-papp:** products can now request resource allocations from the host (RFC-0010) — statement-store allowances, bulletin allowances, smart-contract allowances per derivation index, and auto-signing. The host forwards the request to the paired Polkadot Mobile app, which approves or rejects each resource individually; the product receives a per-resource outcome (`Allocated`, `Rejected`, or `NotAvailable`). Exposed as `requestResourceAllocation` on the host-api side and `handleRequestResourceAllocation` on the container side.
 - **host-api / host-container:** new `statementStoreCreateProofAuthorized` request lets a product create a statement-store proof against a host-managed allowance slot, without having to nominate a product account. Handled via the new `handleStatementStoreCreateProofAuthorized` slot on the container.
+- **host-papp:** SSO `signPayload` / `signRaw` accept a product account ID (`[dotNsIdentifier, derivationIndex]`) directly, so callers can route a signing request to a specific product account without resolving its SS58 address first.
 
 ### 🩹 Fixes
 
 - **host-worker-sandbox:** `crypto.getRandomValues` is now spec-compliant — returns the same array passed in, preserves the view type (e.g. `Uint32Array`), and only fills the bytes the view covers (previously could clobber adjacent bytes of the underlying buffer).
 - **statement-store:** key derivation now matches Substrate's standard derivation rules, so keys derived from the same path agree with other Polkadot tooling. Paths that previously produced incompatible or unusable keys (numeric segments, long segments) now derive correctly.
+
+### ⚠️ Breaking Changes
+
+- **host-papp:** SSO `signPayload` / `signRaw` now identify the signing account by product account ID (`[dotNsIdentifier, derivationIndex]`) instead of an SS58 address. Callers no longer need to know or convert the remote account's address to ask the paired Polkadot Mobile app to sign — they pick the product account directly.
 
 ### ❤️ Thank You
 

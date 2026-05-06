@@ -2,7 +2,6 @@ import type { HostMetadata, SigningPayloadRequest, UserSession } from '@novasama
 import { SS_PASEO_STABLE_STAGE_ENDPOINTS, createPappAdapter } from '@novasamatech/host-papp';
 import { createLazyClient } from '@novasamatech/statement-store';
 import { Button } from '@novasamatech/tr-ui';
-import { AccountId } from '@polkadot-api/substrate-bindings';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { getWsProvider } from 'polkadot-api/ws';
 
@@ -19,7 +18,7 @@ const SignPayloadExample = ({ session }: { session: UserSession | null }) => {
   }
 
   const payload: SigningPayloadRequest = {
-    address: AccountId().dec(session.remoteAccount.accountId),
+    productAccountId: ['test-product.dot', 0],
     blockHash:
       '0x307834313431326534363632336332303064373838616237656631633530376334333439306664613263613762343863313966383665613961343663663963616138',
     blockNumber: '0x30783030333538626132',

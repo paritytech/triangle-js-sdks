@@ -1,10 +1,11 @@
+import { ProductAccountId } from '@novasamatech/host-api';
 import { Enum, Hex, OptionBool } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
 import { Bytes, Option, Struct, Vector, str, u32 } from 'scale-ts';
 
 export type SigningPayloadRequest = CodecType<typeof SigningPayloadRequestCodec>;
 export const SigningPayloadRequestCodec = Struct({
-  address: str,
+  productAccountId: ProductAccountId,
   blockHash: Hex(),
   blockNumber: Hex(),
   era: Hex(),
@@ -24,7 +25,7 @@ export const SigningPayloadRequestCodec = Struct({
 
 export type SigningRawRequest = CodecType<typeof SigningRawRequestCodec>;
 export const SigningRawRequestCodec = Struct({
-  address: str,
+  productAccountId: ProductAccountId,
   data: Enum({
     Bytes: Bytes(),
     Payload: str,
