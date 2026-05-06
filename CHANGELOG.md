@@ -1,4 +1,4 @@
-## Unreleased
+## 0.7.6 (2026-05-06)
 
 ### 🚀 Features
 
