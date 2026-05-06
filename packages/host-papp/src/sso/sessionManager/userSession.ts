@@ -1,6 +1,5 @@
 import { ContextualAlias, ProductAccountId } from '@novasamatech/host-api';
-import type { HexString } from '@novasamatech/scale';
-import { enumValue, toHex } from '@novasamatech/scale';
+import { enumValue } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
@@ -8,7 +7,6 @@ import { fieldListView } from '@novasamatech/storage-adapter';
 import { nanoid } from 'nanoid';
 import type { Result } from 'neverthrow';
 import { ResultAsync, err, ok, okAsync } from 'neverthrow';
-import { AccountId } from 'polkadot-api';
 import type { CodecType } from 'scale-ts';
 
 import { createAsyncTaskPool } from '../../helpers/createAsyncTaskPool.js';
@@ -70,8 +68,6 @@ export function createUserSession({
   storage: StorageAdapter;
   prover: StatementProver;
 }): UserSession {
-  const accountId = AccountId();
-
   const requestQueue = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
 
   const session = createSession({
@@ -89,19 +85,6 @@ export function createUserSession({
     to: JSON.stringify,
   });
 
-  function toAccountId(address: string) {
-    // already an account id
-    if (address.startsWith('0x') && address.length === 64 + 2) {
-      return address as HexString;
-    }
-
-    return toHex(accountId.enc(address));
-  }
-
-  function toAddress(account: HexString) {
-    return accountId.dec(account);
-  }
-
   return {
     id: userSession.id,
     localAccount: userSession.localAccount,
@@ -112,16 +95,7 @@ export function createUserSession({
         const messageId = nanoid();
         const request = session.request(RemoteMessageCodec, {
           messageId,
-          data: enumValue(
-            'v1',
-            enumValue(
-              'SignRequest',
-              enumValue('Payload', {
-                ...payload,
-                address: toAddress(toAccountId(payload.address)),
-              }),
-            ),
-          ),
+          data: enumValue('v1', enumValue('SignRequest', enumValue('Payload', payload))),
         });
 
         const responseFilter = (message: RemoteMessage) => {
@@ -153,16 +127,7 @@ export function createUserSession({
         const messageId = nanoid();
         const request = session.request(RemoteMessageCodec, {
           messageId,
-          data: enumValue(
-            'v1',
-            enumValue(
-              'SignRequest',
-              enumValue('Raw', {
-                ...payload,
-                address: toAddress(toAccountId(payload.address)),
-              }),
-            ),
-          ),
+          data: enumValue('v1', enumValue('SignRequest', enumValue('Raw', payload))),
         });
 
         const responseFilter = (message: RemoteMessage) => {
