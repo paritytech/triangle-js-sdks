@@ -85,6 +85,11 @@ export const StatementProofErr = ErrEnum('StatementProofErr', {
 export const StatementStoreCreateProofV1_request = Tuple(ProductAccountId, Statement);
 export const StatementStoreCreateProofV1_response = Result(StatementProof, StatementProofErr);
 
+// creating proof using a host-internal allowance account (no product account required)
+
+export const StatementStoreCreateProofAuthorizedV1_request = Statement;
+export const StatementStoreCreateProofAuthorizedV1_response = Result(StatementProof, StatementProofErr);
+
 // submit
 
 export const StatementStoreSubmitV1_request = SignedStatement;

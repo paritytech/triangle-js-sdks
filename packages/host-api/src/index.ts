@@ -42,6 +42,8 @@ export {
   AccountId,
   ContextualAlias,
   CreateProofErr,
+  DerivationIndex,
+  DotNsIdentifier,
   GetUserIdErr,
   LegacyAccount,
   LoginErr,
@@ -88,6 +90,11 @@ export { RemotePermission } from './protocol/v1/remotePermission.js';
 export { PushNotification } from './protocol/v1/notification.js';
 export { NavigateToErr } from './protocol/v1/navigation.js';
 export { PreimageKey, PreimageSubmitErr, PreimageValue } from './protocol/v1/preimage.js';
+export {
+  AllocatableResource,
+  AllocationOutcome,
+  ResourceAllocationErr,
+} from './protocol/v1/resourceAllocation.js';
 export {
   PaymentBalance,
   PaymentBalanceErr,

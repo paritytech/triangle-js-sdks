@@ -107,6 +107,10 @@ import {
 } from './v1/preimage.js';
 import { RemotePermissionV1_request, RemotePermissionV1_response } from './v1/remotePermission.js';
 import {
+  RequestResourceAllocationV1_request,
+  RequestResourceAllocationV1_response,
+} from './v1/resourceAllocation.js';
+import {
   SignPayloadV1_request,
   SignPayloadV1_response,
   SignPayloadWithLegacyAccountV1_request,
@@ -117,6 +121,8 @@ import {
   SignRawWithLegacyAccountV1_response,
 } from './v1/sign.js';
 import {
+  StatementStoreCreateProofAuthorizedV1_request,
+  StatementStoreCreateProofAuthorizedV1_response,
   StatementStoreCreateProofV1_request,
   StatementStoreCreateProofV1_response,
   StatementStoreSubmitV1_request,
@@ -409,5 +415,13 @@ export const hostApiProtocol = {
 
   host_payment_status_subscribe: versionedSubscription({
     v1: [PaymentStatusSubscribeV1_start, PaymentStatusSubscribeV1_receive, PaymentStatusSubscribeV1_interrupt],
+  }),
+
+  host_request_resource_allocation: versionedRequest({
+    v1: [RequestResourceAllocationV1_request, RequestResourceAllocationV1_response],
+  }),
+
+  remote_statement_store_create_proof_authorized: versionedRequest({
+    v1: [StatementStoreCreateProofAuthorizedV1_request, StatementStoreCreateProofAuthorizedV1_response],
   }),
 } as const;
