@@ -15,6 +15,7 @@
 ### ❤️ Thank You
 
 - Sergey Zhuravlev @johnthecat
+- valentunn @valentunn
 
 ## 0.7.5 (2026-05-01)
 
