@@ -5,6 +5,8 @@
 - **host-worker-sandbox:** sandbox code can now use `Blob`, `FormData`, `AbortController` / `AbortSignal` (spec-compliant, including `reason`, `throwIfAborted`, `onabort`, and the `abort` / `timeout` / `any` statics), and `DOMException`.
 - **host-worker-sandbox:** `fetch` (with `Headers`, `Request`, `Response`) is available when the host passes a `fetchResolver` to `createSandbox`. The host decides how requests are made; sandbox `AbortSignal`s propagate to the resolver.
 - **host-worker-sandbox:** `crypto.subtle` is available when the host passes a `subtleResolver`. Resolver args are typed per method, so handlers get full inference without casts.
+- **host-api / host-container / host-papp:** products can now request resource allocations from the host (RFC-0010) — statement-store allowances, bulletin allowances, smart-contract allowances per derivation index, and auto-signing. The host forwards the request to the paired Polkadot Mobile app, which approves or rejects each resource individually; the product receives a per-resource outcome (`Allocated`, `Rejected`, or `NotAvailable`). Exposed as `requestResourceAllocation` on the host-api side and `handleRequestResourceAllocation` on the container side.
+- **host-api / host-container:** new `statementStoreCreateProofAuthorized` request lets a product create a statement-store proof against a host-managed allowance slot, without having to nominate a product account. Handled via the new `handleStatementStoreCreateProofAuthorized` slot on the container.
 
 ### 🩹 Fixes
 
