@@ -106,10 +106,7 @@ import {
   PreimageSubmitV1_response,
 } from './v1/preimage.js';
 import { RemotePermissionV1_request, RemotePermissionV1_response } from './v1/remotePermission.js';
-import {
-  RequestResourceAllocationV1_request,
-  RequestResourceAllocationV1_response,
-} from './v1/resourceAllocation.js';
+import { RequestResourceAllocationV1_request, RequestResourceAllocationV1_response } from './v1/resourceAllocation.js';
 import {
   SignPayloadV1_request,
   SignPayloadV1_response,
