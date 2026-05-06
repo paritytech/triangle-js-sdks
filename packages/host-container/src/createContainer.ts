@@ -29,6 +29,7 @@ import {
   PreimageSubmitErr,
   RemotePermission,
   RequestCredentialsErr,
+  ResourceAllocationErr,
   SigningErr,
   StatementProofErr,
   StorageErr,
@@ -408,6 +409,11 @@ export function createContainer(provider: Provider): Container {
     () => new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
+  const handleStatementStoreCreateProofAuthorizedSlot = makeNotImplementedSlot(
+    'remote_statement_store_create_proof_authorized',
+    () => new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
   const handlePreimageSubmitSlot = makePermissionGatedRequestSlot(
     'remote_preimage_submit',
     'PreimageSubmit',
@@ -423,6 +429,12 @@ export function createContainer(provider: Provider): Container {
   const handlePaymentRequestSlot = makeNotImplementedSlot(
     'host_payment_request',
     () => new PaymentRequestErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
+  // resource allocation slot
+  const handleRequestResourceAllocationSlot = makeNotImplementedSlot(
+    'host_request_resource_allocation',
+    () => new ResourceAllocationErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
   // subscription slots — default interrupts on next microtask so that
@@ -682,6 +694,14 @@ export function createContainer(provider: Provider): Container {
       );
     },
 
+    handleStatementStoreCreateProofAuthorized(handler) {
+      return handleV1Request(
+        handleStatementStoreCreateProofAuthorizedSlot,
+        () => new StatementProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
     handleStatementStoreSubmit(handler) {
       return handleV1Request(
         handleStatementStoreSubmitSlot,
@@ -724,6 +744,14 @@ export function createContainer(provider: Provider): Container {
 
     handlePaymentStatusSubscribe(handler) {
       return handleV1Subscription(handlePaymentStatusSubscribeSlot, handler);
+    },
+
+    handleRequestResourceAllocation(handler) {
+      return handleV1Request(
+        handleRequestResourceAllocationSlot,
+        () => new ResourceAllocationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
     },
 
     // chain interaction

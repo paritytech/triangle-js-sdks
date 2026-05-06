@@ -18,6 +18,7 @@ import type { StoredUserSession } from '../userSessionRepository.js';
 
 import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
+import type { ApAllocationOutcome, ResourceAllocationRequest } from './scale/resourceAllocation.js';
 import type { SigningPayloadRequest, SigningRawRequest } from './scale/signingRequest.js';
 import type { SigningPayloadResponseData } from './scale/signingResponse.js';
 
@@ -51,6 +52,7 @@ export type UserSession = StoredUserSession & {
     productAccountId: CodecType<typeof ProductAccountId>,
     productId: string,
   ): ResultAsync<CodecType<typeof ContextualAlias>, Error>;
+  requestResourceAllocation(request: ResourceAllocationRequest): ResultAsync<ApAllocationOutcome[], Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
 };
@@ -225,6 +227,32 @@ export function createUserSession({
         return request
           .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
           .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
+      });
+    },
+
+    requestResourceAllocation(request) {
+      return requestQueue.call(() => {
+        const messageId = nanoid();
+        const sendRequest = session.request(RemoteMessageCodec, {
+          messageId,
+          data: enumValue('v1', enumValue('ResourceAllocationRequest', request)),
+        });
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'ResourceAllocationResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        const inner = sendRequest
+          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+          .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
+
+        return withQueueTimeout(inner, 'requestResourceAllocation');
       });
     },
 
