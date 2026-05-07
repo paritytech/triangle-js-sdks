@@ -7,7 +7,7 @@ please [file an issue](https://github.com/paritytech/triangle-js-sdks/issues/new
 
 ## Host API Requests
 
-Host API change requests should be raised in [truapi-explorer](https://github.com/paritytech/truapi-explorer).
+Host API change requests should be raised in [truapi](https://github.com/paritytech/truapi).
 
 ## Design Documents
 
