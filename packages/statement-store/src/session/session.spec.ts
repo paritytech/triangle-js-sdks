@@ -11,7 +11,24 @@ import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount 
 import type { Encryption } from './encyption.js';
 import { StatementData } from './scale/statementData.js';
 import { createSession, nextExpiry } from './session.js';
-import { createSr25519Prover } from './statementProver.js';
+import type { StatementProver } from './statementProver.js';
+
+// Real signature work belongs in statementProver tests; this stub stamps a
+// non-empty proof so submitted statements are well-formed.
+const mockProver: StatementProver = {
+  generateMessageProof: statement =>
+    okAsync({
+      ...statement,
+      proof: {
+        type: 'sr25519',
+        value: {
+          signature: `0x${'00'.repeat(64)}`,
+          signer: `0x${'00'.repeat(32)}`,
+        },
+      },
+    }),
+  verifyMessageProof: () => okAsync(true),
+};
 
 function makeAccounts() {
   const localAccount = createLocalSessionAccount(createAccountId(new Uint8Array(32).fill(1)));
@@ -61,7 +78,7 @@ function makeSession(overrides?: {
     remoteAccount,
     statementStore: adapter,
     encryption: mockEncryption(),
-    prover: createSr25519Prover(new Uint8Array(64).fill(1)),
+    prover: mockProver,
     maxRequestSize,
   });
   return { session, adapter };

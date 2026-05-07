@@ -1,3 +1,37 @@
+## 0.7.7 (2026-05-07)
+
+### 🚀 Features
+
+- **host-worker-sandbox:** new `fetchMaxBodyBytes` option on `createSandbox` caps sandbox `fetch` request body size (default 100 MiB), so a misbehaving product can't trigger unbounded host allocations.
+
+### 🩹 Fixes
+
+- **host-api:** failed request handlers are logged; callers no longer hang forever on a thrown handler.
+- **host-container:** failed transaction submits no longer corrupt the chain connection's refcount.
+- **host-container:** webview reconnects no longer accumulate stale port-init listeners.
+- **host-papp:** identity cache fetches only the missing accounts, instead of refetching everyone on every call.
+- **host-papp:** SSO session lifecycle is more robust — active sessions are no longer disposed mid-flight on a refresh, and evicted sessions properly release their subscriptions so removed sessions can't trigger phantom disconnects.
+- **host-papp:** errors during SSO message processing are surfaced instead of silently dropped, so a transient storage failure no longer causes the same message to be reprocessed forever.
+- **host-papp:** SSO People-chain signing works against the latest polkadot-sdk runtime again — signatures were rejected after the recent `VerifySignature` variant reorder.
+- **host-substrate-chain-connection:** in-flight subscriptions are replayed on reconnect instead of going silently dead until a full reload.
+- **host-substrate-chain-connection:** chain connections are released even when a provider is shut down without calling `disconnect`, preventing connections from being held open by torn-down consumers.
+- **host-substrate-chain-connection:** metadata-cache write failures are now logged instead of silently ignored.
+- **host-worker-sandbox:** `crypto.subtle` rejects unknown method names at the sandbox boundary instead of forwarding them to the host.
+- **host-worker-sandbox:** sandbox `top` / `window` aliases can no longer be reassigned or deleted from inside the sandbox.
+- **host-worker-sandbox:** sandbox dispose is more resilient — a failure in one cleanup step no longer skips the others, and host-side timers always stop before the VM is freed.
+- **product-react-renderer:** `useAction`'s `map` callback is read fresh on every call, so inline arrows are no longer frozen at first render.
+- **host-papp-react-ui:** `PairingPopover` correctly re-renders when its `auth` controller changes instead of staying wired to a stale instance.
+- **statement-store:** outgoing-request size is tracked correctly across batched messages, fixing a possible queue spin and a `maxRequestSize` overshoot.
+- **statement-store:** batched requests no longer lose responses — a reply to any id submitted for the batch now resolves all pending tokens.
+- **statement-store:** session initialization failures are surfaced — pending requests are rejected with the underlying error instead of wedging the session forever.
+- **statement-store:** statements arriving without a cryptographic proof are now rejected as invalid (previously treated as valid).
+- **storage-adapter:** when a field's `to` mapper returns `null`, the underlying key is now cleared rather than left untouched.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- Dmitry @duewarn
+
 ## 0.7.6 (2026-05-06)
 
 ### 🚀 Features

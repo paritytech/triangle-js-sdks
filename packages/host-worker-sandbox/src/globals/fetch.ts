@@ -1,7 +1,7 @@
 import { nanoid } from 'nanoid';
 import type { QuickJSContext, QuickJSHandle } from 'quickjs-emscripten';
 
-import { extractBytesFromVm, sendBytesToVm } from '../buffers.js';
+import { extractBytesFromVm, sendBytesToVm, withProp } from '../buffers.js';
 
 export type FetchRequest = {
   url: string;
@@ -21,6 +21,13 @@ export type FetchResponse = {
 };
 
 export type FetchResolver = (req: FetchRequest) => Promise<FetchResponse>;
+
+export type FetchOptions = {
+  /** Maximum request body size in bytes. Defaults to 100 MiB. */
+  maxBodyBytes?: number;
+};
+
+const DEFAULT_MAX_BODY_BYTES = 100 * 1024 * 1024;
 
 const BRIDGE_NAME = `__FETCH_BRIDGE_${nanoid()}__`;
 
@@ -449,8 +456,14 @@ function buildResponseHandle(vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle, 
   return obj;
 }
 
-export function injectFetch(vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle, resolver: FetchResolver): VoidFunction {
+export function injectFetch(
+  vm: QuickJSContext,
+  toUint8ArrayFn: QuickJSHandle,
+  resolver: FetchResolver,
+  options: FetchOptions = {},
+): VoidFunction {
   let disposed = false;
+  const maxBodyBytes = options.maxBodyBytes ?? DEFAULT_MAX_BODY_BYTES;
   // Track host-side abort callbacks so we can null them out at dispose.
   const inflightControllers = new Set<AbortController>();
 
@@ -458,6 +471,18 @@ export function injectFetch(vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle, r
     const method = vm.getString(methodH);
     const url = vm.getString(urlH);
     const headers = (vm.dump(headersH) ?? []) as Array<[string, string]>;
+
+    // Check size before extracting — the cap exists to bound host allocation.
+    const bodyByteLength = withProp(vm, bodyH, 'byteLength', h => vm.getNumber(h));
+    if (bodyByteLength > maxBodyBytes) {
+      const deferred = vm.newPromise();
+      const errHandle = vm.newError(`fetch body exceeds maximum allowed size: ${bodyByteLength} > ${maxBodyBytes}`);
+      deferred.reject(errHandle);
+      errHandle.dispose();
+      if (!disposed) vm.runtime.executePendingJobs(-1);
+      return deferred.handle;
+    }
+
     const bodyBytes = extractBytesFromVm(vm, bodyH);
     const body = bodyBytes.byteLength === 0 ? null : bodyBytes;
 

@@ -223,34 +223,39 @@ export function createUserSession({
 
     subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>) {
       return session.subscribe(RemoteMessageCodec, messages => {
-        processedMessages.read().andThen(processed => {
-          const results = messages.map<ResultAsync<ProcessedMessage, Error>>(message => {
-            if (message.type === 'request' && message.payload.status === 'parsed') {
-              const payload = message.payload;
+        processedMessages
+          .read()
+          .andThen(processed => {
+            const results = messages.map<ResultAsync<ProcessedMessage, Error>>(message => {
+              if (message.type === 'request' && message.payload.status === 'parsed') {
+                const payload = message.payload;
 
-              const isMessageProcessed = processed.includes(payload.value.messageId);
-              if (isMessageProcessed) {
-                return okAsync({ processed: false });
+                const isMessageProcessed = processed.includes(payload.value.messageId);
+                if (isMessageProcessed) {
+                  return okAsync({ processed: false });
+                }
+
+                return callback(payload.value)
+                  .orTee(error => {
+                    console.error('Error while processing sso message:', error);
+                  })
+                  .orElse(() => okAsync(false))
+                  .map(processed => (processed ? { processed, message: payload.value } : { processed }));
               }
+              return okAsync({ processed: false });
+            });
 
-              return callback(payload.value)
-                .orTee(error => {
-                  console.error('Error while processing sso message:', error);
-                })
-                .orElse(() => okAsync(false))
-                .map(processed => (processed ? { processed, message: payload.value } : { processed }));
-            }
-            return okAsync({ processed: false });
+            return ResultAsync.combine(results).andThen(results => {
+              const newMessages = results.filter(x => x.processed).map(x => x.message.messageId);
+              if (newMessages.length > 0) {
+                return processedMessages.mutate(x => x.concat(newMessages));
+              }
+              return okAsync();
+            });
+          })
+          .orTee(error => {
+            console.error('Error while updating processed sso messages:', error);
           });
-
-          return ResultAsync.combine(results).andThen(results => {
-            const newMessages = results.filter(x => x.processed).map(x => x.message.messageId);
-            if (newMessages.length > 0) {
-              return processedMessages.mutate(x => x.concat(newMessages));
-            }
-            return okAsync();
-          });
-        });
       });
     },
 

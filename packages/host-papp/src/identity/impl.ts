@@ -85,7 +85,7 @@ function createCachedIdentityRequester(storage: StorageAdapter, getKey: (account
         return okAsync(existing);
       }
 
-      return request(accounts)
+      return request(emptyIdentities)
         .andThen(writeCache)
         .map(fetched => ({
           ...existing,

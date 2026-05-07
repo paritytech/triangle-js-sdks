@@ -22,11 +22,13 @@ export function fieldView<T>({ storage, initial, key, from, to, autosync = true 
     write(value: T) {
       const data = to(value);
 
-      if (data !== null) {
-        return storage.write(key, data).map(() => value);
+      // `to` returning null means "no representation"; clear the key so
+      // persisted state stays in sync with `value`.
+      if (data === null) {
+        return storage.clear(key).map(() => null);
       }
 
-      return okAsync<null, Error>(null);
+      return storage.write(key, data).map(() => value);
     },
 
     clear() {

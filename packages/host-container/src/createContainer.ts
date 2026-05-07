@@ -1032,30 +1032,30 @@ export function createContainer(provider: Provider): Container {
           }
           const { genesisHash, transaction } = message.value;
 
+          const permissionResponse = await handleRemotePermissionSlot.call(
+            enumValue('v1', enumValue('ChainSubmit', undefined)),
+          );
+          const permissionGranted =
+            isEnumVariant(permissionResponse, 'v1') &&
+            permissionResponse.value.success === true &&
+            permissionResponse.value.value === true;
+
+          if (!permissionGranted) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'Permission denied' })));
+          }
+
+          const entry = manager.getOrCreateChain(genesisHash);
+          if (!entry) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
+          }
+
           try {
-            const permissionResponse = await handleRemotePermissionSlot.call(
-              enumValue('v1', enumValue('ChainSubmit', undefined)),
-            );
-            const permissionGranted =
-              isEnumVariant(permissionResponse, 'v1') &&
-              permissionResponse.value.success === true &&
-              permissionResponse.value.value === true;
-
-            if (!permissionGranted) {
-              return enumValue('v1', resultErr(new GenericError({ reason: 'Permission denied' })));
-            }
-
-            const entry = manager.getOrCreateChain(genesisHash);
-            if (!entry) {
-              return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
-            }
-
             const result = await manager.sendRequest(genesisHash, 'transaction_v1_broadcast', [transaction]);
-            manager.releaseChain(genesisHash);
             return enumValue('v1', resultOk((result as string) ?? null));
           } catch (e) {
-            manager.releaseChain(genesisHash);
             return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          } finally {
+            manager.releaseChain(genesisHash);
           }
         }),
       );
