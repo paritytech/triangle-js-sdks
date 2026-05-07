@@ -3,27 +3,11 @@
 ## Reporting Issues
 
 If you have found what you think is a bug,
-please [file an issue](https://github.com/novasamatech/spektr-sdk/issues/new/choose).
+please [file an issue](https://github.com/paritytech/triangle-js-sdks/issues/new).
 
-## Suggesting New Features
+## Host API Requests
 
-Feature proposals live as markdown files in `docs/features/`. To propose a new feature:
-
-1. Create a branch and add a new file to `docs/features/` (e.g., `docs/features/my-feature.md`)
-2. Include YAML frontmatter (`title`, `type: feature`, `status: draft`, `author`, `pr`)
-3. Describe the feature: summary, use cases, and proposed solution
-4. Update `docs/features/_index.md` with a link to your file
-5. Open a PR using the **feature** template (`?template=feature.md`) and add the `feature-request` and `proposal` labels
-
-## RFCs
-
-For larger changes that need cross-team discussion, use the RFC process:
-
-1. Create a branch and add a new file to `docs/rfcs/` using the next available number (e.g., `docs/rfcs/0002-my-proposal.md`)
-2. Use `docs/rfcs/0001-template.md` as a reference for the expected structure and frontmatter
-3. Update `docs/rfcs/_index.md` with a link to your RFC
-4. Open a PR using the **rfc** template (`?template=rfc.md`) and add the `rfc` and `proposal` labels
-5. The PR will be auto-added to the project board for tracking and review
+Host API change requests should be raised in [truapi](https://github.com/paritytech/truapi).
 
 ## Design Documents
 
@@ -31,7 +15,7 @@ Canonical design documentation lives in `docs/design/`. To propose updates or ad
 
 1. Edit or add a file in `docs/design/`
 2. Include YAML frontmatter (`title`, `type: design`, `status`, `author`, `created`, `pr`)
-3. Open a PR using the **design** template (`?template=design.md`) and add the `design-doc` label
+3. Open a PR with the `design-doc` label
 
 ## Development
 
