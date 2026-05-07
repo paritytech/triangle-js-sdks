@@ -28,6 +28,12 @@ export function createSsoSessionManager({
   storage,
 }: Params) {
   const localSessions = createState<Record<string, UserSession>>({});
+  const sessionUnsubscribes = new Map<string, VoidFunction>();
+
+  const releaseSession = (id: string) => {
+    sessionUnsubscribes.get(id)?.();
+    sessionUnsubscribes.delete(id);
+  };
 
   const disconnect = (session: StoredUserSession) => {
     return ssoSessionRepository.filter(s => s.id !== session.id).map(() => undefined);
@@ -47,7 +53,7 @@ export function createSsoSessionManager({
 
       toAdd.add(session);
 
-      session.subscribe(message => {
+      const unsubscribe = session.subscribe(message => {
         switch (message.data.tag) {
           case 'v1': {
             switch (message.data.value.tag) {
@@ -59,9 +65,15 @@ export function createSsoSessionManager({
 
         return okAsync(false);
       });
+
+      sessionUnsubscribes.set(session.id, unsubscribe);
     }
 
     if (toRemove.size > 0) {
+      for (const id of toRemove) {
+        releaseSession(id);
+        activeSessions[id]?.dispose();
+      }
       localSessions.write(prev => {
         return Object.fromEntries(Object.entries(prev).filter(([id]) => !toRemove.has(id)));
       });
@@ -93,6 +105,7 @@ export function createSsoSessionManager({
 
     dispose() {
       for (const session of Object.values(localSessions.read())) {
+        releaseSession(session.id);
         session.dispose();
       }
     },
