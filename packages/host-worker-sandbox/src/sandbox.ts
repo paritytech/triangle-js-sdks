@@ -30,6 +30,8 @@ export type Sandbox = {
 export type SandboxOptions = {
   // Host hook for `fetch()` inside the sandbox. If omitted, `fetch` is not injected.
   fetchResolver?: FetchResolver;
+  // Maximum request body size for fetch(), in bytes. Defaults to 100 MiB.
+  fetchMaxBodyBytes?: number;
   // Host hook for `crypto.subtle.*` inside the sandbox. If omitted, `crypto.subtle`
   // is not injected (only `crypto.getRandomValues` is available).
   subtleResolver?: SubtleResolver;
@@ -275,8 +277,20 @@ class QuickJsSandbox implements Sandbox {
     vm.setProp(vm.global, '__HOST_API_PORT__', portHandle);
     portHandle.dispose();
 
-    vm.setProp(vm.global, 'top', vm.global);
-    vm.setProp(vm.global, 'window', vm.global);
+    // `top` and `window` are aliased to globalThis so product code that performs
+    // browser-environment checks (e.g. `window === self`) succeeds. They must be
+    // non-writable / non-configurable so sandbox code cannot reassign them or
+    // delete them to swap in a malicious global.
+    const aliasResult = vm.evalCode(
+      `Object.defineProperty(globalThis, 'top', { value: globalThis, writable: false, configurable: false, enumerable: true });
+       Object.defineProperty(globalThis, 'window', { value: globalThis, writable: false, configurable: false, enumerable: true });`,
+    );
+    if (aliasResult.error) {
+      const msg = vm.dump(aliasResult.error);
+      aliasResult.error.dispose();
+      throw new Error(`Failed to alias top/window: ${JSON.stringify(msg)}`);
+    }
+    aliasResult.value.dispose();
 
     injectConsole(vm, this.provider.logger);
     injectTextEncoder(vm, this.toUint8ArrayFn);
@@ -290,7 +304,9 @@ class QuickJsSandbox implements Sandbox {
     const disposeIntervals = injectIntervals(vm);
     const disposeTimeouts = injectTimeouts(vm);
     const disposeFetch = this.options.fetchResolver
-      ? injectFetch(vm, this.toUint8ArrayFn, this.options.fetchResolver)
+      ? injectFetch(vm, this.toUint8ArrayFn, this.options.fetchResolver, {
+          maxBodyBytes: this.options.fetchMaxBodyBytes,
+        })
       : () => undefined;
     const disposeSubtle = this.options.subtleResolver
       ? injectCryptoSubtle(vm, this.toUint8ArrayFn, this.options.subtleResolver)
@@ -375,9 +391,25 @@ class QuickJsSandbox implements Sandbox {
 
     const { vm } = this;
 
-    this.disposeTimers();
-    this.port.dispose();
-    this.toUint8ArrayFn.dispose();
+    // Timer cleanup must run before vm.dispose so host intervals don't keep
+    // ticking against a freed VM.
+    try {
+      this.disposeTimers();
+    } catch (e) {
+      this.provider.logger.warn('[Sandbox] disposeTimers failed', e);
+    }
+
+    try {
+      this.port.dispose();
+    } catch (e) {
+      this.provider.logger.warn('[Sandbox] port.dispose failed', e);
+    }
+
+    try {
+      this.toUint8ArrayFn.dispose();
+    } catch (e) {
+      this.provider.logger.warn('[Sandbox] toUint8ArrayFn.dispose failed', e);
+    }
 
     // `vm.dispose()` ends in `JS_FreeRuntime`, which asserts
     // `list_empty(&rt->gc_obj_list)`. Real product code (event listeners,

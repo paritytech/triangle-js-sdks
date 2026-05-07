@@ -1,3 +1,32 @@
+## 0.7.7 (2026-05-07)
+
+### 🚀 Features
+
+- **host-worker-sandbox:** `createSandbox` accepts a new `fetchMaxBodyBytes` option that caps the size of request bodies sent through sandbox `fetch`. Defaults to 100 MiB. Oversized bodies are rejected before they're copied into host memory, so a misbehaving product can't make the host allocate against an unbounded request.
+
+### 🩹 Fixes
+
+- **host-api:** if a request handler rejects, the error is now logged instead of silently swallowed. Previously a thrown handler left the peer's `request()` hanging forever with no timeout and no diagnostic.
+- **host-container:** failed transaction submits no longer corrupt the chain connection's refcount. Earlier, if the permission check threw before the chain was acquired, the error path still released a chain that was never taken — eventually causing the connection to be torn down while other code still relied on it.
+- **host-container:** webviews no longer accumulate a port-init listener every time the host reconnects. The listener now removes itself after the first init message.
+- **host-papp:** identity cache now only fetches the identities it's actually missing, instead of refetching every account on every call and overwriting good cache entries with the round-trip result.
+- **host-papp:** SSO session manager no longer disposes a session that's still present in the incoming list when it overlaps with a new one being added. Active sessions could previously be torn down mid-flight on a refresh.
+- **host-papp:** errors during SSO message processing are surfaced instead of being silently dropped. Without this, a transient storage failure could leave the dedup state un-updated, and the same SSO message could be reprocessed on every delivery.
+- **host-substrate-chain-connection:** subscriptions that were sent but had not yet been acknowledged when the connection dropped are now replayed on reconnect. Previously the consumer waited forever for a subscription id that would never arrive, and the subscription appeared dead until a full reload.
+- **host-substrate-chain-connection:** metadata-cache write failures are now logged instead of silently ignored, so a broken cache stops being invisible.
+- **host-worker-sandbox:** `crypto.subtle` rejects unknown method names at the bridge boundary instead of forwarding sandbox-controlled strings to the host resolver.
+- **host-worker-sandbox:** `top` and `window` aliases inside the sandbox are now non-writable and non-configurable, so sandbox code cannot reassign or delete them to substitute a malicious global.
+- **host-worker-sandbox:** sandbox dispose is more resilient — each cleanup step is isolated so a failure in one (e.g. the QuickJS abort path) no longer skips the others. Host-side timers are guaranteed to stop ticking before the VM is freed.
+- **product-react-renderer:** `useAction`'s `map` argument now picks up the latest version on every call. Inline arrows passed by callers (the common case) used to be frozen at the first render and silently ignored thereafter.
+- **host-papp-react-ui:** `PairingPopover` correctly tracks its `auth` dependency, so swapping the auth controller no longer leaves the popover wired to a stale instance.
+- **statement-store:** outgoing-request size accounting is recomputed per message instead of from a stale snapshot. Previously, a message that didn't fit could be re-queued at the back of the queue against a zero-byte snapshot and spin forever; the same drift could also let the request grow past `maxRequestSize`.
+- **statement-store:** `verifyMessageProof` now rejects statements that arrive without a proof rather than treating an absent proof as valid.
+- **storage-adapter:** when a field's `to` mapper returns `null`, the underlying key is now cleared rather than left untouched. Persisted state stays in sync with the in-memory value instead of holding stale data after a clear-equivalent write.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.7.6 (2026-05-06)
 
 ### 🚀 Features

@@ -39,11 +39,12 @@ export function createSsoSessionManager({
     const toAdd = new Set<UserSession>();
 
     for (const userSession of userSessions) {
+      toRemove.delete(userSession.id);
+
       if (userSession.id in activeSessions) continue;
 
       const session = createSession(userSession, statementStore, storage, userSecretRepository);
 
-      toRemove.delete(userSession.id);
       toAdd.add(session);
 
       session.subscribe(message => {

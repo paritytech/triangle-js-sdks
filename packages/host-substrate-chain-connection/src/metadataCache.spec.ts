@@ -6,8 +6,8 @@ import { createMetadataCache } from './metadataCache.js';
 
 const createMockStorage = (): StorageAdapter => ({
   read: vi.fn(),
-  write: vi.fn(),
-  clear: vi.fn(),
+  write: vi.fn(() => okAsync(undefined)),
+  clear: vi.fn(() => okAsync(undefined)),
   // eslint-disable-next-line @typescript-eslint/no-empty-function
   subscribe: vi.fn(() => () => {}),
 });

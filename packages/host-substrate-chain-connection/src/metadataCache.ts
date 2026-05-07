@@ -54,7 +54,10 @@ export const createMetadataCache = (options?: { storage?: StorageAdapter }): Met
         setMetadata(key, metadata) {
           const k = cacheKey(chainId, key);
           memory.set(k, metadata);
-          storage?.write(k, bytesToBase64(metadata));
+          // setMetadata is fire-and-forget by contract; log persist failures.
+          storage?.write(k, bytesToBase64(metadata)).orTee(error => {
+            console.error(`[metadataCache] failed to persist metadata for ${k}:`, error);
+          });
         },
       };
     },

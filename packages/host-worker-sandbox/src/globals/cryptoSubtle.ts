@@ -26,6 +26,21 @@ export type SubtleCall =
 
 export type SubtleResolver = (call: SubtleCall) => Promise<unknown>;
 
+const VALID_SUBTLE_METHODS: ReadonlySet<string> = new Set([
+  'digest',
+  'sign',
+  'verify',
+  'encrypt',
+  'decrypt',
+  'generateKey',
+  'deriveBits',
+  'deriveKey',
+  'importKey',
+  'exportKey',
+  'wrapKey',
+  'unwrapKey',
+]);
+
 const BRIDGE_NAME = `__SUBTLE_BRIDGE_${nanoid()}__`;
 
 // In-VM `CryptoKey` is a frozen wrapper carrying an opaque host-side id; the
@@ -268,14 +283,22 @@ export function injectCryptoSubtle(
       return deferred.handle;
     }
 
+    // `method` is fully sandbox-controlled. Reject anything outside the
+    // SubtleCall union before we marshal args or hit the resolver.
+    if (!VALID_SUBTLE_METHODS.has(method)) {
+      const deferred = vm.newPromise();
+      const errHandle = vm.newError(`Unknown SubtleCrypto method: ${method}`);
+      deferred.reject(errHandle);
+      errHandle.dispose();
+      if (!disposed) vm.runtime.executePendingJobs(-1);
+      return deferred.handle;
+    }
+
     const rawArgs = (vm.dump(argsH) ?? []) as unknown[];
     const inBytes = extractBytesArray(bytesH);
 
     const deferred = vm.newPromise();
 
-    // The discriminated union demands specific arg tuples per method; we trust
-    // the VM-side wrapper to send well-formed shapes and assert the union at
-    // the boundary.
     const call = { method, args: inflate(rawArgs, inBytes) } as SubtleCall;
 
     Promise.resolve()

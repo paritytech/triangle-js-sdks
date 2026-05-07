@@ -204,9 +204,10 @@ export function createSession({
   }
 
   function processMessageQueue(): void {
-    const currentTotal = state.outgoingRequest?.messages.reduce((s, m) => s + m.length, 0) ?? 0;
     while (state.messageQueue.length > 0) {
       const head = state.messageQueue[0]!;
+      // Recompute per iteration; `processNewMessage` mutates outgoingRequest.messages in place.
+      const currentTotal = state.outgoingRequest?.messages.reduce((s, m) => s + m.length, 0) ?? 0;
       if (state.outgoingRequest !== null && currentTotal + head.encoded.length > maxRequestSize) break;
       state.messageQueue.shift();
       processNewMessage(head.encoded, head.token);
