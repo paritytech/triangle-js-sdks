@@ -18,10 +18,12 @@ npm install @novasamatech/product-bulletin --save -E
 import { createAccountsProvider } from '@novasamatech/product-sdk';
 import { BulletinChain, createBulletinClient } from '@novasamatech/product-bulletin';
 
-// Get signer from product account
+// Get a signer from a product account.
+// `getProductAccount` returns a neverthrow `ResultAsync` — unwrap before passing to the signer.
 const accounts = createAccountsProvider();
-const account = await accounts.getProductAccount('my-product.dot');
-const signer = accounts.getProductAccountSigner(account);
+const accountResult = await accounts.getProductAccount('my-product.dot');
+if (accountResult.isErr()) throw accountResult.error;
+const signer = accounts.getProductAccountSigner(accountResult.value);
 
 // Create client
 const client = createBulletinClient({
@@ -29,7 +31,6 @@ const client = createBulletinClient({
   signer,
 });
 
-// Store data
 const result = await client.store(data).send();
 console.log('Stored CID:', result.cid?.toString());
 
@@ -44,29 +45,36 @@ const largeResult = await client
 await client.destroy();
 ```
 
+> **Error handling:** unlike `@novasamatech/product-sdk`, `AsyncBulletinClient` methods **throw** on failure (they do not return `Result`). Catch `BulletinError` and inspect its `code` (see `ErrorCode`) to handle specific failure modes.
+
 ### Known networks
 
 `BulletinChain` provides genesis hashes and PAPI descriptors for known networks:
 
-| Network | Key |
-|---------|-----|
-| Bulletin Westend | `BulletinChain.westend` |
-| Bulletin Paseo | `BulletinChain.paseo` |
-| PoP Testnet (stable) | `BulletinChain.popStable` |
-| Bulletin Previewnet | `BulletinChain.previewnet` |
+| Network              | Key                        |
+|----------------------|----------------------------|
+| Bulletin Westend     | `BulletinChain.westend`    |
+| Bulletin Paseo       | `BulletinChain.paseo`      |
+| PoP Testnet (stable) | `BulletinChain.popStable`  |
+| Bulletin Previewnet  | `BulletinChain.previewnet` |
 
 ### Configuration
 
-Optional `config` parameter for chunk size and manifest behavior:
+Optional `config` parameter forwarded to `AsyncBulletinClient`. All fields are optional; see `ClientConfig` from `@parity/bulletin-sdk` for the full set and defaults.
 
 ```ts
 const client = createBulletinClient({
   ...BulletinChain.paseo,
   signer,
   config: {
-    defaultChunkSize: 1024 * 1024,  // 1 MiB
+    defaultChunkSize: 1024 * 1024,       // 1 MiB
     createManifest: true,
     chunkingThreshold: 2 * 1024 * 1024,  // 2 MiB
+    // txTimeout: 420_000,
   },
 });
 ```
+
+### Re-exports
+
+In addition to `createBulletinClient` and `BulletinChain`, this package re-exports the public surface of `@parity/bulletin-sdk` (`AsyncBulletinClient`, `BulletinError`, `ErrorCode`, `CID`, `CidCodec`, `WaitFor`, `BulletinPreparer`, `calculateCid`, `parseCid`, `cidFromBytes`, `getContentHash`, and the relevant types) so consumers don't need a direct dependency on it. Refer to the [`@parity/bulletin-sdk` documentation](https://github.com/paritytech/polkadot-bulletin-chain/tree/main/sdk/typescript) for details.

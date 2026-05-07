@@ -5,19 +5,10 @@ import { AsyncBulletinClient } from '@parity/bulletin-sdk';
 import type { PolkadotSigner } from 'polkadot-api';
 import { createClient } from 'polkadot-api';
 
-import type {
-  bulletin_paseo,
-  bulletin_pop_stable,
-  bulletin_previewnet,
-  bulletin_westend,
-} from '../.papi/descriptors/dist/index.js';
+import { BulletinChain } from './constants.js';
 
-/** Union of known Bulletin Chain descriptor types. */
-export type BulletinDescriptor =
-  | typeof bulletin_westend
-  | typeof bulletin_paseo
-  | typeof bulletin_pop_stable
-  | typeof bulletin_previewnet;
+/** Union of known Bulletin Chain descriptor types, derived from {@link BulletinChain}. */
+export type BulletinDescriptor = (typeof BulletinChain)[keyof typeof BulletinChain]['descriptor'];
 
 export interface CreateBulletinClientOptions {
   /** Bulletin Chain genesis hash — see {@link BulletinChain} for known networks */
