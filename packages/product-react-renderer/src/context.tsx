@@ -53,16 +53,20 @@ export function useAction<T>(map: (payload: Uint8Array | void) => T, callback?: 
   const { registerAction } = useRenderer();
   const ref = useRef(callback);
   ref.current = callback;
+  // Inline arrows passed by callers change identity every render; ref instead
+  // of closing over to keep the registered action up to date.
+  const mapRef = useRef(map);
+  mapRef.current = map;
 
   const actionId = `custom_renderer_action_${id}`;
 
   useEffect(() => {
     return registerAction(actionId, (_, payload) => {
       if (ref.current) {
-        ref.current(map(payload));
+        ref.current(mapRef.current(payload));
       }
     });
-  }, [actionId]);
+  }, [actionId, registerAction]);
 
   return callback ? actionId : undefined;
 }

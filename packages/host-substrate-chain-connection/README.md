@@ -24,12 +24,16 @@ import {
 } from '@novasamatech/host-substrate-chain-connection';
 import { dot } from '@polkadot-api/descriptors';
 
-const polkadot: ChainConfig = {
+// `ChainConfig` only requires `genesisHash` — extend it with whatever fields
+// your app needs (here, the WebSocket endpoints to dial).
+type Chain = ChainConfig & { nodes: string[] };
+
+const polkadot: Chain = {
   genesisHash: '0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3',
   nodes: ['wss://rpc.polkadot.io'],
 };
 
-const chains = createChainConnection({
+const chains = createChainConnection<Chain>({
   createProvider: (chain, onStatusChanged) =>
     createWsJsonRpcProvider({
       endpoints: chain.nodes,
@@ -51,8 +55,10 @@ unlock();
   - [`lockApi`](#lockapichain)
   - [`getProvider`](#getproviderchain)
   - [`status` / `onStatusChanged`](#statusgenesishash--onstatuschangedgenesishash-callback)
+  - [`pauseAll` / `resumeAll`](#pauseall--resumeall)
   - [`createWsJsonRpcProvider`](#createwsjsonrpcprovideroptions)
   - [`createMetadataCache`](#createmetadatacacheoptions)
+  - [`withSubscriptionReplay`](#withsubscriptionreplayprovider-onreconnect)
 - [Recipes](#recipes)
   - [Custom resolve](#custom-resolve)
   - [Metadata caching](#metadata-caching)
@@ -88,9 +94,10 @@ function createChainConnection<C extends ChainConfig, T = PolkadotClient>(
 ```ts
 type ChainConfig = {
   genesisHash: string;
-  nodes: string[];
 };
 ```
+
+Extend it with whatever fields your `createProvider` / `resolve` callbacks need (e.g. `nodes`, `name`, `specName`).
 
 Returns a [`ChainConnection<C, T>`](#lockapichain) with the methods below.
 
@@ -176,9 +183,38 @@ unsubscribe();
 
 ---
 
+### `pauseAll` / `resumeAll`
+
+Drops the inner socket of every active provider that supports pausing (e.g. providers built via `createWsJsonRpcProvider`). Pooled clients and ref counts are preserved; tracked subscriptions are re-sent on `resumeAll()` via the replay wrapper.
+
+Use this when the host process goes to background (mobile / OS suspend) and you want to release sockets without tearing down callers.
+
+**Signature:**
+
+```ts
+function pauseAll(): void
+function resumeAll(): void
+```
+
+**Example:**
+
+```ts
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'hidden') {
+    chains.pauseAll();
+  } else {
+    chains.resumeAll();
+  }
+});
+```
+
+---
+
 ### `createWsJsonRpcProvider(options)`
 
 WebSocket provider factory. Wraps polkadot-api's `getWsProvider` and translates WebSocket events to `ConnectionStatus`. Active JSON-RPC subscriptions are automatically replayed after a reconnect — consumers using `getProvider` don't need to handle reconnects manually.
+
+The returned provider is **pausable**: `pause()` drops the inner socket and `resume()` reopens it. The connection pool calls these via `pauseAll()` / `resumeAll()`.
 
 **Signature:**
 
@@ -186,8 +222,26 @@ WebSocket provider factory. Wraps polkadot-api's `getWsProvider` and translates 
 function createWsJsonRpcProvider(options: {
   endpoints: string[];
   onStatusChanged?: (status: ConnectionStatus) => void;
-}): JsonRpcProvider;
+  websocketClass?: typeof WebSocket;
+  heartbeatTimeout?: number;
+  connectionTimeout?: number;
+  logger?: SocketLoggerFn;
+}): PausableJsonRpcProvider;
+
+type PausableJsonRpcProvider = JsonRpcProvider & {
+  pause(): void;
+  resume(): void;
+};
 ```
+
+| Field | Description |
+|---|---|
+| `endpoints` | One or more WebSocket URLs. Failover is handled by the underlying `getWsProvider`. |
+| `onStatusChanged` | Optional. Called with `'connecting' \| 'connected' \| 'disconnected'` on socket events. |
+| `websocketClass` | Optional. Override the WebSocket implementation (e.g. `ws` in Node). |
+| `heartbeatTimeout` | Optional. Milliseconds without a server message before the socket is considered dead. Defaults to the underlying library's 40 s. |
+| `connectionTimeout` | Optional. Milliseconds to wait for the initial connection before giving up. |
+| `logger` | Optional. A `SocketLoggerFn` from `@polkadot-api/ws-provider` for tracing socket events. |
 
 **Example:**
 
@@ -226,10 +280,29 @@ import { createLocalStorageAdapter } from '@novasamatech/storage-adapter';
 const cache = createMetadataCache();
 
 // With localStorage persistence (survives page reloads)
-const cache = createMetadataCache({
+const persistedCache = createMetadataCache({
   storage: createLocalStorageAdapter('chain-metadata'),
 });
 ```
+
+---
+
+### `withSubscriptionReplay(provider, onReconnect)`
+
+Wraps any `JsonRpcProvider` so that active JSON-RPC subscriptions are automatically re-sent after the underlying transport reconnects. `createWsJsonRpcProvider` applies this internally — use it directly only when building a custom provider that needs the same behavior.
+
+**Signature:**
+
+```ts
+function withSubscriptionReplay(
+  provider: JsonRpcProvider,
+  onReconnect: (callback: VoidFunction) => VoidFunction,
+): JsonRpcProvider;
+```
+
+`onReconnect` is a subscription primitive: call the supplied `callback` whenever your transport finishes reconnecting, and return a teardown function that removes the listener.
+
+> **Note:** After a reconnect the server assigns new subscription IDs. Always unsubscribe with the most recently received ID — stale IDs from a previous connection silently fail.
 
 ## Recipes
 
@@ -241,12 +314,14 @@ The `resolve` callback transforms the raw `PolkadotClient` into whatever your ap
 import { type PolkadotClient, type TypedApi } from 'polkadot-api';
 import { dot, type DotDescriptor } from '@polkadot-api/descriptors';
 
+type Chain = ChainConfig & { nodes: string[] };
+
 type ResolvedApi = {
   api: TypedApi<DotDescriptor>;
   client: PolkadotClient;
 };
 
-const chains = createChainConnection<ChainConfig, ResolvedApi>({
+const chains = createChainConnection<Chain, ResolvedApi>({
   createProvider(chain, onStatusChanged) {
     return createWsJsonRpcProvider({
       endpoints: chain.nodes,
@@ -275,11 +350,13 @@ unlock();
 ```ts
 import { createLocalStorageAdapter } from '@novasamatech/storage-adapter';
 
+type Chain = ChainConfig & { nodes: string[] };
+
 const metadataCache = createMetadataCache({
   storage: createLocalStorageAdapter('chain-metadata'),
 });
 
-const chains = createChainConnection({
+const chains = createChainConnection<Chain>({
   createProvider: (chain, onStatusChanged) =>
     createWsJsonRpcProvider({
       endpoints: chain.nodes,
@@ -302,6 +379,7 @@ import { type Client as SmoldotClient, start as startSmoldot } from 'polkadot-ap
 
 type MyChain = ChainConfig & {
   name: string;
+  nodes: string[];
   lightClient?: boolean;
 };
 
@@ -361,11 +439,16 @@ Common additions beyond `api` and `client`:
 
 ```ts
 import { dot, ksm, type DotDescriptor, type KsmDescriptor } from '@polkadot-api/descriptors';
-import { type ChainDefinition, type CompatibilityToken, type TypedApi, getTypedCodecs } from 'polkadot-api';
+import { type ChainDefinition, type CompatibilityToken, type PolkadotClient, type TypedApi, getTypedCodecs } from 'polkadot-api';
+
+type Chain = ChainConfig & { nodes: string[] };
+
+const POLKADOT_GENESIS = '0x91b171bb158e2d3848fa23a9f1c25182fb8e20313b2c1eb49219da7a70ce90c3';
+const KUSAMA_GENESIS = '0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe';
 
 const descriptorMap: Record<string, ChainDefinition> = {
-  [polkadot.genesisHash]: dot,
-  [kusama.genesisHash]: ksm,
+  [POLKADOT_GENESIS]: dot,
+  [KUSAMA_GENESIS]: ksm,
 };
 
 type ResolvedApi = {
@@ -375,7 +458,7 @@ type ResolvedApi = {
   compatibilityToken: CompatibilityToken;
 };
 
-const chains = createChainConnection<MyChain, ResolvedApi>({
+const chains = createChainConnection<Chain, ResolvedApi>({
   createProvider: (chain, onStatusChanged) =>
     createWsJsonRpcProvider({
       endpoints: chain.nodes,
@@ -491,6 +574,7 @@ import { dot, dot_ah, dot_ppl, ksm, ksm_ah, wnd, wnd_ah } from '@polkadot-api/de
 
 type Chain = ChainConfig & {
   name: string;
+  nodes: string[];
   specName: string;
 };
 

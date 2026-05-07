@@ -27,8 +27,7 @@ export function createSr25519Prover(secret: Uint8Array): StatementProver {
       const { proof, ...unsigned } = statement;
 
       if (!proof) {
-        // TODO should we pass check when proof is not presented?
-        return okAsync(true);
+        return errAsync(new Error('Proof is not provided'));
       }
 
       const encoded = statementCodec.enc(unsigned);

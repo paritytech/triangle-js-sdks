@@ -8,7 +8,7 @@ import {
   verify as sr25519Verify,
 } from '@scure/sr25519';
 import type { Codec } from 'scale-ts';
-import { Bytes, str } from 'scale-ts';
+import { Bytes, str, u64 } from 'scale-ts';
 
 export function BrandedBytesCodec<T extends Uint8Array>(length?: number) {
   return Bytes(length) as unknown as Codec<T>;
@@ -41,9 +41,21 @@ function parseDerivations(derivationsStr: string) {
   return derivations;
 }
 
+const JUNCTION_ID_LEN = 32;
+const NUMERIC_JUNCTION_RE = /^\d+$/;
+
+// Substrate `DeriveJunction` chain-code encoding (sp_core::crypto::DeriveJunction):
+// - if the junction parses as an unsigned integer, SCALE-encode as u64 LE
+// - otherwise SCALE-encode as a string (compact length + UTF-8)
+// - if the encoded payload is longer than 32 bytes, replace it with blake2-256(payload)
+// - left-pad / truncate the result into a 32-byte chain code
 function createChainCode(derivation: string) {
-  const chainCode = new Uint8Array(32);
-  chainCode.set(str.enc(derivation));
+  const encoded = NUMERIC_JUNCTION_RE.test(derivation) ? u64.enc(BigInt(derivation)) : str.enc(derivation);
+  if (encoded.length > JUNCTION_ID_LEN) {
+    return blake2b(encoded, { dkLen: JUNCTION_ID_LEN });
+  }
+  const chainCode = new Uint8Array(JUNCTION_ID_LEN);
+  chainCode.set(encoded);
   return chainCode;
 }
 

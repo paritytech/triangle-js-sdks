@@ -1,3 +1,62 @@
+## 0.7.7 (2026-05-07)
+
+### 🚀 Features
+
+- **host-worker-sandbox:** new `fetchMaxBodyBytes` option on `createSandbox` caps sandbox `fetch` request body size (default 100 MiB), so a misbehaving product can't trigger unbounded host allocations.
+
+### 🩹 Fixes
+
+- **host-api:** failed request handlers are logged; callers no longer hang forever on a thrown handler.
+- **host-container:** failed transaction submits no longer corrupt the chain connection's refcount.
+- **host-container:** webview reconnects no longer accumulate stale port-init listeners.
+- **host-papp:** identity cache fetches only the missing accounts, instead of refetching everyone on every call.
+- **host-papp:** SSO session lifecycle is more robust — active sessions are no longer disposed mid-flight on a refresh, and evicted sessions properly release their subscriptions so removed sessions can't trigger phantom disconnects.
+- **host-papp:** errors during SSO message processing are surfaced instead of silently dropped, so a transient storage failure no longer causes the same message to be reprocessed forever.
+- **host-papp:** SSO People-chain signing works against the latest polkadot-sdk runtime again — signatures were rejected after the recent `VerifySignature` variant reorder.
+- **host-substrate-chain-connection:** in-flight subscriptions are replayed on reconnect instead of going silently dead until a full reload.
+- **host-substrate-chain-connection:** chain connections are released even when a provider is shut down without calling `disconnect`, preventing connections from being held open by torn-down consumers.
+- **host-substrate-chain-connection:** metadata-cache write failures are now logged instead of silently ignored.
+- **host-worker-sandbox:** `crypto.subtle` rejects unknown method names at the sandbox boundary instead of forwarding them to the host.
+- **host-worker-sandbox:** sandbox `top` / `window` aliases can no longer be reassigned or deleted from inside the sandbox.
+- **host-worker-sandbox:** sandbox dispose is more resilient — a failure in one cleanup step no longer skips the others, and host-side timers always stop before the VM is freed.
+- **product-react-renderer:** `useAction`'s `map` callback is read fresh on every call, so inline arrows are no longer frozen at first render.
+- **host-papp-react-ui:** `PairingPopover` correctly re-renders when its `auth` controller changes instead of staying wired to a stale instance.
+- **statement-store:** outgoing-request size is tracked correctly across batched messages, fixing a possible queue spin and a `maxRequestSize` overshoot.
+- **statement-store:** batched requests no longer lose responses — a reply to any id submitted for the batch now resolves all pending tokens.
+- **statement-store:** session initialization failures are surfaced — pending requests are rejected with the underlying error instead of wedging the session forever.
+- **statement-store:** statements arriving without a cryptographic proof are now rejected as invalid (previously treated as valid).
+- **storage-adapter:** when a field's `to` mapper returns `null`, the underlying key is now cleared rather than left untouched.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- Dmitry @duewarn
+
+## 0.7.6 (2026-05-06)
+
+### 🚀 Features
+
+- **host-worker-sandbox:** sandbox code can now use `Blob`, `FormData`, `AbortController` / `AbortSignal` (spec-compliant, including `reason`, `throwIfAborted`, `onabort`, and the `abort` / `timeout` / `any` statics), and `DOMException`.
+- **host-worker-sandbox:** `fetch` (with `Headers`, `Request`, `Response`) is available when the host passes a `fetchResolver` to `createSandbox`. The host decides how requests are made; sandbox `AbortSignal`s propagate to the resolver.
+- **host-worker-sandbox:** `crypto.subtle` is available when the host passes a `subtleResolver`. Resolver args are typed per method, so handlers get full inference without casts.
+- **host-api / host-container / host-papp:** products can now request resource allocations from the host (RFC-0010) — statement-store allowances, bulletin allowances, smart-contract allowances per derivation index, and auto-signing. The host forwards the request to the paired Polkadot Mobile app, which approves or rejects each resource individually; the product receives a per-resource outcome (`Allocated`, `Rejected`, or `NotAvailable`). Exposed as `requestResourceAllocation` on the host-api side and `handleRequestResourceAllocation` on the container side.
+- **host-api / host-container:** new `statementStoreCreateProofAuthorized` request lets a product create a statement-store proof against a host-managed allowance slot, without having to nominate a product account. Handled via the new `handleStatementStoreCreateProofAuthorized` slot on the container.
+- **host-papp:** SSO `signPayload` / `signRaw` accept a product account ID (`[dotNsIdentifier, derivationIndex]`) directly, so callers can route a signing request to a specific product account without resolving its SS58 address first.
+
+### 🩹 Fixes
+
+- **host-worker-sandbox:** `crypto.getRandomValues` is now spec-compliant — returns the same array passed in, preserves the view type (e.g. `Uint32Array`), and only fills the bytes the view covers (previously could clobber adjacent bytes of the underlying buffer).
+- **statement-store:** key derivation now matches Substrate's standard derivation rules, so keys derived from the same path agree with other Polkadot tooling. Paths that previously produced incompatible or unusable keys (numeric segments, long segments) now derive correctly.
+
+### ⚠️ Breaking Changes
+
+- **host-papp:** SSO `signPayload` / `signRaw` now identify the signing account by product account ID (`[dotNsIdentifier, derivationIndex]`) instead of an SS58 address. Callers no longer need to know or convert the remote account's address to ask the paired Polkadot Mobile app to sign — they pick the product account directly.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- valentunn @valentunn
+
 ## 0.7.5 (2026-05-01)
 
 ### 🚀 Features

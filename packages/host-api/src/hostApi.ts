@@ -14,6 +14,7 @@ import { StorageErr } from './protocol/v1/localStorage.js';
 import { NavigateToErr } from './protocol/v1/navigation.js';
 import { PaymentRequestErr, PaymentTopUpErr } from './protocol/v1/payments.js';
 import { PreimageSubmitErr } from './protocol/v1/preimage.js';
+import { ResourceAllocationErr } from './protocol/v1/resourceAllocation.js';
 import { SigningErr } from './protocol/v1/sign.js';
 import { StatementProofErr } from './protocol/v1/statementStore.js';
 import type { Subscription, Transport } from './types.js';
@@ -274,6 +275,13 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
+    statementStoreCreateProofAuthorized(payload) {
+      return makeRequest(transport.request('remote_statement_store_create_proof_authorized', payload), reason => ({
+        tag: payload.tag,
+        value: new StatementProofErr.Unknown({ reason }),
+      }));
+    },
+
     statementStoreSubmit(payload) {
       return makeRequest(transport.request('remote_statement_store_submit', payload), reason => ({
         tag: payload.tag,
@@ -312,6 +320,13 @@ export function createHostApi(transport: Transport): HostApi {
 
     paymentStatusSubscribe(args, callback) {
       return transport.subscribe('host_payment_status_subscribe', args, callback);
+    },
+
+    requestResourceAllocation(payload) {
+      return makeRequest(transport.request('host_request_resource_allocation', payload), reason => ({
+        tag: payload.tag,
+        value: new ResourceAllocationErr.Unknown({ reason }),
+      }));
     },
 
     // chain interaction

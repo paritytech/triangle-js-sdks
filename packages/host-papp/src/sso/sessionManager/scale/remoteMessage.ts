@@ -1,6 +1,7 @@
 import type { CodecType } from 'scale-ts';
 import { Enum, Struct, _void, str } from 'scale-ts';
 
+import { ResourceAllocationRequestCodec, ResourceAllocationResponseCodec } from './resourceAllocation.js';
 import { RingVrfAliasRequestCodec, RingVrfAliasResponseCodec } from './ringVrf.js';
 import { SigningRequestCodec } from './signingRequest.js';
 import { SigningResponseCodec } from './signingResponse.js';
@@ -15,6 +16,8 @@ export const RemoteMessageCodec = Struct({
       SignResponse: SigningResponseCodec,
       RingVrfAliasRequest: RingVrfAliasRequestCodec,
       RingVrfAliasResponse: RingVrfAliasResponseCodec,
+      ResourceAllocationRequest: ResourceAllocationRequestCodec,
+      ResourceAllocationResponse: ResourceAllocationResponseCodec,
     }),
   }),
 });

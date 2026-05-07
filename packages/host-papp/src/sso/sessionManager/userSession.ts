@@ -1,6 +1,5 @@
 import { ContextualAlias, ProductAccountId } from '@novasamatech/host-api';
-import type { HexString } from '@novasamatech/scale';
-import { enumValue, toHex } from '@novasamatech/scale';
+import { enumValue } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
@@ -8,7 +7,6 @@ import { fieldListView } from '@novasamatech/storage-adapter';
 import { nanoid } from 'nanoid';
 import type { Result } from 'neverthrow';
 import { ResultAsync, err, ok, okAsync } from 'neverthrow';
-import { AccountId } from 'polkadot-api';
 import type { CodecType } from 'scale-ts';
 
 import { createAsyncTaskPool } from '../../helpers/createAsyncTaskPool.js';
@@ -18,6 +16,7 @@ import type { StoredUserSession } from '../userSessionRepository.js';
 
 import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
+import type { ApAllocationOutcome, ResourceAllocationRequest } from './scale/resourceAllocation.js';
 import type { SigningPayloadRequest, SigningRawRequest } from './scale/signingRequest.js';
 import type { SigningPayloadResponseData } from './scale/signingResponse.js';
 
@@ -51,6 +50,7 @@ export type UserSession = StoredUserSession & {
     productAccountId: CodecType<typeof ProductAccountId>,
     productId: string,
   ): ResultAsync<CodecType<typeof ContextualAlias>, Error>;
+  requestResourceAllocation(request: ResourceAllocationRequest): ResultAsync<ApAllocationOutcome[], Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
 };
@@ -68,8 +68,6 @@ export function createUserSession({
   storage: StorageAdapter;
   prover: StatementProver;
 }): UserSession {
-  const accountId = AccountId();
-
   const requestQueue = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
 
   const session = createSession({
@@ -87,19 +85,6 @@ export function createUserSession({
     to: JSON.stringify,
   });
 
-  function toAccountId(address: string) {
-    // already an account id
-    if (address.startsWith('0x') && address.length === 64 + 2) {
-      return address as HexString;
-    }
-
-    return toHex(accountId.enc(address));
-  }
-
-  function toAddress(account: HexString) {
-    return accountId.dec(account);
-  }
-
   return {
     id: userSession.id,
     localAccount: userSession.localAccount,
@@ -110,16 +95,7 @@ export function createUserSession({
         const messageId = nanoid();
         const request = session.request(RemoteMessageCodec, {
           messageId,
-          data: enumValue(
-            'v1',
-            enumValue(
-              'SignRequest',
-              enumValue('Payload', {
-                ...payload,
-                address: toAddress(toAccountId(payload.address)),
-              }),
-            ),
-          ),
+          data: enumValue('v1', enumValue('SignRequest', enumValue('Payload', payload))),
         });
 
         const responseFilter = (message: RemoteMessage) => {
@@ -151,16 +127,7 @@ export function createUserSession({
         const messageId = nanoid();
         const request = session.request(RemoteMessageCodec, {
           messageId,
-          data: enumValue(
-            'v1',
-            enumValue(
-              'SignRequest',
-              enumValue('Raw', {
-                ...payload,
-                address: toAddress(toAccountId(payload.address)),
-              }),
-            ),
-          ),
+          data: enumValue('v1', enumValue('SignRequest', enumValue('Raw', payload))),
         });
 
         const responseFilter = (message: RemoteMessage) => {
@@ -228,36 +195,67 @@ export function createUserSession({
       });
     },
 
+    requestResourceAllocation(request) {
+      return requestQueue.call(() => {
+        const messageId = nanoid();
+        const sendRequest = session.request(RemoteMessageCodec, {
+          messageId,
+          data: enumValue('v1', enumValue('ResourceAllocationRequest', request)),
+        });
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'ResourceAllocationResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        const inner = sendRequest
+          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+          .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
+
+        return withQueueTimeout(inner, 'requestResourceAllocation');
+      });
+    },
+
     subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>) {
       return session.subscribe(RemoteMessageCodec, messages => {
-        processedMessages.read().andThen(processed => {
-          const results = messages.map<ResultAsync<ProcessedMessage, Error>>(message => {
-            if (message.type === 'request' && message.payload.status === 'parsed') {
-              const payload = message.payload;
+        processedMessages
+          .read()
+          .andThen(processed => {
+            const results = messages.map<ResultAsync<ProcessedMessage, Error>>(message => {
+              if (message.type === 'request' && message.payload.status === 'parsed') {
+                const payload = message.payload;
 
-              const isMessageProcessed = processed.includes(payload.value.messageId);
-              if (isMessageProcessed) {
-                return okAsync({ processed: false });
+                const isMessageProcessed = processed.includes(payload.value.messageId);
+                if (isMessageProcessed) {
+                  return okAsync({ processed: false });
+                }
+
+                return callback(payload.value)
+                  .orTee(error => {
+                    console.error('Error while processing sso message:', error);
+                  })
+                  .orElse(() => okAsync(false))
+                  .map(processed => (processed ? { processed, message: payload.value } : { processed }));
               }
+              return okAsync({ processed: false });
+            });
 
-              return callback(payload.value)
-                .orTee(error => {
-                  console.error('Error while processing sso message:', error);
-                })
-                .orElse(() => okAsync(false))
-                .map(processed => (processed ? { processed, message: payload.value } : { processed }));
-            }
-            return okAsync({ processed: false });
+            return ResultAsync.combine(results).andThen(results => {
+              const newMessages = results.filter(x => x.processed).map(x => x.message.messageId);
+              if (newMessages.length > 0) {
+                return processedMessages.mutate(x => x.concat(newMessages));
+              }
+              return okAsync();
+            });
+          })
+          .orTee(error => {
+            console.error('Error while updating processed sso messages:', error);
           });
-
-          return ResultAsync.combine(results).andThen(results => {
-            const newMessages = results.filter(x => x.processed).map(x => x.message.messageId);
-            if (newMessages.length > 0) {
-              return processedMessages.mutate(x => x.concat(newMessages));
-            }
-            return okAsync();
-          });
-        });
       });
     },
 

@@ -51,7 +51,7 @@ export const PairingPopover = memo(
       return () => {
         auth.abortAuthentication();
       };
-    }, []);
+    }, [auth]);
 
     return (
       <Popover.Root open={open} onOpenChange={togglePopover}>

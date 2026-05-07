@@ -94,6 +94,15 @@ export const withSubscriptionReplay =
     });
 
     const unsubReconnect = onReconnect(() => {
+      // Replay unconfirmed subscribes first: their `reconnectFor === null`, so
+      // they're disjoint from the entries inserted by the active-replay loop
+      // below (which all carry a non-null `reconnectFor`).
+      for (const [, pending] of pendingSubscriptions) {
+        if (pending.reconnectFor === null) conn.send(pending.payload);
+      }
+
+      // Replay confirmed subscriptions: the server returns a fresh subId, which
+      // we map back to the consumer's stable subId.
       for (const [consumerSubId, sub] of activeSubscriptions) {
         pendingSubscriptions.set(sub.id, { payload: sub.payload, reconnectFor: consumerSubId });
         conn.send(sub.payload);

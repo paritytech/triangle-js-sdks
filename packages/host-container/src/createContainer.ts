@@ -29,6 +29,7 @@ import {
   PreimageSubmitErr,
   RemotePermission,
   RequestCredentialsErr,
+  ResourceAllocationErr,
   SigningErr,
   StatementProofErr,
   StorageErr,
@@ -408,6 +409,11 @@ export function createContainer(provider: Provider): Container {
     () => new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
+  const handleStatementStoreCreateProofAuthorizedSlot = makeNotImplementedSlot(
+    'remote_statement_store_create_proof_authorized',
+    () => new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
   const handlePreimageSubmitSlot = makePermissionGatedRequestSlot(
     'remote_preimage_submit',
     'PreimageSubmit',
@@ -423,6 +429,12 @@ export function createContainer(provider: Provider): Container {
   const handlePaymentRequestSlot = makeNotImplementedSlot(
     'host_payment_request',
     () => new PaymentRequestErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
+  // resource allocation slot
+  const handleRequestResourceAllocationSlot = makeNotImplementedSlot(
+    'host_request_resource_allocation',
+    () => new ResourceAllocationErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
   // subscription slots — default interrupts on next microtask so that
@@ -682,6 +694,14 @@ export function createContainer(provider: Provider): Container {
       );
     },
 
+    handleStatementStoreCreateProofAuthorized(handler) {
+      return handleV1Request(
+        handleStatementStoreCreateProofAuthorizedSlot,
+        () => new StatementProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
     handleStatementStoreSubmit(handler) {
       return handleV1Request(
         handleStatementStoreSubmitSlot,
@@ -724,6 +744,14 @@ export function createContainer(provider: Provider): Container {
 
     handlePaymentStatusSubscribe(handler) {
       return handleV1Subscription(handlePaymentStatusSubscribeSlot, handler);
+    },
+
+    handleRequestResourceAllocation(handler) {
+      return handleV1Request(
+        handleRequestResourceAllocationSlot,
+        () => new ResourceAllocationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
     },
 
     // chain interaction
@@ -1004,30 +1032,30 @@ export function createContainer(provider: Provider): Container {
           }
           const { genesisHash, transaction } = message.value;
 
+          const permissionResponse = await handleRemotePermissionSlot.call(
+            enumValue('v1', enumValue('ChainSubmit', undefined)),
+          );
+          const permissionGranted =
+            isEnumVariant(permissionResponse, 'v1') &&
+            permissionResponse.value.success === true &&
+            permissionResponse.value.value === true;
+
+          if (!permissionGranted) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'Permission denied' })));
+          }
+
+          const entry = manager.getOrCreateChain(genesisHash);
+          if (!entry) {
+            return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
+          }
+
           try {
-            const permissionResponse = await handleRemotePermissionSlot.call(
-              enumValue('v1', enumValue('ChainSubmit', undefined)),
-            );
-            const permissionGranted =
-              isEnumVariant(permissionResponse, 'v1') &&
-              permissionResponse.value.success === true &&
-              permissionResponse.value.value === true;
-
-            if (!permissionGranted) {
-              return enumValue('v1', resultErr(new GenericError({ reason: 'Permission denied' })));
-            }
-
-            const entry = manager.getOrCreateChain(genesisHash);
-            if (!entry) {
-              return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
-            }
-
             const result = await manager.sendRequest(genesisHash, 'transaction_v1_broadcast', [transaction]);
-            manager.releaseChain(genesisHash);
             return enumValue('v1', resultOk((result as string) ?? null));
           } catch (e) {
-            manager.releaseChain(genesisHash);
             return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          } finally {
+            manager.releaseChain(genesisHash);
           }
         }),
       );
