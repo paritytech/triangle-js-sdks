@@ -1,3 +1,24 @@
+## 0.7.8 (2026-05-08)
+
+### 🚀 Features
+
+- **product-bulletin:** new `@novasamatech/product-bulletin` package — a Bulletin Chain client adapter for product apps.
+- **host-papp:** the paired Polkadot Mobile app now reports a dedicated identity account alongside the remote signing account, and `UserSession` exposes it as `identityAccountId`. The `useSessionIdentity` hook reads from this field, so on-chain identity (display name, avatar) resolves against the user's identity account rather than the per-product signing account.
+
+### ⚠️ Breaking Changes
+
+- **host-papp:** the SSO handshake response payload now carries an `identityAccountId` field. Older paired Polkadot Mobile clients that don't send this field will fail to handshake — both ends must be on a compatible version.
+
+### Chore
+
+- Refined e2e and unit tests
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- Filippo
+- RafalMirowski1
+
 ## 0.7.7 (2026-05-07)
 
 ### 🚀 Features

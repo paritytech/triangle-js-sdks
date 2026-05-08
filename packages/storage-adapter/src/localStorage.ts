@@ -4,9 +4,11 @@ import { fromAsyncThrowable } from 'neverthrow';
 import { toError } from './helpers.js';
 import type { StorageAdapter } from './types.js';
 
+export const LOCAL_STORAGE_PREFIX = 'polkadot_';
+
 export function createLocalStorageAdapter(prefix: string): StorageAdapter {
   const events = createNanoEvents<Record<string, (value: string | null) => unknown>>();
-  const prefixPattern = `polkadot_${prefix}_`;
+  const prefixPattern = `${LOCAL_STORAGE_PREFIX}${prefix}_`;
   const withPrefix = (key: string) => `${prefixPattern}${key}`;
 
   return {
