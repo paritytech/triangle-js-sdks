@@ -1,5 +1,5 @@
 import { Enum } from '@novasamatech/scale';
-import { Bytes, Option, Struct, Tuple, str } from 'scale-ts';
+import { Bytes, Option, Struct, str } from 'scale-ts';
 
 import { EncrPubKey, SsPubKey } from '../../../crypto.js';
 
@@ -20,4 +20,8 @@ export const HandshakeResponsePayload = Enum({
   v1: Struct({ encrypted: Bytes(), tmpKey: Bytes(65) }),
 });
 
-export const HandshakeResponseSensitiveData = Tuple(Bytes(65), Bytes(32));
+export const HandshakeResponseSensitiveData = Struct({
+  sharedSecretDerivationKey: Bytes(65),
+  rootUserAccountId: Bytes(32),
+  identityAccountId: Bytes(32),
+});

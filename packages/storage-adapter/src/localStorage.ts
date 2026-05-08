@@ -6,7 +6,7 @@ import type { StorageAdapter } from './types.js';
 
 export function createLocalStorageAdapter(prefix: string): StorageAdapter {
   const events = createNanoEvents<Record<string, (value: string | null) => unknown>>();
-  const prefixPattern = `PAPP_${prefix}_`;
+  const prefixPattern = `polkadot_${prefix}_`;
   const withPrefix = (key: string) => `${prefixPattern}${key}`;
 
   return {

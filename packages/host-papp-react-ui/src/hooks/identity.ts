@@ -46,5 +46,5 @@ export function useIdentity(accountId: AccountId | null) {
 }
 
 export function useSessionIdentity(session: UserSession | null) {
-  return useIdentity(session ? session.remoteAccount.accountId : null);
+  return useIdentity(session ? session.identityAccountId : null);
 }
