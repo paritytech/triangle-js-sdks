@@ -15,19 +15,19 @@ const storedUserSessionCodec = Struct({
   id: str,
   localAccount: LocalSessionAccountCodec,
   remoteAccount: RemoteSessionAccountCodec,
-  identityAccountId: AccountIdCodec,
+  rootAccountId: AccountIdCodec,
 });
 
 export function createStoredUserSession(
   localAccount: LocalSessionAccount,
   remoteAccount: RemoteSessionAccount,
-  identityAccountId: AccountId,
+  rootAccountId: AccountId,
 ): StoredUserSession {
   return {
     id: nanoid(12),
     localAccount: localAccount,
     remoteAccount: remoteAccount,
-    identityAccountId,
+    rootAccountId,
   };
 }
 

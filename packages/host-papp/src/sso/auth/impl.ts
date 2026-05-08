@@ -270,9 +270,9 @@ function retrieveSession({
       const { sharedSecretDerivationKey, rootUserAccountId, identityAccountId } =
         HandshakeResponseSensitiveData.dec(decrypted);
       const sharedSecret = createSharedSecret(encrSecret, sharedSecretDerivationKey);
-      const peerAccount = createRemoteSessionAccount(createAccountId(rootUserAccountId), sharedSecret);
+      const remoteAccount = createRemoteSessionAccount(createAccountId(identityAccountId), sharedSecret);
 
-      return createStoredUserSession(localAccount, peerAccount, createAccountId(identityAccountId));
+      return createStoredUserSession(localAccount, remoteAccount, createAccountId(rootUserAccountId));
     });
 }
 
