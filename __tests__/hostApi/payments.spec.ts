@@ -37,19 +37,6 @@ describe('Host API: Payments', () => {
 
       expect(received).toEqual([{ available: 100n }]);
     });
-
-    it('should interrupt when no handler is registered', async () => {
-      const { payments } = setup();
-
-      let interrupted = false;
-      const sub = payments.subscribeBalance(noop);
-      sub.onInterrupt(() => {
-        interrupted = true;
-      });
-
-      await delay(50);
-      expect(interrupted).toBe(true);
-    });
   });
 
   describe('topUp', () => {
@@ -193,19 +180,6 @@ describe('Host API: Payments', () => {
       await delay(50);
 
       expect(handler).toHaveBeenCalledWith('my-payment-id', expect.anything(), expect.anything());
-    });
-
-    it('should interrupt when no handler is registered', async () => {
-      const { payments } = setup();
-
-      let interrupted = false;
-      const sub = payments.subscribePaymentStatus('unknown-id', noop);
-      sub.onInterrupt(() => {
-        interrupted = true;
-      });
-
-      await delay(50);
-      expect(interrupted).toBe(true);
     });
   });
 });

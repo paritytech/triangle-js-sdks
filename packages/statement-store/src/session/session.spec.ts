@@ -122,7 +122,12 @@ describe('session', () => {
     it('queries own and peer statements on creation', async () => {
       const { adapter } = makeSession();
       await delay();
-      expect(adapter.queryStatements).toHaveBeenCalledTimes(2);
+      // Two single-topic matchAll queries — one per channel (outgoing/incoming).
+      // The topics must differ; otherwise both queries would target the same channel.
+      const topics = adapter.queryStatements.mock.calls.map(([f]) => (f as { matchAll: unknown[] }).matchAll);
+      expect(topics).toHaveLength(2);
+      expect(topics.map(t => t.length)).toEqual([1, 1]);
+      expect(topics[0]).not.toEqual(topics[1]);
     });
 
     it('expiry is initialized from max own statement expiry', async () => {

@@ -164,6 +164,82 @@ describe('chainConnectionManager', () => {
       mock.simulateMessage({ jsonrpc: '2.0', id: followCalls[1]!.id, result: 'sub-id-2' });
       expect(manager.hasActiveFollow(GENESIS)).toBe(true);
     });
+
+    it('routes follow events to the new listener after stop+refollow (regression: best blocks must keep flowing)', () => {
+      // Reproduces the user-reported scenario: WS reconnect produces a Stop,
+      // the papp refollows, and subsequent chain events (notably
+      // bestBlockChanged) must reach the NEW listener under the NEW chainSubId.
+      const mock = createMockProvider();
+      const manager = createChainConnectionManager(() => mock.provider);
+
+      const firstEvents: unknown[] = [];
+      const secondEvents: unknown[] = [];
+
+      manager.getOrCreateChain(GENESIS);
+      manager.startFollow(GENESIS, true, e => firstEvents.push(e));
+      mock.simulateMessage({ jsonrpc: '2.0', id: findCallId(mock, 'chainHead_v1_follow'), result: 'sub-id-1' });
+
+      // Sanity: events on the first follow reach the first listener.
+      mock.simulateMessage({
+        jsonrpc: '2.0',
+        method: 'chainHead_v1_followEvent',
+        params: { subscription: 'sub-id-1', result: { event: 'bestBlockChanged', bestBlockHash: '0xaa' } },
+      });
+      expect(firstEvents).toContainEqual({ event: 'bestBlockChanged', bestBlockHash: '0xaa' });
+
+      // Stop kills the first follow.
+      mock.simulateMessage({
+        jsonrpc: '2.0',
+        method: 'chainHead_v1_followEvent',
+        params: { subscription: 'sub-id-1', result: { event: 'stop' } },
+      });
+
+      // Papp refollows with a fresh listener.
+      manager.startFollow(GENESIS, true, e => secondEvents.push(e));
+      const followCalls = sentMessages(mock).filter(m => m.method === 'chainHead_v1_follow');
+      expect(followCalls).toHaveLength(2);
+      mock.simulateMessage({ jsonrpc: '2.0', id: followCalls[1]!.id, result: 'sub-id-2' });
+
+      // Server now streams events under the NEW chainSubId.
+      mock.simulateMessage({
+        jsonrpc: '2.0',
+        method: 'chainHead_v1_followEvent',
+        params: {
+          subscription: 'sub-id-2',
+          result: {
+            event: 'initialized',
+            finalizedBlockHashes: ['0xbb'],
+            finalizedBlockRuntime: {
+              type: 'valid',
+              spec: { specName: 'x', implName: 'y', specVersion: 1, implVersion: 1, apis: {} },
+            },
+          },
+        },
+      });
+      mock.simulateMessage({
+        jsonrpc: '2.0',
+        method: 'chainHead_v1_followEvent',
+        params: {
+          subscription: 'sub-id-2',
+          result: { event: 'newBlock', blockHash: '0xcc', parentBlockHash: '0xbb' },
+        },
+      });
+      mock.simulateMessage({
+        jsonrpc: '2.0',
+        method: 'chainHead_v1_followEvent',
+        params: { subscription: 'sub-id-2', result: { event: 'bestBlockChanged', bestBlockHash: '0xcc' } },
+      });
+
+      // The new listener must receive the new follow's events.
+      expect(secondEvents).toContainEqual(expect.objectContaining({ event: 'initialized' }));
+      expect(secondEvents).toContainEqual({ event: 'newBlock', blockHash: '0xcc', parentBlockHash: '0xbb' });
+      expect(secondEvents).toContainEqual({ event: 'bestBlockChanged', bestBlockHash: '0xcc' });
+
+      // Old listener must NOT receive events from the new follow — leaking
+      // sub-id-2 events to the dead first listener would mean substrate-client
+      // never cleared the old subscription handle.
+      expect(firstEvents).not.toContainEqual({ event: 'bestBlockChanged', bestBlockHash: '0xcc' });
+    });
   });
 
   describe('chainHeadOp', () => {
