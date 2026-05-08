@@ -8,6 +8,7 @@
 ### ⚠️ Breaking Changes
 
 - **host-papp:** the SSO handshake response payload now carries an `identityAccountId` field. Older paired Polkadot Mobile clients that don't send this field will fail to handshake — both ends must be on a compatible version.
+- **storage-adapter:** `createLocalStorageAdapter` now writes under a `polkadot_<prefix>_` key namespace instead of `PAPP_<prefix>_`. Data written by earlier versions will not be found after upgrade — hosts that need to preserve user state must migrate the old keys.
 
 ### Chore
 
