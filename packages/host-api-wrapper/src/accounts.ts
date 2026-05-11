@@ -16,6 +16,7 @@ import {
   RingLocation,
   SigningPayload,
   SigningPayloadWithoutAccount,
+  SigningRawPayload,
   SigningRawPayloadWithoutAccount,
   assertEnumVariant,
   createHostApi,
