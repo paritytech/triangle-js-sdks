@@ -41,7 +41,7 @@
   "devDependencies": {
     "@types/react": "19.2.14",
     "@types/react-dom": "19.2.3",
-    "@polkadot-api/substrate-bindings": "^0.20.0",
+    "@polkadot-api/substrate-bindings": "^0.20.2",
     "react": "19.2.5",
     "react-dom": "19.2.5",
     "typescript-plugin-css-modules": "5.2.0",

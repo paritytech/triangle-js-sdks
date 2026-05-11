@@ -31,7 +31,7 @@ export type {
 export { createStatementStore } from './statementStore.js';
 
 export type { AccountConnectionStatus, ProductAccount } from './accounts.js';
-export { createAccountsProvider } from './accounts.js';
+export { accounts, createAccountsProvider } from './accounts.js';
 
 export type { ThemeMode } from './theme.js';
 export { createThemeProvider } from './theme.js';

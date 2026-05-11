@@ -1,3 +1,23 @@
+## 0.7.9 (2026-05-11)
+
+### 🚀 Features
+
+- **host-papp:** `UserSession` gains a `createTransaction(payload)` method. The Host can now delegate product-account transaction signing to the paired Polkadot Mobile app via the new `CreateTransactionRequest` / `CreateTransactionResponse` SSO message pair (legacy-account signing stays Host-local).
+- **product-sdk:** new top-level `accounts` singleton (`createAccountsProvider()` with the default sandbox transport) for products that don't need a custom transport.
+- **product-sdk:** export `ProductAccountId` and `LegacyAccount` types.
+
+### ⚠️ Breaking Changes
+
+- **host-api:** `host_create_transaction` no longer takes a separate `account_id` parameter — the account is now part of the payload as a typed `signer` field.
+- **host-api:** `TxPayloadV1.signer` is now required and typed (`ProductAccountId` or `AccountId`) instead of `Option<str>`.
+- **host-api:** dropped the `context` field from `TxPayloadV1` (runtime metadata, token symbol/decimals, best block height). The signer derives these from the chain.
+- **host-api:** removed the `VersionedTxPayload` envelope from `host_create_transaction*` — pass the payload directly.
+- **product-sdk:** `getProductAccountSigner` now returns a `PolkadotSigner` whose `signTx` routes through `host_create_transaction` and returns the full signed extrinsic; `signBytes` routes through `host_sign_raw`. Previously `signTx` called `host_sign_payload` and returned a detached signature via `getPolkadotSignerFromPjs`. Callers no longer need to assemble the extrinsic themselves.
+- **product-sdk:** the `Signer.createTransaction` payload shape changed to match the new `TxPayloadV1` (no `version`, no `context`, typed `signer`).
+- **product-sdk:** new runtime dependency `@polkadot-api/substrate-bindings@^0.20.2` (used by `getProductAccountSigner` to decode metadata locally and pick `txExtVersion`).
+
+  > No compatibility shim. `host_create_transaction` had no production consumers and `host_create_transaction_with_legacy_account` is only reachable via `product-sdk`, which is bumped in lockstep.
+
 ## 0.7.8 (2026-05-08)
 
 ### 🚀 Features
