@@ -95,14 +95,13 @@ describe('Host API: Accounts', () => {
   describe('getProductAccount', () => {
     it('should return account on success', async () => {
       const { container, accountsProvider } = setup();
-      const expected = { publicKey: mockPublicKey };
 
-      container.handleAccountGet((_, { ok }) => ok(expected));
+      container.handleAccountGet((_, { ok }) => ok({ publicKey: mockPublicKey }));
 
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(expected);
+      expect(result._unsafeUnwrap()).toEqual(mockAccount);
     });
 
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {

@@ -211,15 +211,12 @@ subscription.unsubscribe();
 The Accounts Provider allows you to access product accounts and create signers for signing transactions.
 
 ```ts
-import { createAccountsProvider } from '@novasamatech/product-sdk';
+import { accounts } from '@novasamatech/product-sdk';
 import type { ProductAccount } from '@novasamatech/product-sdk';
-
-// Create accounts provider instance
-const accountsProvider = createAccountsProvider();
 
 // Get the user's primary DotNS username (RFC-0014)
 // — prompts for permission on first call
-const userIdResult = await accountsProvider.getUserId();
+const userIdResult = await accounts.getUserId();
 
 if (userIdResult.isOk()) {
   const { primaryUsername } = userIdResult.value;
@@ -234,7 +231,7 @@ if (userIdResult.isOk()) {
 }
 
 // Request login — triggers host sign-in UI; reason is shown to the user
-const loginResult = await accountsProvider.requestLogin('Sign in to access your account');
+const loginResult = await accounts.requestLogin('Sign in to access your account');
 
 if (loginResult.isOk()) {
   const outcome = loginResult.value; // 'success' | 'alreadyConnected' | 'rejected'
@@ -246,7 +243,7 @@ if (loginResult.isOk()) {
 }
 
 // Get a product account by DotNS identifier and derivation index
-const accountResult = await accountsProvider.getProductAccount('product.dot', 0);
+const accountResult = await accounts.getProductAccount('product.dot', 0);
 
 if (accountResult.isOk()) {
   const account: ProductAccount = accountResult.value;
@@ -254,41 +251,48 @@ if (accountResult.isOk()) {
 }
 
 // Get account alias
-const aliasResult = await accountsProvider.getProductAccountAlias('product.dot', 0);
+const aliasResult = await accounts.getProductAccountAlias('product.dot', 0);
 
 if (aliasResult.isOk()) {
   console.log('Alias:', aliasResult.value);
 }
 
 // Get legacy accounts (external wallets)
-const legacyAccountsResult = await accountsProvider.getLegacyAccounts();
+const legacyAccountsResult = await accounts.getLegacyAccounts();
 
 if (legacyAccountsResult.isOk()) {
   console.log('Legacy accounts:', legacyAccountsResult.value);
 }
 
 // Subscribe to account connection status changes
-const unsubscribe = accountsProvider.subscribeAccountConnectionStatus((status) => {
+const unsubscribe = accounts.subscribeAccountConnectionStatus((status) => {
   // status: 'connected' | 'disconnected'
   console.log('Account connection status:', status);
 });
 
-// Create a signer for a product account (for use with PAPI)
-const account: ProductAccount = {
-  dotNsIdentifier: 'product.dot',
-  derivationIndex: 0,
-  publicKey: new Uint8Array([/* ... */])
-};
-const signer = accountsProvider.getProductAccountSigner(account);
+// Create a signer for a product account (for use with PAPI).
+// Resolve the account first, then hand it to the signer factory.
+const productAccountResult = await accounts.getProductAccount('product.dot', 0);
 
-// Create a signer for a legacy account
-const legacySigner = accountsProvider.getLegacyAccountSigner(account);
+if (productAccountResult.isOk()) {
+  const productSigner = accounts.getProductAccountSigner(productAccountResult.value);
+  const signedTx = await tx.signAndSubmit(productSigner);
+}
 
-// PAPI transaction signing example
+// Create a signer for a legacy account.
+// Fetch the legacy account list, pick one, then pass it to the signer factory.
+const legacyAccountsResult = await accounts.getLegacyAccounts();
 
-const productAccountSignedTx = await tx.signAndSubmit(signer);
-const legacyAccountSignedTx = await tx.signAndSubmit(legacySigner);
+if (legacyAccountsResult.isOk()) {
+  const [legacyAccount] = legacyAccountsResult.value;
+  if (legacyAccount) {
+    const legacySigner = accounts.getLegacyAccountSigner(legacyAccount);
+    const signedTx = await tx.signAndSubmit(legacySigner);
+  }
+}
 ```
+
+> If you need a non-default transport (e.g. for tests or multi-host setups), use `createAccountsProvider(transport)` to build your own instance with the same API.
 
 ### Local Storage
 

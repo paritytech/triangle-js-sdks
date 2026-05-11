@@ -36,7 +36,7 @@ export {
 // Codecs
 
 export { GenericError } from './protocol/commonCodecs.js';
-export { CreateTransactionErr, VersionedPublicTxPayload } from './protocol/v1/createTransaction.js';
+export { CreateTransactionErr, LegacyTransaction, ProductAccountTransaction } from './protocol/v1/createTransaction.js';
 export {
   AccountConnectionStatus,
   AccountId,

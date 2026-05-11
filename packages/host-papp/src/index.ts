@@ -11,8 +11,8 @@ export type { Identity } from './identity/types.js';
 
 export type {
   SigningPayloadRequest,
+  SigningPayloadResponse,
   SigningRawRequest,
   SigningRequest,
-} from './sso/sessionManager/scale/signingRequest.js';
-export type { SigningPayloadResponse } from './sso/sessionManager/scale/signingResponse.js';
+} from './sso/sessionManager/scale/signing.js';
 export type { RingVrfAliasRequest, RingVrfAliasResponse } from './sso/sessionManager/scale/ringVrf.js';
