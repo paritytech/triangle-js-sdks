@@ -59,43 +59,39 @@ describe('Host API: meta provider', () => {
     expect(statuses).toContain('connected');
   });
 
-  it('should unsubscribe from connection status', async () => {
+  it('stops delivering updates after unsubscribe', async () => {
     const { container } = setup();
     const callback = vi.fn();
 
     const unsubscribe = container.subscribeProductConnectionStatus(callback);
-
-    // Unsubscribe before ready
+    // subscribe is documented to replay the current status synchronously.
+    const callsBeforeUnsubscribe = callback.mock.calls.length;
     unsubscribe();
 
     await container.isReady();
 
-    // Callback should have been called at least once before unsubscribe
-    // but the exact count depends on timing
-    expect(callback).toHaveBeenCalled();
+    // No further deliveries after unsubscribe even though the status changed.
+    expect(callback).toHaveBeenCalledTimes(callsBeforeUnsubscribe);
   });
 
-  it('should handle multiple status subscribers', async () => {
+  it('delivers the final connected status to every subscriber', async () => {
     const { container } = setup();
-    const statuses1: ConnectionStatus[] = [];
-    const statuses2: ConnectionStatus[] = [];
-
-    // Subscribe both before any init happens
-    container.subscribeProductConnectionStatus(status => {
-      statuses1.push(status);
-    });
-
-    // Second subscriber may miss 'disconnected' if first subscriber triggered init
-    container.subscribeProductConnectionStatus(status => {
-      statuses2.push(status);
-    });
+    const observe = () => {
+      const statuses: ConnectionStatus[] = [];
+      container.subscribeProductConnectionStatus(s => statuses.push(s));
+      return statuses;
+    };
+    const seen = [observe(), observe()];
 
     await container.isReady();
 
-    // First subscriber sees full lifecycle
-    expect(statuses1).toEqual(['disconnected', 'connecting', 'connected']);
-    // Second subscriber may miss initial 'disconnected' as init was already triggered
-    expect(statuses2).toEqual(['connecting', 'connected']);
+    // Both subscribers must observe the 'connecting' transition and converge
+    // on 'connected'. The starting status depends on whether init has already
+    // fired by subscribe-time and is not part of the contract.
+    for (const s of seen) {
+      expect(s.at(-1)).toBe('connected');
+      expect(s).toContain('connecting');
+    }
   });
 
   it('should report disconnected status initially in meta provider', () => {

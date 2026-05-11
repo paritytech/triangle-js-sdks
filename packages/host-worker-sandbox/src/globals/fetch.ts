@@ -9,6 +9,12 @@ export type FetchRequest = {
   headers: Array<[string, string]>;
   body: Uint8Array | null;
   signal: AbortSignal;
+  /** Forwarded from the in-VM Request — resolver may apply CORS / auth policy. */
+  mode: 'cors' | 'no-cors' | 'same-origin' | 'navigate' | string;
+  /** Forwarded from the in-VM Request — `'omit'` means "do not attach credentials". */
+  credentials: 'omit' | 'include' | 'same-origin' | string;
+  /** Forwarded from the in-VM Request — `'manual'` skips redirect-following. */
+  redirect: 'follow' | 'error' | 'manual' | string;
 };
 
 export type FetchResponse = {
@@ -39,7 +45,7 @@ const BRIDGE_NAME = `__FETCH_BRIDGE_${nanoid()}__`;
 // Calls back to the host through a bridge function passed via globalThis at
 // injection time, captured into a local closure, then deleted from globalThis
 // so sandbox code can't reach it directly. Bridge signature:
-//   (method, url, headers, bodyBytes, registerAbort) => Promise<{...}>
+//   (method, url, headers, bodyBytes, mode, credentials, redirect, registerAbort) => Promise<{...}>
 // where registerAbort is a function the host calls with a callback that fires
 // when the VM-side AbortSignal aborts.
 //
@@ -389,6 +395,9 @@ const SOURCE = `(() => {
       request.url,
       headersArr,
       bodyBytes,
+      request.mode,
+      request.credentials,
+      request.redirect,
       function registerAbort(cb) {
         if (request.signal.aborted) cb();
         else request.signal.addEventListener('abort', () => cb(), { once: true });
@@ -467,68 +476,74 @@ export function injectFetch(
   // Track host-side abort callbacks so we can null them out at dispose.
   const inflightControllers = new Set<AbortController>();
 
-  const bridge = vm.newFunction(BRIDGE_NAME, (methodH, urlH, headersH, bodyH, abortRegH) => {
-    const method = vm.getString(methodH);
-    const url = vm.getString(urlH);
-    const headers = (vm.dump(headersH) ?? []) as Array<[string, string]>;
+  const bridge = vm.newFunction(
+    BRIDGE_NAME,
+    (methodH, urlH, headersH, bodyH, modeH, credentialsH, redirectH, abortRegH) => {
+      const method = vm.getString(methodH);
+      const url = vm.getString(urlH);
+      const headers = (vm.dump(headersH) ?? []) as Array<[string, string]>;
+      const mode = vm.getString(modeH);
+      const credentials = vm.getString(credentialsH);
+      const redirect = vm.getString(redirectH);
 
-    // Check size before extracting — the cap exists to bound host allocation.
-    const bodyByteLength = withProp(vm, bodyH, 'byteLength', h => vm.getNumber(h));
-    if (bodyByteLength > maxBodyBytes) {
-      const deferred = vm.newPromise();
-      const errHandle = vm.newError(`fetch body exceeds maximum allowed size: ${bodyByteLength} > ${maxBodyBytes}`);
-      deferred.reject(errHandle);
-      errHandle.dispose();
-      if (!disposed) vm.runtime.executePendingJobs(-1);
-      return deferred.handle;
-    }
-
-    const bodyBytes = extractBytesFromVm(vm, bodyH);
-    const body = bodyBytes.byteLength === 0 ? null : bodyBytes;
-
-    const hostAC = new AbortController();
-    inflightControllers.add(hostAC);
-
-    const abortCb = vm.newFunction('__abortCb', () => {
-      hostAC.abort();
-    });
-    const regRes = vm.callFunction(abortRegH, vm.undefined, abortCb);
-    abortCb.dispose();
-    if (regRes.error) regRes.error.dispose();
-    else regRes.value.dispose();
-
-    const deferred = vm.newPromise();
-
-    Promise.resolve()
-      .then(() => resolver({ url, method, headers, body, signal: hostAC.signal }))
-      .then(resp => {
-        inflightControllers.delete(hostAC);
-        if (disposed) return;
-        const respHandle = buildResponseHandle(vm, toUint8ArrayFn, resp);
-        deferred.resolve(respHandle);
-        respHandle.dispose();
-      })
-      .catch(err => {
-        inflightControllers.delete(hostAC);
-        if (disposed) return;
-        const message = err instanceof Error ? err.message : String(err);
-        const errHandle = vm.newError(message);
-        // Preserve resolver-supplied error name (`TypeError` for network errors,
-        // `AbortError` for aborts, etc.) so sandbox code can branch on it.
-        if (err instanceof Error && err.name && err.name !== 'Error') {
-          const nameHandle = vm.newString(err.name);
-          vm.setProp(errHandle, 'name', nameHandle);
-          nameHandle.dispose();
-        }
+      // Check size before extracting — the cap exists to bound host allocation.
+      const bodyByteLength = withProp(vm, bodyH, 'byteLength', h => vm.getNumber(h));
+      if (bodyByteLength > maxBodyBytes) {
+        const deferred = vm.newPromise();
+        const errHandle = vm.newError(`fetch body exceeds maximum allowed size: ${bodyByteLength} > ${maxBodyBytes}`);
         deferred.reject(errHandle);
         errHandle.dispose();
-      })
-      .finally(() => {
         if (!disposed) vm.runtime.executePendingJobs(-1);
-      });
+        return deferred.handle;
+      }
 
-    return deferred.handle;
-  });
+      const bodyBytes = extractBytesFromVm(vm, bodyH);
+      const body = bodyBytes.byteLength === 0 ? null : bodyBytes;
+
+      const hostAC = new AbortController();
+      inflightControllers.add(hostAC);
+
+      const abortCb = vm.newFunction('__abortCb', () => {
+        hostAC.abort();
+      });
+      const regRes = vm.callFunction(abortRegH, vm.undefined, abortCb);
+      abortCb.dispose();
+      if (regRes.error) regRes.error.dispose();
+      else regRes.value.dispose();
+
+      const deferred = vm.newPromise();
+
+      Promise.resolve()
+        .then(() => resolver({ url, method, headers, body, signal: hostAC.signal, mode, credentials, redirect }))
+        .then(resp => {
+          inflightControllers.delete(hostAC);
+          if (disposed) return;
+          const respHandle = buildResponseHandle(vm, toUint8ArrayFn, resp);
+          deferred.resolve(respHandle);
+          respHandle.dispose();
+        })
+        .catch(err => {
+          inflightControllers.delete(hostAC);
+          if (disposed) return;
+          const message = err instanceof Error ? err.message : String(err);
+          const errHandle = vm.newError(message);
+          // Preserve resolver-supplied error name (`TypeError` for network errors,
+          // `AbortError` for aborts, etc.) so sandbox code can branch on it.
+          if (err instanceof Error && err.name && err.name !== 'Error') {
+            const nameHandle = vm.newString(err.name);
+            vm.setProp(errHandle, 'name', nameHandle);
+            nameHandle.dispose();
+          }
+          deferred.reject(errHandle);
+          errHandle.dispose();
+        })
+        .finally(() => {
+          if (!disposed) vm.runtime.executePendingJobs(-1);
+        });
+
+      return deferred.handle;
+    },
+  );
 
   vm.setProp(vm.global, BRIDGE_NAME, bridge);
   bridge.dispose();

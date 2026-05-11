@@ -1,3 +1,34 @@
+## 0.7.8 (2026-05-08)
+
+### 🚀 Features
+
+- **product-bulletin:** new `@novasamatech/product-bulletin` package — a Bulletin Chain client adapter for product apps.
+- **host-papp:** the paired Polkadot Mobile app now reports a dedicated identity account alongside the remote signing account, and `UserSession` exposes it as `identityAccountId`. The `useSessionIdentity` hook reads from this field, so on-chain identity (display name, avatar) resolves against the user's identity account rather than the per-product signing account.
+- **host-worker-sandbox:** `fetchResolver` now receives the in-VM `Request`'s `mode`, `credentials`, and `redirect`, so the host can apply CORS / auth / redirect-handling policy per request.
+
+### ⚠️ Breaking Changes
+
+- **host-papp:** the SSO handshake response payload now carries an `identityAccountId` field. Older paired Polkadot Mobile clients that don't send this field will fail to handshake — both ends must be on a compatible version.
+- **storage-adapter:** `createLocalStorageAdapter` now writes under a `polkadot_<prefix>_` key namespace instead of `PAPP_<prefix>_`. Data written by earlier versions will not be found after upgrade — hosts that need to preserve user state must migrate the old keys.
+
+### 🩹 Fixes
+
+- **host-worker-sandbox:** sandbox `console` output is sanitized before being forwarded to the host logger — control characters (including ANSI escapes) are stripped and each string argument is capped at 64 KiB, so sandbox code can no longer drive a terminal-aware logger or dump multi-megabyte strings into host logs.
+- **host-worker-sandbox:** `crypto.subtle` algorithm names are canonicalized at the bridge (e.g. `aes-gcm` → `AES-GCM`), so a resolver doing its own case-sensitive switch on `algorithm.name` can't be bypassed by case confusion; prototype-pollution keys (`__proto__`, `constructor`, `prototype`) are also stripped from values crossing the bridge in either direction.
+- **host-worker-sandbox:** `setTimeout` / `setInterval` delays are floored at 4 ms and `queueMicrotask` is capped at 1024 pending callbacks per sandbox, so sandbox code cannot flood the host event loop with zero-delay timers or microtask spam.
+- **host-worker-sandbox:** per-port `message` listeners are capped at 32 — sandbox code that registers fresh closures in a loop can no longer grow the host-side handle array unbounded and exhaust the QuickJS heap.
+- **host-worker-sandbox:** sandboxes whose wrappers are garbage-collected without an explicit `dispose()` now free the underlying WASM context via a `FinalizationRegistry`, so a leaked sandbox no longer pins its QuickJS runtime indefinitely.
+
+### Chore
+
+- Refined e2e and unit tests
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- Filippo
+- RafalMirowski1
+
 ## 0.7.7 (2026-05-07)
 
 ### 🚀 Features

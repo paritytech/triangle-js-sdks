@@ -56,15 +56,6 @@ export function createIdentityRpcAdapter(lazyClient: LazyClient): IdentityAdapte
                   fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
                   liteUsername: textDecoder.decode(raw.lite_username),
                   credibility,
-                  slots: raw.stmt_store_slots.map(slot =>
-                    slot.type === 'Free'
-                      ? { type: 'Free' }
-                      : {
-                          type: 'Occupied',
-                          accountId: slot.value.account_id,
-                          since: slot.value.since.toString(),
-                        },
-                  ),
                 },
               ];
             }),

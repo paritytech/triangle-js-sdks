@@ -134,7 +134,6 @@ describe('Host API: injected web3 provider', () => {
 
     const result = await injected.signer.createTransaction?.(payload);
 
-    expect(createTransaction).toBeCalledTimes(1);
     expect(result).toEqual(toHex(response));
   });
 

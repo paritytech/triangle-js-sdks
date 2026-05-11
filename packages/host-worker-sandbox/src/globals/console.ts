@@ -1,6 +1,28 @@
 import type { Logger } from '@novasamatech/host-api';
 import type { QuickJSContext } from 'quickjs-emscripten';
 
+// Per-argument cap on stringified payload size. Sandbox code that calls
+// `console.log("X".repeat(1e9))` would otherwise dump that string straight to
+// the host logger. 64 KiB is far above any human-readable use.
+const MAX_STRING_ARG_BYTES = 64 * 1024;
+
+// Strip C0 control characters except \t (HT) and \n (LF). Anything else —
+// notably \x1b (ESC, used in ANSI escape sequences) and \r — gets replaced
+// with the Unicode replacement char so terminal-aware loggers cannot be
+// driven by sandbox output (clear screen, cursor moves, color injection).
+// eslint-disable-next-line no-control-regex
+const CONTROL_CHARS = /[\x00-\x08\x0b-\x1f\x7f]/g;
+
+function sanitizeString(s: string): string {
+  let out = s.replace(CONTROL_CHARS, '�');
+  if (out.length > MAX_STRING_ARG_BYTES) out = out.slice(0, MAX_STRING_ARG_BYTES) + '…[truncated]';
+  return out;
+}
+
+function sanitizeArg(v: unknown): unknown {
+  return typeof v === 'string' ? sanitizeString(v) : v;
+}
+
 // Apply WHATWG console format specifiers to the first arg if it's a string
 // containing `%` substitutions. Returns the new arg list with the substituted
 // string prefixed and any unconsumed args appended.
@@ -48,7 +70,8 @@ export function injectConsole(vm: QuickJSContext, logger: Logger) {
   for (const method of ['log', 'info', 'warn', 'error'] as const) {
     const fn = vm.newFunction(method, (...args) => {
       const dumped = args.map(h => vm.dump(h));
-      logger[method](...formatArgs(dumped));
+      const formatted = formatArgs(dumped).map(sanitizeArg);
+      logger[method](...formatted);
       return vm.undefined;
     });
     vm.setProp(consoleObj, method, fn);

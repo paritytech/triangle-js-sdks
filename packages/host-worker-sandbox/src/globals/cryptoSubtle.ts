@@ -79,6 +79,18 @@ const VM_SOURCE = `(() => {
     return k;
   }
 
+  // WebCrypto algorithm-name canonicalization. The spec mandates case-insensitive
+  // names, but a resolver doing its own switch on \`algorithm.name\` may not
+  // normalize — we canonicalize at the bridge to block case-confusion bypass.
+  const __algNameLookup = new Map([
+    'AES-CBC', 'AES-CTR', 'AES-GCM', 'AES-KW',
+    'HMAC', 'RSA-PSS', 'RSASSA-PKCS1-v1_5', 'RSA-OAEP',
+    'ECDSA', 'ECDH', 'HKDF', 'PBKDF2',
+    'SHA-1', 'SHA-256', 'SHA-384', 'SHA-512',
+    'Ed25519', 'X25519',
+  ].map(n => [n.toLowerCase(), n]));
+  const __isPollutionKey = k => k === '__proto__' || k === 'constructor' || k === 'prototype';
+
   function marshal(v, bytes) {
     if (v == null || typeof v !== 'object') return v;
     if (v instanceof CryptoKey) return { __subtleKeyId: v.__subtleKeyId };
@@ -93,26 +105,34 @@ const VM_SOURCE = `(() => {
       return { __byteRef: idx };
     }
     if (Array.isArray(v)) return v.map(x => marshal(x, bytes));
-    const out = {};
-    for (const k of Object.keys(v)) out[k] = marshal(v[k], bytes);
+    const out = Object.create(null);
+    for (const k of Object.keys(v)) {
+      if (__isPollutionKey(k)) continue;
+      const raw = v[k];
+      // Canonicalize algorithm names; non-algorithm \`name\` fields pass through.
+      const canon = k === 'name' && typeof raw === 'string' ? __algNameLookup.get(raw.toLowerCase()) : undefined;
+      out[k] = marshal(canon ?? raw, bytes);
+    }
     return out;
   }
 
   function unmarshal(v, bytes) {
     if (v == null || typeof v !== 'object') return v;
-    if (typeof v.__byteRef === 'number') {
-      const u8 = bytes[v.__byteRef];
-      // Return a fresh ArrayBuffer (BufferSource compatibility for sandbox code).
-      return u8.slice().buffer;
-    }
+    if (typeof v.__byteRef === 'number') return bytes[v.__byteRef].slice().buffer;
     if (v.__cryptoKeySpec) return makeCryptoKey(v.__cryptoKeySpec);
     if (v.__cryptoKeyPair) return {
       publicKey: makeCryptoKey(v.__cryptoKeyPair.publicKey),
       privateKey: makeCryptoKey(v.__cryptoKeyPair.privateKey),
     };
     if (Array.isArray(v)) return v.map(x => unmarshal(x, bytes));
+    // Plain {} so sandbox consumers can use Object.prototype methods on the
+    // result (e.g. EcKeyAlgorithm). Pollution keys are still skipped to
+    // protect the sandbox from a malicious resolver response.
     const out = {};
-    for (const k of Object.keys(v)) out[k] = unmarshal(v[k], bytes);
+    for (const k of Object.keys(v)) {
+      if (__isPollutionKey(k)) continue;
+      out[k] = unmarshal(v[k], bytes);
+    }
     return out;
   }
 

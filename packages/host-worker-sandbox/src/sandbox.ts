@@ -59,6 +59,12 @@ function makeOnMessageDescriptor(state: OnMessageState, vm: QuickJSContext): VmP
   };
 }
 
+// Cap on registered `message` listeners per port. Sandbox code that registers
+// fresh arrow functions in a tight loop would otherwise grow the host-side
+// handle array unbounded — every entry pins a VM-side function, exhausting the
+// QuickJS heap. 32 is far above any legitimate use.
+const MAX_MESSAGE_LISTENERS = 32;
+
 class SandboxPort {
   private readonly vm: QuickJSContext;
   private readonly onMessageState: OnMessageState = { handle: null };
@@ -123,6 +129,16 @@ class SandboxPort {
       if (vm.typeof(handlerHandle) !== 'function') return;
       // Spec: EventTarget.addEventListener with the same listener is a no-op.
       if (this.messageListeners.some(h => this.isSameHandle(h, handlerHandle))) return;
+      if (this.messageListeners.length >= MAX_MESSAGE_LISTENERS) {
+        // Defensive cap: prevent runaway growth from sandbox code registering
+        // fresh closures in a loop. We silently drop additional registrations
+        // rather than throwing — DOM addEventListener is no-throw on dedup, so
+        // a throw here would be the only path to surface "limit reached".
+        this.provider.logger.error(
+          `[Sandbox] port.addEventListener: ignoring listener; cap of ${MAX_MESSAGE_LISTENERS} reached`,
+        );
+        return;
+      }
       this.messageListeners.push(handlerHandle.dup());
     });
     vm.setProp(port, 'addEventListener', addEventListenerFn);
@@ -428,13 +444,30 @@ class QuickJsSandbox implements Sandbox {
   }
 }
 
+// Belt-and-suspenders: if a Sandbox wrapper is GC'd without explicit dispose,
+// free the underlying WASM context. The held value must close over `vm` ONLY
+// (not the wrapper) — otherwise the registry's strong heldValue ref would
+// keep the wrapper alive and the finalizer would never fire. Host-side
+// QuickJSHandle wrappers are pure JS and reclaimed by ordinary GC.
+const __sandboxFinalizer = new FinalizationRegistry<() => void>(free => free());
+
 export async function createSandbox(productId: string, options: SandboxOptions = {}): Promise<Sandbox> {
-  // One WASM instance per sandbox. `getQuickJS()` returns a process-wide
-  // singleton, which means an abort inside `JS_FreeRuntime` (see
-  // `dispose()`) tears down every other sandbox in the renderer.
-  // `newQuickJSWASMModule()` instantiates a fresh module so the blast
-  // radius of a bad dispose is contained to this sandbox.
+  // One WASM instance per sandbox to contain abort blast radius — see
+  // QuickJsSandbox.dispose() for why JS_FreeRuntime can abort.
   const QuickJS = await newQuickJSWASMModule();
   const vm = QuickJS.newContext();
-  return new QuickJsSandbox(productId, vm, options);
+  const sandbox = new QuickJsSandbox(productId, vm, options);
+  __sandboxFinalizer.register(
+    sandbox,
+    () => {
+      try {
+        vm.runtime.executePendingJobs(-1);
+        vm.dispose();
+      } catch {
+        /* already disposed or aborted; finalizer must not throw */
+      }
+    },
+    sandbox,
+  );
+  return sandbox;
 }

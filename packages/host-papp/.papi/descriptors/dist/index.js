@@ -14,16 +14,16 @@ const toBinary = (base64) => {
   return bytes;
 };
 
-const descriptorValues = import('./descriptors-DDm-U7Zd.js').then((module) => module["People_lite"]);
-const metadataTypes = import('./metadataTypes-DOUrKMCQ.js').then(
+const descriptorValues = import('./descriptors-D5oN4i7I.js').then((module) => module["People_lite"]);
+const metadataTypes = import('./metadataTypes-BaUy_4gO.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 const asset = {};
 const extensions = {};
-const getMetadata$1 = () => import('./people_lite_metadata-DRlJN3X6.js').then(
+const getMetadata$1 = () => import('./people_lite_metadata-Cj1JLFI2.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
-const genesis = "0xd01475fde5d0592989b7715ae1d2e89fdb4f8c7688c09c850d75e1d4bdb47d64";
+const genesis = "0xa22a2424d2cbf561eaecf7da8b1b548fa9d1939f60265e942b1049616a012f71";
 const _allDescriptors = { descriptors: descriptorValues, metadataTypes, asset, extensions, getMetadata: getMetadata$1, genesis };
 
 const DigestItem = _Enum;
@@ -76,7 +76,7 @@ const XcmV4AssetWildAsset = _Enum;
 const TransactionValidityUnknownTransaction = _Enum;
 const TransactionValidityTransactionSource = _Enum;
 
-const metadatas = { ["0xee12eb3f12f8387448d2bf78c773dda08731483357a1b8fb773374f7b7bc417c"]: _allDescriptors };
+const metadatas = { ["0x0e48da626edc33a96d18d81fdc5eebe5d6a9b624af4ca4b9dbcc1345a3b03bb6"]: _allDescriptors };
 const getMetadata = async (codeHash) => {
   try {
     return await metadatas[codeHash].getMetadata();

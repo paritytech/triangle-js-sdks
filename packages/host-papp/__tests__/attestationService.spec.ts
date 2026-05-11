@@ -104,14 +104,11 @@ describe('createAttestationService', () => {
   }
 
   describe('grantVerifierAllowance', () => {
-    it('retries signAndSubmit on failure', async () => {
-      const signAndSubmit = vi.fn().mockRejectedValueOnce(new Error('Stale')).mockResolvedValueOnce(undefined);
+    function makeService(opts: { allowance: number; signAndSubmit: ReturnType<typeof vi.fn> }) {
       const mockApi = {
         query: {
           PeopleLite: {
-            AttestationAllowance: {
-              getValue: vi.fn().mockResolvedValue(0),
-            },
+            AttestationAllowance: { getValue: vi.fn().mockResolvedValue(opts.allowance) },
           },
         },
         tx: {
@@ -119,78 +116,38 @@ describe('createAttestationService', () => {
             increase_attestation_allowance: vi.fn(() => ({ decodedCall: {} })),
           },
           Sudo: {
-            sudo: vi.fn(() => ({ signAndSubmit })),
+            sudo: vi.fn(() => ({ signAndSubmit: opts.signAndSubmit })),
           },
         },
       };
+      const lazyClient = { getClient: () => ({ getUnsafeApi: () => mockApi }) } as any;
+      return createAttestationService(lazyClient);
+    }
 
-      const lazyClient = {
-        getClient: () => ({ getUnsafeApi: () => mockApi }),
-      } as any;
+    it('retries signAndSubmit on failure and resolves on the second attempt', async () => {
+      const signAndSubmit = vi.fn().mockRejectedValueOnce(new Error('Stale')).mockResolvedValueOnce(undefined);
+      const service = makeService({ allowance: 0, signAndSubmit });
 
-      const service = createAttestationService(lazyClient);
       const result = await service.grantVerifierAllowance(createMockAccount());
 
       expect(result.isOk()).toBe(true);
       expect(signAndSubmit).toHaveBeenCalledTimes(2);
     });
 
-    it('fails after retry is also exhausted', async () => {
+    it('fails after retries are exhausted', async () => {
       const signAndSubmit = vi.fn().mockRejectedValue(new Error('Stale'));
-      const mockApi = {
-        query: {
-          PeopleLite: {
-            AttestationAllowance: {
-              getValue: vi.fn().mockResolvedValue(0),
-            },
-          },
-        },
-        tx: {
-          PeopleLite: {
-            increase_attestation_allowance: vi.fn(() => ({ decodedCall: {} })),
-          },
-          Sudo: {
-            sudo: vi.fn(() => ({ signAndSubmit })),
-          },
-        },
-      };
+      const service = makeService({ allowance: 0, signAndSubmit });
 
-      const lazyClient = {
-        getClient: () => ({ getUnsafeApi: () => mockApi }),
-      } as any;
-
-      const service = createAttestationService(lazyClient);
       const result = await service.grantVerifierAllowance(createMockAccount());
 
       expect(result.isErr()).toBe(true);
       expect(signAndSubmit).toHaveBeenCalledTimes(2);
     });
 
-    it('skips transaction when allowance is already sufficient', async () => {
+    it('skips the transaction when allowance is already sufficient', async () => {
       const signAndSubmit = vi.fn();
-      const mockApi = {
-        query: {
-          PeopleLite: {
-            AttestationAllowance: {
-              getValue: vi.fn().mockResolvedValue(5),
-            },
-          },
-        },
-        tx: {
-          PeopleLite: {
-            increase_attestation_allowance: vi.fn(() => ({ decodedCall: {} })),
-          },
-          Sudo: {
-            sudo: vi.fn(() => ({ signAndSubmit })),
-          },
-        },
-      };
+      const service = makeService({ allowance: 5, signAndSubmit });
 
-      const lazyClient = {
-        getClient: () => ({ getUnsafeApi: () => mockApi }),
-      } as any;
-
-      const service = createAttestationService(lazyClient);
       const result = await service.grantVerifierAllowance(createMockAccount());
 
       expect(result.isOk()).toBe(true);

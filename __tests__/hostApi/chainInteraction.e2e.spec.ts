@@ -1,11 +1,33 @@
-/* eslint-disable @typescript-eslint/no-non-null-assertion,@typescript-eslint/no-explicit-any */
+/* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { createTransport } from '@novasamatech/host-api';
 import { createContainer } from '@novasamatech/host-container';
 import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
-import type { JsonRpcMessage, JsonRpcProvider } from '@polkadot-api/json-rpc-provider';
+import type { JsonRpcMessage, JsonRpcProvider, JsonRpcRequest, JsonRpcResponse } from '@polkadot-api/json-rpc-provider';
+import { isRequest, isResponse } from '@polkadot-api/json-rpc-provider';
 import { describe, expect, it } from 'vitest';
+
+// chainHead_v1_followEvent notification shape — params carries the subscription
+// id and a result envelope with an event-discriminated body.
+type FollowNotification = JsonRpcRequest<{
+  subscription: string;
+  result: { event: string; operationId?: string; [key: string]: unknown };
+}>;
+
+const isFollowEventOf =
+  (event: string, operationId?: string) =>
+  (m: JsonRpcMessage): m is FollowNotification => {
+    if (!isRequest(m) || m.method !== 'chainHead_v1_followEvent') return false;
+    const params = m.params;
+    if (!params || params.result?.event !== event) return false;
+    return operationId === undefined || params.result?.operationId === operationId;
+  };
+
+const isResponseFor =
+  (id: number) =>
+  (m: JsonRpcMessage): m is JsonRpcResponse =>
+    isResponse(m) && m.id === id && ('result' in m || 'error' in m);
 
 import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
@@ -45,9 +67,21 @@ function createWebSocketProvider(url: string): JsonRpcProvider {
  * Polls for a message matching `predicate` in `messages`.
  * Returns the matching message or undefined if not found within the timeout.
  */
+async function pollForMessage<T extends JsonRpcMessage = JsonRpcMessage>(
+  messages: JsonRpcMessage[],
+  predicate: (parsed: JsonRpcMessage) => parsed is T,
+  maxIterations?: number,
+  interval?: number,
+): Promise<T | undefined>;
 async function pollForMessage(
   messages: JsonRpcMessage[],
-  predicate: (parsed: Record<string, unknown>) => boolean,
+  predicate: (parsed: JsonRpcMessage) => boolean,
+  maxIterations?: number,
+  interval?: number,
+): Promise<JsonRpcMessage | undefined>;
+async function pollForMessage(
+  messages: JsonRpcMessage[],
+  predicate: (parsed: JsonRpcMessage) => boolean,
   maxIterations = 150,
   interval = 200,
 ): Promise<JsonRpcMessage | undefined> {
@@ -111,17 +145,14 @@ async function createChainHeadSetup(): Promise<ChainHeadSetup> {
 
   setup.sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
 
-  const followResp = await pollForMessage(setup.receivedMessages, p => p.id === 1 && p.result !== undefined);
-  if (!followResp) throw new Error('Failed to start follow subscription');
-  const followSubId = 'result' in followResp ? (followResp.result as string) : '';
+  const followResp = await pollForMessage(setup.receivedMessages, isResponseFor(1));
+  if (!followResp || !('result' in followResp)) throw new Error('Failed to start follow subscription');
+  const followSubId = followResp.result as string;
 
-  const initEvent = await pollForMessage(
-    setup.receivedMessages,
-    p => (p as any).method === 'chainHead_v1_followEvent' && (p as any).params?.result?.event === 'initialized',
-  );
+  const initEvent = await pollForMessage(setup.receivedMessages, isFollowEventOf('initialized'));
   if (!initEvent) throw new Error('Did not receive initialized event');
 
-  const initialBlockHash = (initEvent as any).params.result.finalizedBlockHashes[0] as string;
+  const initialBlockHash = (initEvent.params!.result.finalizedBlockHashes as string[])[0]!;
 
   return { ...setup, followSubId, initialBlockHash };
 }
@@ -136,10 +167,9 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
       try {
         sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_genesisHash', params: [] });
 
-        const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
+        const response = await pollForMessage(receivedMessages, isResponseFor(1));
         expect(response).toBeDefined();
-
-        expect((response! as any).result).toBe(POLKADOT_GENESIS_HASH);
+        expect(response).toHaveProperty('result', POLKADOT_GENESIS_HASH);
       } finally {
         await cleanup();
       }
@@ -150,12 +180,12 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
       try {
         sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_chainName', params: [] });
 
-        const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
+        const response = await pollForMessage(receivedMessages, isResponseFor(1));
         expect(response).toBeDefined();
-
-        const parsed = response as any;
-        expect(typeof parsed.result).toBe('string');
-        expect(parsed.result.length).toBeGreaterThan(0);
+        expect(response).toHaveProperty('result');
+        const result = (response as JsonRpcResponse & { result: string }).result;
+        expect(typeof result).toBe('string');
+        expect(result.length).toBeGreaterThan(0);
       } finally {
         await cleanup();
       }
@@ -166,11 +196,10 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
       try {
         sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainSpec_v1_properties', params: [] });
 
-        const response = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
+        const response = await pollForMessage(receivedMessages, isResponseFor(1));
         expect(response).toBeDefined();
-
-        const parsed = response as any;
-        const props = parsed.result;
+        expect(response).toHaveProperty('result');
+        const props = (response as JsonRpcResponse & { result: { tokenSymbol: string; tokenDecimals: number } }).result;
         expect(props).toBeDefined();
         expect(props.tokenSymbol).toBe('DOT');
         expect(props.tokenDecimals).toBe(10);
@@ -186,24 +215,22 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
       try {
         sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
 
-        const followResp = await pollForMessage(receivedMessages, p => p.id === 1 && p.result !== undefined);
+        const followResp = await pollForMessage(receivedMessages, isResponseFor(1));
         expect(followResp).toBeDefined();
+        expect(followResp).toHaveProperty('result');
 
-        const followSubId = (followResp as any).result;
+        const followSubId = (followResp as JsonRpcResponse & { result: string }).result;
         expect(typeof followSubId).toBe('string');
 
-        const initEvent = await pollForMessage(
-          receivedMessages,
-          p => (p as any).method === 'chainHead_v1_followEvent' && (p as any).params?.result?.event === 'initialized',
-        );
-
+        const initEvent = await pollForMessage(receivedMessages, isFollowEventOf('initialized'));
         expect(initEvent).toBeDefined();
-        const parsedInit = initEvent as any;
-        expect(parsedInit.params.result.event).toBe('initialized');
-        expect(Array.isArray(parsedInit.params.result.finalizedBlockHashes)).toBe(true);
-        expect(parsedInit.params.result.finalizedBlockHashes.length).toBeGreaterThan(0);
 
-        for (const hash of parsedInit.params.result.finalizedBlockHashes) {
+        const initResult = initEvent!.params!.result as { event: string; finalizedBlockHashes: string[] };
+        expect(initResult.event).toBe('initialized');
+        expect(Array.isArray(initResult.finalizedBlockHashes)).toBe(true);
+        expect(initResult.finalizedBlockHashes.length).toBeGreaterThan(0);
+
+        for (const hash of initResult.finalizedBlockHashes) {
           expect(hash).toMatch(/^0x[0-9a-fA-F]+$/);
         }
       } finally {
@@ -221,16 +248,13 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
           params: [followSubId, initialBlockHash],
         });
 
-        const response = await pollForMessage(
-          receivedMessages,
-          p => p.id === 2 && (p.result !== undefined || p.error !== undefined),
-        );
-
+        const response = await pollForMessage(receivedMessages, isResponseFor(2));
         expect(response).toBeDefined();
-        const parsed = response as any;
-        expect(parsed.result).toBeDefined();
-        expect(typeof parsed.result).toBe('string');
-        expect(parsed.result).toMatch(/^0x/);
+        expect(response).toHaveProperty('result');
+
+        const result = (response as JsonRpcResponse & { result: string }).result;
+        expect(typeof result).toBe('string');
+        expect(result).toMatch(/^0x/);
       } finally {
         await cleanup();
       }
@@ -246,41 +270,31 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
           params: [followSubId, initialBlockHash, [{ key: SYSTEM_NUMBER_KEY, type: 'value' }], null],
         });
 
-        const storageResp = await pollForMessage(
-          receivedMessages,
-          p => p.id === 2 && (p.result !== undefined || p.error !== undefined),
-        );
-
+        const storageResp = await pollForMessage(receivedMessages, isResponseFor(2));
         expect(storageResp).toBeDefined();
-        const parsedResp = storageResp as any;
-        expect(parsedResp.result).toBeDefined();
-        expect(parsedResp.result.result).toBe('started');
-        expect(parsedResp.result.operationId).toBeDefined();
+        expect(storageResp).toHaveProperty('result');
 
-        const operationId = parsedResp.result.operationId;
+        const result = (storageResp as JsonRpcResponse & { result: { result: string; operationId: string } }).result;
+        expect(result.result).toBe('started');
+        expect(result.operationId).toBeDefined();
+
+        const operationId = result.operationId;
 
         const storageItemsEvent = await pollForMessage(
           receivedMessages,
-          p =>
-            (p as any).method === 'chainHead_v1_followEvent' &&
-            (p as any).params?.result?.event === 'operationStorageItems' &&
-            (p as any).params?.result?.operationId === operationId,
+          isFollowEventOf('operationStorageItems', operationId),
         );
-
         expect(storageItemsEvent).toBeDefined();
-        const parsedItems = storageItemsEvent as any;
-        expect(parsedItems.params.result.items.length).toBeGreaterThan(0);
-        expect(parsedItems.params.result.items[0].key).toBe(SYSTEM_NUMBER_KEY);
-        expect(parsedItems.params.result.items[0].value).toMatch(/^0x/);
+
+        const items = storageItemsEvent!.params!.result.items as Array<{ key: string; value: string }>;
+        expect(items.length).toBeGreaterThan(0);
+        expect(items[0]!.key).toBe(SYSTEM_NUMBER_KEY);
+        expect(items[0]!.value).toMatch(/^0x/);
 
         const storageDoneEvent = await pollForMessage(
           receivedMessages,
-          p =>
-            (p as any).method === 'chainHead_v1_followEvent' &&
-            (p as any).params?.result?.event === 'operationStorageDone' &&
-            (p as any).params?.result?.operationId === operationId,
+          isFollowEventOf('operationStorageDone', operationId),
         );
-
         expect(storageDoneEvent).toBeDefined();
       } finally {
         await cleanup();
@@ -297,15 +311,10 @@ describe('E2E: Chain Interaction against real Polkadot node', { retry: 2, timeou
           params: [followSubId, [initialBlockHash]],
         });
 
-        const response = await pollForMessage(
-          receivedMessages,
-          p => p.id === 2 && (p.result !== undefined || p.error !== undefined),
-        );
-
+        const response = await pollForMessage(receivedMessages, isResponseFor(2));
         expect(response).toBeDefined();
-        const parsed = response as any;
-        expect(parsed.error).toBeUndefined();
-        expect(parsed.result).toBe(null);
+        expect(response).toHaveProperty('result', null);
+        expect(response).not.toHaveProperty('error');
       } finally {
         await cleanup();
       }
