@@ -30,7 +30,7 @@ export type {
 } from './statementStore.js';
 export { createStatementStore } from './statementStore.js';
 
-export type { AccountConnectionStatus, ProductAccount } from './accounts.js';
+export type { AccountConnectionStatus, LegacyAccount, ProductAccount } from './accounts.js';
 export { accounts, createAccountsProvider } from './accounts.js';
 
 export type { ThemeMode } from './theme.js';
