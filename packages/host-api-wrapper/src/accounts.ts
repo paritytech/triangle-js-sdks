@@ -16,6 +16,7 @@ import {
   RingLocation,
   SigningPayload,
   SigningPayloadWithoutAccount,
+  SigningRawPayload,
   SigningRawPayloadWithoutAccount,
   assertEnumVariant,
   createHostApi,
@@ -137,9 +138,76 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
      * The factory is async because `PolkadotSigner.publicKey` must be a synchronous
      * `Uint8Array` on the returned object — it is fetched up front via `host_account_get`.
      */
-    getProductAccountSigner(account: ProductAccount): PolkadotSigner {
+    getProductAccountSigner(
+      account: ProductAccount,
+      signerType: 'signPayload' | 'createTransaction' = 'signPayload',
+    ): PolkadotSigner {
       const hostApi = createHostApi(transport);
       const productAccountId: ProductAccountId = [account.dotNsIdentifier, account.derivationIndex];
+
+      /**
+       * @deprecated added for backward compatibility
+       */
+      if (signerType === 'signPayload') {
+        return getPolkadotSignerFromPjs(
+          toHex(account.publicKey),
+          async payload => {
+            const codecPayload: CodecType<typeof SigningPayload> = {
+              account: [account.dotNsIdentifier, account.derivationIndex],
+              payload: buildSigningPayloadFields(payload),
+            };
+
+            const response = await hostApi.signPayload(enumValue('v1', codecPayload));
+
+            return response.match(
+              response => {
+                assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
+                return {
+                  id: 0,
+                  signature: response.value.signature,
+                  signedTransaction: response.value.signedTransaction,
+                };
+              },
+              err => {
+                assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
+                throw err.value;
+              },
+            );
+          },
+          async raw => {
+            const payload: CodecType<typeof SigningRawPayload> = {
+              account: [account.dotNsIdentifier, account.derivationIndex],
+              payload:
+                raw.type === 'bytes'
+                  ? {
+                      tag: 'Bytes',
+                      value: fromHex(asHex(raw.data)),
+                    }
+                  : {
+                      tag: 'Payload',
+                      value: raw.data,
+                    },
+            };
+
+            const response = await hostApi.signRaw(enumValue('v1', payload));
+
+            return response.match(
+              response => {
+                assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
+                return {
+                  id: 0,
+                  signature: response.value.signature,
+                  signedTransaction: response.value.signedTransaction,
+                };
+              },
+              err => {
+                assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
+                throw err.value;
+              },
+            );
+          },
+        );
+      }
 
       return {
         publicKey: account.publicKey,
