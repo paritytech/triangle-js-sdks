@@ -108,7 +108,7 @@ describe('Host API: injected web3 provider', () => {
     const response = new Uint8Array([0, 0, 1, 1]);
     const payload = {
       version: 1 as const,
-      signer: 'test',
+      signer: AccountId().dec(new Uint8Array(32)),
       callData: '0x0002' as const,
       extensions: [
         {
@@ -191,7 +191,7 @@ describe('Host API: injected web3 provider', () => {
 
     const payload = {
       version: 1 as const,
-      signer: 'test',
+      signer: AccountId().dec(new Uint8Array(32)),
       callData: '0x0002' as const,
       extensions: [
         {

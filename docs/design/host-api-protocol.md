@@ -136,13 +136,11 @@ fn host_account_create_proof(
 fn host_get_legacy_accounts() -> Result<Vec<LegacyAccount>, RequestCredentialsErr>;
 
 fn host_create_transaction(
-  accountId: ProductAccountId,
-  payload: VersionedTxPayload
+  payload: TxPayloadV1<ProductAccountId>
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
 fn host_create_transaction_with_legacy_account(
-  accountId: AccountId,
-  payload: VersionedTxPayload
+  payload: TxPayloadV1<AccountId>
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
 fn host_sign_raw_with_legacy_account(
@@ -719,14 +717,17 @@ fn host_get_legacy_accounts() -> Result<Vec<LegacyAccount>, RequestCredentialsEr
 
 #### Create Transaction
 
-Based on [https://github.com/polkadot-js/api/issues/6213](https://github.com/polkadot-js/api/issues/6213), but omitting the `version` field.\
-This format is capable of supporting both V4 and V5 extrinsics.
-There are two different methods for creating a transaction: `create_transaction` and `create_transaction_with_legacy_account`. `create_transaction` is bound to the Host API account model; `create_transaction_with_legacy_account`, on the other hand, can request signing with any legacy account, and the host should decide how to find or derive accounts for signing using the `signer` field as a reference.
+Derived from [https://github.com/polkadot-js/api/issues/6213](https://github.com/polkadot-js/api/issues/6213) but trimmed for an online-signer topology: the `version` field is omitted, and the `context` block (runtime metadata, token symbol/decimals, best block height) is dropped — the signer (Host or Account Holder) is online and derives those from the chain identified by `CheckGenesis` rather than trusting a product-supplied blob.
+
+The format is capable of supporting both V4 and V5 extrinsics.
+
+There are two methods for creating a transaction: `create_transaction` and `create_transaction_with_legacy_account`. Both take a `TxPayloadV1<Signer>` parametrized by the signer-identifier type — `ProductAccountId` for product accounts and `AccountId` for legacy accounts. The `signer` field is required and typed; there is no separate `account_id` parameter.
 
 ```rust
 enum CreateTransactionErr {
   FailedToDecode,
   Rejected,
+  // Unsupported payload version
   // Failed to infer missing extensions, some extension is unsupported, etc.
   NotSupported(str),
   PermissionDenied,
@@ -739,34 +740,23 @@ struct TxPayloadExtensionV1 {
   additional_signed: Vec<u8>
 }
 
-struct TxPayloadContext {
-  metadata: Vec<u8>,
-  token_symbol: str,
-  token_decimals: u32,
-  best_block_height: u32
-}
-
-struct TxPayloadV1 {
-  signer: Option<str>,
+struct TxPayloadV1<Signer> {
+  signer: Signer,
   call_data: Vec<u8>,
   extensions: Vec<TxPayloadExtensionV1>,
-  tx_ext_version: u8,
-  context: TxPayloadContext
-}
-
-enum VersionedTxPayload {
-  V1(TxPayloadV1)
+  tx_ext_version: u8
 }
 
 fn host_create_transaction(
-  account_id: ProductAccountId,
-  payload: VersionedTxPayload
+  payload: TxPayloadV1<ProductAccountId>
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 
 fn host_create_transaction_with_legacy_account(
-  payload: VersionedTxPayload
+  payload: TxPayloadV1<AccountId>
 ) -> Result<Vec<u8>, CreateTransactionErr>;
 ```
+
+> Note: `TxPayloadV1<Signer>` is type-level shorthand for one concrete encoding per call site; the SCALE codec on the wire is not generic.
 
 #### Signing Raw
 

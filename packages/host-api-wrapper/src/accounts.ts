@@ -2,6 +2,9 @@ import type {
   AccountConnectionStatus as AccountConnectionStatusCodec,
   CodecType,
   HexString,
+  LegacyAccount as LegacyAccountCodec,
+  ProductAccountId as ProductAccountIdCodec,
+  ProductAccountTransaction,
   Subscription,
   Transport,
 } from '@novasamatech/host-api';
@@ -13,7 +16,6 @@ import {
   RingLocation,
   SigningPayload,
   SigningPayloadWithoutAccount,
-  SigningRawPayload,
   SigningRawPayloadWithoutAccount,
   assertEnumVariant,
   createHostApi,
@@ -22,17 +24,22 @@ import {
   isEnumVariant,
   toHex,
 } from '@novasamatech/host-api';
+import { decAnyMetadata, unifyMetadata } from '@polkadot-api/substrate-bindings';
 import { err, ok } from 'neverthrow';
 import type { PolkadotSigner } from 'polkadot-api';
 import { getPolkadotSignerFromPjs } from 'polkadot-api/pjs-signer';
 
 import { sandboxTransport } from './sandboxTransport.js';
 
+export type ProductAccountId = CodecType<typeof ProductAccountIdCodec>;
+
 export type ProductAccount = {
   dotNsIdentifier: string;
   derivationIndex: number;
   publicKey: Uint8Array;
 };
+
+export type LegacyAccount = CodecType<typeof LegacyAccountCodec>;
 
 export type AccountConnectionStatus = CodecType<typeof AccountConnectionStatusCodec>;
 
@@ -72,7 +79,11 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
-            return ok(response.value);
+            return ok({
+              publicKey: response.value.publicKey,
+              dotNsIdentifier,
+              derivationIndex,
+            } satisfies ProductAccount);
           }
           // @ts-expect-error response.tag is never here
           return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
@@ -119,25 +130,43 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           return err(new CreateProofErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
+
+    /**
+     * Builds a `PolkadotSigner` that delegates to the host via `host_create_transaction`.
+     *
+     * The factory is async because `PolkadotSigner.publicKey` must be a synchronous
+     * `Uint8Array` on the returned object — it is fetched up front via `host_account_get`.
+     */
     getProductAccountSigner(account: ProductAccount): PolkadotSigner {
-      return getPolkadotSignerFromPjs(
-        toHex(account.publicKey),
-        async payload => {
-          const codecPayload: CodecType<typeof SigningPayload> = {
-            account: [account.dotNsIdentifier, account.derivationIndex],
-            payload: buildSigningPayloadFields(payload),
+      const hostApi = createHostApi(transport);
+      const productAccountId: ProductAccountId = [account.dotNsIdentifier, account.derivationIndex];
+
+      return {
+        publicKey: account.publicKey,
+
+        async signTx(callData, signedExtensions, metadata) {
+          const decMeta = unifyMetadata(decAnyMetadata(metadata));
+          const { version: versions } = decMeta.extrinsic;
+          const latestVersion = versions.reduce((acc, v) => Math.max(acc, v), 0);
+          const txExtVersion = latestVersion === 4 ? 0 : latestVersion;
+
+          const txPayload: CodecType<typeof ProductAccountTransaction> = {
+            signer: productAccountId,
+            callData,
+            extensions: Object.values(signedExtensions).map(({ identifier, value, additionalSigned }) => ({
+              id: identifier,
+              extra: value,
+              additionalSigned: additionalSigned,
+            })),
+            txExtVersion,
           };
 
-          const response = await hostApi.signPayload(enumValue('v1', codecPayload));
+          const response = await hostApi.createTransaction(enumValue('v1', txPayload));
 
           return response.match(
             response => {
               assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
-              return {
-                id: 0,
-                signature: response.value.signature,
-                signedTransaction: response.value.signedTransaction,
-              };
+              return response.value;
             },
             err => {
               assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
@@ -145,31 +174,19 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
             },
           );
         },
-        async raw => {
-          const payload: CodecType<typeof SigningRawPayload> = {
-            account: [account.dotNsIdentifier, account.derivationIndex],
-            payload:
-              raw.type === 'bytes'
-                ? {
-                    tag: 'Bytes',
-                    value: fromHex(asHex(raw.data)),
-                  }
-                : {
-                    tag: 'Payload',
-                    value: raw.data,
-                  },
-          };
 
-          const response = await hostApi.signRaw(enumValue('v1', payload));
+        async signBytes(data) {
+          const response = await hostApi.signRaw(
+            enumValue('v1', {
+              account: productAccountId,
+              payload: { tag: 'Bytes', value: data },
+            }),
+          );
 
           return response.match(
             response => {
               assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
-              return {
-                id: 0,
-                signature: response.value.signature,
-                signedTransaction: response.value.signedTransaction,
-              };
+              return fromHex(response.value.signature);
             },
             err => {
               assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
@@ -177,7 +194,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
             },
           );
         },
-      );
+      };
     },
     subscribeAccountConnectionStatus(callback: (status: AccountConnectionStatus) => void): Subscription<void> {
       const subscriber = hostApi.accountConnectionStatusSubscribe(enumValue('v1', undefined), status => {
@@ -191,7 +208,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
       };
     },
-    getLegacyAccountSigner(account: ProductAccount): PolkadotSigner {
+    getLegacyAccountSigner(account: LegacyAccount): PolkadotSigner {
       return getPolkadotSignerFromPjs(
         toHex(account.publicKey),
         async payload => {
@@ -244,6 +261,8 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
     },
   };
 };
+
+export const accounts = createAccountsProvider();
 
 function asHex(v: string): HexString {
   if (v.startsWith('0x')) return v as HexString;
