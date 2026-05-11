@@ -11,7 +11,7 @@ import {
 } from '@novasamatech/host-api';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import type { AccountConnectionStatus, ProductAccount } from '@novasamatech/product-sdk';
+import type { AccountConnectionStatus, LegacyAccount, ProductAccount } from '@novasamatech/product-sdk';
 import { createAccountsProvider } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
@@ -29,10 +29,14 @@ function setup() {
 }
 
 const mockPublicKey = new Uint8Array(32).fill(1);
-const mockAccount: ProductAccount = {
+const mockProductAccount: ProductAccount = {
   dotNsIdentifier: 'product.dot',
   derivationIndex: 0,
   publicKey: mockPublicKey,
+};
+const mockLegacyAccount: LegacyAccount = {
+  publicKey: mockPublicKey,
+  name: 'Test Account',
 };
 
 const mockRingLocation: CodecType<typeof RingLocation> = {
@@ -101,7 +105,7 @@ describe('Host API: Accounts', () => {
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(mockAccount);
+      expect(result._unsafeUnwrap()).toEqual(mockProductAccount);
     });
 
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
@@ -303,7 +307,7 @@ describe('Host API: Accounts', () => {
   describe('getProductAccountSigner', () => {
     it('should expose the correct public key', () => {
       const { accountsProvider } = setup();
-      const signer = accountsProvider.getProductAccountSigner(mockAccount);
+      const signer = accountsProvider.getProductAccountSigner(mockProductAccount);
 
       expect(signer.publicKey).toEqual(mockPublicKey);
     });
@@ -319,11 +323,11 @@ describe('Host API: Accounts', () => {
         return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
       });
 
-      const signer = accountsProvider.getProductAccountSigner(mockAccount);
+      const signer = accountsProvider.getProductAccountSigner(mockProductAccount);
       const result = await signer.signBytes(rawData);
 
       expect(capturedParams).toEqual({
-        account: [mockAccount.dotNsIdentifier, mockAccount.derivationIndex],
+        account: [mockProductAccount.dotNsIdentifier, mockProductAccount.derivationIndex],
         payload: { tag: 'Bytes', value: rawData },
       });
       expect(result).toEqual(signatureBytes);
@@ -335,7 +339,7 @@ describe('Host API: Accounts', () => {
 
       container.handleSignRaw((_, { err }) => err(error));
 
-      const signer = accountsProvider.getProductAccountSigner(mockAccount);
+      const signer = accountsProvider.getProductAccountSigner(mockProductAccount);
 
       await expect(signer.signBytes(new Uint8Array([1, 2, 3]))).rejects.toEqual(error);
     });
@@ -344,7 +348,7 @@ describe('Host API: Accounts', () => {
   describe('getLegacyAccountSigner', () => {
     it('should expose the correct public key', () => {
       const { accountsProvider } = setup();
-      const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
+      const signer = accountsProvider.getLegacyAccountSigner(mockLegacyAccount);
 
       expect(signer.publicKey).toEqual(mockPublicKey);
     });
@@ -360,7 +364,7 @@ describe('Host API: Accounts', () => {
         return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
       });
 
-      const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
+      const signer = accountsProvider.getLegacyAccountSigner(mockLegacyAccount);
       const result = await signer.signBytes(rawData);
 
       expect(capturedParams).toMatchObject({ payload: { tag: 'Bytes', value: rawData } });
@@ -373,7 +377,7 @@ describe('Host API: Accounts', () => {
 
       container.handleSignRawWithLegacyAccount((_, { err }) => err(error));
 
-      const signer = accountsProvider.getLegacyAccountSigner(mockAccount);
+      const signer = accountsProvider.getLegacyAccountSigner(mockLegacyAccount);
 
       await expect(signer.signBytes(new Uint8Array([1, 2, 3]))).rejects.toEqual(error);
     });
