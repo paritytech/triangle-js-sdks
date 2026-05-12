@@ -235,7 +235,7 @@ export async function createLegacyExtensionEnableFactory(transport: Transport) {
           const response = await hostApi.createTransactionWithLegacyAccount(
             enumValue('v1', {
               signer: possibleAccountId,
-              genesisHash: fromHex(checkGenesis.extra),
+              genesisHash: fromHex(checkGenesis.additionalSigned),
               callData: fromHex(payload.callData),
               txExtVersion: payload.txExtVersion,
               extensions: payload.extensions.map(e => ({
