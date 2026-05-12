@@ -112,8 +112,8 @@ describe('Host API: injected web3 provider', () => {
       callData: '0x0002' as const,
       extensions: [
         {
-          id: 'test',
-          additionalSigned: '0x0000' as const,
+          id: 'CheckGenesis',
+          additionalSigned: toHex(new Uint8Array(32)),
           extra: '0x0000' as const,
         },
       ],
@@ -195,8 +195,8 @@ describe('Host API: injected web3 provider', () => {
       callData: '0x0002' as const,
       extensions: [
         {
-          id: 'test',
-          additionalSigned: '0x0000' as const,
+          id: 'CheckGenesis',
+          additionalSigned: toHex(new Uint8Array(32)),
           extra: '0x0000' as const,
         },
       ],
