@@ -41,6 +41,10 @@ function GenericTxPayloadV1<Signer>(signer: Codec<Signer>) {
   return Struct({
     signer,
     /**
+     * Chain identifier where transaction will be executed
+     */
+    genesisHash: Bytes(32),
+    /**
      * SCALE-encoded Call (module indicator + function indicator + params).
      */
     callData: Bytes(),

@@ -218,8 +218,14 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           const latestVersion = versions.reduce((acc, v) => Math.max(acc, v), 0);
           const txExtVersion = latestVersion === 4 ? 0 : latestVersion;
 
+          const checkGenesis = signedExtensions['CheckGenesis'];
+          if (!checkGenesis) {
+            throw new Error("Can't find genesis hash on transaction");
+          }
+
           const txPayload: CodecType<typeof ProductAccountTransaction> = {
             signer: productAccountId,
+            genesisHash: checkGenesis.value,
             callData,
             extensions: Object.values(signedExtensions).map(({ identifier, value, additionalSigned }) => ({
               id: identifier,

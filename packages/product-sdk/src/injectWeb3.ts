@@ -227,10 +227,15 @@ export async function createLegacyExtensionEnableFactory(transport: Transport) {
           if (!signer) {
             throw new Error("Signer can't route transaction to the right account without signer hint.");
           }
+          const checkGenesis = payload.extensions.find(x => x.id === 'CheckGenesis');
+          if (!checkGenesis) {
+            throw new Error("Can't find genesis hash on transaction");
+          }
           const possibleAccountId = accountId.enc(signer);
           const response = await hostApi.createTransactionWithLegacyAccount(
             enumValue('v1', {
               signer: possibleAccountId,
+              genesisHash: fromHex(checkGenesis.extra),
               callData: fromHex(payload.callData),
               txExtVersion: payload.txExtVersion,
               extensions: payload.extensions.map(e => ({
