@@ -225,7 +225,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
 
           const txPayload: CodecType<typeof ProductAccountTransaction> = {
             signer: productAccountId,
-            genesisHash: checkGenesis.value,
+            genesisHash: checkGenesis.additionalSigned,
             callData,
             extensions: Object.values(signedExtensions).map(({ identifier, value, additionalSigned }) => ({
               id: identifier,
