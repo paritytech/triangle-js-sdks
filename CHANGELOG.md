@@ -1,18 +1,3 @@
-## 0.7.9-2 (2026-05-12)
-
-### 🚀 Features
-
-- transaction signing with host_create_transaction method ([822e7aa](https://github.com/paritytech/triangle-js-sdks/commit/822e7aa))
-- add genesis hash to createTransaction ([f6f1d66](https://github.com/paritytech/triangle-js-sdks/commit/f6f1d66))
-
-### 🩹 Fixes
-
-- added backward-compatability flag in product sdk accounts provider ([f905c1a](https://github.com/paritytech/triangle-js-sdks/commit/f905c1a))
-
-### ❤️ Thank You
-
-- Sergey Zhuravlev @johnthecat
-
 ## 0.7.9 (2026-05-11)
 
 ### 🚀 Features
