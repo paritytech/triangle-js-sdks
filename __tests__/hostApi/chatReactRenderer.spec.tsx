@@ -5,6 +5,7 @@ globalThis['IS_REACT_ACT_ENVIRONMENT'] = true;
 
 import type { CodecType } from '@novasamatech/host-api';
 import { CustomRendererNode, Modifier, createTransport, enumValue } from '@novasamatech/host-api';
+import { createProductChatManager } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
 import {
   Box,
@@ -16,7 +17,6 @@ import {
   TextField,
   registerChatMessageRenderer,
 } from '@novasamatech/product-react-renderer';
-import { createProductChatManager } from '@novasamatech/product-sdk';
 
 import { nanoid } from 'nanoid';
 import { act, useState } from 'react';

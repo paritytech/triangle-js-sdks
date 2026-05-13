@@ -12,7 +12,7 @@
 ## Packages
 
 ### For Product developers
-* [**product-sdk**](./packages/product-sdk/README.md) — SDK for integrating and running a product inside the Polkadot browser host.
+* [**host-api-wrapper**](./packages/host-api-wrapper/README.md) — Host API wrapper for integrating and running a product inside the Polkadot browser host.
 * [**product-react-renderer**](./packages/product-react-renderer/README.md) — Custom React reconciler for rendering native UI widgets from product scripts.
 
 ### For Host developers
