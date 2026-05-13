@@ -85,7 +85,12 @@ import {
   StorageWriteV1_response,
 } from './v1/localStorage.js';
 import { NavigateToV1_request, NavigateToV1_response } from './v1/navigation.js';
-import { PushNotificationV1_request, PushNotificationV1_response } from './v1/notification.js';
+import {
+  PushNotificationCancelV1_request,
+  PushNotificationCancelV1_response,
+  PushNotificationV1_request,
+  PushNotificationV1_response,
+} from './v1/notification.js';
 import {
   PaymentBalanceSubscribeV1_interrupt,
   PaymentBalanceSubscribeV1_receive,
@@ -202,6 +207,10 @@ export const hostApiProtocol = {
 
   host_push_notification: versionedRequest({
     v1: [PushNotificationV1_request, PushNotificationV1_response],
+  }),
+
+  host_push_notification_cancel: versionedRequest({
+    v1: [PushNotificationCancelV1_request, PushNotificationCancelV1_response],
   }),
 
   host_navigate_to: versionedRequest({

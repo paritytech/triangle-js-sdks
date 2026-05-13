@@ -38,6 +38,9 @@ export { createThemeProvider } from './theme.js';
 
 export { createLocalStorage, hostLocalStorage } from './localStorage.js';
 
+export type { NotificationId, PushNotificationInput } from './notification.js';
+export { createNotificationManager, notificationManager } from './notification.js';
+
 export { createPreimageManager, preimageManager } from './preimage.js';
 
 export type { PaymentBalance, PaymentStatus, TopUpSource } from './payments.js';
