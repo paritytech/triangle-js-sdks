@@ -40,14 +40,17 @@ export function createWebviewProvider({ webview, logger, openDevTools }: Params)
       await webview
         .executeJavaScript(
           `
-            window.addEventListener('message', e => {
-              if (e.data === '${portInitMessage}') {
+            (function() {
+              function handler(e) {
+                if (e.data !== '${portInitMessage}') return;
+                window.removeEventListener('message', handler);
                 const port = e.ports[0];
                 if (port) {
                   window['${WEBVIEW_HOST_PORT_NAME}'] = port;
                 }
               }
-            });
+              window.addEventListener('message', handler);
+            })();
          `,
         )
         .catch(reject);

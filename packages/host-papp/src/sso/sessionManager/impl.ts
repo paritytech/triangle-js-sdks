@@ -29,6 +29,12 @@ export function createSsoSessionManager({
   storage,
 }: Params) {
   const localSessions = createState<Record<string, UserSession>>({});
+  const sessionUnsubscribes = new Map<string, VoidFunction>();
+
+  const releaseSession = (id: string) => {
+    sessionUnsubscribes.get(id)?.();
+    sessionUnsubscribes.delete(id);
+  };
 
   const disconnect = (session: StoredUserSession) => {
     return ssoSessionRepository.filter(s => s.id !== session.id).map(() => undefined);
@@ -40,11 +46,12 @@ export function createSsoSessionManager({
     const toAdd = new Set<UserSession>();
 
     for (const userSession of userSessions) {
+      toRemove.delete(userSession.id);
+
       if (userSession.id in activeSessions) continue;
 
       const session = createSession(userSession, statementStore, storage, userSecretRepository);
 
-      toRemove.delete(userSession.id);
       toAdd.add(session);
 
       emitHostPappDebugMessage({
@@ -55,7 +62,7 @@ export function createSsoSessionManager({
         payload: { sessionId: userSession.id },
       });
 
-      session.subscribe(message => {
+      const unsubscribe = session.subscribe(message => {
         switch (message.data.tag) {
           case 'v1': {
             switch (message.data.value.tag) {
@@ -67,17 +74,21 @@ export function createSsoSessionManager({
 
         return okAsync(false);
       });
+
+      sessionUnsubscribes.set(session.id, unsubscribe);
     }
 
     if (toRemove.size > 0) {
-      for (const sessionId of toRemove) {
+      for (const id of toRemove) {
         emitHostPappDebugMessage({
           layer: 'session',
           event: 'terminated',
-          flowId: sessionId,
+          flowId: id,
           timestamp: Date.now(),
-          payload: { sessionId },
+          payload: { sessionId: id },
         });
+        releaseSession(id);
+        activeSessions[id]?.dispose();
       }
       localSessions.write(prev => {
         return Object.fromEntries(Object.entries(prev).filter(([id]) => !toRemove.has(id)));
@@ -110,6 +121,7 @@ export function createSsoSessionManager({
 
     dispose() {
       for (const session of Object.values(localSessions.read())) {
+        releaseSession(session.id);
         session.dispose();
       }
     },

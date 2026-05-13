@@ -2,9 +2,11 @@
 
 import type { HexString } from '@novasamatech/host-api';
 import { createHostApi, createTransport, enumValue } from '@novasamatech/host-api';
+import { WellKnownChain, createPapiProvider } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
-import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
+import type { JsonRpcMessage } from '@polkadot-api/json-rpc-provider';
+import type { JsonRpcProvider } from 'polkadot-api';
 import { describe, expect, it, vi } from 'vitest';
 
 import { delay } from './__mocks__/helpers.js';
@@ -37,14 +39,12 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainHead_v1_follow') {
-                followFn(parsed.params[0]);
+            send(message) {
+              if (message.method === 'chainHead_v1_follow') {
+                followFn(message.params[0]);
                 // Respond with subscription ID
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'chain_sub_1' } as any);
+
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'chain_sub_1' });
 
                 // Send initialized event after a tick
                 setTimeout(() => {
@@ -59,11 +59,10 @@ describe('Host API: Chain Interaction', () => {
                         finalizedBlockRuntime: null,
                       },
                     },
-                  } as any);
+                  });
                 }, 10);
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -76,8 +75,8 @@ describe('Host API: Chain Interaction', () => {
       const sdkConnection = provider(msg => receivedMessages.push(msg));
 
       // PAPI sends chainHead_v1_follow
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [true] } as any);
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [true] });
 
       await delay(100);
 
@@ -116,15 +115,11 @@ describe('Host API: Chain Interaction', () => {
           chainOnMessage = onMessage;
 
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainHead_v1_follow') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
+            send(message) {
+              if (message.method === 'chainHead_v1_follow') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'sub_1' });
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -136,8 +131,7 @@ describe('Host API: Chain Interaction', () => {
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
 
       await delay(100);
 
@@ -205,18 +199,13 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainHead_v1_follow') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
-              } else if (parsed.method === 'chainHead_v1_header') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: '0xdd000001' } as any);
+            send(message) {
+              if (message.method === 'chainHead_v1_follow') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'sub_1' });
+              } else if (message.method === 'chainHead_v1_header') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: '0xdd000001' });
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -229,8 +218,8 @@ describe('Host API: Chain Interaction', () => {
       const sdkConnection = provider(msg => receivedMessages.push(msg));
 
       // Start follow first
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
 
       await delay(100);
 
@@ -244,7 +233,7 @@ describe('Host API: Chain Interaction', () => {
         id: 2,
         method: 'chainHead_v1_header',
         params: [followSubId, '0xcc000001'],
-      } as any);
+      });
 
       await delay(100);
 
@@ -269,18 +258,15 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainHead_v1_follow') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
-              } else if (parsed.method === 'chainHead_v1_storage') {
+            send(message) {
+              if (message.method === 'chainHead_v1_follow') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'sub_1' });
+              } else if (message.method === 'chainHead_v1_storage') {
                 onMessage({
                   jsonrpc: '2.0',
-                  id: parsed.id,
+                  id: message.id ?? null,
                   result: { result: 'started', operationId: 'op_storage_1' },
-                } as any);
+                });
 
                 // Send storage items event
                 setTimeout(() => {
@@ -302,7 +288,7 @@ describe('Host API: Chain Interaction', () => {
                         ],
                       },
                     },
-                  } as any);
+                  });
 
                   onMessage({
                     jsonrpc: '2.0',
@@ -311,11 +297,10 @@ describe('Host API: Chain Interaction', () => {
                       subscription: 'sub_1',
                       result: { event: 'operationStorageDone', operationId: 'op_storage_1' },
                     },
-                  } as any);
+                  });
                 }, 10);
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -328,8 +313,8 @@ describe('Host API: Chain Interaction', () => {
       const sdkConnection = provider(msg => receivedMessages.push(msg));
 
       // Start follow
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
       await delay(100);
 
       const followSubId = receivedMessages.find(m => m.id === 1)!.result;
@@ -341,7 +326,7 @@ describe('Host API: Chain Interaction', () => {
         id: 2,
         method: 'chainHead_v1_storage',
         params: [followSubId, '0xcc000001', [{ key: '0xee000001', type: 'value' }], null],
-      } as any);
+      });
 
       await delay(100);
 
@@ -379,18 +364,15 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainHead_v1_follow') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
-              } else if (parsed.method === 'chainHead_v1_call') {
+            send(message) {
+              if (message.method === 'chainHead_v1_follow') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'sub_1' });
+              } else if (message.method === 'chainHead_v1_call') {
                 onMessage({
                   jsonrpc: '2.0',
-                  id: parsed.id,
+                  id: message.id ?? null,
                   result: { result: 'started', operationId: 'op_call_1' },
-                } as any);
+                });
 
                 setTimeout(() => {
                   onMessage({
@@ -400,11 +382,10 @@ describe('Host API: Chain Interaction', () => {
                       subscription: 'sub_1',
                       result: { event: 'operationCallDone', operationId: 'op_call_1', output: '0x11000001' },
                     },
-                  } as any);
+                  });
                 }, 10);
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -416,8 +397,7 @@ describe('Host API: Chain Interaction', () => {
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
       await delay(100);
 
       const followSubId = receivedMessages.find(m => m.id === 1)!.result;
@@ -427,7 +407,7 @@ describe('Host API: Chain Interaction', () => {
         id: 2,
         method: 'chainHead_v1_call',
         params: [followSubId, '0xcc000001', 'Metadata_metadata', '0x'],
-      } as any);
+      });
 
       await delay(100);
 
@@ -459,19 +439,15 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainHead_v1_follow') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
-              } else if (parsed.method === 'chainHead_v1_unpin') {
-                unpinFn(parsed.params);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+            send(message) {
+              if (message.method === 'chainHead_v1_follow') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'sub_1' });
+              } else if (message.method === 'chainHead_v1_unpin') {
+                unpinFn(message.params);
+
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -483,8 +459,7 @@ describe('Host API: Chain Interaction', () => {
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
       await delay(100);
 
       const followSubId = receivedMessages.find(m => m.id === 1)!.result;
@@ -494,7 +469,7 @@ describe('Host API: Chain Interaction', () => {
         id: 2,
         method: 'chainHead_v1_unpin',
         params: [followSubId, ['0xaa000001', '0xaa000002']],
-      } as any);
+      });
 
       await delay(100);
 
@@ -520,27 +495,21 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainSpec_v1_genesisHash') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: WellKnownChain.polkadotRelay } as any);
-              } else if (parsed.method === 'chainSpec_v1_chainName') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'Polkadot' } as any);
-              } else if (parsed.method === 'chainSpec_v1_properties') {
+            send(message) {
+              if (message.method === 'chainSpec_v1_genesisHash') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: WellKnownChain.polkadotRelay });
+              } else if (message.method === 'chainSpec_v1_chainName') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'Polkadot' });
+              } else if (message.method === 'chainSpec_v1_properties') {
                 onMessage({
                   jsonrpc: '2.0',
-                  id: parsed.id,
+                  id: message.id ?? null,
                   result: { ss58Format: 0, tokenDecimals: 10, tokenSymbol: 'DOT' },
-                } as any);
-              } else if (parsed.method === 'chainHead_v1_follow') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
+                });
+              } else if (message.method === 'chainHead_v1_follow') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'sub_1' });
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -553,21 +522,21 @@ describe('Host API: Chain Interaction', () => {
       const sdkConnection = provider(msg => receivedMessages.push(msg));
 
       // Need to establish follow first for the connection to exist
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
       await delay(100);
 
       // Query genesis hash
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 2, method: 'chainSpec_v1_genesisHash', params: [] } as any);
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 2, method: 'chainSpec_v1_genesisHash', params: [] });
 
       // Query chain name
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 3, method: 'chainSpec_v1_chainName', params: [] } as any);
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 3, method: 'chainSpec_v1_chainName', params: [] });
 
       // Query properties
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 4, method: 'chainSpec_v1_properties', params: [] } as any);
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 4, method: 'chainSpec_v1_properties', params: [] });
 
       await delay(200);
 
@@ -600,19 +569,15 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainHead_v1_follow') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
-              } else if (parsed.method === 'chainHead_v1_unfollow') {
-                unfollowFn(parsed.params[0]);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+            send(message) {
+              if (message.method === 'chainHead_v1_follow') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'sub_1' });
+              } else if (message.method === 'chainHead_v1_unfollow') {
+                unfollowFn(message.params[0]);
+
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect: disconnectFn,
@@ -624,8 +589,7 @@ describe('Host API: Chain Interaction', () => {
         /* ignore */
       });
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
 
       await delay(100);
 
@@ -658,16 +622,13 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'transaction_v1_broadcast') {
-                broadcastFn(parsed.params[0]);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'tx_op_1' } as any);
+            send(message) {
+              if (message.method === 'transaction_v1_broadcast') {
+                broadcastFn(message.params[0]);
+
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'tx_op_1' });
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -699,11 +660,8 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+            send(message) {
+              onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
             },
             disconnect() {
               /* empty */
@@ -733,16 +691,13 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'transaction_v1_stop') {
-                stopFn(parsed.params[0]);
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+            send(message) {
+              if (message.method === 'transaction_v1_stop') {
+                stopFn(message.params[0]);
+
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -775,11 +730,8 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+            send(message) {
+              onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
             },
             disconnect() {
               /* empty */
@@ -805,129 +757,77 @@ describe('Host API: Chain Interaction', () => {
     it('should not collide request IDs when two products share the same chain backend', async () => {
       const chainId = WellKnownChain.polkadotRelay;
 
-      // Shared broadcasting chain backend — simulates BranchedProvider behavior
-      // where ALL responses from the single RPC connection are broadcast to ALL branches
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const allBranches: ((msg: any) => void)[] = [];
+      // Shared backend that simulates BranchedProvider: every response is
+      // broadcast to ALL onMessage callbacks. Each chainHead_v1_follow gets a
+      // distinct subId + a distinct initialized block hash so any cross-leak
+      // surfaces as an identical hash on both products.
+      const branches: ((msg: JsonRpcMessage) => void)[] = [];
       let subCounter = 0;
-
-      function broadcastingChainFactory(chain: HexString) {
+      const broadcast = (msg: JsonRpcMessage) => branches.forEach(b => b(msg));
+      const sharedFactory = (chain: HexString): JsonRpcProvider | null => {
         if (chain !== chainId) return null;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        return (onMessage: (msg: any) => void) => {
-          allBranches.push(onMessage);
-
+        return onMessage => {
+          branches.push(onMessage);
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainHead_v1_follow') {
-                subCounter++;
-                const subId = `sub_${subCounter}`;
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const response = { jsonrpc: '2.0', id: parsed.id, result: subId } as any;
-                // Broadcast to ALL branches (simulating BranchedProvider)
-                for (const branch of allBranches) {
-                  branch(response);
-                }
-                // Send initialized event after a tick (also broadcast)
-                // Use valid hex strings — invalid hex gets mangled by SCALE encoding roundtrip
-                const blockHash = subCounter === 1 ? '0xaa00000000000001' : '0xbb00000000000002';
-                setTimeout(() => {
-                  const event = {
-                    jsonrpc: '2.0',
-                    method: 'chainHead_v1_followEvent',
-                    params: {
-                      subscription: subId,
-                      result: {
-                        event: 'initialized',
-                        finalizedBlockHashes: [blockHash],
-                        finalizedBlockRuntime: null,
-                      },
-                    },
-                  } as any;
-                  for (const branch of allBranches) {
-                    branch(event);
-                  }
-                }, 10);
-              } else if (parsed.method === 'chainHead_v1_unfollow') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                const response = { jsonrpc: '2.0', id: parsed.id, result: null } as any;
-                for (const branch of allBranches) {
-                  branch(response);
-                }
-              }
+            send(message) {
+              if (message.method !== 'chainHead_v1_follow') return;
+              const subId = `sub_${++subCounter}`;
+              const blockHash = `0x${subCounter.toString(16).padStart(16, '0')}` as const;
+              broadcast({ jsonrpc: '2.0', id: message.id ?? null, result: subId });
+              setTimeout(() => {
+                broadcast({
+                  jsonrpc: '2.0',
+                  method: 'chainHead_v1_followEvent',
+                  params: {
+                    subscription: subId,
+                    result: { event: 'initialized', finalizedBlockHashes: [blockHash], finalizedBlockRuntime: null },
+                  },
+                });
+              }, 10);
             },
             disconnect() {
               /* empty */
             },
           };
         };
-      }
+      };
 
-      // Two separate product setups — each with own transport + container
-      const providers1 = createHostApiProviders();
-      const providers2 = createHostApiProviders();
+      // One product setup; receives messages into its own buffer.
+      const createProduct = () => {
+        const providers = createHostApiProviders();
+        const container = createContainer(providers.host);
+        container.handleFeatureSupported((p, { ok }) => ok(p.tag === 'Chain' && p.value === chainId));
+        container.handleChainConnection(sharedFactory);
+        const messages: JsonRpcMessage[] = [];
+        const conn = createPapiProvider(chainId, undefined, { transport: createTransport(providers.sdk) })(msg =>
+          messages.push(msg),
+        );
+        conn.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [true] });
+        return messages;
+      };
 
-      const container1 = createContainer(providers1.host);
-      const container2 = createContainer(providers2.host);
-
-      container1.handleFeatureSupported((params, { ok }) => ok(params.tag === 'Chain' && params.value === chainId));
-      container2.handleFeatureSupported((params, { ok }) => ok(params.tag === 'Chain' && params.value === chainId));
-
-      container1.handleChainConnection(broadcastingChainFactory);
-      container2.handleChainConnection(broadcastingChainFactory);
-
-      const sdkTransport1 = createTransport(providers1.sdk);
-      const sdkTransport2 = createTransport(providers2.sdk);
-
-      const papiProvider1 = createPapiProvider(chainId, undefined, { transport: sdkTransport1 });
-      const papiProvider2 = createPapiProvider(chainId, undefined, { transport: sdkTransport2 });
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const messages1: any[] = [];
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const messages2: any[] = [];
-
-      const conn1 = papiProvider1(msg => messages1.push(msg));
-      const conn2 = papiProvider2(msg => messages2.push(msg));
-
-      // Both products start follow simultaneously
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      conn1.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [true] } as any);
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      conn2.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [true] } as any);
+      const messages1 = createProduct();
+      const messages2 = createProduct();
 
       await delay(200);
 
-      // Each product should get exactly one follow response
-      const followResp1 = messages1.filter(m => m.id === 1 && typeof m.result === 'string');
-      const followResp2 = messages2.filter(m => m.id === 1 && typeof m.result === 'string');
+      type InitNotification = { method: string; params: { result: { finalizedBlockHashes: string[] } } };
+      const isFollowResp = (m: JsonRpcMessage) =>
+        'id' in m && m.id === 1 && 'result' in m && typeof m.result === 'string';
+      const isInit = (m: JsonRpcMessage): m is JsonRpcMessage & InitNotification => {
+        if (!('method' in m) || m.method !== 'chainHead_v1_followEvent') return false;
+        return (m.params as { result?: { event?: string } } | undefined)?.result?.event === 'initialized';
+      };
+      const initBlocks = (msgs: JsonRpcMessage[]) => msgs.filter(isInit)[0]!.params.result.finalizedBlockHashes;
 
-      expect(followResp1.length).toBe(1);
-      expect(followResp2.length).toBe(1);
-
-      // Each product should receive exactly one initialized event
-      const initEvents1 = messages1.filter(
-        m => m.method === 'chainHead_v1_followEvent' && m.params?.result?.event === 'initialized',
-      );
-      const initEvents2 = messages2.filter(
-        m => m.method === 'chainHead_v1_followEvent' && m.params?.result?.event === 'initialized',
-      );
-
-      expect(initEvents1.length).toBe(1);
-      expect(initEvents2.length).toBe(1);
-
-      // Each product should receive initialized events with DIFFERENT block data
-      // (sub_1 gets 0xblock_1, sub_2 gets 0xblock_2 from the chain backend).
-      // Without the ID collision fix, both would receive 0xblock_1 because both
-      // managers would resolve with the same chain subscription ID.
-      const blocks1 = initEvents1[0].params.result.finalizedBlockHashes;
-      const blocks2 = initEvents2[0].params.result.finalizedBlockHashes;
-
-      expect(blocks1).not.toEqual(blocks2);
-      expect([blocks1[0], blocks2[0]].sort()).toEqual(['0xaa00000000000001', '0xbb00000000000002']);
+      expect(messages1.filter(isFollowResp)).toHaveLength(1);
+      expect(messages2.filter(isFollowResp)).toHaveLength(1);
+      expect(messages1.filter(isInit)).toHaveLength(1);
+      expect(messages2.filter(isInit)).toHaveLength(1);
+      // Each product must observe a DIFFERENT block hash. Without the JSON-RPC
+      // id-collision fix, the chainConnectionManager would resolve both follows
+      // against the same chain subscription and observe identical hashes.
+      expect(initBlocks(messages1)).not.toEqual(initBlocks(messages2));
     });
   });
 
@@ -947,20 +847,16 @@ describe('Host API: Chain Interaction', () => {
 
         return onMessage => {
           return {
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            send(message: any) {
-              const parsed = message;
-              if (parsed.method === 'chainHead_v1_follow') {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: 'sub_1' } as any);
-              } else if (parsed.method === 'chainHead_v1_unfollow') {
-                unfollowFn(parsed.params[0]);
+            send(message) {
+              if (message.method === 'chainHead_v1_follow') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'sub_1' });
+              } else if (message.method === 'chainHead_v1_unfollow') {
+                unfollowFn(message.params[0]);
                 callOrder.push('unfollow');
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               } else {
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                onMessage({ jsonrpc: '2.0', id: parsed.id, result: null } as any);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
               }
             },
             disconnect() {
@@ -976,8 +872,8 @@ describe('Host API: Chain Interaction', () => {
       });
 
       // Establish a follow subscription
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
 
       await delay(100);
 
@@ -1016,8 +912,7 @@ describe('Host API: Chain Interaction', () => {
 
       const sdkConnection = provider(msg => receivedMessages.push(msg));
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] } as any);
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [false] });
 
       await delay(100);
 

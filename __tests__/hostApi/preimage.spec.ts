@@ -1,7 +1,7 @@
 import { PreimageSubmitErr, createTransport } from '@novasamatech/host-api';
+import { createPreimageManager } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import { createPreimageManager } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 

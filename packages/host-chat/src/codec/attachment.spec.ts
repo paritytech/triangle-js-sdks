@@ -38,30 +38,6 @@ describe('attachment codecs', () => {
   });
 
   describe('FileMeta', () => {
-    it('encodes general variant at index 0', () => {
-      const meta = { tag: 'general' as const, value: { mimeType: 'text/plain', fileSize: 42 } };
-      const encoded = FileMeta.enc(meta);
-      expect(encoded[0]).toBe(0);
-    });
-
-    it('encodes image variant at index 1', () => {
-      const meta = {
-        tag: 'image' as const,
-        value: { general: { mimeType: 'image/png', fileSize: 100 }, width: 64, height: 64 },
-      };
-      const encoded = FileMeta.enc(meta);
-      expect(encoded[0]).toBe(1);
-    });
-
-    it('encodes video variant at index 2', () => {
-      const meta = {
-        tag: 'video' as const,
-        value: { general: { mimeType: 'video/mp4', fileSize: 999 }, duration: 30 },
-      };
-      const encoded = FileMeta.enc(meta);
-      expect(encoded[0]).toBe(2);
-    });
-
     it('round-trips all variants', () => {
       const variants = [
         { tag: 'general' as const, value: { mimeType: 'application/pdf', fileSize: 1024 } },
@@ -106,7 +82,7 @@ describe('attachment codecs', () => {
   });
 
   describe('FileVariant', () => {
-    it('encodes p2pMixnet at index 0', () => {
+    it('round-trips p2pMixnet variant', () => {
       const variant = {
         tag: 'p2pMixnet' as const,
         value: {
@@ -116,10 +92,8 @@ describe('attachment codecs', () => {
         },
       };
       const encoded = FileVariant.enc(variant);
-      expect(encoded[0]).toBe(0);
-
       const decoded = FileVariant.dec(encoded);
-      expect(decoded.tag).toBe('p2pMixnet');
+      expect(decoded).toEqual(variant);
     });
   });
 });

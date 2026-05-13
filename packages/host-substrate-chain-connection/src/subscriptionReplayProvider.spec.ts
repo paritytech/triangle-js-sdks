@@ -81,18 +81,19 @@ describe('withSubscriptionReplay', () => {
     expect(mock.send).not.toHaveBeenCalled();
   });
 
-  it('does not replay pending subscriptions (no server response yet) on reconnect', () => {
+  it('replays pending subscriptions (no server response yet) on reconnect', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
 
-    conn.send(req(1, 'statement_subscribeStatement') as any);
+    const subscribeMsg = req(1, 'statement_subscribeStatement');
+    conn.send(subscribeMsg as any);
     // intentionally no simulateMessage — subscription not confirmed by server
     mock.send.mockClear();
 
     control.triggerReconnect();
 
-    expect(mock.send).not.toHaveBeenCalled();
+    expect(mock.send).toHaveBeenCalledWith(subscribeMsg);
   });
 
   it('replays active subscriptions on reconnect', () => {

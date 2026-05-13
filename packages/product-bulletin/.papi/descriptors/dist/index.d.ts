@@ -1,0 +1,22 @@
+import { default as bulletin_westend, type Bulletin_westendWhitelistEntry } from "./bulletin_westend";
+export { bulletin_westend };
+export type * from "./bulletin_westend";
+import { default as bulletin_paseo, type Bulletin_paseoWhitelistEntry } from "./bulletin_paseo";
+export { bulletin_paseo };
+export type * from "./bulletin_paseo";
+import { default as bulletin_pop_stable, type Bulletin_pop_stableWhitelistEntry } from "./bulletin_pop_stable";
+export { bulletin_pop_stable };
+export type * from "./bulletin_pop_stable";
+import { default as bulletin_previewnet, type Bulletin_previewnetWhitelistEntry } from "./bulletin_previewnet";
+export { bulletin_previewnet };
+export type * from "./bulletin_previewnet";
+export { DigestItem, Phase, DispatchClass, TokenError, ArithmeticError, TransactionalError, BalanceStatus, TransactionPaymentEvent, XcmV5Junctions, XcmV5Junction, XcmV5NetworkId, XcmV3JunctionBodyId, XcmV2JunctionBodyPart, XcmV5Instruction, XcmV3MultiassetFungibility, XcmV3MultiassetAssetInstance, XcmV3MaybeErrorCode, XcmV2OriginKind, XcmV5AssetFilter, XcmV5WildAsset, XcmV2MultiassetWildFungibility, XcmV3WeightLimit, XcmVersionedAssets, XcmV3MultiassetAssetId, XcmV3Junctions, XcmV3Junction, XcmV3JunctionNetworkId, XcmVersionedLocation, UpgradeGoAhead, UpgradeRestriction, BalancesTypesReasons, TransactionPaymentReleases, XcmV3Response, XcmV3TraitsError, XcmV4Response, XcmPalletVersionMigrationStage, XcmVersionedAssetId, MultiAddress, BalancesAdjustmentDirection, XcmVersionedXcm, XcmV3Instruction, XcmV3MultiassetMultiAssetFilter, XcmV3MultiassetWildMultiAsset, XcmV4Instruction, XcmV4AssetAssetFilter, XcmV4AssetWildAsset, TransactionValidityUnknownTransaction, TransactionValidityTransactionSource, XcmVersionedAsset } from './common-types';
+export declare const getMetadata: (codeHash: string) => Promise<Uint8Array | null>;
+export type WhitelistEntry = Bulletin_westendWhitelistEntry | Bulletin_paseoWhitelistEntry | Bulletin_pop_stableWhitelistEntry | Bulletin_previewnetWhitelistEntry;
+export type WhitelistEntriesByChain = Partial<{
+    "*": WhitelistEntry[];
+    bulletin_westend: WhitelistEntry[];
+    bulletin_paseo: WhitelistEntry[];
+    bulletin_pop_stable: WhitelistEntry[];
+    bulletin_previewnet: WhitelistEntry[];
+}>;

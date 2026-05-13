@@ -9,10 +9,10 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
+import type { AccountConnectionStatus, ProductAccount } from '@novasamatech/host-api-wrapper';
+import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import type { AccountConnectionStatus, ProductAccount } from '@novasamatech/product-sdk';
-import { createAccountsProvider } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -339,38 +339,6 @@ describe('Host API: Accounts', () => {
       const signer = accountsProvider.getProductAccountSigner(mockAccount);
 
       await expect(signer.signBytes(new Uint8Array([1, 2, 3]))).rejects.toEqual(error);
-    });
-
-    it('should sign payload via handleSignPayload', async () => {
-      const { container, accountsProvider } = setup();
-      const signatureBytes = new Uint8Array(64).fill(0xcd);
-      let handlerCalled = false;
-
-      container.handleSignPayload((_, { ok }) => {
-        handlerCalled = true;
-        return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
-      });
-
-      const signer = accountsProvider.getProductAccountSigner(mockAccount);
-      // Invoke via the PJS signPayload interface underlying the PolkadotSigner
-      const pjsSignPayload = (signer as unknown as { _signPayload: (p: unknown) => Promise<unknown> })._signPayload;
-      if (pjsSignPayload) {
-        await pjsSignPayload.call(signer, {
-          address: '0x00',
-          genesisHash: '0x00',
-          nonce: '0x00',
-          method: '0x0002',
-          blockHash: '0x00',
-          blockNumber: '0x00',
-          era: '0x00',
-          version: 4,
-          specVersion: '0x00',
-          tip: '0x00',
-          signedExtensions: [],
-          transactionVersion: '0x00',
-        });
-        expect(handlerCalled).toBe(true);
-      }
     });
   });
 

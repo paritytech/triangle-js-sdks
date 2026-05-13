@@ -1,0 +1,37 @@
+{
+  "name": "@novasamatech/product-bulletin",
+  "type": "module",
+  "version": "0.7.8",
+  "description": "Bulletin Chain client adapter for Polkadot product applications",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paritytech/triangle-js-sdks.git"
+  },
+  "keywords": [
+    "polkadot",
+    "bulletin"
+  ],
+  "main": "dist/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "#/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    ".papi",
+    "README.md"
+  ],
+  "dependencies": {
+    "@novasamatech/host-api-wrapper": "0.7.8",
+    "@parity/bulletin-sdk": "^0.3.0",
+    "polkadot-api": ">=2"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

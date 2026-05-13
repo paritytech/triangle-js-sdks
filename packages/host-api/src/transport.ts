@@ -279,13 +279,18 @@ export function createTransport(provider: Provider): Transport {
       const responseAction = composeAction(method, 'response');
 
       return transport.listenMessages(requestAction, (requestId, payload) => {
-        handler(payload.value as never).then(result => {
-          const responseMessage = enumValue(responseAction, result) as never as PickMessagePayload<
-            ComposeMessageAction<Method, 'response'>
-          >;
+        handler(payload.value as never).then(
+          result => {
+            const responseMessage = enumValue(responseAction, result) as never as PickMessagePayload<
+              ComposeMessageAction<Method, 'response'>
+            >;
 
-          transport.postMessage(requestId, responseMessage);
-        });
+            transport.postMessage(requestId, responseMessage);
+          },
+          (error: unknown) => {
+            provider.logger.error(`handleRequest: handler for "${method}" rejected`, error);
+          },
+        );
       });
     },
 

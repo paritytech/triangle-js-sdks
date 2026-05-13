@@ -152,6 +152,10 @@ export type Container = {
 
   handleStatementStoreSubscribe: InferHandler<'v1', HostApiProtocol['remote_statement_store_subscribe']>;
   handleStatementStoreCreateProof: InferHandler<'v1', HostApiProtocol['remote_statement_store_create_proof']>;
+  handleStatementStoreCreateProofAuthorized: InferHandler<
+    'v1',
+    HostApiProtocol['remote_statement_store_create_proof_authorized']
+  >;
   handleStatementStoreSubmit: InferHandler<'v1', HostApiProtocol['remote_statement_store_submit']>;
 
   // preimage
@@ -165,6 +169,10 @@ export type Container = {
   handlePaymentTopUp: InferHandler<'v1', HostApiProtocol['host_payment_top_up']>;
   handlePaymentRequest: InferHandler<'v1', HostApiProtocol['host_payment_request']>;
   handlePaymentStatusSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_status_subscribe']>;
+
+  // resource allocation
+
+  handleRequestResourceAllocation: InferHandler<'v1', HostApiProtocol['host_request_resource_allocation']>;
 
   // chain interaction
 

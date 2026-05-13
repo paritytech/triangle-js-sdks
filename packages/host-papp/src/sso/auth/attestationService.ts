@@ -251,18 +251,20 @@ function createPeopleSigner(verifier: DerivedSr25519Account): PolkadotSigner {
     publicKey: baseSigner.publicKey,
     signBytes: baseSigner.signBytes,
     signTx: async (callData, signedExtensions, metadata, atBlockNumber, hasher) => {
-      // Add People chain custom signed extensions
+      // polkadot-api auto-derives all signed extensions whose default state is encodable as
+      // a zero byte (Option::None, struct(Option<_>) = None, etc.). The People runtime's
+      // `pallet_verify_signature::VerifySignature` ({ Disabled, Signed }) extension uses
+      // identifier "VerifyMultiSignature" but has no built-in handler in polkadot-api, so it
+      // must be supplied manually. Value 0x00 = `Disabled` (passthrough — the standard
+      // extrinsic signature authenticates the call). Variant tag order was flipped in
+      // polkadot-sdk#11897 specifically so generic signers can encode the passthrough state
+      // as a single zero byte.
       const extensionsWithCustom = {
         ...signedExtensions,
         VerifyMultiSignature: {
           identifier: 'VerifyMultiSignature',
-          value: new Uint8Array([1]), // 1u8 = Option::Some with empty data
-          additionalSigned: new Uint8Array([]), // Empty additional data
-        },
-        AsPerson: {
-          identifier: 'AsPerson',
-          value: new Uint8Array([0]), // 0u8 = Option::None
-          additionalSigned: new Uint8Array([]), // Empty additional data
+          value: new Uint8Array([0]),
+          additionalSigned: new Uint8Array([]),
         },
       };
 

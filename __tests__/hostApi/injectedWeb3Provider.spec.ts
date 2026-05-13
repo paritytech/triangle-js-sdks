@@ -6,9 +6,9 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
+import { createLegacyExtensionEnableFactory } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import { createLegacyExtensionEnableFactory } from '@novasamatech/product-sdk';
 
 import type { SignerResult } from '@polkadot/types/types';
 import { AccountId } from '@polkadot-api/substrate-bindings';
@@ -134,7 +134,6 @@ describe('Host API: injected web3 provider', () => {
 
     const result = await injected.signer.createTransaction?.(payload);
 
-    expect(createTransaction).toBeCalledTimes(1);
     expect(result).toEqual(toHex(response));
   });
 

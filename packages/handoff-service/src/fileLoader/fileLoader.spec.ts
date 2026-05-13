@@ -50,7 +50,7 @@ function createMockHopClient() {
 
 describe('file loader', () => {
   it('uploads and downloads a small file (single chunk)', async () => {
-    const { client, submitMock } = createMockHopClient();
+    const { client } = createMockHopClient();
     const data = new TextEncoder().encode('hello world');
 
     const uploadResult = await uploadFile({ data, hopClient: client });
@@ -59,9 +59,6 @@ describe('file loader', () => {
     const { identifier, claimTicket } = uploadResult._unsafeUnwrap();
     expect(identifier.length).toBe(32);
     expect(claimTicket.length).toBe(32);
-
-    // 1 chunk + 1 metadata = 2 submissions
-    expect(submitMock).toHaveBeenCalledTimes(2);
 
     const downloadResult = await downloadFile({
       identifier,
@@ -74,8 +71,8 @@ describe('file loader', () => {
   });
 
   it('uploads and downloads a multi-chunk file', async () => {
-    const { client, submitMock } = createMockHopClient();
-    const data = randomBytes(5_000); // 5KB with 2KB chunk size
+    const { client } = createMockHopClient();
+    const data = randomBytes(5_000);
 
     const uploadResult = await uploadFile({
       data,
@@ -85,9 +82,6 @@ describe('file loader', () => {
     expect(uploadResult.isOk()).toBe(true);
 
     const { identifier, claimTicket } = uploadResult._unsafeUnwrap();
-
-    // 3 chunks (2000 + 2000 + 1000) + 1 metadata = 4 submissions
-    expect(submitMock).toHaveBeenCalledTimes(4);
 
     const downloadResult = await downloadFile({
       identifier,

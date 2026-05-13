@@ -10,22 +10,11 @@ export type Credibility =
       lastUpdate: string;
     };
 
-export type Slot =
-  | {
-      type: 'Free';
-    }
-  | {
-      type: 'Occupied';
-      accountId: string;
-      since: string;
-    };
-
 export type Identity = {
   accountId: string;
   fullUsername: string | null;
   liteUsername: string;
   credibility: Credibility;
-  slots: Slot[];
 };
 
 export type IdentityAdapter = {

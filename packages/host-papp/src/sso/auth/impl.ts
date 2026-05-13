@@ -132,64 +132,63 @@ export function createAuth({
       });
     });
 
-    return dataPrepared.asyncAndThen(([, handshakeTopic, encrKeys]) => {
-      emitHostPappDebugMessage({
-        layer: 'sso',
-        event: 'awaiting_response',
-        flowId,
-        timestamp: Date.now(),
-        payload: { topic: toHex(handshakeTopic) },
-      });
-
-      const pappResponse = waitForStatements<StoredUserSession>(
-        callback =>
-          statementStore.subscribeStatements({ matchAll: [handshakeTopic] }, page => callback(page.statements)),
-        signal,
-        (statements, resolve) => {
-          for (const statement of statements) {
-            if (!statement.data) continue;
-
-            const session = retrieveSession({
-              localAccount,
-              encrSecret: encrKeys.secret,
-              payload: statement.data,
-            }).unwrapOr(null);
-
-            if (session) {
-              emitHostPappDebugMessage({
-                layer: 'sso',
-                event: 'response_received',
-                flowId,
-                timestamp: Date.now(),
-                payload: { sessionId: session.id },
-              });
-              resolve(session);
-              break;
-            }
-          }
-        },
-      );
-
-      const sessionWithSecretsPayload = pappResponse.map(session => ({
-        session,
-        secretsPayload: {
-          id: session.id,
-          ssSecret: account.secret,
-          encrSecret: encrKeys.secret,
-          entropy: account.entropy,
-        },
-      }));
-
-      return sessionWithSecretsPayload
-        .andTee(({ session }) => {
-          pairingStatus.write({ step: 'finished', session });
-        })
-        .orTee(e => {
-          if (!(e instanceof AbortError)) {
-            pairingStatus.write({ step: 'pairingError', message: e.message });
-          }
+    return dataPrepared
+      .asyncAndThen(([, handshakeTopic, encrKeys]) => {
+        emitHostPappDebugMessage({
+          layer: 'sso',
+          event: 'awaiting_response',
+          flowId,
+          timestamp: Date.now(),
+          payload: { topic: toHex(handshakeTopic) },
         });
-    });
+
+        const pappResponse = waitForStatements<StoredUserSession>(
+          callback =>
+            statementStore.subscribeStatements({ matchAll: [handshakeTopic] }, page => callback(page.statements)),
+          signal,
+          (statements, resolve) => {
+            for (const statement of statements) {
+              if (!statement.data) continue;
+
+              const session = retrieveSession({
+                localAccount,
+                encrSecret: encrKeys.secret,
+                payload: statement.data,
+              }).unwrapOr(null);
+
+              if (session) {
+                emitHostPappDebugMessage({
+                  layer: 'sso',
+                  event: 'response_received',
+                  flowId,
+                  timestamp: Date.now(),
+                  payload: { sessionId: session.id },
+                });
+                resolve(session);
+                break;
+              }
+            }
+          },
+        );
+
+        return pappResponse.map(session => ({
+          session,
+          secretsPayload: {
+            id: session.id,
+            ssSecret: account.secret,
+            encrSecret: encrKeys.secret,
+            entropy: account.entropy,
+          },
+        }));
+      })
+      .andTee(({ session }) => {
+        pairingStatus.write({ step: 'finished', session });
+      })
+      .orTee(e => {
+        if (!(e instanceof AbortError)) {
+          pairingStatus.write({ step: 'pairingError', message: e.message });
+        }
+      });
   }
 
   const authModule = {
@@ -345,12 +344,12 @@ function retrieveSession({
   return createEncryption(symmetricKey)
     .decrypt(encrypted)
     .map(decrypted => {
-      const [pappEncrPublicKey, pappAccountId] = HandshakeResponseSensitiveData.dec(decrypted);
-      const sharedSecret = createSharedSecret(encrSecret, pappEncrPublicKey);
+      const { sharedSecretDerivationKey, rootUserAccountId, identityAccountId } =
+        HandshakeResponseSensitiveData.dec(decrypted);
+      const sharedSecret = createSharedSecret(encrSecret, sharedSecretDerivationKey);
+      const remoteAccount = createRemoteSessionAccount(createAccountId(identityAccountId), sharedSecret);
 
-      const peerAccount = createRemoteSessionAccount(createAccountId(pappAccountId), sharedSecret);
-
-      return createStoredUserSession(localAccount, peerAccount);
+      return createStoredUserSession(localAccount, remoteAccount, createAccountId(rootUserAccountId));
     });
 }
 

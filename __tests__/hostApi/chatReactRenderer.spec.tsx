@@ -1,11 +1,11 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 // @ts-expect-error Untyped
 globalThis['IS_REACT_ACT_ENVIRONMENT'] = true;
 
 import type { CodecType } from '@novasamatech/host-api';
-import { CustomRendererNode, createTransport, enumValue } from '@novasamatech/host-api';
+import { CustomRendererNode, Modifier, createTransport, enumValue } from '@novasamatech/host-api';
+import { createProductChatManager } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
 import {
   Box,
@@ -17,7 +17,6 @@ import {
   TextField,
   registerChatMessageRenderer,
 } from '@novasamatech/product-react-renderer';
-import { createProductChatManager } from '@novasamatech/product-sdk';
 
 import { nanoid } from 'nanoid';
 import { act, useState } from 'react';
@@ -25,6 +24,27 @@ import { str } from 'scale-ts';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
+
+type RendererNode = CodecType<typeof CustomRendererNode>;
+type RendererModifier = CodecType<typeof Modifier>;
+
+function findChildOfTag<T extends RendererNode['tag']>(
+  children: RendererNode[],
+  tag: T,
+): Extract<RendererNode, { tag: T }> {
+  const found = children.find((c): c is Extract<RendererNode, { tag: T }> => c.tag === tag);
+  if (!found) throw new Error(`No child with tag ${tag}`);
+  return found;
+}
+
+type ActionMsg = {
+  roomId: string;
+  peer: string;
+  payload: {
+    tag: 'ActionTriggered';
+    value: { messageId: string; actionId: string; payload: Uint8Array };
+  };
+};
 
 function setup() {
   const providers = createHostApiProviders();
@@ -38,7 +58,7 @@ function setup() {
    * triggerAction fans out to all of them so the per-messageId filter inside
    * subscribeActions can route each event to the correct renderer.
    */
-  const sendActions: ((action: any) => void)[] = [];
+  const sendActions: ((action: ActionMsg) => void)[] = [];
   container.handleChatActionSubscribe((_, send) => {
     sendActions.push(send);
     return () => {
@@ -51,13 +71,14 @@ function setup() {
    * payload is optional — omit it for Button clicks, pass a SCALE-encoded value
    * (e.g. str.enc('text')) for TextField changes.
    */
-  function triggerAction(messageId: string, actionId: string, payload?: Uint8Array) {
-    const action = {
-      roomId: 'room',
-      peer: 'bot',
-      payload: enumValue('ActionTriggered', { messageId, actionId, payload }),
-    };
-    sendActions.forEach(send => send(action));
+  function triggerAction(messageId: string, actionId: string, payload: Uint8Array) {
+    sendActions.forEach(send =>
+      send({
+        roomId: 'room',
+        peer: 'bot',
+        payload: enumValue('ActionTriggered', { messageId, actionId, payload }),
+      }),
+    );
   }
 
   /**
@@ -183,17 +204,21 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     expect(node.tag).toBe('Column');
     expect(node.value.props.horizontalAlignment).toBe('center');
     expect(node.value.props.verticalArrangement).toBe('spaceBetween');
-    const colMods = node.value.modifiers as any[];
+    const colMods = node.value.modifiers as RendererModifier[];
     expect(colMods).toContainEqual({ tag: 'padding', value: [16, 16, undefined, undefined] });
     expect(colMods).toContainEqual({ tag: 'fillWidth', value: true });
 
-    const [boxA, boxB, rowNode, headlineText, topSpacer, btnPrimary, btnSecondary, btnText, tfNode, textNode] = node
-      .value.children as any[];
+    // Children form a heterogeneous tagged-union tree; the cast here lets the
+    // test navigate the deeply-nested shape without per-access narrowing.
+    /* eslint-disable-next-line @typescript-eslint/no-explicit-any */
+    const children = node.value.children as any[];
+    const [boxA, boxB, rowNode, headlineText, topSpacer, btnPrimary, btnSecondary, btnText, tfNode, textNode] =
+      children;
 
     // Box A: contentAlignment, background with Rounded shape, border, fillMaxWidth
     expect(boxA.tag).toBe('Box');
     expect(boxA.value.props.contentAlignment).toBe('topStart');
-    const boxAMods = boxA.value.modifiers as any[];
+    const boxAMods = boxA.value.modifiers as RendererModifier[];
     expect(boxAMods).toContainEqual({
       tag: 'background',
       value: { color: 'backgroundSecondary', shape: { tag: 'Rounded', value: 8 } },
@@ -214,7 +239,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     // Box B: contentAlignment, background as plain color token, width/height/minWidth/minHeight
     expect(boxB.tag).toBe('Box');
     expect(boxB.value.props.contentAlignment).toBe('center');
-    const boxBMods = boxB.value.modifiers as any[];
+    const boxBMods = boxB.value.modifiers as RendererModifier[];
     expect(boxBMods).toContainEqual({ tag: 'background', value: { color: 'backgroundPrimary', shape: undefined } });
     expect(boxBMods).toContainEqual({ tag: 'width', value: 40 });
     expect(boxBMods).toContainEqual({ tag: 'height', value: 40 });
@@ -224,7 +249,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     // Box B > inner Box: background with Circle shape, fillMaxWidth + fillMaxHeight
     const innerBox = boxB.value.children[0];
     expect(innerBox.tag).toBe('Box');
-    const innerBoxMods = innerBox.value.modifiers as any[];
+    const innerBoxMods = innerBox.value.modifiers as RendererModifier[];
     expect(innerBoxMods).toContainEqual({
       tag: 'background',
       value: { color: 'backgroundTertiary', shape: { tag: 'Circle', value: undefined } },
@@ -236,7 +261,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     expect(rowNode.tag).toBe('Row');
     expect(rowNode.value.props.verticalAlignment).toBe('bottom');
     expect(rowNode.value.props.horizontalArrangement).toBe('spaceEvenly');
-    const rowMods = rowNode.value.modifiers as any[];
+    const rowMods = rowNode.value.modifiers as RendererModifier[];
     expect(rowMods).toContainEqual({ tag: 'margin', value: [8, 8, undefined, undefined] });
 
     // Row > Text: bodyM + success
@@ -249,7 +274,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     // Row > Spacer: width + height modifiers
     const rowSpacer = rowNode.value.children[1];
     expect(rowSpacer.tag).toBe('Spacer');
-    const rowSpacerMods = rowSpacer.value.modifiers as any[];
+    const rowSpacerMods = rowSpacer.value.modifiers as RendererModifier[];
     expect(rowSpacerMods).toContainEqual({ tag: 'width', value: 8 });
     expect(rowSpacerMods).toContainEqual({ tag: 'height', value: 4 });
 
@@ -275,7 +300,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
 
     // Spacer: fillMaxHeight
     expect(topSpacer.tag).toBe('Spacer');
-    const topSpacerMods = topSpacer.value.modifiers as any[];
+    const topSpacerMods = topSpacer.value.modifiers as RendererModifier[];
     expect(topSpacerMods).toContainEqual({ tag: 'fillHeight', value: true });
 
     // Button: primary variant, enabled, loading
@@ -378,17 +403,17 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     const sub = await subscribe(messageId, 'counter', new Uint8Array(), callback);
 
     const firstNode = callback.mock.calls[callback.mock.calls.length - 1]![0];
-    const btn = (firstNode.value.children as any[]).find((c: any) => c.tag === 'Button');
-    const clickActionId: string = btn.value.props.clickAction;
+    const btn = findChildOfTag(firstNode.value.children as RendererNode[], 'Button');
+    const clickActionId = btn.value.props.clickAction!;
 
     await act(async () => {
-      triggerAction(messageId, clickActionId);
+      triggerAction(messageId, clickActionId, new Uint8Array());
       await new Promise<void>(resolve => setTimeout(resolve, 10));
     });
 
     expect(callback.mock.calls.length).toBeGreaterThan(1);
     const updatedNode = callback.mock.calls[callback.mock.calls.length - 1]![0];
-    const txt = (updatedNode.value.children as any[]).find((c: any) => c.tag === 'Text');
+    const txt = findChildOfTag(updatedNode.value.children as RendererNode[], 'Text');
     expect(txt.value.children[0]).toEqual({ tag: 'String', value: '1' });
 
     await act(async () => {
@@ -421,8 +446,8 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     const sub = await subscribe(messageId, 'form', new Uint8Array(), callback);
 
     const firstNode = callback.mock.calls[callback.mock.calls.length - 1]![0];
-    const tf = (firstNode.value.children as any[]).find((c: any) => c.tag === 'TextField');
-    const valueChangeActionId: string = tf.value.props.valueChangeAction;
+    const tf = findChildOfTag(firstNode.value.children as RendererNode[], 'TextField');
+    const valueChangeActionId = tf.value.props.valueChangeAction!;
 
     await act(async () => {
       triggerAction(messageId, valueChangeActionId, str.enc('hello world'));
@@ -430,7 +455,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     });
 
     const updatedNode = callback.mock.calls[callback.mock.calls.length - 1]![0];
-    const updatedTf = (updatedNode.value.children as any[]).find((c: any) => c.tag === 'TextField');
+    const updatedTf = findChildOfTag(updatedNode.value.children as RendererNode[], 'TextField');
     expect(updatedTf.value.props.text).toBe('hello world');
 
     await act(async () => {
@@ -458,7 +483,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
 
     // Fire the action for a *different* messageId — onClick must not be called.
     await act(async () => {
-      triggerAction('other-message-id', clickActionId);
+      triggerAction('other-message-id', clickActionId, new Uint8Array());
     });
 
     expect(onClick).not.toHaveBeenCalled();
@@ -496,18 +521,18 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     const subB = await subscribe(messageIdB, 'b', new Uint8Array(), cbB);
 
     const nodeA = cbA.mock.calls[cbA.mock.calls.length - 1]![0];
-    const btnA = (nodeA.value.children as any[]).find((c: any) => c.tag === 'Button');
+    const btnA = findChildOfTag(nodeA.value.children as RendererNode[], 'Button');
 
     // Click only message A's button
     await act(async () => {
-      triggerAction(messageIdA, btnA.value.props.clickAction);
+      triggerAction(messageIdA, btnA.value.props.clickAction!, new Uint8Array());
       await new Promise<void>(resolve => setTimeout(resolve, 10));
     });
 
     const updatedA = cbA.mock.calls[cbA.mock.calls.length - 1]![0];
     const updatedB = cbB.mock.calls[cbB.mock.calls.length - 1]![0];
-    const txtA = (updatedA.value.children as any[]).find((c: any) => c.tag === 'Text');
-    const txtB = (updatedB.value.children as any[]).find((c: any) => c.tag === 'Text');
+    const txtA = findChildOfTag(updatedA.value.children as RendererNode[], 'Text');
+    const txtB = findChildOfTag(updatedB.value.children as RendererNode[], 'Text');
 
     expect(txtA.value.children[0]).toEqual({ tag: 'String', value: '1' });
     expect(txtB.value.children[0]).toEqual({ tag: 'String', value: '10' });

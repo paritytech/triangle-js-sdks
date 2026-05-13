@@ -147,16 +147,34 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
 
     getProvider(chain) {
       return getSyncProvider(onResult => {
+        let teardownCalled = false;
+        let pendingUnlock: VoidFunction | null = null;
+
+        // Idempotent: subsequent calls (e.g. teardown after disconnect) are no-ops.
+        const releaseUnlock = () => {
+          const unlock = pendingUnlock;
+          pendingUnlock = null;
+          unlock?.();
+        };
+
         rawAcquire(chain)
           .then(({ pooled, unlock }) => {
-            onResult((onMessage, _onHalt) => pooled.provider.branch(unlock)(onMessage));
+            if (teardownCalled) {
+              unlock();
+              onResult(null);
+              return;
+            }
+            pendingUnlock = unlock;
+            onResult((onMessage, _onHalt) => pooled.provider.branch(releaseUnlock)(onMessage));
           })
           .catch(() => {
             onResult(null);
           });
 
+        // Covers teardown without disconnect, and teardown before acquire resolves.
         return () => {
-          /* empty */
+          teardownCalled = true;
+          releaseUnlock();
         };
       });
     },

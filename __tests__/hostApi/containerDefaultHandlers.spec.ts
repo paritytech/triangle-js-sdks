@@ -1,6 +1,6 @@
 import { LoginErr, RequestCredentialsErr, StorageErr, createTransport } from '@novasamatech/host-api';
+import { createAccountsProvider, createLocalStorage } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
-import { createAccountsProvider, createLocalStorage } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 
@@ -103,14 +103,13 @@ describe('Container default handlers', () => {
     });
   });
 
-  it('should dispose correctly', async () => {
+  it('post-dispose teardown is idempotent (cleanup callbacks and dispose itself)', () => {
     const { container } = setup();
-
-    const unsub = container.handleGetLegacyAccounts((_, { ok }) => {
-      return ok([]);
-    });
+    const unsub = container.handleGetLegacyAccounts((_, { ok }) => ok([]));
 
     container.dispose();
-    expect(() => unsub()).not.to.throw();
+    expect(() => unsub()).not.toThrow();
+    expect(() => unsub()).not.toThrow();
+    expect(() => container.dispose()).not.toThrow();
   });
 });

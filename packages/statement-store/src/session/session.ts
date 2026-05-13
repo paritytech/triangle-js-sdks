@@ -50,13 +50,16 @@ type PendingDelivery = {
 };
 
 type OutgoingRequest = {
-  requestId: string;
+  // Every retransmit appends a fresh id; matching any of them resolves all
+  // pending tokens so an early response to a superseded id is not lost.
+  requestIds: string[];
   messages: Uint8Array[];
   tokens: string[];
 };
 
 type SessionState = {
-  phase: 'initialization' | 'active';
+  phase: 'initialization' | 'active' | 'failed';
+  initError: Error | null;
   expiry: bigint;
   outgoingRequest: OutgoingRequest | null;
   incomingRequest: { requestId: string } | null;
@@ -79,6 +82,7 @@ export function createSession({
 
   const state: SessionState = {
     phase: 'initialization',
+    initError: null,
     expiry: 0n,
     outgoingRequest: null,
     incomingRequest: null,
@@ -164,7 +168,7 @@ export function createSession({
         state.respondedIncomingRequest = false;
         deliverStatementData(statementData);
       } else if (statementData.tag === 'response') {
-        if (state.outgoingRequest?.requestId !== statementData.value.requestId) return;
+        if (!state.outgoingRequest?.requestIds.includes(statementData.value.requestId)) return;
         const responseMessage: ResponseMessage = {
           type: 'response',
           localId: statementData.value.requestId,
@@ -188,15 +192,16 @@ export function createSession({
   function processNewMessage(encoded: Uint8Array, token: string): void {
     if (state.outgoingRequest === null) {
       const requestId = nanoid();
-      state.outgoingRequest = { requestId, messages: [encoded], tokens: [token] };
+      state.outgoingRequest = { requestIds: [requestId], messages: [encoded], tokens: [token] };
       encodeAndSubmitRequest(requestId, state.outgoingRequest.messages);
     } else {
       const currentTotal = state.outgoingRequest.messages.reduce((s, m) => s + m.length, 0);
       if (currentTotal + encoded.length <= maxRequestSize) {
         state.outgoingRequest.messages.push(encoded);
         state.outgoingRequest.tokens.push(token);
-        state.outgoingRequest.requestId = nanoid();
-        encodeAndSubmitRequest(state.outgoingRequest.requestId, state.outgoingRequest.messages);
+        const newRequestId = nanoid();
+        state.outgoingRequest.requestIds.push(newRequestId);
+        encodeAndSubmitRequest(newRequestId, state.outgoingRequest.messages);
       } else {
         state.messageQueue.push({ encoded, token });
       }
@@ -204,9 +209,10 @@ export function createSession({
   }
 
   function processMessageQueue(): void {
-    const currentTotal = state.outgoingRequest?.messages.reduce((s, m) => s + m.length, 0) ?? 0;
     while (state.messageQueue.length > 0) {
       const head = state.messageQueue[0]!;
+      // Recompute per iteration; `processNewMessage` mutates outgoingRequest.messages in place.
+      const currentTotal = state.outgoingRequest?.messages.reduce((s, m) => s + m.length, 0) ?? 0;
       if (state.outgoingRequest !== null && currentTotal + head.encoded.length > maxRequestSize) break;
       state.messageQueue.shift();
       processNewMessage(head.encoded, head.token);
@@ -231,13 +237,34 @@ export function createSession({
     });
   }
 
+  function rejectAllPending(error: Error): void {
+    for (const [, deferred] of state.pendingDelivery) {
+      deferred.reject(error);
+    }
+    state.pendingDelivery.clear();
+  }
+
+  function failInit(error: Error): void {
+    state.phase = 'failed';
+    state.initError = error;
+    state.messageQueue = [];
+    rejectAllPending(error);
+  }
+
   async function init(): Promise<void> {
     const [ownResult, peerResult] = await Promise.all([
       statementStore.queryStatements({ matchAll: [outgoingSessionId] }),
       statementStore.queryStatements({ matchAll: [incomingSessionId] }),
     ]);
 
-    if (ownResult.isErr() || peerResult.isErr()) return;
+    if (ownResult.isErr()) {
+      failInit(ownResult.error);
+      return;
+    }
+    if (peerResult.isErr()) {
+      failInit(peerResult.error);
+      return;
+    }
 
     const ownStatements = ownResult.value;
     const peerStatements = peerResult.value;
@@ -273,7 +300,7 @@ export function createSession({
       const hasResponse = ownResponse?.tag === 'response' && ownResponse.value.requestId === ownRequest.value.requestId;
       if (!hasResponse) {
         state.outgoingRequest = {
-          requestId: ownRequest.value.requestId,
+          requestIds: [ownRequest.value.requestId],
           messages: ownRequest.value.data,
           tokens: [], // tokens from previous session cannot be restored
         };
@@ -313,6 +340,10 @@ export function createSession({
 
       const encoded = encodedResult.value;
       if (encoded.length > maxRequestSize) return errAsync(new Error('message too big'));
+
+      if (state.phase === 'failed') {
+        return errAsync(state.initError ?? new Error('Session initialization failed'));
+      }
 
       const token = nanoid();
       let resolveFn!: (r: ResponseMessage) => void;
@@ -404,10 +435,7 @@ export function createSession({
       responseStoreUnsub?.();
       responseStoreUnsub = null;
       subscribers = [];
-      for (const [, deferred] of state.pendingDelivery) {
-        deferred.reject(new Error('Session disposed'));
-      }
-      state.pendingDelivery.clear();
+      rejectAllPending(new Error('Session disposed'));
     },
   };
 

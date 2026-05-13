@@ -314,16 +314,21 @@ describe('createChainConnection', () => {
       unlock();
     });
 
-    it('skips providers that do not expose pause/resume', async () => {
-      const { connection } = createTestConnection();
-      const { unlock } = await connection.lockApi(testChain('a'));
+    it('skips non-pausable providers without preventing pause on the rest', async () => {
+      // Mixed pool: 'a' is non-pausable, 'b' is pausable. The pausable one must
+      // still receive pause/resume even though the other is silently skipped.
+      const pausable = createPausableMockProvider();
+      const connection = createChainConnection<ChainConfig>({
+        createProvider: c => (c.genesisHash === 'b' ? pausable.provider : createMockProvider().provider),
+      });
+      await connection.lockApi(testChain('a'));
+      await connection.lockApi(testChain('b'));
 
-      expect(() => {
-        connection.pauseAll();
-        connection.resumeAll();
-      }).not.toThrow();
+      connection.pauseAll();
+      connection.resumeAll();
 
-      unlock();
+      expect(pausable.pause).toHaveBeenCalledTimes(1);
+      expect(pausable.resume).toHaveBeenCalledTimes(1);
     });
 
     it('does not call pause on providers for chains that have been destroyed', async () => {

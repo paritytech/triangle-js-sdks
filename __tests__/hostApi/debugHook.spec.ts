@@ -1,7 +1,7 @@
 import { createTransport } from '@novasamatech/host-api';
+import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import type { HostApiDebugMessageEvent } from '@novasamatech/host-container';
 import { createContainer, onHostApiDebugMessage } from '@novasamatech/host-container';
-import { createAccountsProvider } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 

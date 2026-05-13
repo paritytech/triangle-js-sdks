@@ -5,18 +5,36 @@ import { createContainer } from '@novasamatech/host-container';
 import type { QuickJSContext, QuickJSHandle, VmPropertyDescriptor } from 'quickjs-emscripten';
 import { newQuickJSWASMModule } from 'quickjs-emscripten';
 
+import { extractBytesFromVm, sendBytesToVm } from './buffers.js';
 import { injectAbortController } from './globals/AbortController.js';
+import { injectBlob } from './globals/Blob.js';
+import { injectDOMGeneric } from './globals/DOMGeneric.js';
+import { injectFormData } from './globals/FormData.js';
 import { injectTextDecoder } from './globals/TextDecoder.js';
 import { injectTextEncoder } from './globals/TextEncoder.js';
 import { injectConsole } from './globals/console.js';
 import { injectCrypto } from './globals/crypto.js';
+import type { SubtleResolver } from './globals/cryptoSubtle.js';
+import { injectCryptoSubtle } from './globals/cryptoSubtle.js';
+import type { FetchResolver } from './globals/fetch.js';
+import { injectFetch } from './globals/fetch.js';
 import { injectIntervals, injectQueueMicrotask, injectTimeouts } from './globals/timers.js';
 
 export type Sandbox = {
   container: Container;
   provider: Provider;
-  run: (code: string | Uint8Array, product?: string) => Promise<void>;
+  run: (code: string | Uint8Array) => Promise<void>;
   dispose: VoidFunction;
+};
+
+export type SandboxOptions = {
+  // Host hook for `fetch()` inside the sandbox. If omitted, `fetch` is not injected.
+  fetchResolver?: FetchResolver;
+  // Maximum request body size for fetch(), in bytes. Defaults to 100 MiB.
+  fetchMaxBodyBytes?: number;
+  // Host hook for `crypto.subtle.*` inside the sandbox. If omitted, `crypto.subtle`
+  // is not injected (only `crypto.getRandomValues` is available).
+  subtleResolver?: SubtleResolver;
 };
 
 // Shared mutable state for the onmessage property descriptor.
@@ -41,19 +59,50 @@ function makeOnMessageDescriptor(state: OnMessageState, vm: QuickJSContext): VmP
   };
 }
 
+// Cap on registered `message` listeners per port. Sandbox code that registers
+// fresh arrow functions in a tight loop would otherwise grow the host-side
+// handle array unbounded — every entry pins a VM-side function, exhausting the
+// QuickJS heap. 32 is far above any legitimate use.
+const MAX_MESSAGE_LISTENERS = 32;
+
 class SandboxPort {
   private readonly vm: QuickJSContext;
   private readonly onMessageState: OnMessageState = { handle: null };
   private readonly messageListeners: QuickJSHandle[] = [];
   private readonly subscribers = new Set<(message: Uint8Array) => void>();
   private readonly toUint8ArrayFn: QuickJSHandle;
+  // VM-side `===` helper. Required because quickjs-emscripten allocates a fresh
+  // heap wrapper per `dup()` of the same VM value, so `Lifetime.value` is not a
+  // reliable identity key for handles to the same JS function.
+  private readonly equalsFn: QuickJSHandle;
   private disposed = false;
+  private closed = false;
   readonly provider: Provider;
 
   constructor(productId: string, vm: QuickJSContext, toUint8ArrayFn: QuickJSHandle) {
     this.vm = vm;
     this.toUint8ArrayFn = toUint8ArrayFn;
+
+    const eqResult = vm.evalCode('(a, b) => a === b');
+    if (eqResult.error) {
+      const msg = vm.dump(eqResult.error);
+      eqResult.error.dispose();
+      throw new Error(`Sandbox setup error: ${JSON.stringify(msg)}`);
+    }
+    this.equalsFn = eqResult.value;
+
     this.provider = this.makeProvider(productId);
+  }
+
+  private isSameHandle(a: QuickJSHandle, b: QuickJSHandle): boolean {
+    const result = this.vm.callFunction(this.equalsFn, this.vm.undefined, a, b);
+    if (result.error) {
+      result.error.dispose();
+      return false;
+    }
+    const dumped = this.vm.dump(result.value);
+    result.value.dispose();
+    return dumped === true;
   }
 
   buildHandle(): QuickJSHandle {
@@ -63,23 +112,7 @@ class SandboxPort {
     // sandbox → host: extract Uint8Array bytes from the QuickJS handle and notify subscribers
     const postMessageFn = vm.newFunction('postMessage', dataHandle => {
       try {
-        const bufferHandle = vm.getProp(dataHandle, 'buffer');
-        const byteOffsetHandle = vm.getProp(dataHandle, 'byteOffset');
-        const byteLengthHandle = vm.getProp(dataHandle, 'byteLength');
-
-        const lifetime = vm.getArrayBuffer(bufferHandle);
-        // Number() converts `unknown` to number without an `as` cast
-        const byteOffset = Number(vm.dump(byteOffsetHandle));
-        const byteLength = Number(vm.dump(byteLengthHandle));
-
-        bufferHandle.dispose();
-        byteOffsetHandle.dispose();
-        byteLengthHandle.dispose();
-
-        // .slice() copies out of WASM memory before the lifetime is freed
-        const bytes = lifetime.value.slice(byteOffset, byteOffset + byteLength);
-        lifetime.dispose();
-
+        const bytes = extractBytesFromVm(vm, dataHandle);
         for (const subscriber of this.subscribers) {
           subscriber(bytes);
         }
@@ -92,20 +125,44 @@ class SandboxPort {
 
     // host → sandbox via addEventListener('message', handler)
     const addEventListenerFn = vm.newFunction('addEventListener', (typeHandle, handlerHandle) => {
-      if (vm.getString(typeHandle) === 'message') {
-        this.messageListeners.push(handlerHandle.dup());
+      if (vm.getString(typeHandle) !== 'message') return;
+      if (vm.typeof(handlerHandle) !== 'function') return;
+      // Spec: EventTarget.addEventListener with the same listener is a no-op.
+      if (this.messageListeners.some(h => this.isSameHandle(h, handlerHandle))) return;
+      if (this.messageListeners.length >= MAX_MESSAGE_LISTENERS) {
+        // Defensive cap: prevent runaway growth from sandbox code registering
+        // fresh closures in a loop. We silently drop additional registrations
+        // rather than throwing — DOM addEventListener is no-throw on dedup, so
+        // a throw here would be the only path to surface "limit reached".
+        this.provider.logger.error(
+          `[Sandbox] port.addEventListener: ignoring listener; cap of ${MAX_MESSAGE_LISTENERS} reached`,
+        );
+        return;
       }
+      this.messageListeners.push(handlerHandle.dup());
     });
     vm.setProp(port, 'addEventListener', addEventListenerFn);
     addEventListenerFn.dispose();
+
+    const removeEventListenerFn = vm.newFunction('removeEventListener', (typeHandle, handlerHandle) => {
+      if (vm.getString(typeHandle) !== 'message') return;
+      const idx = this.messageListeners.findIndex(h => this.isSameHandle(h, handlerHandle));
+      if (idx === -1) return;
+      const removed = this.messageListeners[idx];
+      if (removed) removed.dispose();
+      this.messageListeners.splice(idx, 1);
+    });
+    vm.setProp(port, 'removeEventListener', removeEventListenerFn);
+    removeEventListenerFn.dispose();
 
     // start() — no-op, exists for API compatibility
     const startFn = vm.newFunction('start', () => vm.undefined);
     vm.setProp(port, 'start', startFn);
     startFn.dispose();
 
-    // close() — frees all stored handles
+    // close() — frees all stored handles and short-circuits future deliveries.
     const closeFn = vm.newFunction('close', () => {
+      this.closed = true;
       this.disposeHandles();
     });
     vm.setProp(port, 'close', closeFn);
@@ -139,44 +196,41 @@ class SandboxPort {
 
   // Delivers raw bytes from the host into the sandbox as a MessageEvent with Uint8Array data
   private deliver(bytes: Uint8Array): void {
-    if (this.disposed) return;
+    if (this.disposed || this.closed) return;
     const { vm } = this;
 
-    // Ensure the ArrayBuffer exactly covers the bytes (handle slice views)
-    const buffer =
-      bytes.byteOffset === 0 && bytes.byteLength === bytes.buffer.byteLength
-        ? bytes.buffer
-        : bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength);
-
-    const bufferHandle = vm.newArrayBuffer(buffer);
-    const uint8Result = vm.callFunction(this.toUint8ArrayFn, vm.undefined, bufferHandle);
-    bufferHandle.dispose();
-
-    if (uint8Result.error) {
-      this.provider.logger.error('[Sandbox] port: failed to create Uint8Array', vm.dump(uint8Result.error));
-      uint8Result.error.dispose();
+    let dataHandle: QuickJSHandle;
+    try {
+      dataHandle = sendBytesToVm(vm, this.toUint8ArrayFn, bytes);
+    } catch (e) {
+      this.provider.logger.error('[Sandbox] port: failed to send bytes to VM', e);
       return;
     }
 
     const event = vm.newObject();
-    vm.setProp(event, 'data', uint8Result.value);
-    uint8Result.value.dispose();
+    try {
+      vm.setProp(event, 'data', dataHandle);
+    } finally {
+      dataHandle.dispose();
+    }
 
     const handlers: QuickJSHandle[] = [];
     if (this.onMessageState.handle) handlers.push(this.onMessageState.handle);
     handlers.push(...this.messageListeners);
 
-    for (const handler of handlers) {
-      const result = vm.callFunction(handler, vm.undefined, event);
-      if (result.error) {
-        this.provider.logger.error('[Sandbox] port.onmessage error:', vm.dump(result.error));
-        result.error.dispose();
-      } else {
-        result.value.dispose();
+    try {
+      for (const handler of handlers) {
+        const result = vm.callFunction(handler, vm.undefined, event);
+        if (result.error) {
+          this.provider.logger.error('[Sandbox] port.onmessage error:', vm.dump(result.error));
+          result.error.dispose();
+        } else {
+          result.value.dispose();
+        }
       }
+    } finally {
+      event.dispose();
     }
-
-    event.dispose();
 
     const jobResult = vm.runtime.executePendingJobs(-1);
     if (jobResult.error) {
@@ -196,6 +250,7 @@ class SandboxPort {
     this.disposed = true;
     this.disposeHandles();
     this.subscribers.clear();
+    this.equalsFn.dispose();
   }
 }
 
@@ -204,15 +259,17 @@ class QuickJsSandbox implements Sandbox {
   private readonly port: SandboxPort;
   private readonly toUint8ArrayFn: QuickJSHandle;
   private readonly disposeTimers: VoidFunction;
+  private readonly options: SandboxOptions;
   private disposed = false;
 
   readonly productId: string;
   readonly container: Container;
   readonly provider: Provider;
 
-  constructor(productId: string, vm: QuickJSContext) {
+  constructor(productId: string, vm: QuickJSContext, options: SandboxOptions = {}) {
     this.productId = productId;
     this.vm = vm;
+    this.options = options;
 
     const helperResult = vm.evalCode('(buf) => new Uint8Array(buf)');
     if (helperResult.error) {
@@ -236,22 +293,56 @@ class QuickJsSandbox implements Sandbox {
     vm.setProp(vm.global, '__HOST_API_PORT__', portHandle);
     portHandle.dispose();
 
-    vm.setProp(vm.global, 'top', vm.global);
-    vm.setProp(vm.global, 'window', vm.global);
+    // `top` and `window` are aliased to globalThis so product code that performs
+    // browser-environment checks (e.g. `window === self`) succeeds. They must be
+    // non-writable / non-configurable so sandbox code cannot reassign them or
+    // delete them to swap in a malicious global.
+    const aliasResult = vm.evalCode(
+      `Object.defineProperty(globalThis, 'top', { value: globalThis, writable: false, configurable: false, enumerable: true });
+       Object.defineProperty(globalThis, 'window', { value: globalThis, writable: false, configurable: false, enumerable: true });`,
+    );
+    if (aliasResult.error) {
+      const msg = vm.dump(aliasResult.error);
+      aliasResult.error.dispose();
+      throw new Error(`Failed to alias top/window: ${JSON.stringify(msg)}`);
+    }
+    aliasResult.value.dispose();
 
     injectConsole(vm, this.provider.logger);
     injectTextEncoder(vm, this.toUint8ArrayFn);
     injectTextDecoder(vm);
-    injectCrypto(vm, this.toUint8ArrayFn);
+    const disposeCrypto = injectCrypto(vm);
+    injectDOMGeneric(vm);
     injectAbortController(vm);
+    injectBlob(vm);
+    injectFormData(vm);
     const disposeQueueMicrotask = injectQueueMicrotask(vm);
     const disposeIntervals = injectIntervals(vm);
     const disposeTimeouts = injectTimeouts(vm);
+    const disposeFetch = this.options.fetchResolver
+      ? injectFetch(vm, this.toUint8ArrayFn, this.options.fetchResolver, {
+          maxBodyBytes: this.options.fetchMaxBodyBytes,
+        })
+      : () => undefined;
+    const disposeSubtle = this.options.subtleResolver
+      ? injectCryptoSubtle(vm, this.toUint8ArrayFn, this.options.subtleResolver)
+      : () => undefined;
+
+    // Hide Blob.__getBytes from sandbox code now that fetch (the only intended
+    // consumer) has captured it into a closure. Without this, sandbox code
+    // could call `Blob.__getBytes(b)` and mutate the underlying byte array,
+    // breaking the immutable-Blob invariant.
+    const cleanupResult = vm.evalCode('delete Blob.__getBytes;');
+    if (cleanupResult.error) cleanupResult.error.dispose();
+    else cleanupResult.value.dispose();
 
     return () => {
       disposeTimeouts();
       disposeIntervals();
       disposeQueueMicrotask();
+      disposeFetch();
+      disposeSubtle();
+      disposeCrypto();
     };
   }
 
@@ -269,40 +360,26 @@ class QuickJsSandbox implements Sandbox {
       throw new Error(`Sandbox error: ${JSON.stringify(message)}`);
     }
 
-    // If the evaluated code returned a Promise (e.g. an async IIFE), attach a
-    // .then and .catch handler before flushing microtasks so that rejections are surfaced
-    // as thrown errors rather than silently swallowed.
+    // If the evaluated code returned a Promise (e.g. an async IIFE), register
+    // fulfillment + rejection handlers before flushing microtasks so rejections
+    // surface as thrown errors rather than being silently swallowed.
 
     let response: Promise<void> | undefined = undefined;
 
     const thenHandle = vm.getProp(result.value, 'then');
     if (vm.typeof(thenHandle) === 'function') {
       response = new Promise<void>((resolve, reject) => {
-        const thenFn = vm.newFunction('__then', () => {
+        const onFulfilled = vm.newFunction('__then', () => {
           resolve();
         });
-        const thenMethod = vm.getProp(result.value, 'then');
-        const thenChained = vm.callFunction(thenMethod, result.value, thenFn);
-        thenMethod.dispose();
-        thenFn.dispose();
-        if (thenChained.error) {
-          thenChained.error.dispose();
-        } else {
-          thenChained.value.dispose();
-        }
-
-        const catchFn = vm.newFunction('__catch', errorHandle => {
+        const onRejected = vm.newFunction('__catch', errorHandle => {
           reject(new Error(`Sandbox error: ${JSON.stringify(vm.dump(errorHandle))}`));
         });
-        const catchMethod = vm.getProp(result.value, 'catch');
-        const cacheChained = vm.callFunction(catchMethod, result.value, catchFn);
-        catchMethod.dispose();
-        catchFn.dispose();
-        if (cacheChained.error) {
-          cacheChained.error.dispose();
-        } else {
-          cacheChained.value.dispose();
-        }
+        const chained = vm.callFunction(thenHandle, result.value, onFulfilled, onRejected);
+        onFulfilled.dispose();
+        onRejected.dispose();
+        if (chained.error) chained.error.dispose();
+        else chained.value.dispose();
       });
     }
 
@@ -330,9 +407,25 @@ class QuickJsSandbox implements Sandbox {
 
     const { vm } = this;
 
-    this.disposeTimers();
-    this.port.dispose();
-    this.toUint8ArrayFn.dispose();
+    // Timer cleanup must run before vm.dispose so host intervals don't keep
+    // ticking against a freed VM.
+    try {
+      this.disposeTimers();
+    } catch (e) {
+      this.provider.logger.warn('[Sandbox] disposeTimers failed', e);
+    }
+
+    try {
+      this.port.dispose();
+    } catch (e) {
+      this.provider.logger.warn('[Sandbox] port.dispose failed', e);
+    }
+
+    try {
+      this.toUint8ArrayFn.dispose();
+    } catch (e) {
+      this.provider.logger.warn('[Sandbox] toUint8ArrayFn.dispose failed', e);
+    }
 
     // `vm.dispose()` ends in `JS_FreeRuntime`, which asserts
     // `list_empty(&rt->gc_obj_list)`. Real product code (event listeners,
@@ -351,13 +444,30 @@ class QuickJsSandbox implements Sandbox {
   }
 }
 
-export async function createSandbox(productId: string): Promise<Sandbox> {
-  // One WASM instance per sandbox. `getQuickJS()` returns a process-wide
-  // singleton, which means an abort inside `JS_FreeRuntime` (see
-  // `dispose()`) tears down every other sandbox in the renderer.
-  // `newQuickJSWASMModule()` instantiates a fresh module so the blast
-  // radius of a bad dispose is contained to this sandbox.
+// Belt-and-suspenders: if a Sandbox wrapper is GC'd without explicit dispose,
+// free the underlying WASM context. The held value must close over `vm` ONLY
+// (not the wrapper) — otherwise the registry's strong heldValue ref would
+// keep the wrapper alive and the finalizer would never fire. Host-side
+// QuickJSHandle wrappers are pure JS and reclaimed by ordinary GC.
+const __sandboxFinalizer = new FinalizationRegistry<() => void>(free => free());
+
+export async function createSandbox(productId: string, options: SandboxOptions = {}): Promise<Sandbox> {
+  // One WASM instance per sandbox to contain abort blast radius — see
+  // QuickJsSandbox.dispose() for why JS_FreeRuntime can abort.
   const QuickJS = await newQuickJSWASMModule();
   const vm = QuickJS.newContext();
-  return new QuickJsSandbox(productId, vm);
+  const sandbox = new QuickJsSandbox(productId, vm, options);
+  __sandboxFinalizer.register(
+    sandbox,
+    () => {
+      try {
+        vm.runtime.executePendingJobs(-1);
+        vm.dispose();
+      } catch {
+        /* already disposed or aborted; finalizer must not throw */
+      }
+    },
+    sandbox,
+  );
+  return sandbox;
 }
