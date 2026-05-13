@@ -1,6 +1,6 @@
 # @novasamatech/product-react-renderer
 
-A custom React reconciler for rendering native UI widgets inside Polkadot host applications. Use it together with [`@novasamatech/product-sdk`](../product-sdk) to render interactive widget trees in response to custom chat messages.
+A custom React reconciler for rendering native UI widgets inside Polkadot host applications. Use it together with [`@novasamatech/host-api-wrapper`](../host-api-wrapper) to render interactive widget trees in response to custom chat messages.
 
 ## How it works
 

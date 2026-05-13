@@ -2,8 +2,8 @@
 
 import type { HexString } from '@novasamatech/host-api';
 import { createHostApi, createTransport, enumValue } from '@novasamatech/host-api';
+import { WellKnownChain, createPapiProvider } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
-import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
 import type { JsonRpcMessage } from '@polkadot-api/json-rpc-provider';
 import type { JsonRpcProvider } from 'polkadot-api';

@@ -1,5 +1,5 @@
 import type { HexString } from '@novasamatech/host-api';
-import { createPapiProvider } from '@novasamatech/product-sdk';
+import { createPapiProvider } from '@novasamatech/host-api-wrapper';
 import type { ClientConfig } from '@parity/bulletin-sdk';
 import { AsyncBulletinClient } from '@parity/bulletin-sdk';
 import type { PolkadotSigner } from 'polkadot-api';

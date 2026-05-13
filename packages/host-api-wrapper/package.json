@@ -1,8 +1,8 @@
 {
-  "name": "@novasamatech/product-sdk",
+  "name": "@novasamatech/host-api-wrapper",
   "type": "module",
   "version": "0.7.8",
-  "description": "Polkadot product SDK: integrate and run your product inside Polkadot browser.",
+  "description": "Host API wrapper: integrate and run your product inside Polkadot browser.",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",

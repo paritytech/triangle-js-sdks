@@ -1,6 +1,6 @@
 import { LoginErr, RequestCredentialsErr, StorageErr, createTransport } from '@novasamatech/host-api';
+import { createAccountsProvider, createLocalStorage } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
-import { createAccountsProvider, createLocalStorage } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 
