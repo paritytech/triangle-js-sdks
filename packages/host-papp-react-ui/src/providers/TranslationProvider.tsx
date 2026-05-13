@@ -5,12 +5,9 @@ export type Translations = {
   pairingHeader: string;
   pairingScanCallToAction: string;
   pairingDescription: string;
-  pairingLoader: string;
-  pairingAttestationError: string;
   pairingRetry: string;
   pairingError: string;
   pairingWelcomeMessage: string;
-  pairingLoginMessage: string;
   pairingPopoverWelcome: string;
   pairingPopoverLoginHeading: string;
   pairingPopoverScanDescription: string;
@@ -26,12 +23,9 @@ const defaultKeys: TranslationsMap = {
     pairingScanCallToAction: 'Scan it with a phone',
     pairingDescription:
       'Scanning the QR code opens the Polkadot mobile app, where users are guided step-by-step through the onboarding or setup process.',
-    pairingLoader: 'Just a second...',
-    pairingAttestationError: 'Error while passing attestation',
     pairingRetry: 'Retry',
     pairingError: 'Error while pairing',
     pairingWelcomeMessage: 'Welcome back,',
-    pairingLoginMessage: 'Loggin in',
     pairingPopoverWelcome: 'Welcome to Polkadot!',
     pairingPopoverLoginHeading: 'Login to explore all Polkadot features',
     pairingPopoverScanDescription: 'Scan with your phone camera to log in using the Polkadot mobile app',
