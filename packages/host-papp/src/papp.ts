@@ -74,7 +74,6 @@ export function createPappAdapter({ appId, metadata, hostMetadata, adapters }: P
       statementStore,
       ssoSessionRepository,
       userSecretRepository,
-      lazyClient,
     }),
     sessions: createSsoSessionManager({ storage, statementStore, ssoSessionRepository, userSecretRepository }),
     secrets: userSecretRepository,

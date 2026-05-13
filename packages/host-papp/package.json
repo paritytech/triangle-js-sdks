@@ -38,8 +38,7 @@
     "nanoid": "5.1.9",
     "neverthrow": "^8.2.0",
     "polkadot-api": ">=2",
-    "scale-ts": "1.6.1",
-    "verifiablejs": "1.2.0"
+    "scale-ts": "1.6.1"
   },
   "publishConfig": {
     "access": "public"

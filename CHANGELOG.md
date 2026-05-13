@@ -2,6 +2,7 @@
 
 ### 🚀 Features
 
+- **host-papp:** user attestation has moved off the Host and onto the paired Polkadot Mobile app. The Host no longer drives the attestation flow during sign-in — the mobile app handles it end-to-end as part of pairing.
 - **host-papp:** `UserSession` gains a `createTransaction(payload)` method. The Host can now delegate product-account transaction signing to the paired Polkadot Mobile app via the new `CreateTransactionRequest` / `CreateTransactionResponse` SSO message pair (legacy-account signing stays Host-local).
 - **product-sdk:** new top-level `accounts` singleton (`createAccountsProvider()` with the default sandbox transport) for products that don't need a custom transport.
 - **product-sdk:** export `ProductAccountId` and `LegacyAccount` types.

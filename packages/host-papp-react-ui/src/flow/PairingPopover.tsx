@@ -40,7 +40,7 @@ export const PairingPopover = memo(
 
     const togglePopover = useCallback(
       (newOpen: boolean) => {
-        if (!newOpen && status.step !== 'attestation') {
+        if (!newOpen && status.step !== 'pending') {
           auth.abortAuthentication();
         }
       },
@@ -66,21 +66,20 @@ export const PairingPopover = memo(
             alignOffset={alignOffset}
             className={styles.popoverContent}
             onInteractOutside={e => {
-              if (status.step === 'attestation') {
+              if (status.step === 'pending') {
                 e.preventDefault();
               }
             }}
             onEscapeKeyDown={e => {
-              if (status.step === 'attestation') {
+              if (status.step === 'pending') {
                 e.preventDefault();
               }
             }}
           >
             <div className={styles.popoverContainer}>
               {status.step === 'pairing' && <PairingStep theme={theme} size={size} payload={status.payload} />}
+              {status.step === 'pending' && <LoadingStep stage={status.stage} />}
               {status.step === 'pairingError' && <PairingErrorStep message={status.message} />}
-              {status.step === 'attestation' && <LoadingStep />}
-              {status.step === 'attestationError' && <PairingErrorStep message={status.message} />}
             </div>
           </Popover.Content>
         </Popover.Portal>
@@ -110,16 +109,13 @@ const PairingStep = ({
   );
 };
 
-const LoadingStep = () => {
-  const translation = useTranslations();
-
+const LoadingStep = ({ stage }: { stage: string }) => {
   return (
     <div className={styles.loaderContainerPopover}>
-      <span className={styles.pairingPopoverHeader}>{translation.pairingPopoverWelcome}</span>
       <div className={styles.loaderLogo}>
         <LogoSmall size={100} />
       </div>
-      <span className={styles.loaderText}>{translation.pairingLoader}</span>
+      <span className={styles.loaderText}>{stage}</span>
     </div>
   );
 };
