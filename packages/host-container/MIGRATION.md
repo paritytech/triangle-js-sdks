@@ -16,10 +16,12 @@ The work tracking issue is [`paritytech/truapi#54`][issue].
 
 - `@parity/truapi` and `@parity/truapi-host` added to `package.json`
   dependencies (currently `file:` links to the local truapi worktree).
-- `src/truapi-container.ts`: directional facade that creates a
-  `@parity/truapi-host` server bound to a `Provider`. Default handlers
-  reject with "Not Implemented" until each existing `handleXxx` slot is
-  lifted across.
+- `src/truapi-container.ts`: directional facade that forwards a fully
+  populated `TrUApiHostHandlers` to `createTrUApiServer`. The TypeScript
+  compiler enforces completeness; there are no throwing "Not
+  Implemented" stubs, the dispatcher contract requires handlers to
+  express every outcome (including missing implementations) as a typed
+  return rather than an exception.
 
 ### Not done
 

@@ -12,11 +12,12 @@
  * `createContainer.ts`, which forward to `createTruapiContainer()` under the
  * hood.
  *
- * Status: directional. The handlers map below names the same wire methods
- * `createContainer.ts` registers today, but each handler is a stub that
- * throws "Not Implemented". The migration plan is to lift each existing
- * `handleXxx` slot's behaviour into the matching typed handler, then delete
- * `createContainer.ts`'s registration scaffolding.
+ * Status: directional. The generated `TrUApiHostHandlers` interface forces
+ * the caller to supply every service handler (handlers must not throw, per
+ * the `@parity/truapi-host` contract; every outcome including unsupported
+ * versions and missing implementations is expressed as a typed return).
+ * Lifting each existing `handleXxx` slot's behaviour into the matching typed
+ * handler is the bulk of the remaining migration.
  */
 
 import type { Provider as TruapiProvider } from '@parity/truapi';
@@ -24,58 +25,12 @@ import type { TrUApiHostHandlers, TrUApiHostServer } from '@parity/truapi-host';
 import { createTrUApiServer } from '@parity/truapi-host';
 
 /**
- * Build a stub handler that rejects with a "Not Implemented" error. The
- * legacy container produces method-specific error variants for the wire,
- * the migration TODO is to replace these stubs with handlers that produce
- * the corresponding typed responses.
- */
-function unimplemented(method: string) {
-  return async () => {
-    throw new Error(`@parity/truapi-host handler not yet wired: ${method}`);
-  };
-}
-
-/**
- * Stand-in until per-method handlers are lifted across from
- * `createContainer.ts`. Replace each entry as the migration progresses.
- */
-function defaultHandlers(): TrUApiHostHandlers {
-  const proxy = new Proxy(
-    {},
-    {
-      get(_, prop) {
-        if (prop === 'then') return undefined;
-        return unimplemented(String(prop));
-      },
-    },
-  );
-  return {
-    account: proxy as TrUApiHostHandlers['account'],
-    chain: proxy as TrUApiHostHandlers['chain'],
-    chat: proxy as TrUApiHostHandlers['chat'],
-    entropy: proxy as TrUApiHostHandlers['entropy'],
-    jsonRpc: proxy as TrUApiHostHandlers['jsonRpc'],
-    localStorage: proxy as TrUApiHostHandlers['localStorage'],
-    payment: proxy as TrUApiHostHandlers['payment'],
-    permissions: proxy as TrUApiHostHandlers['permissions'],
-    preimage: proxy as TrUApiHostHandlers['preimage'],
-    resourceAllocation: proxy as TrUApiHostHandlers['resourceAllocation'],
-    signing: proxy as TrUApiHostHandlers['signing'],
-    statementStore: proxy as TrUApiHostHandlers['statementStore'],
-    system: proxy as TrUApiHostHandlers['system'],
-    theme: proxy as TrUApiHostHandlers['theme'],
-  };
-}
-
-/**
  * Attach a host server built on `@parity/truapi-host` to a `Provider`.
- * Returns the underlying server handle, callers dispose it when the host
- * tears down.
+ *
+ * The caller supplies the full `TrUApiHostHandlers` shape. The TypeScript
+ * compiler enforces completeness, anything missing is flagged at the call
+ * site rather than papered over with a stub that would throw at runtime.
  */
-export function createTruapiContainer(
-  provider: TruapiProvider,
-  handlers: Partial<TrUApiHostHandlers> = {},
-): TrUApiHostServer {
-  const merged = { ...defaultHandlers(), ...handlers } as TrUApiHostHandlers;
-  return createTrUApiServer(provider, merged);
+export function createTruapiContainer(provider: TruapiProvider, handlers: TrUApiHostHandlers): TrUApiHostServer {
+  return createTrUApiServer(provider, handlers);
 }
