@@ -97,6 +97,7 @@ export type Container = {
   handleDevicePermission: InferHandler<'v1', HostApiProtocol['host_device_permission']>;
   handlePermission: InferHandler<'v1', HostApiProtocol['remote_permission']>;
   handlePushNotification: InferHandler<'v1', HostApiProtocol['host_push_notification']>;
+  handlePushNotificationCancel: InferHandler<'v1', HostApiProtocol['host_push_notification_cancel']>;
   handleNavigateTo: InferHandler<'v1', HostApiProtocol['host_navigate_to']>;
 
   // entropy derivation
