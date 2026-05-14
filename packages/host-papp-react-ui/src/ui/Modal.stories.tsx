@@ -32,7 +32,7 @@ export const Default: Story = {
     children: (
       <div style={{ padding: 16 }}>
         {/* @ts-expect-error nullable args */}
-        <QrCode {...QrCodeStories.Default.args} />
+        <QrCode {...QrCodeStories.Default.args} theme="dark" />
       </div>
     ),
   },

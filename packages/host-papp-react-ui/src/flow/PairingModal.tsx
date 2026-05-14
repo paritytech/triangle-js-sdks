@@ -47,12 +47,15 @@ export const PairingModal = memo(({ theme, size = 280 }: Props = {}) => {
 
 const PairingStep = ({ payload, size, theme }: { payload: string; size: number; theme?: 'light' | 'dark' }) => {
   const translation = useTranslations();
+  const isDark = theme === 'dark';
 
   return (
     <div className={styles.pairingContainer}>
       <span className={styles.pairingHeader}>{translation.pairingHeader}</span>
       <span className={styles.scanCallToAction}>{translation.pairingScanCallToAction}</span>
-      <QrCode value={payload} size={size} theme={theme} />
+      <div className={isDark ? styles.qrSurfaceDark : styles.qrSurfaceLight}>
+        <QrCode value={payload} size={size} theme={theme} />
+      </div>
       <span className={styles.pairingDescription}>{translation.pairingDescription}</span>
     </div>
   );
