@@ -29,6 +29,8 @@
     "polkadot-api": ">=2",
     "@polkadot-api/substrate-client": "^0.7.0",
     "@novasamatech/host-api": "0.7.8",
+    "@parity/truapi": "file:../../../truapi/.claude/worktrees/issue-54-truapi-host/js/packages/truapi",
+    "@parity/truapi-host": "file:../../../truapi/.claude/worktrees/issue-54-truapi-host/js/packages/truapi-host",
     "nanoid": "5.1.9",
     "neverthrow": "^8.2.0"
   },
