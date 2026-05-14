@@ -209,10 +209,6 @@ export const hostApiProtocol = {
     v1: [PushNotificationV1_request, PushNotificationV1_response],
   }),
 
-  host_push_notification_cancel: versionedRequest({
-    v1: [PushNotificationCancelV1_request, PushNotificationCancelV1_response],
-  }),
-
   host_navigate_to: versionedRequest({
     v1: [NavigateToV1_request, NavigateToV1_response],
   }),
@@ -429,5 +425,9 @@ export const hostApiProtocol = {
 
   remote_statement_store_create_proof_authorized: versionedRequest({
     v1: [StatementStoreCreateProofAuthorizedV1_request, StatementStoreCreateProofAuthorizedV1_response],
+  }),
+
+  host_push_notification_cancel: versionedRequest({
+    v1: [PushNotificationCancelV1_request, PushNotificationCancelV1_response],
   }),
 } as const;
