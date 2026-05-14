@@ -43,7 +43,7 @@ import type { Result } from 'neverthrow';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 
 import { createChainConnectionManager } from './chainConnectionManager.js';
-import { emitHostApiDebugMessage } from './debugBus.js';
+import { emitHostApiDebugMessage, registerHostApiDebugSource } from './debugBus.js';
 import type {
   CodecValue,
   Container,
@@ -98,12 +98,15 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
   // EXPERIMENTAL: forward every transport-level message into the
   // process-global debug bus, tagged with this container's productId.
-  // The transport's onDebugMessage is lazy, so this is free if no one
-  // subscribes to either bus or container-level hook.
-  const unsubscribeGlobalDebug = transport.onDebugMessage(({ direction, requestId, payload }) => {
-    emitHostApiDebugMessage({ direction, productId, requestId, payload });
-  });
-  transport.onDestroy(unsubscribeGlobalDebug);
+  // The forwarder is registered as a bus *source* and only attaches to
+  // `transport.onDebugMessage` while the bus has at least one subscriber —
+  // otherwise the transport's lazy `Message.dec` path stays cold.
+  const unregisterGlobalDebugSource = registerHostApiDebugSource(() =>
+    transport.onDebugMessage(({ direction, requestId, payload }) => {
+      emitHostApiDebugMessage({ direction, productId, requestId, payload });
+    }),
+  );
+  transport.onDestroy(unregisterGlobalDebugSource);
 
   function init() {
     // init status subscription

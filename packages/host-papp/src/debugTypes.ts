@@ -6,9 +6,14 @@
  *
  * `flowId` correlates steps that belong to the same logical flow
  * (e.g. one full pairing dance shares a flowId across all of its
- * steps). Point-in-time markers without a multi-step lifecycle
- * (`session.opened`, `session.terminated`) reuse `sessionId` as the
- * flowId so that a `(opened, terminated)` pair stays queryable.
+ * steps). Conventions per layer:
+ *   - `sso.*` and `attestation.*`: one fresh flowId per pairing /
+ *     attestation attempt, shared across all of its steps.
+ *   - `session.opened` / `session.terminated`: reuse `sessionId` as the
+ *     flowId so that a `(opened, terminated)` pair stays queryable.
+ *   - `session.peer_action_*` and `session.host_action_*`: use the
+ *     per-message `messageId` as flowId so that received→processed /
+ *     received→failed and sent→response→failed triples line up.
  *
  * Mark anything subscribed to this taxonomy as EXPERIMENTAL on the
  * consumer side — events and payloads may evolve across minor

@@ -43,6 +43,20 @@ type ProcessedMessage =
       processed: false;
     };
 
+/**
+ * Derive a stable `actionKind` label from a remote-message envelope.
+ * Shape: `OuterTag` for flat variants, `OuterTag:InnerTag` for variants
+ * whose payload is itself an enum (currently just `SignRequest`).
+ * The receive side and the send side both go through here so debug
+ * consumers see the same shape regardless of direction.
+ */
+function actionKindFromMessageData(data: CodecType<typeof RemoteMessageCodec>['data']): string {
+  if (data.tag !== 'v1') return data.tag;
+  const inner = data.value;
+  if (inner.tag === 'SignRequest') return `SignRequest:${inner.value.tag}`;
+  return inner.tag;
+}
+
 function emitHostAction(messageId: string, actionKind: string, sessionId: string): void {
   emitHostPappDebugMessage({
     layer: 'session',
@@ -131,11 +145,9 @@ export function createUserSession({
     signPayload(payload) {
       return requestQueue.call(() => {
         const messageId = nanoid();
-        emitHostAction(messageId, 'SignRequest:Payload', userSession.id);
-        const request = session.request(RemoteMessageCodec, {
-          messageId,
-          data: enumValue('v1', enumValue('SignRequest', enumValue('Payload', payload))),
-        });
+        const data = enumValue('v1', enumValue('SignRequest', enumValue('Payload', payload)));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+        const request = session.request(RemoteMessageCodec, { messageId, data });
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -164,11 +176,9 @@ export function createUserSession({
     signRaw(payload) {
       return requestQueue.call(() => {
         const messageId = nanoid();
-        emitHostAction(messageId, 'SignRequest:Raw', userSession.id);
-        const request = session.request(RemoteMessageCodec, {
-          messageId,
-          data: enumValue('v1', enumValue('SignRequest', enumValue('Raw', payload))),
-        });
+        const data = enumValue('v1', enumValue('SignRequest', enumValue('Raw', payload)));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+        const request = session.request(RemoteMessageCodec, { messageId, data });
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -208,17 +218,15 @@ export function createUserSession({
     getRingVrfAlias(productAccountId, productId) {
       return requestQueue.call(() => {
         const messageId = nanoid();
-        emitHostAction(messageId, 'RingVrfAliasRequest', userSession.id);
-        const request = session.request(RemoteMessageCodec, {
-          messageId,
-          data: enumValue(
-            'v1',
-            enumValue('RingVrfAliasRequest', {
-              productAccountId,
-              productId,
-            }),
-          ),
-        });
+        const data = enumValue(
+          'v1',
+          enumValue('RingVrfAliasRequest', {
+            productAccountId,
+            productId,
+          }),
+        );
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+        const request = session.request(RemoteMessageCodec, { messageId, data });
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -281,8 +289,7 @@ export function createUserSession({
                 }
 
                 const messageId = payload.value.messageId;
-                const actionKind =
-                  payload.value.data.tag === 'v1' ? payload.value.data.value.tag : payload.value.data.tag;
+                const actionKind = actionKindFromMessageData(payload.value.data);
                 emitHostPappDebugMessage({
                   layer: 'session',
                   event: 'peer_action_received',

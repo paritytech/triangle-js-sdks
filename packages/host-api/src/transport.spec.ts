@@ -156,35 +156,42 @@ describe('transport', () => {
 
     it('survives a throwing listener without breaking delivery', () => {
       const providers = createProviders();
-      // swap host's logger with a quiet mock so the expected throws don't pollute test output
-      const errorSpy = vi.fn();
-      const quietLogger = { ...providers.host.logger, error: errorSpy };
-      const host = createTransport({ ...providers.host, logger: quietLogger });
+      const host = createTransport(providers.host);
       const sdk = createTransport(providers.sdk);
 
-      host.onDebugMessage(() => {
-        throw new Error('listener boom');
-      });
-      const goodListener = vi.fn<(e: DebugMessageEvent) => void>();
-      host.onDebugMessage(goodListener);
+      // Swap console.error directly so the expected throws don't pollute test
+      // output. Transport routes debug-callback failures to console.error (not
+      // provider.logger) so they stay distinct from real protocol errors.
+      const originalConsoleError = console.error;
+      const errorSpy = vi.fn();
+      console.error = errorSpy;
+      try {
+        host.onDebugMessage(() => {
+          throw new Error('listener boom');
+        });
+        const goodListener = vi.fn<(e: DebugMessageEvent) => void>();
+        host.onDebugMessage(goodListener);
 
-      const sdkReceived = vi.fn();
-      sdk.listenMessages('host_handshake_request', sdkReceived);
+        const sdkReceived = vi.fn();
+        sdk.listenMessages('host_handshake_request', sdkReceived);
 
-      // outgoing: a throwing listener must not block messageProvider.postMessage
-      host.postMessage('out-1', samplePayload());
-      expect(sdkReceived).toHaveBeenCalledTimes(1);
+        // outgoing: a throwing listener must not block messageProvider.postMessage
+        host.postMessage('out-1', samplePayload());
+        expect(sdkReceived).toHaveBeenCalledTimes(1);
 
-      // incoming: a throwing listener must not block other host listenMessages subscribers
-      const hostReceived = vi.fn();
-      host.listenMessages('host_handshake_request', hostReceived);
-      sdk.postMessage('in-1', samplePayload());
-      expect(hostReceived).toHaveBeenCalledTimes(1);
+        // incoming: a throwing listener must not block other host listenMessages subscribers
+        const hostReceived = vi.fn();
+        host.listenMessages('host_handshake_request', hostReceived);
+        sdk.postMessage('in-1', samplePayload());
+        expect(hostReceived).toHaveBeenCalledTimes(1);
 
-      // the second good listener still fired despite the first one throwing
-      expect(goodListener).toHaveBeenCalled();
-      // and the throws were observed by the logger, not propagated
-      expect(errorSpy).toHaveBeenCalled();
+        // the second good listener still fired despite the first one throwing
+        expect(goodListener).toHaveBeenCalled();
+        // and the throws were observed on console.error, not propagated
+        expect(errorSpy).toHaveBeenCalled();
+      } finally {
+        console.error = originalConsoleError;
+      }
     });
 
     it('cleans up the debug subscription on destroy() and blocks further sends', () => {

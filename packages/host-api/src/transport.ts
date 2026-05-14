@@ -501,11 +501,14 @@ export function createTransport(provider: Provider): Transport {
       // synchronously and a throw aborts the loop, so without per-listener
       // isolation a single broken listener could starve siblings *and*
       // (on the incoming side) starve unrelated messageProvider subscribers.
+      // Route to console.error (not provider.logger.error) so debug-callback
+      // bugs stay distinct from real protocol errors — matches the same
+      // policy used by host-papp's debugBus.
       const safeCallback = (event: DebugMessageEvent) => {
         try {
           callback(event);
         } catch (e) {
-          provider.logger.error('debug listener threw', e);
+          console.error('debug listener threw', e);
         }
       };
       const unsubscribe = events.on('debugMessage', safeCallback);
