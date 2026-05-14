@@ -2,6 +2,8 @@ import type { LazyClient, Statement, StatementStoreAdapter } from '@novasamatech
 import { errAsync, ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { onHostPappDebugMessage } from '../src/debugBus.js';
+import type { HostPappDebugEvent } from '../src/debugTypes.js';
 import { createAuth } from '../src/sso/auth/impl.js';
 import type { UserSecretRepository } from '../src/sso/userSecretRepository.js';
 import type { UserSessionRepository } from '../src/sso/userSessionRepository.js';
@@ -423,6 +425,114 @@ describe('createAuth', () => {
       expect(() => auth.abortAuthentication()).not.toThrow();
       expect(auth.pairingStatus.read()).toEqual({ step: 'none' });
       expect(auth.attestationStatus.read()).toEqual({ step: 'none' });
+    });
+  });
+
+  describe('debug emits', () => {
+    function captureEvents() {
+      const events: HostPappDebugEvent[] = [];
+      const unsubscribe = onHostPappDebugMessage(event => events.push(event));
+      return { events, unsubscribe };
+    }
+
+    it('emits pairing_started and attestation.started eagerly when authenticate() is called', () => {
+      const { auth } = buildHarness();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        void auth.authenticate();
+
+        expect(events.find(e => e.layer === 'sso' && e.event === 'pairing_started')).toMatchObject({
+          payload: { metadata: 'test-metadata' },
+        });
+        expect(events.some(e => e.layer === 'attestation' && e.event === 'started')).toBe(true);
+      } finally {
+        auth.abortAuthentication();
+        unsubscribe();
+      }
+    });
+
+    it('emits the full SSO pairing sequence and attestation.completed on a successful authenticate', async () => {
+      const harness = buildHarness();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        const promise = harness.auth.authenticate();
+        await harness.waitForSubscription();
+        harness.deliverHandshake();
+        const result = await promise;
+        expect(result.isOk()).toBe(true);
+
+        const ssoSequence = events.filter(e => e.layer === 'sso').map(e => e.event);
+        expect(ssoSequence).toEqual([
+          'pairing_started',
+          'deeplink_generated',
+          'awaiting_response',
+          'response_received',
+          'session_established',
+        ]);
+        expect(events.find(e => e.layer === 'attestation' && e.event === 'completed')).toBeDefined();
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('shares one flowId across every event in a single pairing run', async () => {
+      const harness = buildHarness();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        const promise = harness.auth.authenticate();
+        await harness.waitForSubscription();
+        harness.deliverHandshake();
+        await promise;
+
+        const ssoFlowIds = new Set(events.filter(e => e.layer === 'sso').map(e => e.flowId));
+        expect(ssoFlowIds.size).toBe(1);
+
+        // attestation runs in its own flow, distinct from the SSO pairing flow
+        const attestationFlowIds = new Set(events.filter(e => e.layer === 'attestation').map(e => e.flowId));
+        expect(attestationFlowIds.size).toBe(1);
+        expect(attestationFlowIds).not.toEqual(ssoFlowIds);
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('emits pairing_failed and attestation.failed when the chain rejects with a non-abort error', async () => {
+      mocks.registerLitePerson.mockReturnValue(errAsync(new Error('chain offline')));
+      const harness = buildHarness();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        const promise = harness.auth.authenticate();
+        await harness.waitForSubscription();
+        harness.deliverHandshake();
+        const result = await promise;
+
+        expect(result.isErr()).toBe(true);
+        const pairingFailed = events.find(e => e.layer === 'sso' && e.event === 'pairing_failed');
+        const attestationFailed = events.find(e => e.layer === 'attestation' && e.event === 'failed');
+        expect(pairingFailed?.payload).toMatchObject({ reason: 'chain offline' });
+        expect(attestationFailed?.payload).toMatchObject({ reason: 'chain offline' });
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('does not emit pairing_failed or attestation.failed when authentication is aborted by the user', async () => {
+      const harness = buildHarness();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        const promise = harness.auth.authenticate();
+        await harness.waitForSubscription();
+        harness.auth.abortAuthentication();
+        harness.deliverPage([]);
+        const result = await promise;
+
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap()).toBeNull();
+        expect(events.some(e => e.layer === 'sso' && e.event === 'pairing_failed')).toBe(false);
+        expect(events.some(e => e.layer === 'attestation' && e.event === 'failed')).toBe(false);
+      } finally {
+        unsubscribe();
+      }
     });
   });
 });
