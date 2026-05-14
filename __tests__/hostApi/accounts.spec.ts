@@ -9,7 +9,7 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
-import type { AccountConnectionStatus, ProductAccount } from '@novasamatech/host-api-wrapper';
+import type { AccountConnectionStatus, LegacyAccount, ProductAccount } from '@novasamatech/host-api-wrapper';
 import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
