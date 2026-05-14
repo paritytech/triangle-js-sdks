@@ -29,3 +29,5 @@ vitest.config.*.timestamp*
 packages/*/dist
 
 storybook-static
+
+docs/superpowers/
