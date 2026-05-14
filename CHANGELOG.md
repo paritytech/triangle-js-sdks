@@ -6,6 +6,9 @@
 - **host-papp:** `UserSession` gains a `createTransaction(payload)` method. The Host can now delegate product-account transaction signing to the paired Polkadot Mobile app via the new `CreateTransactionRequest` / `CreateTransactionResponse` SSO message pair (legacy-account signing stays Host-local).
 - **product-sdk:** new top-level `accounts` singleton (`createAccountsProvider()` with the default sandbox transport) for products that don't need a custom transport.
 - **product-sdk:** export `ProductAccountId` and `LegacyAccount` types.
+- **host-api / product-sdk:** products can now schedule a push notification for a future time, not just send one right away. Pass `scheduledAt` (a UTC timestamp in milliseconds) when calling `notificationManager.push(...)`, and the host will deliver it at that moment. Leave it out to deliver immediately as before.
+- **host-api / product-sdk:** `push(...)` now returns an id you can hold onto, and the new `notificationManager.cancel(id)` lets a product cancel a notification it scheduled earlier — handy for "remind me in an hour" style flows where the user changes their mind.
+- **host-api / product-sdk:** if the host can't accept any more scheduled notifications, the product now gets a clear `ScheduleLimitReached` error instead of a generic failure, so it can tell the user what happened.
 
 ### ⚠️ Breaking Changes
 
@@ -18,6 +21,7 @@
 - **product-sdk:** new runtime dependency `@polkadot-api/substrate-bindings@^0.20.2` (used by `getProductAccountSigner` to decode metadata locally and pick `txExtVersion`).
 
   > No compatibility shim. `host_create_transaction` had no production consumers and `host_create_transaction_with_legacy_account` is only reachable via `product-sdk`, which is bumped in lockstep.
+- **host-api:** the push-notification format changed to support scheduling and cancellation. Hosts and products must upgrade together — older clients won't be able to send notifications to a newer host (or vice versa).
 
 ## 0.7.8 (2026-05-08)
 

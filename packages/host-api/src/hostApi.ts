@@ -12,6 +12,7 @@ import { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
 import { HandshakeErr } from './protocol/v1/handshake.js';
 import { StorageErr } from './protocol/v1/localStorage.js';
 import { NavigateToErr } from './protocol/v1/navigation.js';
+import { PushNotificationError } from './protocol/v1/notification.js';
 import { PaymentRequestErr, PaymentTopUpErr } from './protocol/v1/payments.js';
 import { PreimageSubmitErr } from './protocol/v1/preimage.js';
 import { ResourceAllocationErr } from './protocol/v1/resourceAllocation.js';
@@ -103,6 +104,13 @@ export function createHostApi(transport: Transport): HostApi {
 
     pushNotification(payload) {
       return makeRequest(transport.request('host_push_notification', payload), reason => ({
+        tag: payload.tag,
+        value: new PushNotificationError.Unknown({ reason }),
+      }));
+    },
+
+    pushNotificationCancel(payload) {
+      return makeRequest(transport.request('host_push_notification_cancel', payload), reason => ({
         tag: payload.tag,
         value: new GenericError({ reason }),
       }));

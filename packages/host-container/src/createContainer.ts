@@ -27,6 +27,7 @@ import {
   PaymentStatusErr,
   PaymentTopUpErr,
   PreimageSubmitErr,
+  PushNotificationError,
   RemotePermission,
   RequestCredentialsErr,
   ResourceAllocationErr,
@@ -375,6 +376,12 @@ export function createContainer(provider: Provider): Container {
   const handlePushNotificationSlot = makeDevicePermissionGatedRequestSlot(
     'host_push_notification',
     'Notifications',
+    () => new PushNotificationError.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
+  const handlePushNotificationCancelSlot = makeDevicePermissionGatedRequestSlot(
+    'host_push_notification_cancel',
+    'Notifications',
     () => new GenericError({ reason: NOT_IMPLEMENTED }),
   );
 
@@ -488,6 +495,14 @@ export function createContainer(provider: Provider): Container {
     handlePushNotification(handler) {
       return handleV1Request(
         handlePushNotificationSlot,
+        () => new PushNotificationError.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handlePushNotificationCancel(handler) {
+      return handleV1Request(
+        handlePushNotificationCancelSlot,
         () => new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
