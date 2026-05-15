@@ -9,6 +9,7 @@
 - **host-api / product-sdk:** products can now schedule a push notification for a future time, not just send one right away. Pass `scheduledAt` (a UTC timestamp in milliseconds) when calling `notificationManager.push(...)`, and the host will deliver it at that moment. Leave it out to deliver immediately as before.
 - **host-api / product-sdk:** `push(...)` now returns an id you can hold onto, and the new `notificationManager.cancel(id)` lets a product cancel a notification it scheduled earlier — handy for "remind me in an hour" style flows where the user changes their mind.
 - **host-api / product-sdk:** if the host can't accept any more scheduled notifications, the product now gets a clear `ScheduleLimitReached` error instead of a generic failure, so it can tell the user what happened.
+- **host-api / host-container / host-papp:** experimental debug hooks for observing host ↔ product traffic and internal SSO state. `onHostApiDebugMessage` (from `host-container`) emits every decoded message across all containers in the process, annotated with `productId`. `onHostPappDebugMessage` (from `host-papp/debug`) emits attestation, auth, and session-lifecycle events. Both are lazy — when no subscriber is attached, the underlying decode/emit work is skipped, so leaving the hooks in code costs nothing in production.
 
 ### 🩹 Fixes
 
