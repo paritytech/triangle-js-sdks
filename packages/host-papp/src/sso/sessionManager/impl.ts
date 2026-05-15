@@ -5,6 +5,7 @@ import { okAsync } from 'neverthrow';
 
 import { createState } from '../../helpers/state.js';
 import type { Callback } from '../../types.js';
+import type { AllowanceRepository } from '../allowance/index.js';
 import { createSsoStatementProver } from '../ssoSessionProver.js';
 import type { UserSecretRepository } from '../userSecretRepository.js';
 import type { StoredUserSession, UserSessionRepository } from '../userSessionRepository.js';
@@ -19,11 +20,13 @@ type Params = {
   statementStore: StatementStoreAdapter;
   ssoSessionRepository: UserSessionRepository;
   userSecretRepository: UserSecretRepository;
+  allowanceRepository: AllowanceRepository;
 };
 
 export function createSsoSessionManager({
   ssoSessionRepository,
   userSecretRepository,
+  allowanceRepository,
   statementStore,
   storage,
 }: Params) {
@@ -100,7 +103,8 @@ export function createSsoSessionManager({
       return session
         .sendDisconnectMessage()
         .andThen(() => disconnect(userSession))
-        .andThen(() => userSecretRepository.clear(userSession.id));
+        .andThen(() => userSecretRepository.clear(userSession.id))
+        .andThen(() => allowanceRepository.clearSession(userSession.id));
     },
 
     dispose() {

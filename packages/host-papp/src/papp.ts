@@ -8,6 +8,8 @@ import { SS_STABLE_STAGE_ENDPOINTS } from './constants.js';
 import { createIdentityRepository } from './identity/impl.js';
 import { createIdentityRpcAdapter } from './identity/rpcAdapter.js';
 import type { IdentityAdapter, IdentityRepository } from './identity/types.js';
+import type { AllowanceService } from './sso/allowance/index.js';
+import { createAllowanceRepository, createAllowanceService } from './sso/allowance/index.js';
 import type { AuthComponent, HostMetadata } from './sso/auth/impl.js';
 import { createAuth } from './sso/auth/impl.js';
 import type { SsoSessionManager } from './sso/sessionManager/impl.js';
@@ -21,6 +23,7 @@ export type PappAdapter = {
   sessions: SsoSessionManager;
   secrets: UserSecretRepository;
   identity: IdentityRepository;
+  allowance: AllowanceService;
 };
 
 type Adapters = {
@@ -66,6 +69,15 @@ export function createPappAdapter({ appId, metadata, hostMetadata, adapters }: P
 
   const ssoSessionRepository = createUserSessionRepository(storage);
   const userSecretRepository = createUserSecretRepository(appId, storage);
+  const allowanceRepository = createAllowanceRepository(appId, storage);
+
+  const sessions = createSsoSessionManager({
+    storage,
+    statementStore,
+    ssoSessionRepository,
+    userSecretRepository,
+    allowanceRepository,
+  });
 
   return {
     sso: createAuth({
@@ -76,8 +88,9 @@ export function createPappAdapter({ appId, metadata, hostMetadata, adapters }: P
       userSecretRepository,
       lazyClient,
     }),
-    sessions: createSsoSessionManager({ storage, statementStore, ssoSessionRepository, userSecretRepository }),
+    sessions,
     secrets: userSecretRepository,
     identity: createIdentityRepository({ adapter: identities, storage }),
+    allowance: createAllowanceService({ sessions: sessions.sessions, repository: allowanceRepository }),
   };
 }

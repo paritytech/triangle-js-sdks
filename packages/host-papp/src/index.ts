@@ -9,6 +9,9 @@ export type { UserSession } from './sso/sessionManager/userSession.js';
 export type { StoredUserSession } from './sso/userSessionRepository.js';
 export type { Identity } from './identity/types.js';
 
+export type { AllowanceErrorReason, AllowanceResourceKind, AllowanceService } from './sso/allowance/index.js';
+export { AllowanceError } from './sso/allowance/index.js';
+
 export type {
   SigningPayloadRequest,
   SigningPayloadResponse,
