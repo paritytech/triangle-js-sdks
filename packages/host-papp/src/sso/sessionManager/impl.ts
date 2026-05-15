@@ -3,6 +3,7 @@ import { createEncryption } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { okAsync } from 'neverthrow';
 
+import { emitHostPappDebugMessage } from '../../debugBus.js';
 import { createState } from '../../helpers/state.js';
 import type { Callback } from '../../types.js';
 import type { AllowanceRepository } from '../allowance/index.js';
@@ -56,6 +57,14 @@ export function createSsoSessionManager({
 
       toAdd.add(session);
 
+      emitHostPappDebugMessage({
+        layer: 'session',
+        event: 'opened',
+        flowId: userSession.id,
+        timestamp: Date.now(),
+        payload: { sessionId: userSession.id },
+      });
+
       const unsubscribe = session.subscribe(message => {
         switch (message.data.tag) {
           case 'v1': {
@@ -74,6 +83,13 @@ export function createSsoSessionManager({
 
     if (toRemove.size > 0) {
       for (const id of toRemove) {
+        emitHostPappDebugMessage({
+          layer: 'session',
+          event: 'terminated',
+          flowId: id,
+          timestamp: Date.now(),
+          payload: { sessionId: id },
+        });
         releaseSession(id);
         activeSessions[id]?.dispose();
       }

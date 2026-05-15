@@ -2,6 +2,8 @@ import type { Statement, StatementStoreAdapter } from '@novasamatech/statement-s
 import { ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+import { onHostPappDebugMessage } from '../src/debugBus.js';
+import type { HostPappDebugEvent } from '../src/debugTypes.js';
 import { createAuth } from '../src/sso/auth/impl.js';
 import type { UserSecretRepository } from '../src/sso/userSecretRepository.js';
 import type { UserSessionRepository } from '../src/sso/userSessionRepository.js';
@@ -338,6 +340,71 @@ describe('createAuth', () => {
       const { auth } = buildHarness();
       expect(() => auth.abortAuthentication()).not.toThrow();
       expect(auth.pairingStatus.read()).toEqual({ step: 'none' });
+    });
+  });
+
+  describe('debug emits', () => {
+    function captureEvents() {
+      const events: HostPappDebugEvent[] = [];
+      const unsubscribe = onHostPappDebugMessage(event => events.push(event));
+      return { events, unsubscribe };
+    }
+
+    it('emits pairing_started and attestation.started eagerly when authenticate() is called', () => {
+      const { auth } = buildHarness();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        void auth.authenticate();
+
+        expect(events.find(e => e.layer === 'sso' && e.event === 'pairing_started')).toMatchObject({
+          payload: { metadata: 'test-metadata' },
+        });
+      } finally {
+        auth.abortAuthentication();
+        unsubscribe();
+      }
+    });
+
+    it('emits the full SSO pairing sequence and attestation.completed on a successful authenticate', async () => {
+      const harness = buildHarness();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        const promise = harness.auth.authenticate();
+        await harness.waitForSubscription();
+        harness.deliverHandshake();
+        const result = await promise;
+        expect(result.isOk()).toBe(true);
+
+        const ssoSequence = events.filter(e => e.layer === 'sso').map(e => e.event);
+        expect(ssoSequence).toEqual([
+          'pairing_started',
+          'deeplink_generated',
+          'awaiting_response',
+          'response_received',
+          'session_established',
+        ]);
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('does not emit pairing_failed or attestation.failed when authentication is aborted by the user', async () => {
+      const harness = buildHarness();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        const promise = harness.auth.authenticate();
+        await harness.waitForSubscription();
+        harness.auth.abortAuthentication();
+        harness.deliverPage([]);
+        const result = await promise;
+
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap()).toBeNull();
+        expect(events.some(e => e.layer === 'sso' && e.event === 'pairing_failed')).toBe(false);
+        expect(events.some(e => e.layer === 'attestation' && e.event === 'failed')).toBe(false);
+      } finally {
+        unsubscribe();
+      }
     });
   });
 });

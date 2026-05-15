@@ -9,6 +9,7 @@ import type { Result } from 'neverthrow';
 import { ResultAsync, err, ok, okAsync } from 'neverthrow';
 import type { CodecType } from 'scale-ts';
 
+import { emitHostPappDebugMessage } from '../../debugBus.js';
 import { createAsyncTaskPool } from '../../helpers/createAsyncTaskPool.js';
 import { toError } from '../../helpers/utils.js';
 import type { Callback } from '../../types.js';
@@ -41,6 +42,56 @@ type ProcessedMessage =
   | {
       processed: false;
     };
+
+/**
+ * Derive a stable `actionKind` label from a remote-message envelope.
+ * Shape: `OuterTag` for flat variants, `OuterTag:InnerTag` for variants
+ * whose payload is itself an enum (currently just `SignRequest`).
+ * The receive side and the send side both go through here so debug
+ * consumers see the same shape regardless of direction.
+ */
+function actionKindFromMessageData(data: CodecType<typeof RemoteMessageCodec>['data']): string {
+  if (data.tag !== 'v1') return data.tag;
+  const inner = data.value;
+  if (inner.tag === 'SignRequest') return `SignRequest:${inner.value.tag}`;
+  return inner.tag;
+}
+
+function emitHostAction(messageId: string, actionKind: string, sessionId: string): void {
+  emitHostPappDebugMessage({
+    layer: 'session',
+    event: 'host_action_sent',
+    flowId: messageId,
+    timestamp: Date.now(),
+    payload: { sessionId, messageId, actionKind },
+  });
+}
+
+function withHostActionTrace<T>(
+  result: ResultAsync<T, Error>,
+  messageId: string,
+  sessionId: string,
+): ResultAsync<T, Error> {
+  return result
+    .andTee(() => {
+      emitHostPappDebugMessage({
+        layer: 'session',
+        event: 'host_action_response_received',
+        flowId: messageId,
+        timestamp: Date.now(),
+        payload: { sessionId, messageId },
+      });
+    })
+    .orTee(error => {
+      emitHostPappDebugMessage({
+        layer: 'session',
+        event: 'host_action_failed',
+        flowId: messageId,
+        timestamp: Date.now(),
+        payload: { sessionId, messageId, reason: error.message },
+      });
+    });
+}
 
 export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
@@ -95,10 +146,9 @@ export function createUserSession({
     signPayload(payload) {
       return requestQueue.call(() => {
         const messageId = nanoid();
-        const request = session.request(RemoteMessageCodec, {
-          messageId,
-          data: enumValue('v1', enumValue('SignRequest', enumValue('Payload', payload))),
-        });
+        const data = enumValue('v1', enumValue('SignRequest', enumValue('Payload', payload)));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+        const request = session.request(RemoteMessageCodec, { messageId, data });
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -120,17 +170,16 @@ export function createUserSession({
             }
           });
 
-        return withQueueTimeout(inner, 'signPayload');
+        return withHostActionTrace(withQueueTimeout(inner, 'signPayload'), messageId, userSession.id);
       });
     },
 
     signRaw(payload) {
       return requestQueue.call(() => {
         const messageId = nanoid();
-        const request = session.request(RemoteMessageCodec, {
-          messageId,
-          data: enumValue('v1', enumValue('SignRequest', enumValue('Raw', payload))),
-        });
+        const data = enumValue('v1', enumValue('SignRequest', enumValue('Raw', payload)));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+        const request = session.request(RemoteMessageCodec, { messageId, data });
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -152,7 +201,7 @@ export function createUserSession({
             }
           });
 
-        return withQueueTimeout(inner, 'signRaw');
+        return withHostActionTrace(withQueueTimeout(inner, 'signRaw'), messageId, userSession.id);
       });
     },
 
@@ -202,16 +251,15 @@ export function createUserSession({
     getRingVrfAlias(productAccountId, productId) {
       return requestQueue.call(() => {
         const messageId = nanoid();
-        const request = session.request(RemoteMessageCodec, {
-          messageId,
-          data: enumValue(
-            'v1',
-            enumValue('RingVrfAliasRequest', {
-              productAccountId,
-              productId,
-            }),
-          ),
-        });
+        const data = enumValue(
+          'v1',
+          enumValue('RingVrfAliasRequest', {
+            productAccountId,
+            productId,
+          }),
+        );
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+        const request = session.request(RemoteMessageCodec, { messageId, data });
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -223,9 +271,13 @@ export function createUserSession({
           }
         };
 
-        return request
-          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-          .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
+        return withHostActionTrace(
+          request
+            .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+            .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value)))),
+          messageId,
+          userSession.id,
+        );
       });
     },
 
@@ -269,9 +321,37 @@ export function createUserSession({
                   return okAsync({ processed: false });
                 }
 
+                const messageId = payload.value.messageId;
+                const actionKind = actionKindFromMessageData(payload.value.data);
+                emitHostPappDebugMessage({
+                  layer: 'session',
+                  event: 'peer_action_received',
+                  flowId: messageId,
+                  timestamp: Date.now(),
+                  payload: { sessionId: userSession.id, messageId, actionKind },
+                });
+
                 return callback(payload.value)
+                  .andTee(processed => {
+                    if (processed) {
+                      emitHostPappDebugMessage({
+                        layer: 'session',
+                        event: 'peer_action_processed',
+                        flowId: messageId,
+                        timestamp: Date.now(),
+                        payload: { sessionId: userSession.id, messageId },
+                      });
+                    }
+                  })
                   .orTee(error => {
                     console.error('Error while processing sso message:', error);
+                    emitHostPappDebugMessage({
+                      layer: 'session',
+                      event: 'peer_action_failed',
+                      flowId: messageId,
+                      timestamp: Date.now(),
+                      payload: { sessionId: userSession.id, messageId, reason: error.message },
+                    });
                   })
                   .orElse(() => okAsync(false))
                   .map(processed => (processed ? { processed, message: payload.value } : { processed }));

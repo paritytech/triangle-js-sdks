@@ -14,7 +14,7 @@ export default defineConfig([
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
 
-  globalIgnores(['**/dist', '**/*.d.ts', '**/.papi']),
+  globalIgnores(['**/dist', '**/*.d.ts', '**/.papi', '**/storybook-static/**']),
 
   {
     files: ['**/*.{ts,tsx}'],

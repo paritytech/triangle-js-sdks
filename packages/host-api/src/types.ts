@@ -43,6 +43,17 @@ export type MessageProvider = {
   subscribe(fn: (message: CodecType<typeof Message>) => void): VoidFunction;
 };
 
+/**
+ * EXPERIMENTAL. A single message observed on the transport, in its
+ * decoded (non-SCALE) form. Intended for host-side introspection.
+ */
+export type DebugMessageEvent = {
+  /** `outgoing` = sent by this side via `postMessage`; `incoming` = received from the peer. */
+  direction: 'incoming' | 'outgoing';
+  requestId: string;
+  payload: MessagePayloadSchema;
+};
+
 export type Transport = {
   readonly provider: Provider;
 
@@ -80,4 +91,13 @@ export type Transport = {
     callback: (requestId: string, data: PickMessagePayload<Action>) => void,
     onError?: (error: unknown) => void,
   ): VoidFunction;
+
+  /**
+   * EXPERIMENTAL. Subscribe to every message crossing this transport
+   * in either direction, in decoded form. Returns an unsubscribe
+   * function. Multiple listeners are supported; the underlying
+   * provider is subscribed lazily — there is no per-message cost
+   * while no listener is attached.
+   */
+  onDebugMessage(callback: (event: DebugMessageEvent) => void): VoidFunction;
 };

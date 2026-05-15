@@ -44,7 +44,14 @@ import type { Result } from 'neverthrow';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 
 import { createChainConnectionManager } from './chainConnectionManager.js';
-import type { CodecValue, Container, ContainerRequestHandler, UnwrapErrorResponse } from './types.js';
+import { emitHostApiDebugMessage, registerHostApiDebugSource } from './debugBus.js';
+import type {
+  CodecValue,
+  Container,
+  ContainerRequestHandler,
+  CreateContainerOptions,
+  UnwrapErrorResponse,
+} from './types.js';
 
 const UNSUPPORTED_MESSAGE_FORMAT_ERROR = 'Unsupported message format';
 
@@ -83,11 +90,24 @@ function guardVersion<const Enum extends { tag: string; value: unknown }, const 
   return err(error);
 }
 
-export function createContainer(provider: Provider): Container {
+export function createContainer(provider: Provider, options: CreateContainerOptions = {}): Container {
   const transport = createTransport(provider);
   if (!transport.isCorrectEnvironment()) {
     throw new Error('Transport is not available: dapp provider has incorrect environment');
   }
+  const { productId } = options;
+
+  // EXPERIMENTAL: forward every transport-level message into the
+  // process-global debug bus, tagged with this container's productId.
+  // The forwarder is registered as a bus *source* and only attaches to
+  // `transport.onDebugMessage` while the bus has at least one subscriber —
+  // otherwise the transport's lazy `Message.dec` path stays cold.
+  const unregisterGlobalDebugSource = registerHostApiDebugSource(() =>
+    transport.onDebugMessage(({ direction, requestId, payload }) => {
+      emitHostApiDebugMessage({ direction, productId, requestId, payload });
+    }),
+  );
+  transport.onDestroy(unregisterGlobalDebugSource);
 
   function init() {
     // init status subscription
@@ -1128,6 +1148,12 @@ export function createContainer(provider: Provider): Container {
 
     dispose() {
       transport.destroy();
+    },
+
+    onDebugMessage(callback) {
+      return transport.onDebugMessage(({ direction, requestId, payload }) => {
+        callback({ direction, productId, requestId, payload });
+      });
     },
   };
 }
