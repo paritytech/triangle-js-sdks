@@ -9,6 +9,13 @@ created: 2026-03-13
 
 ## Changelog
 
+### v0.8 - 2026-05-14
+
+- **Breaking change.** Extended `host_push_notification`: request gains `scheduled_at: Option<u64>` (Unix ms UTC) for deferred delivery; response changed from `Result<(), GenericErr>` to `Result<NotificationId, PushNotificationError>` (RFC-0019). The prior wire format is replaced rather than versioned alongside.
+- Added `host_push_notification_cancel(NotificationId) -> Result<(), GenericErr>` for retracting a pending scheduled notification.
+- Both methods are gated by `DevicePermission::Notifications`. No new permission variant.
+- `NotificationId` is opaque per-product; cancellation is idempotent. Persistence, OS-scheduler integration, and the platform-wide queue cap are host-application concerns, not SDK concerns.
+
 ### v0.7 - 2026-04-13
 
 - Renamed all `*_with_non_product_account` methods to `*_with_legacy_account`; renamed `host_get_non_product_accounts` to `host_get_legacy_accounts`; updated glossary term "Non-product account (NPA)" to "Legacy account".
@@ -87,7 +94,11 @@ fn host_feature_supported(
 ) -> Result<bool, GenericErr>;
 
 fn host_push_notification(
-  text: str
+  notification: PushNotification
+) -> Result<NotificationId, PushNotificationError>;
+
+fn host_push_notification_cancel(
+  identifier: NotificationId
 ) -> Result<(), GenericErr>;
 
 fn host_navigate_to(
@@ -481,6 +492,41 @@ fn host_derive_entropy(
   message: Vec<u8>
 ) -> Result<Entropy, DeriveEntropyErr>;
 ```
+
+#### Push Notifications
+
+Products can request the host to display a notification, either immediately or scheduled for a future wall-clock instant. Both methods are gated by `DevicePermission::Notifications`. See [RFC-0019](https://github.com/paritytech/truapi/blob/main/docs/rfcs/0019-scheduled-notifications.md) for the full motivation and host-side behavioural requirements (persistence, OS-scheduler integration, platform-wide queue cap).
+
+```rust
+type NotificationId = u32;
+
+struct PushNotification {
+  // Notification body text.
+  text: String,
+  // Optional URL to open when the user taps the notification.
+  deeplink: Option<String>,
+  // Optional Unix timestamp in milliseconds (UTC) at which the notification should fire.
+  // `None` fires immediately, preserving prior behaviour. Past timestamps fire immediately.
+  scheduled_at: Option<u64>,
+}
+
+enum PushNotificationError {
+  // The host has reached its platform-wide cap on pending scheduled notifications.
+  // Only returned for scheduled (non-immediate) calls.
+  ScheduleLimitReached,
+  Unknown(GenericErr)
+}
+
+fn host_push_notification(
+  notification: PushNotification
+) -> Result<NotificationId, PushNotificationError>;
+
+fn host_push_notification_cancel(
+  identifier: NotificationId
+) -> Result<(), GenericErr>;
+```
+
+`NotificationId` is opaque and unique per product; the host MUST NOT leak ids across products. An id is returned for every call — immediate or scheduled — for shape uniformity. Cancellation is idempotent: `host_push_notification_cancel` MUST return `Ok(())` regardless of whether the id refers to a pending, already-fired, never-issued, or other-product's notification. This is a breaking change relative to the pre-v0.8 wire format; products and hosts must upgrade together.
 
 #### Device permissions request
 

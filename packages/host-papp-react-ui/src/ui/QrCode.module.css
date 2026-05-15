@@ -16,7 +16,61 @@
   display: flex;
   justify-content: center;
   align-items: center;
-  padding: 16px;
+  box-sizing: border-box;
+  padding: 0;
+}
+
+.qrFrame {
+  position: relative;
+  display: inline-block;
+  line-height: 0;
+}
+
+.qrCanvas {
+  display: block;
+  image-rendering: pixelated;
+}
+
+.qrCanvasLight {
+  composes: qrCanvas;
+  color: var(--color-neutral-black);
+}
+
+.qrCanvasDark {
+  composes: qrCanvas;
+  color: var(--color-neutral-white);
+}
+
+.logoBackdrop {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  box-sizing: border-box;
+  display: flex;
+  width: 13%;
+  height: 13%;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.logoBackdropLight {
+  composes: logoBackdrop;
+  background: var(--color-neutral-white);
+}
+
+.logoBackdropDark {
+  composes: logoBackdrop;
+  background: var(--color-neutral-black);
+}
+
+.logo {
+  display: block;
+  width: 82%;
+  height: 82%;
+  object-fit: contain;
 }
 
 .gradientLayer {

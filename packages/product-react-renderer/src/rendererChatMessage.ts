@@ -1,4 +1,4 @@
-import type { ChatCustomMessageRenderer, ChatCustomMessageRendererParams } from '@novasamatech/product-sdk';
+import type { ChatCustomMessageRenderer, ChatCustomMessageRendererParams } from '@novasamatech/host-api-wrapper';
 import type { ReactNode } from 'react';
 
 import { createRenderer } from './renderer.js';

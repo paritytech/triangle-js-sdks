@@ -9,10 +9,10 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
+import type { AccountConnectionStatus, LegacyAccount, ProductAccount } from '@novasamatech/host-api-wrapper';
+import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import type { AccountConnectionStatus, LegacyAccount, ProductAccount } from '@novasamatech/product-sdk';
-import { createAccountsProvider } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 

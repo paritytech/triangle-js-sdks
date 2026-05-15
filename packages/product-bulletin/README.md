@@ -4,7 +4,7 @@ Bulletin Chain client adapter for Polkadot product applications.
 
 ## Overview
 
-Wraps [`@parity/bulletin-sdk`](https://github.com/paritytech/polkadot-bulletin-chain/tree/main/sdk/typescript) for use inside product applications. Creates a polkadot-api client via `createPapiProvider()` from `@novasamatech/product-sdk` and wires it to `AsyncBulletinClient`.
+Wraps [`@parity/bulletin-sdk`](https://github.com/paritytech/polkadot-bulletin-chain/tree/main/sdk/typescript) for use inside product applications. Creates a polkadot-api client via `createPapiProvider()` from `@novasamatech/host-api-wrapper` and wires it to `AsyncBulletinClient`.
 
 ## Installation
 
@@ -15,7 +15,7 @@ npm install @novasamatech/product-bulletin --save -E
 ## Usage
 
 ```ts
-import { createAccountsProvider } from '@novasamatech/product-sdk';
+import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import { BulletinChain, createBulletinClient } from '@novasamatech/product-bulletin';
 
 // Get a signer from a product account.
@@ -45,7 +45,7 @@ const largeResult = await client
 await client.destroy();
 ```
 
-> **Error handling:** unlike `@novasamatech/product-sdk`, `AsyncBulletinClient` methods **throw** on failure (they do not return `Result`). Catch `BulletinError` and inspect its `code` (see `ErrorCode`) to handle specific failure modes.
+> **Error handling:** unlike `@novasamatech/host-api-wrapper`, `AsyncBulletinClient` methods **throw** on failure (they do not return `Result`). Catch `BulletinError` and inspect its `code` (see `ErrorCode`) to handle specific failure modes.
 
 ### Known networks
 
