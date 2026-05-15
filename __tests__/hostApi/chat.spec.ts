@@ -7,10 +7,10 @@ import {
   createTransport,
   enumValue,
 } from '@novasamatech/host-api';
+import type { ChatMessageContent } from '@novasamatech/host-api-wrapper';
+import { createProductChatManager } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import type { ChatMessageContent } from '@novasamatech/product-sdk';
-import { createProductChatManager } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 

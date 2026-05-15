@@ -1,8 +1,8 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import { createTransport } from '@novasamatech/host-api';
+import { WellKnownChain, createPapiProvider } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
-import { WellKnownChain, createPapiProvider } from '@novasamatech/product-sdk';
 
 import type { JsonRpcMessage, JsonRpcProvider, JsonRpcRequest, JsonRpcResponse } from '@polkadot-api/json-rpc-provider';
 import { isRequest, isResponse } from '@polkadot-api/json-rpc-provider';

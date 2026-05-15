@@ -12,7 +12,7 @@ This is an Nx monorepo for the host-product integration SDKs — a set of TypeSc
 ### Glossary
 
 - **host** — the embedding browser application (e.g. a wallet/SSO surface). Owns the page and runs `host-container`, `host-api`, etc.
-- **product** — a Polkadot ecosystem app embedded inside the host. Built against `product-sdk`; its worker code runs inside `host-worker-sandbox`.
+- **product** — a Polkadot ecosystem app embedded inside the host. Built against `host-api-wrapper`; its worker code runs inside `host-worker-sandbox`.
 - **papp** — short for "Polkadot Mobile". `host-papp` is the host-side integration layer that pairs with it via deeplink handshake and routes signing requests.
 
 ## Common Commands
@@ -45,7 +45,7 @@ Run `npm run build` before `typecheck` since typecheck depends on built artifact
 ### Tests
 
 - **Per-package unit tests** live next to source under `packages/*/src/**/*.spec.ts`.
-- **Integration tests** live in top-level `__tests__/` and exercise full host ↔ product flows across packages (transport, container, product-sdk wired together). Shared test helpers live in `__tests__/hostApi/__mocks__/`.
+- **Integration tests** live in top-level `__tests__/` and exercise full host ↔ product flows across packages (transport, container, host-api-wrapper wired together). Shared test helpers live in `__tests__/hostApi/__mocks__/`.
 
 ## Tech Stack
 

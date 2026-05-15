@@ -22,7 +22,7 @@ export const PairingModal = memo(({ theme, size = 280 }: Props = {}) => {
   const open = auth.authUIMode === 'modal' && status.step !== 'none' && status.step !== 'finished';
 
   const toggleModal = (newOpen: boolean) => {
-    if (!newOpen && status.step !== 'attestation') {
+    if (!newOpen && status.step !== 'pending') {
       auth.abortAuthentication();
     }
   };
@@ -37,9 +37,8 @@ export const PairingModal = memo(({ theme, size = 280 }: Props = {}) => {
     <Modal open={open} onOpenChange={toggleModal} width="fit-content">
       <div className={styles.container}>
         {status.step === 'pairing' && <PairingStep theme={theme} size={size} payload={status.payload} />}
+        {status.step === 'pending' && <LoadingStep stage={status.stage} />}
         {status.step === 'pairingError' && <PairingErrorStep message={status.message} />}
-        {status.step === 'attestation' && <LoadingStep />}
-        {status.step === 'attestationError' && <PairingErrorStep message={status.message} />}
       </div>
     </Modal>
   );
@@ -61,16 +60,13 @@ const PairingStep = ({ payload, size, theme }: { payload: string; size: number; 
   );
 };
 
-const LoadingStep = () => {
-  const translation = useTranslations();
-
+const LoadingStep = ({ stage }: { stage: string }) => {
   return (
     <div className={styles.loaderContainer}>
-      <span className={styles.loaderHeader}>{translation.pairingLoginMessage}</span>
       <div className={styles.loaderLogo}>
         <LogoSmall size={100} />
       </div>
-      <span className={styles.loaderText}>{translation.pairingLoader}</span>
+      <span className={styles.loaderText}>{stage}</span>
     </div>
   );
 };

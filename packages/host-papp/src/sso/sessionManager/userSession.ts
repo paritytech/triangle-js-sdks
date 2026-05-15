@@ -14,11 +14,11 @@ import { toError } from '../../helpers/utils.js';
 import type { Callback } from '../../types.js';
 import type { StoredUserSession } from '../userSessionRepository.js';
 
+import type { CreateTransactionRequest } from './scale/createTransaction.js';
 import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
 import type { ApAllocationOutcome, ResourceAllocationRequest } from './scale/resourceAllocation.js';
-import type { SigningPayloadRequest, SigningRawRequest } from './scale/signingRequest.js';
-import type { SigningPayloadResponseData } from './scale/signingResponse.js';
+import type { SigningPayloadRequest, SigningPayloadResponseData, SigningRawRequest } from './scale/signing.js';
 
 // Timeout for the inner queue task. Without it the queue wedges forever when
 // the remote signer doesn't respond — e.g. the request
@@ -46,6 +46,7 @@ export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
   signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
   signRaw(payload: SigningRawRequest): ResultAsync<SigningPayloadResponseData, Error>;
+  createTransaction(payload: CreateTransactionRequest): ResultAsync<Uint8Array, Error>;
   getRingVrfAlias(
     productAccountId: CodecType<typeof ProductAccountId>,
     productId: string,
@@ -152,6 +153,38 @@ export function createUserSession({
           });
 
         return withQueueTimeout(inner, 'signRaw');
+      });
+    },
+
+    createTransaction(payload) {
+      return requestQueue.call(() => {
+        const messageId = nanoid();
+        const request = session.request(RemoteMessageCodec, {
+          messageId,
+          data: enumValue('v1', enumValue('CreateTransactionRequest', payload)),
+        });
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'CreateTransactionResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.signedTransaction;
+          }
+        };
+
+        const inner = request
+          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
+          .andThen(message => {
+            if (message.success) {
+              return ok(message.value);
+            } else {
+              return err(new Error(message.value));
+            }
+          });
+
+        return withQueueTimeout(inner, 'createTransaction');
       });
     },
 

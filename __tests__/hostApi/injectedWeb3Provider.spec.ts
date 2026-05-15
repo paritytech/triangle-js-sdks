@@ -6,9 +6,9 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
+import { createLegacyExtensionEnableFactory } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import { createLegacyExtensionEnableFactory } from '@novasamatech/product-sdk';
 
 import type { SignerResult } from '@polkadot/types/types';
 import { AccountId } from '@polkadot-api/substrate-bindings';
@@ -108,12 +108,12 @@ describe('Host API: injected web3 provider', () => {
     const response = new Uint8Array([0, 0, 1, 1]);
     const payload = {
       version: 1 as const,
-      signer: 'test',
+      signer: AccountId().dec(new Uint8Array(32)),
       callData: '0x0002' as const,
       extensions: [
         {
-          id: 'test',
-          additionalSigned: '0x0000' as const,
+          id: 'CheckGenesis',
+          additionalSigned: toHex(new Uint8Array(32)),
           extra: '0x0000' as const,
         },
       ],
@@ -191,12 +191,12 @@ describe('Host API: injected web3 provider', () => {
 
     const payload = {
       version: 1 as const,
-      signer: 'test',
+      signer: AccountId().dec(new Uint8Array(32)),
       callData: '0x0002' as const,
       extensions: [
         {
-          id: 'test',
-          additionalSigned: '0x0000' as const,
+          id: 'CheckGenesis',
+          additionalSigned: toHex(new Uint8Array(32)),
           extra: '0x0000' as const,
         },
       ],

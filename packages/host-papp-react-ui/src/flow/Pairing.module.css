@@ -115,24 +115,22 @@
   box-sizing: border-box;
 }
 
-.loaderHeader {
-  color: var(--color-text-foreground-inverse);
-  text-align: center;
-  font-family: Inter, sans-serif;
-  font-size: 22px;
-  line-height: 1.5; /* 183.034% */
-  letter-spacing: -0.526px;
-}
-
 .loaderText {
   color: var(--color-text-foreground-inverse);
   text-align: center;
   font-family: Inter, sans-serif;
-  font-size: 29.203px;
-  font-style: normal;
-  font-weight: 400;
-  line-height: 53.452px; /* 183.034% */
+  font-size: 22px;
+  line-height: 1.5;
   letter-spacing: -0.526px;
+}
+
+.loaderContainerPopover {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  gap: 40px;
+  padding: 20px;
 }
 
 /* finished */
@@ -304,24 +302,6 @@
   letter-spacing: -0.573px;
   margin-bottom: 20px;
   color: var(--color-text-foreground-inverse);
-}
-
-.loaderContainerPopover {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: space-between;
-  gap: 40px;
-  padding: 20px;
-}
-
-.loaderText {
-  color: var(--color-text-foreground-inverse);
-  text-align: center;
-  font-family: Inter, sans-serif;
-  font-size: 20px;
-  line-height: 1.5;
-  letter-spacing: -0.526px;
 }
 
 .retryButton {

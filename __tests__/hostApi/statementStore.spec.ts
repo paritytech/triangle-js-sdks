@@ -1,14 +1,14 @@
 import { GenericError, StatementProofErr, createTransport, enumValue } from '@novasamatech/host-api';
-import type { ContainerHandlerOf } from '@novasamatech/host-container';
-import { createContainer } from '@novasamatech/host-container';
 import type {
   ProductAccountId,
   SignedStatement,
   Statement,
   StatementTopicFilter,
   Topic,
-} from '@novasamatech/product-sdk';
-import { createStatementStore } from '@novasamatech/product-sdk';
+} from '@novasamatech/host-api-wrapper';
+import { createStatementStore } from '@novasamatech/host-api-wrapper';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
+import { createContainer } from '@novasamatech/host-container';
 
 import { describe, expect, it, vi } from 'vitest';
 

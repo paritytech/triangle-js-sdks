@@ -1,7 +1,7 @@
 import type { ConnectionStatus } from '@novasamatech/host-api';
 import { createTransport } from '@novasamatech/host-api';
+import { createMetaProvider } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
-import { createMetaProvider } from '@novasamatech/product-sdk';
 
 import { describe, expect, it, vi } from 'vitest';
 

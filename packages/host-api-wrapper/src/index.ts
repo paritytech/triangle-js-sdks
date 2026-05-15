@@ -30,13 +30,16 @@ export type {
 } from './statementStore.js';
 export { createStatementStore } from './statementStore.js';
 
-export type { AccountConnectionStatus, ProductAccount } from './accounts.js';
-export { createAccountsProvider } from './accounts.js';
+export type { AccountConnectionStatus, LegacyAccount, ProductAccount } from './accounts.js';
+export { accounts, createAccountsProvider } from './accounts.js';
 
 export type { ThemeMode } from './theme.js';
 export { createThemeProvider } from './theme.js';
 
 export { createLocalStorage, hostLocalStorage } from './localStorage.js';
+
+export type { NotificationId, PushNotificationInput } from './notification.js';
+export { createNotificationManager, notificationManager } from './notification.js';
 
 export { createPreimageManager, preimageManager } from './preimage.js';
 

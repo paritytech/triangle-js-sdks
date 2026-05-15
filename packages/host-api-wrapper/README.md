@@ -1,4 +1,4 @@
-# @novasamatech/product-sdk
+# @novasamatech/host-api-wrapper
 
 An easy way to embed Polkadot host functionality into your dapp.
 
@@ -18,7 +18,7 @@ Core features:
 ## Installation
 
 ```shell
-npm install @novasamatech/product-sdk --save -E
+npm install @novasamatech/host-api-wrapper --save -E
 ```
 
 ## Usage
@@ -28,7 +28,7 @@ npm install @novasamatech/product-sdk --save -E
 Product SDK can provide account information and signers with the same interface as any other Polkadot-compatible wallet.
 
 ```ts
-import { injectSpektrExtension, SpektrExtensionName } from '@novasamatech/product-sdk';
+import { injectSpektrExtension, SpektrExtensionName } from '@novasamatech/host-api-wrapper';
 import { connectInjectedExtension, type InjectedPolkadotAccount } from '@polkadot-api/pjs-signer';
 
 async function getSpektrExtension() {
@@ -60,7 +60,7 @@ You can wrap your PAPI provider with Spektr provider to support redirecting requ
 ```diff
 import { createClient, type PolkadotClient } from 'polkadot-api';
 import { getWsProvider } from 'polkadot-api/ws-provider';
-import { createPapiProvider, WellKnownChain } from '@novasamatech/product-sdk';
+import { createPapiProvider, WellKnownChain } from '@novasamatech/host-api-wrapper';
 
 function createPapiClient(): PolkadotClient {
   const polkadotEndpoint = 'wss://...';
@@ -78,7 +78,7 @@ function createPapiClient(): PolkadotClient {
 ### Subscribing host connection status
 
 ```ts
-import { metaProvider } from '@novasamatech/product-sdk';
+import { metaProvider } from '@novasamatech/host-api-wrapper';
 
 const unsubscribe = metaProvider.subscribeConnectionStatus((status) => {
   console.log('connection status changed', status);
@@ -88,7 +88,7 @@ const unsubscribe = metaProvider.subscribeConnectionStatus((status) => {
 ### Chat Integration
 
 ```ts
-import { createProductChatManager } from '@novasamatech/product-sdk';
+import { createProductChatManager } from '@novasamatech/host-api-wrapper';
 
 // Create manager instance
 const chat = createProductChatManager();
@@ -165,8 +165,8 @@ The Statement Store provides a decentralized way to store statements (messages).
 It can be used for various purposes like p2p communication, storing temp data, etc.
 
 ```ts
-import { createStatementStore } from '@novasamatech/product-sdk';
-import type { Topic, Statement, SignedStatement, StatementTopicFilter } from '@novasamatech/product-sdk';
+import { createStatementStore } from '@novasamatech/host-api-wrapper';
+import type { Topic, Statement, SignedStatement, StatementTopicFilter } from '@novasamatech/host-api-wrapper';
 
 // Create statement store instance
 const statementStore = createStatementStore();
@@ -211,15 +211,12 @@ subscription.unsubscribe();
 The Accounts Provider allows you to access product accounts and create signers for signing transactions.
 
 ```ts
-import { createAccountsProvider } from '@novasamatech/product-sdk';
-import type { ProductAccount } from '@novasamatech/product-sdk';
-
-// Create accounts provider instance
-const accountsProvider = createAccountsProvider();
+import { accounts } from '@novasamatech/host-api-wrapper';
+import type { ProductAccount } from '@novasamatech/host-api-wrapper';
 
 // Get the user's primary DotNS username (RFC-0014)
 // — prompts for permission on first call
-const userIdResult = await accountsProvider.getUserId();
+const userIdResult = await accounts.getUserId();
 
 if (userIdResult.isOk()) {
   const { primaryUsername } = userIdResult.value;
@@ -234,7 +231,7 @@ if (userIdResult.isOk()) {
 }
 
 // Request login — triggers host sign-in UI; reason is shown to the user
-const loginResult = await accountsProvider.requestLogin('Sign in to access your account');
+const loginResult = await accounts.requestLogin('Sign in to access your account');
 
 if (loginResult.isOk()) {
   const outcome = loginResult.value; // 'success' | 'alreadyConnected' | 'rejected'
@@ -246,7 +243,7 @@ if (loginResult.isOk()) {
 }
 
 // Get a product account by DotNS identifier and derivation index
-const accountResult = await accountsProvider.getProductAccount('product.dot', 0);
+const accountResult = await accounts.getProductAccount('product.dot', 0);
 
 if (accountResult.isOk()) {
   const account: ProductAccount = accountResult.value;
@@ -254,48 +251,55 @@ if (accountResult.isOk()) {
 }
 
 // Get account alias
-const aliasResult = await accountsProvider.getProductAccountAlias('product.dot', 0);
+const aliasResult = await accounts.getProductAccountAlias('product.dot', 0);
 
 if (aliasResult.isOk()) {
   console.log('Alias:', aliasResult.value);
 }
 
 // Get legacy accounts (external wallets)
-const legacyAccountsResult = await accountsProvider.getLegacyAccounts();
+const legacyAccountsResult = await accounts.getLegacyAccounts();
 
 if (legacyAccountsResult.isOk()) {
   console.log('Legacy accounts:', legacyAccountsResult.value);
 }
 
 // Subscribe to account connection status changes
-const unsubscribe = accountsProvider.subscribeAccountConnectionStatus((status) => {
+const unsubscribe = accounts.subscribeAccountConnectionStatus((status) => {
   // status: 'connected' | 'disconnected'
   console.log('Account connection status:', status);
 });
 
-// Create a signer for a product account (for use with PAPI)
-const account: ProductAccount = {
-  dotNsIdentifier: 'product.dot',
-  derivationIndex: 0,
-  publicKey: new Uint8Array([/* ... */])
-};
-const signer = accountsProvider.getProductAccountSigner(account);
+// Create a signer for a product account (for use with PAPI).
+// Resolve the account first, then hand it to the signer factory.
+const productAccountResult = await accounts.getProductAccount('product.dot', 0);
 
-// Create a signer for a legacy account
-const legacySigner = accountsProvider.getLegacyAccountSigner(account);
+if (productAccountResult.isOk()) {
+  const productSigner = accounts.getProductAccountSigner(productAccountResult.value);
+  const signedTx = await tx.signAndSubmit(productSigner);
+}
 
-// PAPI transaction signing example
+// Create a signer for a legacy account.
+// Fetch the legacy account list, pick one, then pass it to the signer factory.
+const legacyAccountsResult = await accounts.getLegacyAccounts();
 
-const productAccountSignedTx = await tx.signAndSubmit(signer);
-const legacyAccountSignedTx = await tx.signAndSubmit(legacySigner);
+if (legacyAccountsResult.isOk()) {
+  const [legacyAccount] = legacyAccountsResult.value;
+  if (legacyAccount) {
+    const legacySigner = accounts.getLegacyAccountSigner(legacyAccount);
+    const signedTx = await tx.signAndSubmit(legacySigner);
+  }
+}
 ```
+
+> If you need a non-default transport (e.g. for tests or multi-host setups), use `createAccountsProvider(transport)` to build your own instance with the same API.
 
 ### Local Storage
 
 The Local Storage module provides a way to persist data in the host application's storage.
 
 ```ts
-import { hostLocalStorage, createLocalStorage } from '@novasamatech/product-sdk';
+import { hostLocalStorage, createLocalStorage } from '@novasamatech/host-api-wrapper';
 
 // Use the default instance
 const storage = hostLocalStorage;
@@ -324,7 +328,7 @@ await storage.clear('key');
 The Derive Entropy function allows products to derive deterministic 32-byte entropy scoped to the product and a caller-chosen key.
 
 ```ts
-import { deriveEntropy } from '@novasamatech/product-sdk';
+import { deriveEntropy } from '@novasamatech/host-api-wrapper';
 
 const result = await deriveEntropy(new Uint8Array([1, 2, 3]));
 
@@ -339,7 +343,7 @@ if (result.isOk()) {
 Products can request device and remote permissions from the host. Decisions are prompted once and persisted permanently — subsequent calls for the same permission resolve immediately without prompting.
 
 ```ts
-import { requestDevicePermission, requestPermission } from '@novasamatech/product-sdk';
+import { requestDevicePermission, requestPermission } from '@novasamatech/host-api-wrapper';
 
 // Request a single device permission
 const deviceResult = await requestDevicePermission('Camera');
@@ -368,7 +372,7 @@ Available remote permission tags: `'Remote'` (HTTP/WS domain patterns), `'WebRTC
 The Preimage Manager allows you to lookup and submit preimages to the host application.
 
 ```ts
-import { preimageManager, createPreimageManager } from '@novasamatech/product-sdk';
+import { preimageManager, createPreimageManager } from '@novasamatech/host-api-wrapper';
 
 // Use the default instance
 const manager = preimageManager;
@@ -395,7 +399,7 @@ const preimageKey = await manager.submit(new Uint8Array([1, 2, 3, 4]));
 ### Payment manager
 
 ```ts
-import { createPaymentManager } from '@novasamatech/product-sdk';
+import { createPaymentManager } from '@novasamatech/host-api-wrapper';
 
 const payments = createPaymentManager();
 

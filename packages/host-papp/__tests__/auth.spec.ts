@@ -1,5 +1,5 @@
-import type { LazyClient, Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
-import { errAsync, ok, okAsync } from 'neverthrow';
+import type { Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
+import { ok, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createAuth } from '../src/sso/auth/impl.js';
@@ -7,9 +7,6 @@ import type { UserSecretRepository } from '../src/sso/userSecretRepository.js';
 import type { UserSessionRepository } from '../src/sso/userSessionRepository.js';
 
 const mocks = vi.hoisted(() => ({
-  grantVerifierAllowance: vi.fn(),
-  registerLitePerson: vi.fn(),
-  claimUsername: vi.fn(),
   decrypt: vi.fn(),
   generateMnemonic: vi.fn(),
   handshakeEnc: vi.fn(),
@@ -41,21 +38,6 @@ vi.mock('../src/crypto.js', async importOriginal => {
     createSharedSecret: vi.fn(() => new Uint8Array(32)),
   };
 });
-
-vi.mock('../src/sso/auth/attestationService.js', () => ({
-  createAttestationService: vi.fn(() => ({
-    claimUsername: mocks.claimUsername,
-    grantVerifierAllowance: mocks.grantVerifierAllowance,
-    registerLitePerson: mocks.registerLitePerson,
-  })),
-  createSudoAliceVerifier: vi.fn(() => ({
-    secret: new Uint8Array(64),
-    publicKey: new Uint8Array(32),
-    entropy: new Uint8Array(32),
-    sign: vi.fn(),
-    verify: vi.fn(() => true),
-  })),
-}));
 
 vi.mock('../src/sso/auth/scale/handshake.js', () => ({
   HandshakeData: { enc: mocks.handshakeEnc },
@@ -106,7 +88,6 @@ function buildHarness() {
   const statementStore = { subscribeStatements };
   const ssoSessionRepository = { add: vi.fn(() => okAsync(undefined)) };
   const userSecretRepository = { write: vi.fn(() => okAsync(undefined)) };
-  const lazyClient = { getClient: () => ({ getUnsafeApi: () => ({}) }) };
 
   const auth = createAuth({
     metadata: 'test-metadata',
@@ -114,7 +95,6 @@ function buildHarness() {
     statementStore: statementStore as unknown as StatementStoreAdapter,
     ssoSessionRepository: ssoSessionRepository as unknown as UserSessionRepository,
     userSecretRepository: userSecretRepository as unknown as UserSecretRepository,
-    lazyClient: lazyClient as unknown as LazyClient,
   });
 
   return {
@@ -139,9 +119,6 @@ function buildHarness() {
 }
 
 beforeEach(() => {
-  mocks.grantVerifierAllowance.mockReset().mockReturnValue(okAsync(undefined));
-  mocks.registerLitePerson.mockReset().mockReturnValue(okAsync(undefined));
-  mocks.claimUsername.mockReset().mockReturnValue('guestabcd.1234');
   mocks.decrypt.mockReset().mockReturnValue(ok(new Uint8Array([7, 7, 7])));
   mocks.generateMnemonic.mockReset().mockReturnValue('test mnemonic');
   mocks.handshakeEnc.mockReset().mockReturnValue(new Uint8Array([0xab, 0xcd]));
@@ -158,10 +135,9 @@ beforeEach(() => {
 
 describe('createAuth', () => {
   describe('initial state', () => {
-    it('starts with both statuses at "none"', () => {
+    it('starts with pairingStatus at "none"', () => {
       const { auth } = buildHarness();
       expect(auth.pairingStatus.read()).toEqual({ step: 'none' });
-      expect(auth.attestationStatus.read()).toEqual({ step: 'none' });
     });
   });
 
@@ -231,23 +207,6 @@ describe('createAuth', () => {
       expect(steps.at(-1)).toBe('finished');
     });
 
-    it('emits attestationStatus transitions: none -> attestation(username) -> finished', async () => {
-      const harness = buildHarness();
-      const { auth } = harness;
-      const observed: Array<{ step: string; username?: string }> = [];
-      auth.attestationStatus.subscribe(s => observed.push(s as never));
-
-      const promise = auth.authenticate();
-      await harness.waitForSubscription();
-      harness.deliverHandshake();
-      await promise;
-
-      expect(observed[0]?.step).toBe('none');
-      const attestation = observed.find(s => s.step === 'attestation');
-      expect(attestation).toEqual({ step: 'attestation', username: 'guestabcd.1234' });
-      expect(observed.at(-1)?.step).toBe('finished');
-    });
-
     it('skips statements with no data and resolves on the first decryptable one', async () => {
       const harness = buildHarness();
       const { auth, ssoSessionRepository } = harness;
@@ -263,24 +222,6 @@ describe('createAuth', () => {
   });
 
   describe('authenticate (error paths)', () => {
-    it('publishes attestationError and rejects when registration fails', async () => {
-      mocks.registerLitePerson.mockReturnValue(errAsync(new Error('chain offline')));
-      const harness = buildHarness();
-      const { auth } = harness;
-
-      const promise = auth.authenticate();
-      await harness.waitForSubscription();
-      harness.deliverHandshake();
-      const result = await promise;
-
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('chain offline');
-      expect(auth.attestationStatus.read()).toEqual({
-        step: 'attestationError',
-        message: 'chain offline',
-      });
-    });
-
     it('publishes pairingError when retrieving the session throws', async () => {
       mocks.responsePayloadDec.mockImplementation(() => {
         throw new Error('payload broken');
@@ -315,27 +256,6 @@ describe('createAuth', () => {
       });
     });
 
-    it('clears the cached result after failure so the next call retries', async () => {
-      mocks.registerLitePerson.mockReturnValueOnce(errAsync(new Error('boom'))).mockReturnValue(okAsync(undefined));
-
-      const harness = buildHarness();
-      const { auth } = harness;
-
-      const first = auth.authenticate();
-      await harness.waitForSubscription();
-      harness.deliverHandshake();
-      await first;
-
-      const second = auth.authenticate();
-      expect(second).not.toBe(first);
-      expect(mocks.generateMnemonic).toHaveBeenCalledTimes(2);
-
-      auth.abortAuthentication();
-      await harness.waitForSubscription(2);
-      harness.deliverPage([]);
-      await second;
-    });
-
     it('does not persist secrets or session when handshake fails', async () => {
       mocks.handshakeEnc.mockImplementation(() => {
         throw new Error('encode broken');
@@ -366,7 +286,7 @@ describe('createAuth', () => {
       expect(result._unsafeUnwrap()).toBeNull();
     });
 
-    it('resets pairing and attestation statuses', async () => {
+    it('resets pairing status', async () => {
       const harness = buildHarness();
       const { auth } = harness;
 
@@ -377,16 +297,13 @@ describe('createAuth', () => {
       await promise;
 
       expect(auth.pairingStatus.read()).toEqual({ step: 'none' });
-      expect(auth.attestationStatus.read()).toEqual({ step: 'none' });
     });
 
-    it('does not transition pairingStatus or attestationStatus to error states on user abort', async () => {
+    it('does not transition pairingStatus to error state on user abort', async () => {
       const harness = buildHarness();
       const { auth } = harness;
       const pairing: Array<{ step: string }> = [];
-      const attestation: Array<{ step: string }> = [];
       auth.pairingStatus.subscribe(s => pairing.push(s as never));
-      auth.attestationStatus.subscribe(s => attestation.push(s as never));
 
       const promise = auth.authenticate();
       await harness.waitForSubscription();
@@ -395,7 +312,6 @@ describe('createAuth', () => {
       await promise;
 
       expect(pairing.some(s => s.step === 'pairingError')).toBe(false);
-      expect(attestation.some(s => s.step === 'attestationError')).toBe(false);
     });
 
     it('clears the cached result so the next call starts a fresh attempt', async () => {
@@ -422,7 +338,6 @@ describe('createAuth', () => {
       const { auth } = buildHarness();
       expect(() => auth.abortAuthentication()).not.toThrow();
       expect(auth.pairingStatus.read()).toEqual({ step: 'none' });
-      expect(auth.attestationStatus.read()).toEqual({ step: 'none' });
     });
   });
 });
