@@ -29,6 +29,7 @@
     "polkadot-api": ">=2",
     "@polkadot-api/substrate-client": "^0.7.0",
     "@novasamatech/host-api": "0.7.8",
+    "nanoevents": "9.1.0",
     "nanoid": "5.1.9",
     "neverthrow": "^8.2.0"
   },

@@ -4,6 +4,7 @@ import type {
   ConnectionStatus,
   HexString,
   HostApiProtocol,
+  MessagePayloadSchema,
   Subscription,
   VersionedProtocolRequest,
   VersionedProtocolSubscription,
@@ -67,6 +68,27 @@ type InferHandler<
     : never;
 
 export type ContainerHandlerOf<T extends (...args: any[]) => any> = Parameters<T>[0];
+
+/**
+ * EXPERIMENTAL. Event describing a single message observed on a
+ * container's transport, in decoded form, tagged with the productId
+ * that was passed to `createContainer`.
+ */
+export type HostApiDebugMessageEvent = {
+  direction: 'incoming' | 'outgoing';
+  productId: string | undefined;
+  requestId: string;
+  payload: MessagePayloadSchema;
+};
+
+export type CreateContainerOptions = {
+  /**
+   * Optional identifier for the product this container talks to.
+   * When set, every debug event emitted via `onDebugMessage` and the
+   * global `onHostApiDebugMessage` bus is tagged with this value.
+   */
+  productId?: string;
+};
 
 export type Container = {
   // host
@@ -160,4 +182,11 @@ export type Container = {
   dispose(): void;
 
   subscribeProductConnectionStatus(callback: (connectionStatus: ConnectionStatus) => void): VoidFunction;
+
+  /**
+   * EXPERIMENTAL. Subscribe to every message crossing this container's
+   * transport in either direction, in decoded form. Returns an
+   * unsubscribe function.
+   */
+  onDebugMessage(callback: (event: HostApiDebugMessageEvent) => void): VoidFunction;
 };

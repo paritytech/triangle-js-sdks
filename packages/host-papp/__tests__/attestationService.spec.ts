@@ -21,6 +21,8 @@ vi.mock('../src/crypto.js', async importOriginal => {
   };
 });
 
+import { onHostPappDebugMessage } from '../src/debugBus.js';
+import type { AttestationDebugEvent } from '../src/debugTypes.js';
 import { createAttestationService, withRetry } from '../src/sso/auth/attestationService.js';
 
 describe('withRetry', () => {
@@ -152,6 +154,120 @@ describe('createAttestationService', () => {
 
       expect(result.isOk()).toBe(true);
       expect(signAndSubmit).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('debug emits', () => {
+    const FLOW_ID = 'flow-attestation-test';
+
+    function captureAttestationEvents() {
+      const events: AttestationDebugEvent[] = [];
+      const unsubscribe = onHostPappDebugMessage(event => {
+        if (event.layer === 'attestation') events.push(event);
+      });
+      return { events, unsubscribe };
+    }
+
+    function makeRegisterableService() {
+      const subscribeSpy = vi.fn(
+        (handlers: { next: (event: { type: string; found?: boolean; ok?: boolean }) => void }) => {
+          // defer next() so the `subscription` binding inside the production code
+          // is in scope by the time `subscription.unsubscribe()` is called
+          queueMicrotask(() => handlers.next({ type: 'finalized', ok: true }));
+          return { unsubscribe: vi.fn() };
+        },
+      );
+      const mockApi = {
+        query: {
+          PeopleLite: {
+            AttestationAllowance: { getValue: vi.fn().mockResolvedValue(10) },
+          },
+        },
+        tx: {
+          PeopleLite: {
+            increase_attestation_allowance: vi.fn(() => ({ decodedCall: {} })),
+            attest: vi.fn(() => ({ signSubmitAndWatch: () => ({ subscribe: subscribeSpy }) })),
+          },
+          Sudo: {
+            sudo: vi.fn(() => ({ signAndSubmit: vi.fn() })),
+          },
+        },
+      };
+      const lazyClient = { getClient: () => ({ getUnsafeApi: () => mockApi }) } as any;
+      return createAttestationService(lazyClient, FLOW_ID);
+    }
+
+    it('claimUsername emits username_claimed', () => {
+      const { events, unsubscribe } = captureAttestationEvents();
+      try {
+        const service = makeRegisterableService();
+        const username = service.claimUsername();
+        expect(events).toContainEqual(
+          expect.objectContaining({
+            event: 'username_claimed',
+            flowId: FLOW_ID,
+            payload: { username },
+          }),
+        );
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('grantVerifierAllowance emits allowance_granted on success', async () => {
+      const { events, unsubscribe } = captureAttestationEvents();
+      try {
+        const service = makeRegisterableService();
+        const result = await service.grantVerifierAllowance(createMockAccount());
+        expect(result.isOk()).toBe(true);
+        expect(events.some(e => e.event === 'allowance_granted' && e.flowId === FLOW_ID)).toBe(true);
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('deriveAttestationParams emits vrf_proof_generated', async () => {
+      const { events, unsubscribe } = captureAttestationEvents();
+      try {
+        const service = makeRegisterableService();
+        const result = await service.deriveAttestationParams('guest.0001', createMockAccount(), createMockAccount());
+        expect(result.isOk()).toBe(true);
+        expect(events.some(e => e.event === 'vrf_proof_generated' && e.flowId === FLOW_ID)).toBe(true);
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('registerLitePerson emits person_registered after successful submission', async () => {
+      const { events, unsubscribe } = captureAttestationEvents();
+      try {
+        const service = makeRegisterableService();
+        const result = await service.registerLitePerson('guest.0001', createMockAccount(), createMockAccount());
+        expect(result.isOk()).toBe(true);
+        const personRegistered = events.find(e => e.event === 'person_registered');
+        expect(personRegistered).toBeDefined();
+        expect(personRegistered?.flowId).toBe(FLOW_ID);
+        expect(personRegistered?.payload).toMatchObject({ username: 'guest.0001' });
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('omits emits entirely when no debugFlowId is provided', () => {
+      const { events, unsubscribe } = captureAttestationEvents();
+      try {
+        // service constructed without flowId — must not emit anything
+        const mockApi = {
+          query: { PeopleLite: { AttestationAllowance: { getValue: vi.fn().mockResolvedValue(10) } } },
+          tx: { PeopleLite: { increase_attestation_allowance: vi.fn() }, Sudo: { sudo: vi.fn() } },
+        };
+        const lazyClient = { getClient: () => ({ getUnsafeApi: () => mockApi }) } as any;
+        const service = createAttestationService(lazyClient);
+        service.claimUsername();
+        expect(events).toHaveLength(0);
+      } finally {
+        unsubscribe();
+      }
     });
   });
 });

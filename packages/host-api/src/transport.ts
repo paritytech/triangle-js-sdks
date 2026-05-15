@@ -16,6 +16,7 @@ import { HandshakeErr } from './protocol/v1/handshake.js';
 import type { Provider } from './provider.js';
 import type {
   ConnectionStatus,
+  DebugMessageEvent,
   HostApiMethod,
   MessageProvider,
   RequestHandler,
@@ -90,6 +91,7 @@ export function createTransport(provider: Provider): Transport {
 
   const events = createNanoEvents<{
     connectionStatus: (status: ConnectionStatus) => void;
+    debugMessage: (m: DebugMessageEvent) => void;
     destroy: VoidFunction;
   }>();
 
@@ -129,6 +131,28 @@ export function createTransport(provider: Provider): Transport {
 
   // subscriptions management (multiplexing)
   const activeSubscriptions: Map<string, InternalSubscription> = new Map();
+
+  // Lazy provider subscription — zero per-message decode cost while no
+  // debug listener is attached.
+  let debugListenerCount = 0;
+  let debugProviderUnsubscribe: VoidFunction | null = null;
+
+  function ensureDebugProviderSubscription(): void {
+    if (debugProviderUnsubscribe) return;
+    debugProviderUnsubscribe = messageProvider.subscribe(message => {
+      events.emit('debugMessage', {
+        direction: 'incoming',
+        requestId: message.requestId,
+        payload: message.payload,
+      });
+    });
+  }
+
+  function maybeDisposeDebugProviderSubscription(): void {
+    if (debugListenerCount > 0) return;
+    debugProviderUnsubscribe?.();
+    debugProviderUnsubscribe = null;
+  }
 
   const transport: Transport = {
     provider,
@@ -426,6 +450,10 @@ export function createTransport(provider: Provider): Transport {
     postMessage(requestId, payload) {
       checks();
 
+      if (debugListenerCount > 0) {
+        events.emit('debugMessage', { direction: 'outgoing', requestId, payload });
+      }
+
       messageProvider.postMessage({ requestId, payload });
     },
 
@@ -457,11 +485,41 @@ export function createTransport(provider: Provider): Transport {
 
     destroy() {
       disposed = true;
+      debugProviderUnsubscribe?.();
+      debugProviderUnsubscribe = null;
+      debugListenerCount = 0;
       provider.dispose();
       changeConnectionStatus('disconnected');
       events.emit('destroy');
       events.events = {};
       handshakeAbortController.abort('Transport disposed');
+    },
+    onDebugMessage(callback) {
+      debugListenerCount++;
+      ensureDebugProviderSubscription();
+      // Wrap each listener individually: nanoevents iterates listeners
+      // synchronously and a throw aborts the loop, so without per-listener
+      // isolation a single broken listener could starve siblings *and*
+      // (on the incoming side) starve unrelated messageProvider subscribers.
+      // Route to console.error (not provider.logger.error) so debug-callback
+      // bugs stay distinct from real protocol errors — matches the same
+      // policy used by host-papp's debugBus.
+      const safeCallback = (event: DebugMessageEvent) => {
+        try {
+          callback(event);
+        } catch (e) {
+          console.error('debug listener threw', e);
+        }
+      };
+      const unsubscribe = events.on('debugMessage', safeCallback);
+      let disposed = false;
+      return () => {
+        if (disposed) return;
+        disposed = true;
+        unsubscribe();
+        debugListenerCount--;
+        maybeDisposeDebugProviderSubscription();
+      };
     },
   };
 

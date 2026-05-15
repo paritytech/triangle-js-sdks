@@ -15,6 +15,7 @@ import { member_from_entropy, sign } from 'verifiablejs/bundler';
 import type { People_lite } from '../../../.papi/descriptors/dist/index.js';
 import type { DerivedSr25519Account, EncrSecret } from '../../crypto.js';
 import { deriveSr25519Account, getEncrPub, stringToBytes } from '../../crypto.js';
+import { emitHostPappDebugMessage } from '../../debugBus.js';
 import { toError } from '../../helpers/utils.js';
 
 const accountId = AccountId();
@@ -32,12 +33,22 @@ export function withRetry<T>(fn: () => Promise<T>, maxRetries = 1): Promise<T> {
   });
 }
 
-export const createAttestationService = (lazyClient: LazyClient) => {
+export const createAttestationService = (lazyClient: LazyClient, debugFlowId?: string) => {
   const service = {
     claimUsername() {
       const nameSuffixFactory = customAlphabet('abcdefghijklmnopqrstuvwxyz', 4);
 
-      return `guest${nameSuffixFactory()}.${createNumericSuffix(4)}`;
+      const username = `guest${nameSuffixFactory()}.${createNumericSuffix(4)}`;
+      if (debugFlowId !== undefined) {
+        emitHostPappDebugMessage({
+          layer: 'attestation',
+          event: 'username_claimed',
+          flowId: debugFlowId,
+          timestamp: Date.now(),
+          payload: { username },
+        });
+      }
+      return username;
     },
 
     grantVerifierAllowance(verifier: DerivedSr25519Account): ResultAsync<void, Error> {
@@ -67,7 +78,19 @@ export const createAttestationService = (lazyClient: LazyClient) => {
         return withRetry(() => sudoCall.signAndSubmit(createPeopleSigner(verifier)).then(() => undefined));
       }, toError);
 
-      return verifierAllowance.andThen(verifierAllowance => (verifierAllowance > 0 ? okAsync() : getAllowance()));
+      return verifierAllowance
+        .andThen(verifierAllowance => (verifierAllowance > 0 ? okAsync() : getAllowance()))
+        .andTee(() => {
+          if (debugFlowId !== undefined) {
+            emitHostPappDebugMessage({
+              layer: 'attestation',
+              event: 'allowance_granted',
+              flowId: debugFlowId,
+              timestamp: Date.now(),
+              payload: { verifierAccountId: verifierAddress },
+            });
+          }
+        });
     },
 
     getRingRfKey(candidate: DerivedSr25519Account) {
@@ -92,6 +115,16 @@ export const createAttestationService = (lazyClient: LazyClient) => {
 
       const candidateSignature = candidate.sign(message);
       const proofOfOwnership = sign(verifiableEntropy, message);
+
+      if (debugFlowId !== undefined) {
+        emitHostPappDebugMessage({
+          layer: 'attestation',
+          event: 'vrf_proof_generated',
+          flowId: debugFlowId,
+          timestamp: Date.now(),
+          payload: { candidateAccountId: accountId.dec(candidate.publicKey) },
+        });
+      }
 
       const ResourceSignatureCodec = Tuple(
         // candidate PublicKey (32 bytes)
@@ -182,7 +215,21 @@ export const createAttestationService = (lazyClient: LazyClient) => {
 
           return fromPromise(withRetry(submitAttestation), toError).map<void>(() => undefined);
         })
-        .andTee(() => console.log(`Attestation for ${accountId.dec(candidate.publicKey)} successfully passed.`));
+        .andTee(() => {
+          console.log(`Attestation for ${accountId.dec(candidate.publicKey)} successfully passed.`);
+          if (debugFlowId !== undefined) {
+            emitHostPappDebugMessage({
+              layer: 'attestation',
+              event: 'person_registered',
+              flowId: debugFlowId,
+              timestamp: Date.now(),
+              payload: {
+                username,
+                candidateAccountId: accountId.dec(candidate.publicKey),
+              },
+            });
+          }
+        });
     },
   };
 

@@ -18,6 +18,11 @@
       "#/source": "./src/index.ts",
       "types": "./dist/index.d.ts",
       "default": "./dist/index.js"
+    },
+    "./debug": {
+      "#/source": "./src/debug-public.ts",
+      "types": "./dist/debug-public.d.ts",
+      "default": "./dist/debug-public.js"
     }
   },
   "files": [
