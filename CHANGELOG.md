@@ -1,4 +1,4 @@
-()## 0.7.9 (2026-05-11)
+## 0.7.9 (2026-05-15)
 
 ### 🚀 Features
 
@@ -9,6 +9,11 @@
 - **host-api / product-sdk:** products can now schedule a push notification for a future time, not just send one right away. Pass `scheduledAt` (a UTC timestamp in milliseconds) when calling `notificationManager.push(...)`, and the host will deliver it at that moment. Leave it out to deliver immediately as before.
 - **host-api / product-sdk:** `push(...)` now returns an id you can hold onto, and the new `notificationManager.cancel(id)` lets a product cancel a notification it scheduled earlier — handy for "remind me in an hour" style flows where the user changes their mind.
 - **host-api / product-sdk:** if the host can't accept any more scheduled notifications, the product now gets a clear `ScheduleLimitReached` error instead of a generic failure, so it can tell the user what happened.
+
+### 🩹 Fixes
+
+- **host-papp-react-ui:** pairing QR code now renders on `<canvas>` via the lighter `qrcode` dep (replacing `qr-code-styling`), with pixel-snapped modules and circular finder eyes — scans reliably across phone cameras and stays crisp on hi-DPI displays.
+- **host-papp-react-ui:** pairing modal/popover is responsive — shrinks to fit narrow viewports instead of being pinned at 350px.
 
 ### ⚠️ Breaking Changes
 

@@ -8,7 +8,9 @@
 }
 
 .container {
-  width: 350px;
+  box-sizing: border-box;
+  width: min(calc(100vw - 32px), 420px);
+  max-width: 420px;
 }
 
 .genericText {
@@ -23,7 +25,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  padding: 20px 50px 30px;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 36px 44px 44px;
+  gap: 20px;
 }
 
 .pairingHeader {
@@ -34,7 +39,6 @@
   font-weight: 400;
   line-height: 1.83;
   letter-spacing: -0.573px;
-  margin-bottom: 9px;
   color: var(--color-text-foreground-inverse);
 }
 
@@ -46,19 +50,38 @@
   font-style: normal;
   font-weight: 400;
   line-height: 1.5;
-  margin-bottom: 15px;
 }
 
 .pairingDescription {
   font-family: Inter, sans-serif;
-  width: 300px;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 360px;
   color: var(--color-text-foreground-inverse, hsl(var(--muted-foreground)));
   text-align: center;
   font-size: 16px;
   font-style: normal;
   font-weight: 400;
   line-height: 1.2;
-  margin-top: 20px;
+}
+
+.qrSurface {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  border-radius: 24px;
+  padding: 16px;
+}
+
+.qrSurfaceLight {
+  composes: qrSurface;
+  background: var(--color-neutral-white);
+}
+
+.qrSurfaceDark {
+  composes: qrSurface;
+  background: var(--color-neutral-black);
 }
 
 /* loader */
@@ -87,7 +110,8 @@
   align-items: center;
   justify-content: space-between;
   gap: 40px;
-  padding: 30px;
+  width: 100%;
+  padding: 40px 44px 44px;
   box-sizing: border-box;
 }
 
@@ -187,7 +211,8 @@
   gap: 12px;
   height: 100%;
   box-sizing: border-box;
-  padding: 40px 30px;
+  width: 100%;
+  padding: 40px 44px 44px;
 }
 
 .errorTitle {
@@ -198,7 +223,6 @@
   font-weight: 400;
   line-height: 1.83;
   letter-spacing: -0.573px;
-  margin-bottom: 9px;
   color: var(--color-text-foreground-inverse);
 }
 
