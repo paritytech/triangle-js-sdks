@@ -51,7 +51,7 @@ export const PairingPopover = memo(
       return () => {
         auth.abortAuthentication();
       };
-    }, [auth]);
+    }, [auth.abortAuthentication]);
 
     return (
       <Popover.Root open={open} onOpenChange={togglePopover}>
@@ -98,11 +98,14 @@ const PairingStep = ({
   theme?: 'light' | 'dark';
 }) => {
   const translation = useTranslations();
+  const isDark = theme === 'dark';
 
   return (
     <div className={styles.pairingPopoverContainer}>
       <span className={styles.pairingPopoverHeader}>{translation.pairingPopoverWelcome}</span>
-      <QrCode value={payload} size={size} theme={theme} />
+      <div className={isDark ? styles.qrSurfaceDark : styles.qrSurfaceLight}>
+        <QrCode value={payload} size={size} theme={theme} />
+      </div>
       <span className={styles.scanCallToActionPopover}>{translation.pairingPopoverLoginHeading}</span>
       <span className={styles.pairingDescriptionPopover}>{translation.pairingPopoverScanDescription}</span>
     </div>
