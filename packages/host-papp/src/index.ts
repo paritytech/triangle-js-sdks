@@ -19,7 +19,7 @@ export type { RingVrfAliasRequest, RingVrfAliasResponse } from './sso/sessionMan
 
 // ── V2 SSO handshake ─────────────────────────────────────────────────────
 
-export type { EncryptedHandshakeResponseV2Value } from './sso/auth/scale/handshakeV2.js';
+export type { EncryptedHandshakeResponseV2Value, HandshakeSuccessV2Value } from './sso/auth/scale/handshakeV2.js';
 export {
   Device,
   EncryptedHandshakeResponseV1,
@@ -29,11 +29,11 @@ export {
   HandshakeResponseV2,
   HandshakeStatusV2,
   HandshakeSuccessV2,
-  IDENTITY_SIGNATURE_PAYLOAD_BYTES,
   MetadataEntry,
   MetadataKey,
   VersionedHandshakeProposal,
   VersionedHandshakeResponse,
+  deriveIdentityChatPublicKey,
 } from './sso/auth/scale/handshakeV2.js';
 
 export { computePairingChannel, computePairingTopic } from './sso/auth/v2/topic.js';

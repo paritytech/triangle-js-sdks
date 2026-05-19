@@ -27,7 +27,7 @@ import type { Statement, StatementStoreAdapter } from '@novasamatech/statement-s
 import type { Observable } from 'rxjs';
 import { BehaviorSubject } from 'rxjs';
 
-import { EncryptedHandshakeResponseV2, VersionedHandshakeResponse } from '../scale/handshakeV2.js';
+import { VersionedHandshakeResponse, decodeEncryptedHandshakeResponseV2 } from '../scale/handshakeV2.js';
 
 import { decryptResponseEnvelope } from './envelope.js';
 import type { HandshakeMetadata } from './proposal.js';
@@ -152,13 +152,16 @@ export const startPairingV2 = (deps: StartPairingDeps): Pairing => {
 
     let next: HandshakeState;
     try {
-      next = fromInnerResponse(EncryptedHandshakeResponseV2.dec(innerBytes));
+      next = fromInnerResponse(decodeEncryptedHandshakeResponseV2(innerBytes));
     } catch (err) {
       log(`inner decode failed; innerBytes (${innerBytes.length}b) = ${toHexFull(innerBytes)}`, err);
       return;
     }
 
     log(`decoded inner response, tag=${next.tag}`);
+    if (next.tag === 'Failed') {
+      log(`failure reason: "${next.reason}" (innerBytes ${innerBytes.length}b = ${toHexFull(innerBytes)})`);
+    }
 
     const advanced = advance(state$.value, next);
     if (advanced === state$.value) {

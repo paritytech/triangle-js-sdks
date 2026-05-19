@@ -8,7 +8,6 @@ import { describe, expect, it, vi } from 'vitest';
 import { EncryptedHandshakeResponseV2, VersionedHandshakeResponse } from '../src/sso/auth/scale/handshakeV2.js';
 import type { DeviceIdentityForPairing } from '../src/sso/auth/v2/service.js';
 import { startPairingV2 } from '../src/sso/auth/v2/service.js';
-import type { HandshakeSuccessState } from '../src/sso/auth/v2/state.js';
 import { computePairingTopic } from '../src/sso/auth/v2/topic.js';
 
 const ecdhX = (priv: Uint8Array, pub: Uint8Array): Uint8Array => p256.getSharedSecret(priv, pub).slice(1, 33);
@@ -116,23 +115,19 @@ describe('startPairingV2', () => {
     const states$ = pairing.state$.pipe(take(3), toArray());
     const collected = lastValueFrom(states$);
 
-    const pendingBytes = EncryptedHandshakeResponseV2.enc({ tag: 'Pending', value: undefined });
+    const pendingBytes = EncryptedHandshakeResponseV2.enc({
+      tag: 'Pending',
+      value: { tag: 'AllowanceAllocation', value: undefined },
+    });
     store.emit([buildStatement(device, pendingBytes)]);
 
-    const success: HandshakeSuccessState = {
-      tag: 'Success',
-      identityChatPublicKey: new Uint8Array(65).fill(0x04),
-      userIdentityAccountId: new Uint8Array(32).fill(0xb2),
-      identitySignature: new Uint8Array(64).fill(0xcc),
-      identityChatPrivateKey: new Uint8Array(32).fill(0xdd),
-    };
     const successBytes = EncryptedHandshakeResponseV2.enc({
       tag: 'Success',
       value: {
-        encryptionKey: success.identityChatPublicKey,
-        accountId: success.userIdentityAccountId,
-        identitySignature: success.identitySignature,
-        identityChatPrivateKey: success.identityChatPrivateKey,
+        identityAccountId: new Uint8Array(32).fill(0xa1),
+        rootAccountId: new Uint8Array(32).fill(0xa2),
+        identityChatPrivateKey: new Uint8Array(32).fill(0xdd),
+        deviceEncPubKey: new Uint8Array(65).fill(0x04),
       },
     });
     store.emit([buildStatement(device, successBytes)]);
