@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/statement-store",
   "type": "module",
-  "version": "0.7.8",
+  "version": "0.7.9",
   "description": "Statement store integration",
   "license": "Apache-2.0",
   "repository": {
@@ -25,9 +25,9 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/scale": "0.7.8",
+    "@novasamatech/scale": "0.7.9",
     "@novasamatech/sdk-statement": "^0.6.0",
-    "@polkadot-api/substrate-bindings": "^0.20.1",
+    "@polkadot-api/substrate-bindings": "^0.20.2",
     "@polkadot-api/substrate-client": "^0.7.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.30",
     "@noble/hashes": "2.2.0",

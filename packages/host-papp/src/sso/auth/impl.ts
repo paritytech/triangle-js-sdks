@@ -1,5 +1,5 @@
 import { enumValue } from '@novasamatech/scale';
-import type { LazyClient, LocalSessionAccount, Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
+import type { LocalSessionAccount, Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
 import {
   createAccountId,
   createEncryption,
@@ -22,9 +22,8 @@ import type { UserSecretRepository } from '../userSecretRepository.js';
 import type { StoredUserSession, UserSessionRepository } from '../userSessionRepository.js';
 import { createStoredUserSession } from '../userSessionRepository.js';
 
-import { createAttestationService, createSudoAliceVerifier } from './attestationService.js';
 import { HandshakeData, HandshakeResponsePayload, HandshakeResponseSensitiveData } from './scale/handshake.js';
-import type { AttestationStatus, PairingStatus } from './types.js';
+import type { PairingStatus } from './types.js';
 
 export type AuthComponent = ReturnType<typeof createAuth>;
 
@@ -40,7 +39,6 @@ type Params = {
   statementStore: StatementStoreAdapter;
   ssoSessionRepository: UserSessionRepository;
   userSecretRepository: UserSecretRepository;
-  lazyClient: LazyClient;
 };
 
 export function createAuth({
@@ -49,60 +47,11 @@ export function createAuth({
   statementStore,
   ssoSessionRepository,
   userSecretRepository,
-  lazyClient,
 }: Params) {
-  const attestationStatus = createState<AttestationStatus>({ step: 'none' });
   const pairingStatus = createState<PairingStatus>({ step: 'none' });
 
   let authResult: ResultAsync<StoredUserSession | null, Error> | null = null;
   let abort: AbortController | null = null;
-
-  function attestAccount(account: DerivedSr25519Account, signal: AbortSignal) {
-    const flowId = createFlowId();
-    const candidateAccountId = toHex(account.publicKey);
-    emitHostPappDebugMessage({
-      layer: 'attestation',
-      event: 'started',
-      flowId,
-      timestamp: Date.now(),
-      payload: { candidateAccountId },
-    });
-
-    const attestationService = createAttestationService(lazyClient, flowId);
-
-    const verifier = createSudoAliceVerifier();
-    const username = attestationService.claimUsername();
-
-    attestationStatus.write({ step: 'attestation', username });
-
-    return attestationService
-      .grantVerifierAllowance(verifier)
-      .andThrough(() => processSignal(signal))
-      .andThen(() => attestationService.registerLitePerson(username, account, verifier))
-      .andThrough(() => processSignal(signal))
-      .andTee(() => {
-        attestationStatus.write({ step: 'finished' });
-        emitHostPappDebugMessage({
-          layer: 'attestation',
-          event: 'completed',
-          flowId,
-          timestamp: Date.now(),
-          payload: { username },
-        });
-      })
-      .orTee(e => {
-        if (!(e instanceof AbortError)) {
-          attestationStatus.write({ step: 'attestationError', message: e.message });
-          emitHostPappDebugMessage({
-            layer: 'attestation',
-            event: 'failed',
-            flowId,
-            timestamp: Date.now(),
-            payload: { reason: e.message },
-          });
-        }
-      });
-  }
 
   function handshake(account: DerivedSr25519Account, signal: AbortSignal, flowId: string) {
     const localAccount = createLocalSessionAccount(createAccountId(account.publicKey));
@@ -193,7 +142,6 @@ export function createAuth({
 
   const authModule = {
     pairingStatus: readonly(pairingStatus),
-    attestationStatus: readonly(attestationStatus),
 
     authenticate(): ResultAsync<StoredUserSession | null, Error> {
       if (authResult) {
@@ -212,13 +160,8 @@ export function createAuth({
         payload: { metadata },
       });
 
-      authResult = ResultAsync.combine([
-        handshake(account, abort.signal, ssoFlowId),
-        attestAccount(account, abort.signal),
-      ])
-        .andThen(([handshakeResult]) => {
-          // Save secrets and sso session only after attestation has finished
-          const { session, secretsPayload } = handshakeResult;
+      authResult = handshake(account, abort.signal, ssoFlowId)
+        .andThen(({ session, secretsPayload }) => {
           return userSecretRepository
             .write(secretsPayload.id, {
               ssSecret: secretsPayload.ssSecret,
@@ -265,7 +208,6 @@ export function createAuth({
       }
       authResult = null;
       pairingStatus.reset();
-      attestationStatus.reset();
     },
   };
 

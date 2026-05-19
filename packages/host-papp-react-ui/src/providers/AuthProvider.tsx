@@ -1,4 +1,4 @@
-import type { AttestationStatus, PairingStatus, UserSession } from '@novasamatech/host-papp';
+import type { PairingStatus, UserSession } from '@novasamatech/host-papp';
 import { toastError } from '@novasamatech/tr-ui';
 import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useDebugValue, useState, useSyncExternalStore } from 'react';
@@ -18,7 +18,6 @@ export function withRetry<T>(fn: () => Promise<T>, maxRetries = 2): Promise<T> {
 
 type Auth = {
   pairingStatus: PairingStatus;
-  attestationStatus: AttestationStatus;
   pending: boolean;
   authUIMode: AuthUIMode;
   authenticate(ui?: AuthUIMode): Promise<void>;
@@ -28,7 +27,6 @@ type Auth = {
 
 const Context = createContext<Auth>({
   pairingStatus: { step: 'none' },
-  attestationStatus: { step: 'none' },
   pending: false,
   authUIMode: null,
   authenticate: () => Promise.resolve(),
@@ -53,25 +51,12 @@ const usePairingStatus = () => {
   return pairingStatus;
 };
 
-const useAttestationStatus = () => {
-  const provider = usePapp();
-  const attestationStatus = useSyncExternalStore(
-    provider.sso.attestationStatus.subscribe,
-    provider.sso.attestationStatus.read,
-  );
-
-  useDebugValue(`Polkadot app attestation status: ${attestationStatus.step}`);
-
-  return attestationStatus;
-};
-
 export const AuthProvider = ({ children }: PropsWithChildren) => {
   const [pending, setPending] = useState(false);
   const [authUIMode, setAuthUIMode] = useState<AuthUIMode>(null);
   const provider = usePapp();
 
   const pairingStatus = usePairingStatus();
-  const attestationStatus = useAttestationStatus();
 
   const authenticate = useCallback(
     (ui?: AuthUIMode) => {
@@ -112,7 +97,6 @@ export const AuthProvider = ({ children }: PropsWithChildren) => {
   const state: Auth = {
     pending,
     pairingStatus,
-    attestationStatus,
     authUIMode,
     authenticate,
     abortAuthentication,

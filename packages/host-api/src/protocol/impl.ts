@@ -85,7 +85,12 @@ import {
   StorageWriteV1_response,
 } from './v1/localStorage.js';
 import { NavigateToV1_request, NavigateToV1_response } from './v1/navigation.js';
-import { PushNotificationV1_request, PushNotificationV1_response } from './v1/notification.js';
+import {
+  PushNotificationCancelV1_request,
+  PushNotificationCancelV1_response,
+  PushNotificationV1_request,
+  PushNotificationV1_response,
+} from './v1/notification.js';
 import {
   PaymentBalanceSubscribeV1_interrupt,
   PaymentBalanceSubscribeV1_receive,
@@ -420,5 +425,9 @@ export const hostApiProtocol = {
 
   remote_statement_store_create_proof_authorized: versionedRequest({
     v1: [StatementStoreCreateProofAuthorizedV1_request, StatementStoreCreateProofAuthorizedV1_response],
+  }),
+
+  host_push_notification_cancel: versionedRequest({
+    v1: [PushNotificationCancelV1_request, PushNotificationCancelV1_response],
   }),
 } as const;
