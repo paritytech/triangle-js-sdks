@@ -39,7 +39,7 @@ function createMockSignedStatement(topicSeed: number): SignedStatement {
       signer: new Uint8Array(32).fill(2),
     }),
     decryptionKey: undefined,
-    expiry: undefined,
+    expiry: BigInt(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60) << 32n,
     channel: undefined,
     topics: [createTopic(topicSeed)],
     data: new Uint8Array([1, 2, 3]),
@@ -51,7 +51,7 @@ function createMockStatement(topicSeed: number): Statement {
   return {
     proof: undefined,
     decryptionKey: undefined,
-    expiry: undefined,
+    expiry: BigInt(Math.floor(Date.now() / 1000) + 7 * 24 * 60 * 60) << 32n,
     channel: undefined,
     topics: [createTopic(topicSeed)],
     data: new Uint8Array([1, 2, 3]),

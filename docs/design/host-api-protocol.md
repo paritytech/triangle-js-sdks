@@ -1143,7 +1143,7 @@ enum StatementProof {
 struct Statement {
   proof: Option<StatementProof>,
   decryption_key: Option<DecryptionKey>,
-  priority: Option<u32>,
+  expiry: u64,
   channel: Option<Channel>,
   topics: Vec<Topic>,
   data: Option<Vec<u8>>
@@ -1152,7 +1152,7 @@ struct Statement {
 struct SignedStatement {
   proof: StatementProof,
   decryption_key: Option<DecryptionKey>,
-  priority: Option<u32>,
+  expiry: u64,
   channel: Option<Channel>,
   topics: Vec<Topic>,
   data: Option<Vec<u8>>
