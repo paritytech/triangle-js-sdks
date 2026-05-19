@@ -1,37 +1,41 @@
 /**
- * SCALE codecs for the V2 SSO handshake.
+ * SCALE codecs for the V2 SSO handshake (multi-device shape).
  *
  * The host emits a `VersionedHandshakeProposal::V2` via QR carrying its
  * `Device { statementAccountId, encryptionPublicKey }` and metadata. The
- * authorising peer responds over the Statement Store with a
+ * authorising peer (PApp) responds over the Statement Store with a
  * `VersionedHandshakeResponse`; its body is ECDH-encrypted to the host's
- * encryption public key with the peer's ephemeral `tmpKey`. The inner
- * payload after decrypt is `EncryptedHandshakeResponseV2 = Pending | Success
- * | Failed`.
+ * encryption public key with the peer's ephemeral `tmpKey`. The inner payload
+ * after decrypt is `EncryptedHandshakeResponseV2 = Pending | Success | Failed`.
  *
- * `Success` carries the user identity sr25519 accountId, the user identity
- * chat P-256 private key (32 bytes raw scalar), and a 64-byte sr25519
- * signature over `accountId || derive_pub(identityChatPrivateKey)` (97 bytes
- * — see `IDENTITY_SIGNATURE_PAYLOAD_BYTES`) proving the user authorised this
- * device. The matching public key is derived locally from the private scalar
- * (P-256 scalar multiplication with the standard generator); both sides MUST
- * derive identically before verifying the signature. The private key is
- * shared per the multi-device spec so the device can decrypt incoming chat
- * traffic addressed to the user identity. Transit security comes from the
- * outer envelope's ECDH-AES wrap, not from a separate per-field key.
+ * `Success` carries:
+ *   - `identityAccountId`     — user identity sr25519 accountId (32 bytes).
+ *                               Adressing for chat / username lookup / session
+ *                               topic derivation.
+ *   - `rootAccountId`         — user root sr25519 accountId (32 bytes). Parent
+ *                               for soft-derivation of product accounts; PApp
+ *                               and host MUST derive identically so a dapp sees
+ *                               the same address on every device.
+ *   - `identityChatPrivateKey`— user identity chat P-256 private scalar (32 bytes),
+ *                               shared per the multi-device spec so this device
+ *                               can decrypt traffic addressed to the user identity
+ *   - `deviceEncPubKey`       — encryption public key of the PApp device (65 bytes,
+ *                               P-256 uncompressed). Tells the host which key to
+ *                               use when addressing chat envelopes back to the
+ *                               authorising PApp device.
+ *
+ * Total wire length of `Success` is 32 + 32 + 32 + 65 = 161 bytes. Transit security
+ * comes from the outer envelope's ECDH-AES wrap; no per-field signature is
+ * carried — multi-device authorisation is asserted by the user-identity-signed
+ * roster events (`DeviceAdded`/`DeviceRemoved`) published separately.
  */
 
 import { p256 } from '@noble/curves/nist.js';
-import type { Codec } from 'scale-ts';
-import { Bytes, Enum, Struct, Tuple, Vector, _void, createCodec, str } from 'scale-ts';
+import { Bytes, Enum, Struct, Tuple, Vector, _void, str } from 'scale-ts';
 
 const AccountIdCodec = Bytes(32);
 const PublicKeyCodec = Bytes(65);
-const SignatureCodec = Bytes(64);
 const PrivateKeyCodec = Bytes(32);
-
-/** Bytes the user identity sr25519 signs to authorise a device: accountId(32) || encPub(65). */
-export const IDENTITY_SIGNATURE_PAYLOAD_BYTES = 32 + 65;
 
 // ── Proposal ────────────────────────────────────────────────────────────
 
@@ -67,152 +71,123 @@ export const VersionedHandshakeProposal = Enum({
 
 // ── Response (V2) ───────────────────────────────────────────────────────
 
-/**
- * Pinned wire structs:
- *
- *   - `HandshakeSuccessV2Legacy` (161 bytes, encryptionKey + accountId +
- *     signature) for PApp builds before the multi-device priv-key extension.
- *   - `HandshakeSuccessV2WithChatPriv` (128 bytes, accountId +
- *     identityChatPrivateKey + signature) for builds shipping the spec'd
- *     multi-device extension. The matching `encryptionKey` is derived locally
- *     via P-256 scalar multiplication and surfaced on the decoded value so
- *     downstream consumers see the same shape regardless of wire variant.
- *
- * Length dispatch in `EncryptedHandshakeResponseV2` picks the right one. Once
- * every PApp build has the priv-key extension we can collapse to a single
- * struct.
- */
-export const HandshakeSuccessV2Legacy = Struct({
-  encryptionKey: PublicKeyCodec,
-  accountId: AccountIdCodec,
-  identitySignature: SignatureCodec,
-});
-
-export const HandshakeSuccessV2WithChatPriv = Struct({
-  accountId: AccountIdCodec,
+/** 32 + 32 + 32 + 65 = 161 bytes (spec v0.2.1) */
+export const HandshakeSuccessV2 = Struct({
+  identityAccountId: AccountIdCodec,
+  rootAccountId: AccountIdCodec,
   identityChatPrivateKey: PrivateKeyCodec,
-  identitySignature: SignatureCodec,
+  deviceEncPubKey: PublicKeyCodec,
 });
 
-/**
- * Backwards-compatible Success codec.
- *
- * Encode emits the new (128-byte) shape when `identityChatPrivateKey` is
- * present (the `encryptionKey` field on the input value is ignored — it is
- * derived from the private scalar on decode). Decode accepts both lengths
- * and surfaces `identityChatPrivateKey: undefined` together with the on-wire
- * `encryptionKey` when the legacy 161-byte format is received, so consumers
- * can branch on availability without crashing.
- */
-type HandshakeSuccessV2Value = {
-  encryptionKey: Uint8Array;
-  accountId: Uint8Array;
-  identitySignature: Uint8Array;
-  identityChatPrivateKey?: Uint8Array;
+export type HandshakeSuccessV2Value = {
+  identityAccountId: Uint8Array;
+  /** Nullable for v0.2 peers (Android `feature/location-for-handshake`). */
+  rootAccountId: Uint8Array | null;
+  identityChatPrivateKey: Uint8Array;
+  deviceEncPubKey: Uint8Array;
 };
 
-const derivePublicFromPrivate = (privateKey: Uint8Array): Uint8Array => p256.getPublicKey(privateKey, false);
+/** 32 + 32 + 65 = 129 bytes (spec v0.2 — Android `feature/location-for-handshake`) */
+export const HandshakeSuccessV2Legacy = Struct({
+  identityAccountId: AccountIdCodec,
+  identityChatPrivateKey: PrivateKeyCodec,
+  deviceEncPubKey: PublicKeyCodec,
+});
 
-export const HandshakeSuccessV2: Codec<HandshakeSuccessV2Value> = createCodec(
-  v => {
-    if (v.identityChatPrivateKey) {
-      return HandshakeSuccessV2WithChatPriv.enc({
-        accountId: v.accountId,
-        identityChatPrivateKey: v.identityChatPrivateKey,
-        identitySignature: v.identitySignature,
-      });
-    }
-    return HandshakeSuccessV2Legacy.enc({
-      encryptionKey: v.encryptionKey,
-      accountId: v.accountId,
-      identitySignature: v.identitySignature,
-    });
-  },
-  raw => {
-    const bytes = toBytes(raw);
-    if (bytes.length === SUCCESS_LEN_WITH_CHAT_PRIV) {
-      const decoded = HandshakeSuccessV2WithChatPriv.dec(bytes);
-      return {
-        encryptionKey: derivePublicFromPrivate(decoded.identityChatPrivateKey),
-        accountId: decoded.accountId,
-        identitySignature: decoded.identitySignature,
-        identityChatPrivateKey: decoded.identityChatPrivateKey,
-      };
-    }
-    const legacy = HandshakeSuccessV2Legacy.dec(bytes);
-    return { ...legacy, identityChatPrivateKey: undefined };
-  },
-);
+export type DecodedHandshakeResponseV2 =
+  | { tag: 'Pending'; value: { tag: 'AllowanceAllocation'; value: undefined } }
+  | { tag: 'Success'; value: HandshakeSuccessV2Value }
+  | { tag: 'Failed'; value: string };
 
 /**
- * Inner Pending sub-statuses; only `AllowanceAllocation` today. Kept for
- * schema symmetry — not actually encoded on the wire because the peer
- * encodes `data object AllowanceAllocation` as zero bytes, so the entire
- * Pending statement is just the outer discriminant `0x00`.
+ * Length-dispatched decoder for the inner `EncryptedHandshakeResponseV2`
+ * plaintext. v0.2 (Android) ships 129-byte Success bodies without
+ * `rootAccountId`; v0.2.1 ships 161-byte bodies with it. Surfaces
+ * `rootAccountId: null` for the legacy case — chat doesn't need it.
+ */
+export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHandshakeResponseV2 => {
+  if (bytes.length === 0) throw new Error('EncryptedHandshakeResponseV2: empty plaintext');
+  const tag = bytes[0];
+  // `slice` not `subarray` — scale-ts decoders read from buffer byteOffset 0.
+  const body = bytes.slice(1);
+  if (tag === 0) {
+    if (body.length === 0) throw new Error('EncryptedHandshakeResponseV2: Pending body empty');
+    return { tag: 'Pending', value: { tag: 'AllowanceAllocation', value: undefined } };
+  }
+  if (tag === 1) {
+    if (body.length === 161) {
+      const decoded = HandshakeSuccessV2.dec(body);
+      return {
+        tag: 'Success',
+        value: {
+          identityAccountId: decoded.identityAccountId,
+          rootAccountId: decoded.rootAccountId,
+          identityChatPrivateKey: decoded.identityChatPrivateKey,
+          deviceEncPubKey: decoded.deviceEncPubKey,
+        },
+      };
+    }
+    if (body.length === 129) {
+      const decoded = HandshakeSuccessV2Legacy.dec(body);
+      return {
+        tag: 'Success',
+        value: {
+          identityAccountId: decoded.identityAccountId,
+          rootAccountId: null,
+          identityChatPrivateKey: decoded.identityChatPrivateKey,
+          deviceEncPubKey: decoded.deviceEncPubKey,
+        },
+      };
+    }
+    throw new Error(`EncryptedHandshakeResponseV2: Success body length ${body.length} not in {129, 161}`);
+  }
+  if (tag === 2) {
+    return { tag: 'Failed', value: str.dec(body) };
+  }
+  throw new Error(`EncryptedHandshakeResponseV2: unknown variant tag ${tag}`);
+};
+
+/**
+ * Derive the user identity chat P-256 public key from the shared private
+ * scalar received in `HandshakeSuccessV2`. Both desktop and mobile must derive
+ * identically (uncompressed 65-byte form) so downstream session topics agree.
+ */
+export const deriveIdentityChatPublicKey = (privateKey: Uint8Array): Uint8Array => p256.getPublicKey(privateKey, false);
+
+/**
+ * Inner Pending sub-statuses. Only `AllowanceAllocation` today.
+ *
+ * Encoded with its own SCALE discriminant byte — the peer's SCALE library does
+ * NOT elide enum-variant indices for sealed interfaces (verified on the wire:
+ * `Pending(AllowanceAllocation)` arrives as `0x00 0x00`). Both sides must keep
+ * the discriminant when encoding so dispatch agrees.
  */
 export const HandshakeStatusV2 = Enum({
   AllowanceAllocation: _void,
 });
 
-const SUCCESS_LEN_LEGACY = 65 + 32 + 64;
-const SUCCESS_LEN_WITH_CHAT_PRIV = 32 + 32 + 64;
-const PENDING_BYTE = 0x00;
-
 export type EncryptedHandshakeResponseV2Value =
-  | { tag: 'Pending'; value: undefined }
-  | {
-      tag: 'Success';
-      value: HandshakeSuccessV2Value;
-    }
+  | { tag: 'Pending'; value: { tag: 'AllowanceAllocation'; value: undefined } }
+  | { tag: 'Success'; value: HandshakeSuccessV2Value }
   | { tag: 'Failed'; value: string };
 
-const toBytes = (value: Uint8Array | ArrayBuffer | string): Uint8Array => {
-  if (typeof value === 'string') {
-    const hex = value.startsWith('0x') ? value.slice(2) : value;
-    const out = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < out.length; i++) out[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-    return out;
-  }
-  if (value instanceof ArrayBuffer) return new Uint8Array(value);
-  return value;
-};
-
 /**
- * Length-dispatched variant codec. The peer's SCALE library elides the outer
- * enum index for class-wrapped sealed-interface variants, leaving each
- * variant's bytes exposed directly:
+ * Inner handshake response variant. Wire shape (matches peer SCALE encoding):
  *
- *   - Pending → 1 byte:    0x00 (the inner `AllowanceAllocation` tag; the
- *                          outer Pending wrapper emits nothing)
- *   - Success → 161 bytes (legacy PApp): encryptionKey 65 || accountId 32 || signature 64
- *   - Success → 128 bytes (multi-device PApp): accountId 32 || identityChatPrivateKey 32 || signature 64
- *   - Failed  → variable:  SCALE-encoded UTF-8 reason string
+ *   - Pending → 0x00 || HandshakeStatusV2 (today: 0x00 for AllowanceAllocation), 2 bytes total
+ *   - Success → 0x01 || HandshakeSuccessV2 (161 bytes), 162 bytes total
+ *   - Failed  → 0x02 || SCALE-encoded UTF-8 reason string
  *
- * Disambiguation is purely by byte length; protocol-state context further
- * constrains which variant is plausible at any given moment.
+ * Earlier builds shipped a custom length-dispatched codec assuming elision —
+ * that assumption was wrong and produced false `Failed("")` reads on every
+ * `Pending` response. Native scale-ts `Enum` preserves the discriminant and
+ * matches the peer's wire format directly.
  */
-export const EncryptedHandshakeResponseV2: Codec<EncryptedHandshakeResponseV2Value> = createCodec(
-  v => {
-    switch (v.tag) {
-      case 'Pending':
-        return new Uint8Array([PENDING_BYTE]);
-      case 'Success':
-        return HandshakeSuccessV2.enc(v.value);
-      case 'Failed':
-        return str.enc(v.value);
-    }
-  },
-  raw => {
-    const bytes = toBytes(raw);
-    if (bytes.length === 1 && bytes[0] === PENDING_BYTE) {
-      return { tag: 'Pending', value: undefined };
-    }
-    if (bytes.length === SUCCESS_LEN_LEGACY || bytes.length === SUCCESS_LEN_WITH_CHAT_PRIV) {
-      return { tag: 'Success', value: HandshakeSuccessV2.dec(bytes) };
-    }
-    return { tag: 'Failed', value: str.dec(bytes) };
-  },
-);
+export const EncryptedHandshakeResponseV2 = Enum({
+  Pending: HandshakeStatusV2,
+  Success: HandshakeSuccessV2,
+  Failed: str,
+});
 
 export const HandshakeResponseV2 = Struct({
   encrypted: Bytes(),

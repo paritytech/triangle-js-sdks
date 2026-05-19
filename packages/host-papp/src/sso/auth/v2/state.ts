@@ -15,38 +15,41 @@
  * before submitting any V2 statements.
  */
 
-import type { CodecType } from 'scale-ts';
-
-import type { EncryptedHandshakeResponseV2 } from '../scale/handshakeV2.js';
+import type { DecodedHandshakeResponseV2 } from '../scale/handshakeV2.js';
+import { deriveIdentityChatPublicKey } from '../scale/handshakeV2.js';
 
 export type HandshakeIdleState = { tag: 'Idle' };
 export type HandshakeSubmittedState = { tag: 'Submitted' };
 export type HandshakePendingState = { tag: 'Pending'; reason: 'AllowanceAllocation' };
 export type HandshakeSuccessState = {
   tag: 'Success';
+  /** User identity sr25519 accountId (32 bytes). */
+  identityAccountId: Uint8Array;
+  /**
+   * User root sr25519 accountId (32 bytes) — the parent for soft-derivation
+   * of product accounts. Nullable: peers on spec v0.2 (Android
+   * `feature/location-for-handshake`) omit this field. Product-account
+   * derivation degrades gracefully when absent; chat does not use it.
+   */
+  rootAccountId: Uint8Array | null;
+  /**
+   * User identity chat P-256 private key (32 bytes raw scalar) shared by
+   * PApp with this device per the multi-device spec. Sensitive; persist in
+   * OS-keychain-backed secure storage and never forward.
+   */
+  identityChatPrivateKey: Uint8Array;
   /**
    * Derived locally from `identityChatPrivateKey` via P-256 scalar
-   * multiplication on the multi-device wire format; read directly from the
-   * `encryption_key` wire field on legacy 161-byte responses. Either way
-   * `IDENTITY_SIGNATURE_PAYLOAD_BYTES = accountId || identityChatPublicKey`
-   * is the canonical form `identitySignature` commits to.
+   * multiplication (uncompressed 65-byte form). Both sides MUST derive
+   * identically; downstream session topics depend on it.
    */
   identityChatPublicKey: Uint8Array;
-  userIdentityAccountId: Uint8Array;
-  identitySignature: Uint8Array;
   /**
-   * The user identity chat P-256 private key (32 bytes raw scalar) shared by
-   * PApp with this device per the multi-device spec — required to decrypt
-   * incoming chat traffic addressed to the user identity. Sensitive; the
-   * device should persist it in OS-keychain-backed secure storage and never
-   * forward it.
-   *
-   * `undefined` when the responder is a legacy PApp build that hasn't shipped
-   * the multi-device priv-key extension yet. The device can still send V2
-   * chat traffic (signed by its own keys); inbound decryption is gated on
-   * this field being present.
+   * Encryption public key of the authorising PApp device (65 bytes,
+   * P-256 uncompressed). Used by the host when addressing chat envelopes
+   * back to the authorising device.
    */
-  identityChatPrivateKey: Uint8Array | undefined;
+  deviceEncPubKey: Uint8Array;
 };
 export type HandshakeFailedState = { tag: 'Failed'; reason: string };
 
@@ -62,10 +65,11 @@ export const idle = (): HandshakeIdleState => ({ tag: 'Idle' });
 export const submitted = (): HandshakeSubmittedState => ({ tag: 'Submitted' });
 
 /**
- * Translate an inner-decoded `EncryptedHandshakeResponseV2` into the public
- * state. Pure — no I/O. The caller decrypts the outer envelope first.
+ * Translate the length-dispatched-decoded `EncryptedHandshakeResponseV2` into
+ * the public state. Pure — no I/O. The caller decrypts the outer envelope and
+ * runs `decodeEncryptedHandshakeResponseV2` first.
  */
-export const fromInnerResponse = (response: CodecType<typeof EncryptedHandshakeResponseV2>): HandshakeState => {
+export const fromInnerResponse = (response: DecodedHandshakeResponseV2): HandshakeState => {
   switch (response.tag) {
     case 'Pending':
       // Only AllowanceAllocation today; widen here when the spec adds more variants.
@@ -73,10 +77,11 @@ export const fromInnerResponse = (response: CodecType<typeof EncryptedHandshakeR
     case 'Success':
       return {
         tag: 'Success',
-        identityChatPublicKey: response.value.encryptionKey,
-        userIdentityAccountId: response.value.accountId,
-        identitySignature: response.value.identitySignature,
+        identityAccountId: response.value.identityAccountId,
+        rootAccountId: response.value.rootAccountId,
         identityChatPrivateKey: response.value.identityChatPrivateKey,
+        identityChatPublicKey: deriveIdentityChatPublicKey(response.value.identityChatPrivateKey),
+        deviceEncPubKey: response.value.deviceEncPubKey,
       };
     case 'Failed':
       return { tag: 'Failed', reason: response.value };
