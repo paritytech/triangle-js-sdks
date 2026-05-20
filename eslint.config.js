@@ -19,7 +19,7 @@ export default defineConfig([
     '**/*.d.ts',
     '**/.papi',
     '**/storybook-static/**',
-    '**/wasm-substrate-sr25519/**',
+    '**/rust/**',
   ]),
 
   {

@@ -1,0 +1,38 @@
+{
+  "name": "@novasamatech/substrate-slot-sr25519-wasm",
+  "type": "module",
+  "version": "0.7.9-6",
+  "description": "Substrate sr25519 slot-account crypto (SecretKey::from_bytes) for mobile SlotAccountKey",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/paritytech/triangle-js-sdks.git"
+  },
+  "keywords": [
+    "polkadot",
+    "substrate",
+    "sr25519",
+    "wasm"
+  ],
+  "main": "dist/index.js",
+  "exports": {
+    "./package.json": "./package.json",
+    ".": {
+      "#/source": "./src/index.ts",
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "build:wasm": "wasm-pack build rust --release --target web --out-dir ../dist/nodejs",
+    "build:ts": "node scripts/link-nodejs.mjs && tsc --build tsconfig.json"
+  },
+  "publishConfig": {
+    "access": "public"
+  }
+}

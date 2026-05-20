@@ -25,6 +25,7 @@
     "README.md"
   ],
   "dependencies": {
+    "@novasamatech/substrate-slot-sr25519-wasm": "0.7.9-6",
     "@novasamatech/scale": "0.7.9-6",
     "@novasamatech/sdk-statement": "^0.6.0",
     "@polkadot-api/substrate-bindings": "^0.20.2",

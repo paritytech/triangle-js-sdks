@@ -1,13 +1,18 @@
 import { blake2b } from '@noble/hashes/blake2.js';
+import {
+  deriveSlotAccountPublicKey as deriveSlotPublicKey,
+  ensureSubstrateSlotSr25519Ready,
+  signSlotAccountSecret as signSlotSecret,
+  verifySlotAccountSignature as verifySlotSignature,
+} from '@novasamatech/substrate-slot-sr25519-wasm';
 import { entropyToMiniSecret } from '@polkadot-labs/hdkd-helpers';
 import { HDKD as sr25519HDKD, secretFromSeed as sr25519SecretFromSeed } from '@scure/sr25519';
 import type { Codec } from 'scale-ts';
 import { Bytes, str, u64 } from 'scale-ts';
 
-import { substrateSlotPublicKey, substrateSlotSign, substrateSlotVerify } from './substrateSlotSr25519.js';
 import { substrateSr25519PublicKey, substrateSr25519Sign, substrateSr25519Verify } from './substrateSr25519.js';
 
-export { ensureSubstrateSlotSr25519Ready } from './substrateSlotSr25519.js';
+export { ensureSubstrateSlotSr25519Ready };
 export { ensureSubstrateSr25519Ready } from './substrateSr25519.js';
 
 export function BrandedBytesCodec<T extends Uint8Array>(length?: number) {
@@ -102,13 +107,13 @@ export function verifySr25519Signature(message: Uint8Array, signature: Uint8Arra
  * Matches Android `deriveAccountId()` / `Sr25519.getPublicKeyFromSecret`.
  */
 export function deriveSlotAccountPublicKey(secret: Uint8Array) {
-  return substrateSlotPublicKey(secret);
+  return deriveSlotPublicKey(secret);
 }
 
 export function signSlotAccountSecret(secret: Uint8Array, message: Uint8Array) {
-  return substrateSlotSign(secret, message);
+  return signSlotSecret(secret, message);
 }
 
 export function verifySlotAccountSignature(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) {
-  return substrateSlotVerify(message, signature, publicKey);
+  return verifySlotSignature(message, signature, publicKey);
 }

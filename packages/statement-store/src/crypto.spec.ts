@@ -1,4 +1,8 @@
 import { blake2b } from '@noble/hashes/blake2.js';
+import {
+  ensureSubstrateSlotSr25519Ready,
+  substrateSlotSecretFromSeedBytes,
+} from '@novasamatech/substrate-slot-sr25519-wasm';
 import { mnemonicToEntropy, mnemonicToMiniSecret } from '@polkadot-labs/hdkd-helpers';
 import * as schnorrkelWasm from '@polkadot-labs/schnorrkel-wasm';
 import { HDKD, secretFromSeed } from '@scure/sr25519';
@@ -14,7 +18,6 @@ import {
   verifySlotAccountSignature,
   verifySr25519Signature,
 } from './crypto.js';
-import { ensureSubstrateSlotSr25519Ready, substrateSlotSecretFromSeedBytes } from './substrateSlotSr25519.js';
 
 const { sr25519_derive_keypair_hard, sr25519_keypair_from_seed, sr25519_pubkey } = schnorrkelWasm;
 const initSchnorrkelWasm = (schnorrkelWasm as typeof schnorrkelWasm & { init: () => void }).init;
