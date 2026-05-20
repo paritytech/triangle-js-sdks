@@ -2,14 +2,16 @@
 
 ### 🚀 Features
 
+- **host-api-wrapper:** the product SDK has been renamed — `@novasamatech/product-sdk` is now published as `@novasamatech/host-api-wrapper`. The name better reflects what the package actually is: a thin, ergonomic wrapper around the Host API for products to call. The public API is otherwise unchanged; the only thing consumers need to do is update their `package.json` dependency and their imports.
 - **host-papp:** user attestation has moved off the Host and onto the paired Polkadot Mobile app. The Host no longer drives the attestation flow during sign-in — the mobile app handles it end-to-end as part of pairing.
 - **host-papp:** `UserSession` gains a `createTransaction(payload)` method. The Host can now delegate product-account transaction signing to the paired Polkadot Mobile app via the new `CreateTransactionRequest` / `CreateTransactionResponse` SSO message pair (legacy-account signing stays Host-local).
 - **host-papp:** host-side allowance service stores Bulletin / Statement Store slot account keys from the paired mobile app and exposes `getBulletinSigner` / `getStatementStoreProver` for product integrations.
 - **host-api-wrapper:** new top-level `accounts` singleton (`createAccountsProvider()` with the default sandbox transport) for products that don't need a custom transport.
-- **product-sdk:** export `ProductAccountId` and `LegacyAccount` types.
-- **host-api / product-sdk:** products can now schedule a push notification for a future time, not just send one right away. Pass `scheduledAt` (a UTC timestamp in milliseconds) when calling `notificationManager.push(...)`, and the host will deliver it at that moment. Leave it out to deliver immediately as before.
-- **host-api / product-sdk:** `push(...)` now returns an id you can hold onto, and the new `notificationManager.cancel(id)` lets a product cancel a notification it scheduled earlier — handy for "remind me in an hour" style flows where the user changes their mind.
-- **host-api / product-sdk:** if the host can't accept any more scheduled notifications, the product now gets a clear `ScheduleLimitReached` error instead of a generic failure, so it can tell the user what happened.
+- **host-api-wrapper:** export `ProductAccountId` and `LegacyAccount` types.
+- **host-api-wrapper:** `getProductAccountSigner` accepts an optional second argument selecting how the returned signer should sign transactions — `'createTransaction'` (default, new behavior) routes through `host_create_transaction` and returns the full signed extrinsic; `'signPayload'` keeps the legacy path through `host_sign_payload`, giving products that haven't migrated yet a way to opt back into the old behavior without pinning the previous SDK version.
+- **host-api / host-api-wrapper:** products can now schedule a push notification for a future time, not just send one right away. Pass `scheduledAt` (a UTC timestamp in milliseconds) when calling `notificationManager.push(...)`, and the host will deliver it at that moment. Leave it out to deliver immediately as before.
+- **host-api / host-api-wrapper:** `push(...)` now returns an id you can hold onto, and the new `notificationManager.cancel(id)` lets a product cancel a notification it scheduled earlier — handy for "remind me in an hour" style flows where the user changes their mind.
+- **host-api / host-api-wrapper:** if the host can't accept any more scheduled notifications, the product now gets a clear `ScheduleLimitReached` error instead of a generic failure, so it can tell the user what happened.
 - **host-api / host-container / host-papp:** experimental debug hooks for observing host ↔ product traffic and internal SSO state. `onHostApiDebugMessage` (from `host-container`) emits every decoded message across all containers in the process, annotated with `productId`. `onHostPappDebugMessage` (from `host-papp/debug`) emits attestation, auth, and session-lifecycle events. Both are lazy — when no subscriber is attached, the underlying decode/emit work is skipped, so leaving the hooks in code costs nothing in production.
 
 ### 🩹 Fixes
@@ -19,16 +21,20 @@
 
 ### ⚠️ Breaking Changes
 
+- **host-api-wrapper:** package was renamed from `@novasamatech/product-sdk`. Update your dependency and imports — there is no compatibility re-export under the old name.
 - **host-api:** `host_create_transaction` no longer takes a separate `account_id` parameter — the account is now part of the payload as a typed `signer` field.
-- **host-api:** `TxPayloadV1.signer` is now required and typed (`ProductAccountId` or `AccountId`) instead of `Option<str>`.
-- **host-api:** dropped the `context` field from `TxPayloadV1` (runtime metadata, token symbol/decimals, best block height). The signer derives these from the chain.
-- **host-api:** removed the `VersionedTxPayload` envelope from `host_create_transaction*` — pass the payload directly.
-- **product-sdk:** `getProductAccountSigner` now returns a `PolkadotSigner` whose `signTx` routes through `host_create_transaction` and returns the full signed extrinsic; `signBytes` routes through `host_sign_raw`. Previously `signTx` called `host_sign_payload` and returned a detached signature via `getPolkadotSignerFromPjs`. Callers no longer need to assemble the extrinsic themselves.
-- **product-sdk:** the `Signer.createTransaction` payload shape changed to match the new `TxPayloadV1` (no `version`, no `context`, typed `signer`).
-- **product-sdk:** new runtime dependency `@polkadot-api/substrate-bindings@^0.20.2` (used by `getProductAccountSigner` to decode metadata locally and pick `txExtVersion`).
+- **host-api:** `TxPayloadV1` got new structure that is not compatable with old one.
+- **host-api-wrapper:** `getProductAccountSigner` now returns a `PolkadotSigner` whose `signTx` routes through `host_create_transaction` and returns the full signed extrinsic; `signBytes` routes through `host_sign_raw`. Previously `signTx` called `host_sign_payload` and returned a detached signature via `getPolkadotSignerFromPjs`. Callers no longer need to assemble the extrinsic themselves. (Pass `'signPayload'` as the second argument to opt back into the old behavior — see the Features section.)
 
-  > No compatibility shim. `host_create_transaction` had no production consumers and `host_create_transaction_with_legacy_account` is only reachable via `product-sdk`, which is bumped in lockstep.
+  > No compatibility shim. `host_create_transaction` had no production consumers and `host_create_transaction_with_legacy_account` is only reachable via `host-api-wrapper`, which is bumped in lockstep.
 - **host-api:** the push-notification format changed to support scheduling and cancellation. Hosts and products must upgrade together — older clients won't be able to send notifications to a newer host (or vice versa).
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+- Filippo
+- Yanaty
+- Vitya Livshits @cuteWarmFrog
 
 ## 0.7.8 (2026-05-08)
 

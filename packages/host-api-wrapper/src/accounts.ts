@@ -140,7 +140,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
      */
     getProductAccountSigner(
       account: ProductAccount,
-      signerType: 'signPayload' | 'createTransaction' = 'signPayload',
+      signerType: 'signPayload' | 'createTransaction' = 'createTransaction',
     ): PolkadotSigner {
       const hostApi = createHostApi(transport);
       const productAccountId: ProductAccountId = [account.dotNsIdentifier, account.derivationIndex];
