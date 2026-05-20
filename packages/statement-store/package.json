@@ -30,6 +30,7 @@
     "@polkadot-api/substrate-bindings": "^0.20.2",
     "@polkadot-api/substrate-client": "^0.7.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.30",
+    "@polkadot-labs/schnorrkel-wasm": "^0.0.8",
     "@noble/hashes": "2.2.0",
     "@noble/ciphers": "2.2.0",
     "@scure/sr25519": "2.2.0",

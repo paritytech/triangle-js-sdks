@@ -46,8 +46,14 @@ export { createPapiStatementStoreAdapter } from './adapter/rpc.js';
 export {
   createSr25519Derivation,
   createSr25519Secret,
+  deriveSlotAccountPublicKey,
   deriveSr25519PublicKey,
+  ensureSubstrateSlotSr25519Ready,
+  ensureSubstrateSr25519Ready,
   khash,
+  signSlotAccountSecret,
   signWithSr25519Secret,
+  verifySlotAccountSignature,
   verifySr25519Signature,
 } from './crypto.js';
+export { substrateSr25519PublicKey } from './substrateSr25519.js';

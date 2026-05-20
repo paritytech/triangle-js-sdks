@@ -1,7 +1,11 @@
 import type { StatementProver } from '@novasamatech/statement-store';
-import { createSr25519Prover, deriveSr25519PublicKey, signWithSr25519Secret } from '@novasamatech/statement-store';
-import type { ResultAsync } from 'neverthrow';
-import { errAsync, okAsync } from 'neverthrow';
+import {
+  createSr25519Prover,
+  deriveSlotAccountPublicKey,
+  ensureSubstrateSlotSr25519Ready,
+  signSlotAccountSecret,
+} from '@novasamatech/statement-store';
+import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 import type { PolkadotSigner } from 'polkadot-api/signer';
 import { getPolkadotSigner } from 'polkadot-api/signer';
 
@@ -85,6 +89,7 @@ export function createAllowanceService({
           return errAsync(new AllowanceError('UnexpectedResponse', `Expected ${expectedTag}, got ${allocated.tag}`));
         }
         const slotAccountKey = allocated.value.slotAccountKey;
+
         return repository
           .write(sessionId, productId, resource, slotAccountKey)
           .mapErr(e => new AllowanceError('UnexpectedResponse', e.message))
@@ -94,8 +99,15 @@ export function createAllowanceService({
 
   return {
     getBulletinSigner(sessionId, productId) {
-      return fetchKey(sessionId, productId, 'bulletin').map(secret =>
-        getPolkadotSigner(deriveSr25519PublicKey(secret), 'Sr25519', input => signWithSr25519Secret(secret, input)),
+      return fetchKey(sessionId, productId, 'bulletin').andThen(secret =>
+        ResultAsync.fromPromise(
+          ensureSubstrateSlotSr25519Ready().then(() =>
+            getPolkadotSigner(deriveSlotAccountPublicKey(secret), 'Sr25519', input =>
+              signSlotAccountSecret(secret, input),
+            ),
+          ),
+          e => new AllowanceError('UnexpectedResponse', e instanceof Error ? e.message : String(e)),
+        ),
       );
     },
     getStatementStoreProver(sessionId, productId) {
