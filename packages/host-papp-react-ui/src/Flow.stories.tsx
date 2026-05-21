@@ -86,14 +86,19 @@ const meta: Meta<typeof PappProvider> = {
   args: {
     adapter: createPappAdapter({
       appId: 'https://test.com',
-      metadata: 'https://shorturl.at/zGkir',
+      deviceIdentity: () => ({
+        statementAccountPublicKey: new Uint8Array(32),
+        encryptionPublicKey: new Uint8Array(65),
+        encryptionPrivateKey: new Uint8Array(32),
+      }),
       adapters: {
         lazyClient: createLazyClient(getWsProvider(SS_PASEO_STABLE_STAGE_ENDPOINTS)),
       },
       hostMetadata: {
+        hostName: 'Storybook',
         hostVersion: '1.2.3',
-        osType: 'macOS',
-        osVersion: '14.4.1',
+        platformType: 'macOS',
+        platformVersion: '14.4.1',
       } satisfies HostMetadata,
     }),
   },

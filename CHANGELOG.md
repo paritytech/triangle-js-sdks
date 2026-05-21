@@ -1,3 +1,47 @@
+## 0.8.0 (2026-05-21)
+
+### 🚀 Features
+
+- **host-papp:** multi-device support via V2 SSO. `createAuth` (and `pappAdapter.sso`) is now V2-driven end-to-end — the same `pairingStatus` / `authenticate()` / `abortAuthentication()` surface you already use. Desktop and web hosts pair with the multi-device iOS/Android Polkadot Mobile builds through this entry point; the V2 wire format (codecs, ECDH envelope, RxJS pairing service, state machine) runs inside the SDK and is no longer something callers need to wire up.
+  ```ts
+  const adapter = createPappAdapter({
+    appId,
+    hostMetadata,
+    deviceIdentity: () => deviceIdentityService.loadOrCreate(),
+    onAuthSuccess: async success => {
+      // success.peerStatementAccountId is the PApp device id, lifted off the
+      // pairing-topic statement's proof.value.signer inside the SDK.
+      await persistHandshakeSuccess(success, success.peerStatementAccountId);
+    },
+    initialProcessedDataHex: () => repo.readLastProcessedHandshakeStatement(),
+    onPairingStatementProcessed: hex => void repo.writeLastProcessedHandshakeStatement(hex),
+  });
+  await adapter.sso.authenticate();
+  ```
+- **host-papp:** `AuthSuccess` (the resolved value of `authenticate()`, exported alongside `HostMetadata` / `PairingStatus` / `DeviceIdentityForPairing`) carries `peerStatementAccountId` — the PApp device that signed the pairing-topic statement. Without it device-sync can't seed PApp as a peer, so the SDK captures it during pairing instead of asking each consumer to re-query the chain.
+- **host-papp:** `createPappAdapter` accepts a `deviceIdentity` factory (resolved per `authenticate()`, so secret material never sits in adapter state between attempts), plus `onAuthSuccess` / `initialProcessedDataHex` / `onPairingStatementProcessed` hooks for consumer-side persistence and reload-survival dedupe.
+- **host-papp:** `HostMetadata` reshape to mirror the V2 proposal shape — `{ hostName?, hostVersion?, hostIcon?, platformType?, platformVersion?, custom? }`. The host name/icon/platform now ride inside the QR proposal instead of being fetched from a separate URL.
+- **host-chat:** new `MessageContent` variants at the spec'd indices — `chatAccepted` (14) now carries `{ messageId }` for iOS V1 backward decode; `deviceAdded` (17) `{ statementAccountId, encryptionPublicKey }`; `deviceRemoved` (18) `{ statementAccountId }`; `deviceChatAccepted` (20) `{ requestId, device }` sent on the identity-level session `SessionId(B, A)` encrypted with `K(A, B)` so all of a peer's devices can decrypt without a per-device envelope.
+
+### 🩹 Fixes
+
+- **host-papp / host-chat:** `identity/rpcAdapter` and `accountService.getConsumerInfo` tolerate both camelCase and snake_case `Resources.Consumers` metadata fields — the V2 multi-device runtime metadata emits camelCase, which previously crashed `raw.stmt_store_slots.map(...)`.
+- **host-papp:** `EncryptedHandshakeResponseV2` is decoded with native `scale-ts Enum` on the inner discriminant. The peer SCALE library does not elide that index, so `Pending(AllowanceAllocation)` arrives as `0x00 0x00` and was previously being misclassified as `Failed("")` by a length-only dispatch.
+- **host-chat:** `DeviceAdded` / `DeviceRemoved` use length-prefixed `Bytes()` rather than fixed-size codecs, matching `substrate-sdk-android`'s wire shape for `AccountId` / `EncodedPublicKey` wrapper types (no `@FixedLength`).
+
+### ⚠️ Breaking Changes
+
+- **host-papp:** V1 SSO handshake is gone. `createAuth` no longer derives an ephemeral sr25519 per attempt — callers must inject a persistent V2 `DeviceIdentityForPairing`. Older paired Polkadot Mobile clients (V1 wire format) will not handshake against this build, and the V1 handshake codec is removed.
+- **host-papp:** `createPappAdapter` API shift. The `metadata: string` URL is dropped (host name / icon / platform now ride inside `hostMetadata`), and `deviceIdentity` is required. Consumers that previously called `createPappAdapter({ appId, metadata, hostMetadata })` need to add a `deviceIdentity` factory; see the snippet above.
+- **host-papp:** public surface trimmed to `createAuth` and the types you need to use it (`AuthComponent`, `AuthSuccess`, `HostMetadata`, `PairingStatus`, `DeviceIdentityForPairing`). The V2 building blocks — `startPairingV2`, `idle` / `submitted` / `advance` / `fromInnerResponse` / `isTerminal` / `canSubmitV2Statements`, `buildPairingDeeplink` / `encodeProposal`, `computePairingTopic` / `computePairingChannel`, `decryptResponseEnvelope`, `deriveIdentityChatPublicKey`, every `Handshake*` / `*HandshakeResponse*` / `VersionedHandshake*` / `MetadataEntry` / `MetadataKey` / `Device` SCALE codec, and `HandshakeState` / `HandshakeIdleState` / `HandshakeSubmittedState` / `HandshakePendingState` / `HandshakeSuccessState` / `HandshakeFailedState` / `HandshakeMetadata` / `HandshakeProposalDevice` / `HandshakeResponseEnvelope` / `Pairing` / `StartPairingDeps` — are now internal. Consumers driving the handshake themselves should migrate to `auth.authenticate()`.
+- **host-papp:** `PairingStatus.finished` no longer carries `session`. Read the resolved `AuthSuccess` off the value `authenticate()` returns instead.
+- **host-papp:** the legacy 161-byte `HandshakeSuccessV2` payload (`encryptionKey || accountId || signature`) emitted by pre-multi-device PApp builds is no longer accepted — the spec v0.2.1 wire shape (`identityAccountId || rootAccountId || identityChatPrivateKey || deviceEncPubKey`, 161 bytes) is required. The 129-byte v0.2 variant emitted by Android `feature/location-for-handshake` is still accepted (with `rootAccountId === null`) for transitional compatibility. Per-device `identitySignature` and `IDENTITY_SIGNATURE_PAYLOAD_BYTES` are gone — multi-device authorisation moves to the user-identity-signed roster events (`DeviceAdded` / `DeviceRemoved`).
+- **host-chat:** `MessageContent.chatAccepted` (14) payload changed from `_void` to `{ messageId: string }`. Older clients that emit `_void` will not decode.
+
+### ❤️ Thank You
+
+- Ilya Kalinin @kalininilya
+
 ## 0.7.9 (2026-05-15)
 
 ### 🚀 Features

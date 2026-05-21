@@ -22,6 +22,7 @@ const makeSuccess = (overrides: Partial<HandshakeState & { tag: 'Success' }> = {
   identityChatPrivateKey: fixedChatPrivateKey,
   identityChatPublicKey: fixedChatPublicKey,
   deviceEncPubKey: new Uint8Array(65).fill(0x04),
+  peerStatementAccountId: null,
   ...overrides,
 });
 

@@ -76,6 +76,26 @@ const toHexFull = (bytes: Uint8Array) => {
   return `0x${out}`;
 };
 
+const fromHexString = (hex: string): Uint8Array => {
+  const stripped = hex.startsWith('0x') ? hex.slice(2) : hex;
+  const out = new Uint8Array(stripped.length / 2);
+  for (let i = 0; i < out.length; i++) {
+    out[i] = parseInt(stripped.slice(i * 2, i * 2 + 2), 16);
+  }
+  return out;
+};
+
+const extractStatementSigner = (statement: Statement): Uint8Array | null => {
+  const proof = statement.proof;
+  if (!proof) return null;
+  if (proof.type !== 'sr25519' && proof.type !== 'ed25519') return null;
+  try {
+    return fromHexString(proof.value.signer);
+  } catch {
+    return null;
+  }
+};
+
 export const startPairingV2 = (deps: StartPairingDeps): Pairing => {
   const persistOnSuccess = deps.persistOnSuccess;
 
@@ -150,9 +170,11 @@ export const startPairingV2 = (deps: StartPairingDeps): Pairing => {
       return;
     }
 
+    const peerStatementAccountId = extractStatementSigner(statement);
+
     let next: HandshakeState;
     try {
-      next = fromInnerResponse(decodeEncryptedHandshakeResponseV2(innerBytes));
+      next = fromInnerResponse(decodeEncryptedHandshakeResponseV2(innerBytes), peerStatementAccountId);
     } catch (err) {
       log(`inner decode failed; innerBytes (${innerBytes.length}b) = ${toHexFull(innerBytes)}`, err);
       return;

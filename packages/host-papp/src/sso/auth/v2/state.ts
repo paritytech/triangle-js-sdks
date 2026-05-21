@@ -50,6 +50,14 @@ export type HandshakeSuccessState = {
    * back to the authorising device.
    */
   deviceEncPubKey: Uint8Array;
+  /**
+   * The pairing-topic statement was signed by PApp's device statement
+   * account. `HandshakeSuccessV2` doesn't carry it in the encrypted body, so
+   * the pairing service lifts it off `statement.proof.value.signer` and
+   * attaches it here. `null` only when the statement arrived without a
+   * recognised proof type, in which case device-sync can't seed back to PApp.
+   */
+  peerStatementAccountId: Uint8Array | null;
 };
 export type HandshakeFailedState = { tag: 'Failed'; reason: string };
 
@@ -69,7 +77,10 @@ export const submitted = (): HandshakeSubmittedState => ({ tag: 'Submitted' });
  * the public state. Pure — no I/O. The caller decrypts the outer envelope and
  * runs `decodeEncryptedHandshakeResponseV2` first.
  */
-export const fromInnerResponse = (response: DecodedHandshakeResponseV2): HandshakeState => {
+export const fromInnerResponse = (
+  response: DecodedHandshakeResponseV2,
+  peerStatementAccountId: Uint8Array | null = null,
+): HandshakeState => {
   switch (response.tag) {
     case 'Pending':
       // Only AllowanceAllocation today; widen here when the spec adds more variants.
@@ -82,6 +93,7 @@ export const fromInnerResponse = (response: DecodedHandshakeResponseV2): Handsha
         identityChatPrivateKey: response.value.identityChatPrivateKey,
         identityChatPublicKey: deriveIdentityChatPublicKey(response.value.identityChatPrivateKey),
         deviceEncPubKey: response.value.deviceEncPubKey,
+        peerStatementAccountId,
       };
     case 'Failed':
       return { tag: 'Failed', reason: response.value };

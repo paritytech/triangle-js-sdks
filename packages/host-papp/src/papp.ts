@@ -8,8 +8,9 @@ import { SS_STABLE_STAGE_ENDPOINTS } from './constants.js';
 import { createIdentityRepository } from './identity/impl.js';
 import { createIdentityRpcAdapter } from './identity/rpcAdapter.js';
 import type { IdentityAdapter, IdentityRepository } from './identity/types.js';
-import type { AuthComponent, HostMetadata } from './sso/auth/impl.js';
+import type { AuthComponent, AuthSuccess, HostMetadata } from './sso/auth/impl.js';
 import { createAuth } from './sso/auth/impl.js';
+import type { DeviceIdentityForPairing } from './sso/auth/v2/service.js';
 import type { SsoSessionManager } from './sso/sessionManager/impl.js';
 import { createSsoSessionManager } from './sso/sessionManager/impl.js';
 import type { UserSecretRepository } from './sso/userSecretRepository.js';
@@ -37,25 +38,43 @@ type Params = {
    */
   appId: string;
   /**
-   * URL for additional metadata that will be displayed during pairing process.
-   * Content of provided json shound be
-   * ```ts
-   * interface Metadata {
-   *   name: string;
-   *   icon: string; // url for icon. Icon should be a rasterized image with min size 256x256 px.
-   * }
-   * ```
-   */
-  metadata: string;
-  /**
-   * Optional host environment metadata for Sign-In confirmation screen.
-   * All fields are optional - absence must not break the pairing flow.
+   * Host environment metadata embedded in the pairing proposal so PApp can
+   * render the request screen. All fields are optional — absence must not
+   * break the pairing flow.
    */
   hostMetadata?: HostMetadata;
+  /**
+   * Persistent V2 device identity. The same identity must be returned on every
+   * launch so PApp recognises this device as the same peer. The factory is
+   * invoked per `sso.authenticate()` call, so callers can lazy-load from
+   * keychain / IndexedDB without blocking adapter construction.
+   */
+  deviceIdentity: () => Promise<DeviceIdentityForPairing> | DeviceIdentityForPairing;
+  /**
+   * Caller hook fired after a successful handshake, before
+   * `sso.authenticate()` resolves. Throwing fails the call.
+   */
+  onAuthSuccess?: (success: AuthSuccess) => Promise<void>;
+  /**
+   * Reload-survival dedupe: hex of the last pairing-topic statement consumed
+   * by this device. Resolved per `sso.authenticate()` so callers can read
+   * from async storage (IndexedDB / keychain) without blocking adapter
+   * construction.
+   */
+  initialProcessedDataHex?: () => Promise<string | null> | string | null;
+  onPairingStatementProcessed?: (dataHex: string) => void;
   adapters?: Partial<Adapters>;
 };
 
-export function createPappAdapter({ appId, metadata, hostMetadata, adapters }: Params): PappAdapter {
+export function createPappAdapter({
+  appId,
+  hostMetadata,
+  deviceIdentity,
+  onAuthSuccess,
+  initialProcessedDataHex,
+  onPairingStatementProcessed,
+  adapters,
+}: Params): PappAdapter {
   const lazyClient =
     adapters?.lazyClient ??
     createLazyClient(getWsProvider(SS_STABLE_STAGE_ENDPOINTS, { heartbeatTimeout: Number.POSITIVE_INFINITY }));
@@ -69,11 +88,12 @@ export function createPappAdapter({ appId, metadata, hostMetadata, adapters }: P
 
   return {
     sso: createAuth({
-      metadata,
       hostMetadata,
+      deviceIdentity,
       statementStore,
-      ssoSessionRepository,
-      userSecretRepository,
+      persistOnSuccess: onAuthSuccess,
+      initialProcessedDataHex,
+      onStatementProcessed: onPairingStatementProcessed,
     }),
     sessions: createSsoSessionManager({ storage, statementStore, ssoSessionRepository, userSecretRepository }),
     secrets: userSecretRepository,
