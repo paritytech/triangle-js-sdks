@@ -8,9 +8,10 @@ import { SS_STABLE_STAGE_ENDPOINTS } from './constants.js';
 import { createIdentityRepository } from './identity/impl.js';
 import { createIdentityRpcAdapter } from './identity/rpcAdapter.js';
 import type { IdentityAdapter, IdentityRepository } from './identity/types.js';
-import type { AuthComponent, AuthSuccess, HostMetadata } from './sso/auth/impl.js';
+import type { AuthComponent, HostMetadata, OnAuthSuccess } from './sso/auth/impl.js';
 import { createAuth } from './sso/auth/impl.js';
 import type { DeviceIdentityForPairing } from './sso/auth/v2/service.js';
+import { createDeviceIdentityStore } from './sso/deviceIdentityStore.js';
 import type { SsoSessionManager } from './sso/sessionManager/impl.js';
 import { createSsoSessionManager } from './sso/sessionManager/impl.js';
 import type { UserSecretRepository } from './sso/userSecretRepository.js';
@@ -33,36 +34,30 @@ type Adapters = {
 
 type Params = {
   /**
-   * Host app Id.
-   * CAUTION! This value should be stable.
+   * Host app Id. CAUTION! This value should be stable across launches — it
+   * seeds the storage prefix that backs every persisted SSO blob.
    */
   appId: string;
   /**
-   * Host environment metadata embedded in the pairing proposal so PApp can
-   * render the request screen. All fields are optional — absence must not
-   * break the pairing flow.
+   * Host environment metadata embedded inside the V2 pairing proposal QR so
+   * the paired device can render a request screen with the host name / icon /
+   * platform. All fields are optional — absence must not break pairing.
    */
   hostMetadata?: HostMetadata;
   /**
-   * Persistent V2 device identity. The same identity must be returned on every
-   * launch so PApp recognises this device as the same peer. The factory is
-   * invoked per `sso.authenticate()` call, so callers can lazy-load from
-   * keychain / IndexedDB without blocking adapter construction.
+   * Optional override for the device identity. Default: the SDK persists a
+   * fresh identity to the configured `StorageAdapter` on first run and reuses
+   * it on subsequent launches. Pass a factory only if you need a different
+   * persistence backend (Electron Keychain, native secure storage, etc.).
    */
-  deviceIdentity: () => Promise<DeviceIdentityForPairing> | DeviceIdentityForPairing;
+  deviceIdentity?: () => Promise<DeviceIdentityForPairing> | DeviceIdentityForPairing;
   /**
-   * Caller hook fired after a successful handshake, before
-   * `sso.authenticate()` resolves. Throwing fails the call.
+   * Optional caller hook fired after a successful handshake — after the SDK
+   * has already written the session + secrets to its own repositories. Use it
+   * for consumer-specific bookkeeping (telemetry, custom peer caches, device-
+   * sync seeding). Throwing fails the `sso.authenticate()` call.
    */
-  onAuthSuccess?: (success: AuthSuccess) => Promise<void>;
-  /**
-   * Reload-survival dedupe: hex of the last pairing-topic statement consumed
-   * by this device. Resolved per `sso.authenticate()` so callers can read
-   * from async storage (IndexedDB / keychain) without blocking adapter
-   * construction.
-   */
-  initialProcessedDataHex?: () => Promise<string | null> | string | null;
-  onPairingStatementProcessed?: (dataHex: string) => void;
+  onAuthSuccess?: OnAuthSuccess;
   adapters?: Partial<Adapters>;
 };
 
@@ -71,8 +66,6 @@ export function createPappAdapter({
   hostMetadata,
   deviceIdentity,
   onAuthSuccess,
-  initialProcessedDataHex,
-  onPairingStatementProcessed,
   adapters,
 }: Params): PappAdapter {
   const lazyClient =
@@ -85,15 +78,17 @@ export function createPappAdapter({
 
   const ssoSessionRepository = createUserSessionRepository(storage);
   const userSecretRepository = createUserSecretRepository(appId, storage);
+  const deviceIdentityStore = createDeviceIdentityStore(appId, storage);
 
   return {
     sso: createAuth({
       hostMetadata,
       deviceIdentity,
+      deviceIdentityStore,
       statementStore,
-      persistOnSuccess: onAuthSuccess,
-      initialProcessedDataHex,
-      onStatementProcessed: onPairingStatementProcessed,
+      ssoSessionRepository,
+      userSecretRepository,
+      onAuthSuccess,
     }),
     sessions: createSsoSessionManager({ storage, statementStore, ssoSessionRepository, userSecretRepository }),
     secrets: userSecretRepository,

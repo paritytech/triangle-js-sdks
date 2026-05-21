@@ -53,7 +53,7 @@ export type SsoDebugEvent =
       event: 'session_established';
       flowId: string;
       timestamp: number;
-      payload: { identityAccountId: Uint8Array };
+      payload: { sessionId: string };
     }
   | {
       layer: 'sso';

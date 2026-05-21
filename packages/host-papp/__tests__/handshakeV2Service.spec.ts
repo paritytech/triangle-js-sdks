@@ -16,6 +16,7 @@ const buildDeviceIdentity = (): DeviceIdentityForPairing => {
   const encryptionPrivateKey = p256.utils.randomSecretKey();
   return {
     statementAccountPublicKey: new Uint8Array(32).fill(0xa1),
+    statementAccountSecret: new Uint8Array(64).fill(0x55),
     encryptionPrivateKey,
     encryptionPublicKey: p256.getPublicKey(encryptionPrivateKey, false),
   };

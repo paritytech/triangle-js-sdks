@@ -1,10 +1,16 @@
 import type { StatementStoreAdapter } from '@novasamatech/statement-store';
+import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount } from '@novasamatech/statement-store';
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 
+import type { EncrSecret, SsSecret } from '../../crypto.js';
 import { createFlowId, emitHostPappDebugMessage } from '../../debugBus.js';
 import { AbortError } from '../../helpers/abortError.js';
 import { createState, readonly } from '../../helpers/state.js';
 import { toError } from '../../helpers/utils.js';
+import type { DeviceIdentityStore } from '../deviceIdentityStore.js';
+import type { UserSecretRepository } from '../userSecretRepository.js';
+import type { StoredUserSession, UserSessionRepository } from '../userSessionRepository.js';
+import { createStoredUserSession } from '../userSessionRepository.js';
 
 import type { PairingStatus } from './types.js';
 import type { HandshakeMetadata } from './v2/proposal.js';
@@ -15,53 +21,52 @@ import type { HandshakeState, HandshakeSuccessState } from './v2/state.js';
 export type HostMetadata = HandshakeMetadata;
 export type AuthComponent = ReturnType<typeof createAuth>;
 
-export type AuthSuccess = HandshakeSuccessState;
+/**
+ * Optional caller hook fired once the V2 handshake reaches Success, after the
+ * SDK has persisted the session and secrets and before `authenticate()`
+ * resolves. Receives both the persisted `StoredUserSession` and the sensitive
+ * `identityChatPrivateKey` (which lives in `UserSecretRepository` and isn't
+ * surfaced on the session shape). Throwing fails the `authenticate()` call.
+ */
+export type OnAuthSuccess = (event: {
+  session: StoredUserSession;
+  identityChatPrivateKey: Uint8Array;
+}) => Promise<void> | void;
 
 type Params = {
   hostMetadata?: HostMetadata;
   /**
-   * Persistent device identity used for the pairing. The same identity must be
-   * reused across launches so PApp recognises this device as the same peer
-   * (per-device chat addressing depends on `encryptionPublicKey`). Caller owns
-   * the persistence; the factory is invoked on each `authenticate()` so the
-   * SDK never holds key material between attempts.
+   * Optional override for the device identity. If absent, the SDK uses an
+   * internal `deviceIdentityStore` backed by the host's `StorageAdapter` —
+   * fine for web hosts. Electron / native consumers can plug in a Keychain-
+   * backed identity by passing a factory that returns the same shape.
    */
-  deviceIdentity: () => Promise<DeviceIdentityForPairing> | DeviceIdentityForPairing;
+  deviceIdentity?: () => Promise<DeviceIdentityForPairing> | DeviceIdentityForPairing;
+  deviceIdentityStore: DeviceIdentityStore;
   statementStore: StatementStoreAdapter;
-  /**
-   * Fires once the V2 handshake reaches `Success`, before `authenticate()`
-   * resolves. Use it for consumer-specific bookkeeping (peer-device
-   * registration, contact reset, telemetry). Throwing fails the
-   * `authenticate()` call and surfaces as `pairingError`.
-   */
-  persistOnSuccess?: (success: AuthSuccess) => Promise<void>;
-  /**
-   * Hex of the last pairing-topic statement this device processed (so a stale
-   * `Success` doesn't get replayed on the next launch / re-pair). Resolved per
-   * `authenticate()` so a value freshly written by `onStatementProcessed` on
-   * one attempt is visible to the next.
-   */
-  initialProcessedDataHex?: () => Promise<string | null> | string | null;
-  onStatementProcessed?: (dataHex: string) => void;
+  ssoSessionRepository: UserSessionRepository;
+  userSecretRepository: UserSecretRepository;
+  onAuthSuccess?: OnAuthSuccess;
 };
 
 export function createAuth({
   hostMetadata,
   deviceIdentity,
+  deviceIdentityStore,
   statementStore,
-  persistOnSuccess,
-  initialProcessedDataHex,
-  onStatementProcessed,
+  ssoSessionRepository,
+  userSecretRepository,
+  onAuthSuccess,
 }: Params) {
   const pairingStatus = createState<PairingStatus>({ step: 'none' });
 
-  let authResult: ResultAsync<AuthSuccess | null, Error> | null = null;
+  let authResult: ResultAsync<StoredUserSession | null, Error> | null = null;
   let abortHandle: (() => void) | null = null;
 
   return {
     pairingStatus: readonly(pairingStatus),
 
-    authenticate(): ResultAsync<AuthSuccess | null, Error> {
+    authenticate(): ResultAsync<StoredUserSession | null, Error> {
       if (authResult) return authResult;
 
       const flowId = createFlowId();
@@ -81,18 +86,25 @@ export function createAuth({
         pairingAbort?.();
       };
 
-      const flow = ResultAsync.fromPromise(
-        Promise.all([Promise.resolve(deviceIdentity()), Promise.resolve(initialProcessedDataHex?.() ?? null)]),
-        toError,
-      ).andThen(([identity, initialHex]) => {
-        if (aborted) return okAsync<AuthSuccess | null, Error>(null);
+      const resolveDeviceIdentity = (): ResultAsync<DeviceIdentityForPairing, Error> =>
+        deviceIdentity
+          ? ResultAsync.fromPromise(Promise.resolve(deviceIdentity()), toError)
+          : deviceIdentityStore.loadOrCreate();
+
+      const flow = ResultAsync.combine([
+        resolveDeviceIdentity(),
+        deviceIdentityStore.readLastProcessedHandshakeStatement(),
+      ]).andThen(([identity, initialHex]) => {
+        if (aborted) return okAsync<StoredUserSession | null, Error>(null);
 
         const pairing = startPairingV2({
           statementStore,
           deviceIdentity: identity,
           metadata: hostMetadata ?? {},
           initialProcessedDataHex: initialHex,
-          onStatementProcessed,
+          onStatementProcessed: hex => {
+            void deviceIdentityStore.writeLastProcessedHandshakeStatement(hex);
+          },
         });
         pairingAbort = pairing.abort;
 
@@ -113,7 +125,7 @@ export function createAuth({
         });
 
         return ResultAsync.fromPromise(
-          new Promise<AuthSuccess>((resolve, reject) => {
+          new Promise<HandshakeSuccessState>((resolve, reject) => {
             let settled = false;
             const settle = (cb: () => void) => {
               if (settled) return;
@@ -127,7 +139,6 @@ export function createAuth({
                   s => settle(() => resolve(s)),
                   e => settle(() => reject(e)),
                   () => sub?.unsubscribe(),
-                  flowId,
                 ),
               complete: () => {
                 if (aborted) settle(() => reject(new AbortError('Aborted by user.')));
@@ -136,22 +147,22 @@ export function createAuth({
             });
           }),
           toError,
-        );
+        ).andThen(success => persistAndNotify(identity, success, flowId));
       });
 
       authResult = flow
-        .orElse(e => (e instanceof AbortError ? okAsync<AuthSuccess | null, Error>(null) : errAsync(e)))
-        .andTee(success => {
-          if (success === null) {
+        .orElse(e => (e instanceof AbortError ? okAsync<StoredUserSession | null, Error>(null) : errAsync(e)))
+        .andTee(session => {
+          if (session === null) {
             pairingStatus.reset();
           } else {
-            pairingStatus.write({ step: 'finished' });
+            pairingStatus.write({ step: 'finished', session });
             emitHostPappDebugMessage({
               layer: 'sso',
               event: 'session_established',
               flowId,
               timestamp: Date.now(),
-              payload: { identityAccountId: success.identityAccountId },
+              payload: { sessionId: session.id },
             });
           }
           abortHandle = null;
@@ -173,10 +184,9 @@ export function createAuth({
 
       function onState(
         state: HandshakeState,
-        resolve: (value: AuthSuccess) => void,
+        resolve: (value: HandshakeSuccessState) => void,
         reject: (err: Error) => void,
         unsubscribe: () => void,
-        flowId: string,
       ) {
         switch (state.tag) {
           case 'Idle':
@@ -194,14 +204,7 @@ export function createAuth({
               timestamp: Date.now(),
               payload: { identityAccountId: state.identityAccountId },
             });
-            if (persistOnSuccess) {
-              persistOnSuccess(state).then(
-                () => resolve(state),
-                e => reject(toError(e)),
-              );
-            } else {
-              resolve(state);
-            }
+            resolve(state);
             return;
           case 'Failed':
             unsubscribe();
@@ -218,4 +221,42 @@ export function createAuth({
       pairingStatus.reset();
     },
   };
+
+  function persistAndNotify(
+    identity: DeviceIdentityForPairing,
+    success: HandshakeSuccessState,
+    _flowId: string,
+  ): ResultAsync<StoredUserSession, Error> {
+    const localAccount = createLocalSessionAccount(createAccountId(identity.statementAccountPublicKey));
+    const remoteAccount = createRemoteSessionAccount(
+      createAccountId(success.peerStatementAccountId ?? new Uint8Array(32)),
+      success.deviceEncPubKey,
+    );
+    const session = createStoredUserSession(
+      localAccount,
+      remoteAccount,
+      createAccountId(success.rootAccountId ?? new Uint8Array(32)),
+      {
+        identityAccountId: createAccountId(success.identityAccountId),
+        identityChatPublicKey: success.identityChatPublicKey,
+      },
+    );
+
+    return userSecretRepository
+      .write(session.id, {
+        ssSecret: identity.statementAccountSecret as SsSecret,
+        encrSecret: identity.encryptionPrivateKey as EncrSecret,
+        entropy: new Uint8Array(0),
+        identityChatPrivateKey: success.identityChatPrivateKey,
+      })
+      .andThen(() => ssoSessionRepository.add(session))
+      .andThen(() =>
+        onAuthSuccess
+          ? ResultAsync.fromPromise(
+              Promise.resolve(onAuthSuccess({ session, identityChatPrivateKey: success.identityChatPrivateKey })),
+              toError,
+            ).map(() => session)
+          : okAsync(session),
+      );
+  }
 }

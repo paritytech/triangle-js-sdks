@@ -86,11 +86,6 @@ const meta: Meta<typeof PappProvider> = {
   args: {
     adapter: createPappAdapter({
       appId: 'https://test.com',
-      deviceIdentity: () => ({
-        statementAccountPublicKey: new Uint8Array(32),
-        encryptionPublicKey: new Uint8Array(65),
-        encryptionPrivateKey: new Uint8Array(32),
-      }),
       adapters: {
         lazyClient: createLazyClient(getWsProvider(SS_PASEO_STABLE_STAGE_ENDPOINTS)),
       },

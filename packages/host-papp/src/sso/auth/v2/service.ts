@@ -38,6 +38,12 @@ import { computePairingTopic } from './topic.js';
 
 export type DeviceIdentityForPairing = {
   statementAccountPublicKey: Uint8Array;
+  /**
+   * sr25519 secret for the device statement account. `startPairingV2` itself
+   * doesn't sign anything, but the post-pairing `StoredUserSession` needs it
+   * so the V1 sessionManager prover can issue session statements.
+   */
+  statementAccountSecret: Uint8Array;
   encryptionPublicKey: Uint8Array;
   encryptionPrivateKey: Uint8Array;
 };

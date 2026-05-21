@@ -9,10 +9,14 @@ import type { HostPappDebugEvent } from '../src/debugTypes.js';
 import { createAuth } from '../src/sso/auth/impl.js';
 import { HandshakeSuccessV2, VersionedHandshakeResponse } from '../src/sso/auth/scale/handshakeV2.js';
 import type { DeviceIdentityForPairing } from '../src/sso/auth/v2/service.js';
+import type { DeviceIdentityStore } from '../src/sso/deviceIdentityStore.js';
+import type { UserSecretRepository } from '../src/sso/userSecretRepository.js';
+import type { UserSessionRepository } from '../src/sso/userSessionRepository.js';
 
 const DEVICE_ENC_PRIV = new Uint8Array(32).fill(0x22);
 const DEVICE_ENC_PUB = p256.getPublicKey(DEVICE_ENC_PRIV, false);
 const DEVICE_STMT_ACCT = new Uint8Array(32).fill(0x33);
+const DEVICE_STMT_SECRET = new Uint8Array(64).fill(0x55);
 
 const IDENTITY_CHAT_PRIV = new Uint8Array(32).fill(0xdd);
 const IDENTITY_ACCT = new Uint8Array(32).fill(0xa1);
@@ -21,9 +25,17 @@ const PEER_STMT_ACCT_HEX = '0x' + '44'.repeat(32);
 
 const makeDeviceIdentity = (): DeviceIdentityForPairing => ({
   statementAccountPublicKey: DEVICE_STMT_ACCT,
+  statementAccountSecret: DEVICE_STMT_SECRET,
   encryptionPublicKey: DEVICE_ENC_PUB,
   encryptionPrivateKey: DEVICE_ENC_PRIV,
 });
+
+const stubDeviceIdentityStore = (): DeviceIdentityStore =>
+  ({
+    loadOrCreate: vi.fn(() => okAsync({ ...makeDeviceIdentity(), statementAccountSecret: DEVICE_STMT_SECRET })),
+    readLastProcessedHandshakeStatement: vi.fn(() => okAsync(null)),
+    writeLastProcessedHandshakeStatement: vi.fn(() => okAsync(undefined)),
+  }) as unknown as DeviceIdentityStore;
 
 const buildSuccessStatement = (): Statement => {
   const inner = HandshakeSuccessV2.enc({
@@ -59,7 +71,7 @@ const buildSuccessStatement = (): Statement => {
 
 type Deliver = (page: { statements: Statement[]; isComplete: boolean }) => void;
 
-const buildHarness = (overrides: { persistOnSuccess?: () => Promise<void> } = {}) => {
+const buildHarness = (overrides: { onAuthSuccess?: () => Promise<void> } = {}) => {
   let deliver: Deliver | null = null;
   const unsubscribe = vi.fn();
   const subscribeStatements = vi.fn((_filter: unknown, onPage: Deliver) => {
@@ -70,11 +82,18 @@ const buildHarness = (overrides: { persistOnSuccess?: () => Promise<void> } = {}
 
   const statementStore = { subscribeStatements, queryStatements } as unknown as StatementStoreAdapter;
 
+  const ssoSessionRepository = { add: vi.fn(() => okAsync(undefined)) } as unknown as UserSessionRepository;
+  const userSecretRepository = { write: vi.fn(() => okAsync(undefined)) } as unknown as UserSecretRepository;
+  const deviceIdentityStore = stubDeviceIdentityStore();
+
   const auth = createAuth({
     hostMetadata: { hostName: 'Test Host' },
     deviceIdentity: makeDeviceIdentity,
+    deviceIdentityStore,
     statementStore,
-    persistOnSuccess: overrides.persistOnSuccess,
+    ssoSessionRepository,
+    userSecretRepository,
+    onAuthSuccess: overrides.onAuthSuccess,
   });
 
   return {
@@ -82,6 +101,9 @@ const buildHarness = (overrides: { persistOnSuccess?: () => Promise<void> } = {}
     subscribeStatements,
     queryStatements,
     unsubscribe,
+    ssoSessionRepository,
+    userSecretRepository,
+    deviceIdentityStore,
     async waitForSubscription() {
       await vi.waitFor(() => expect(subscribeStatements).toHaveBeenCalledTimes(1));
     },
@@ -108,7 +130,7 @@ describe('createAuth', () => {
       expect(second).toBe(first);
     });
 
-    it('resolves with the V2 success when a Success statement arrives', async () => {
+    it('persists the session and resolves with a StoredUserSession on Success', async () => {
       const harness = buildHarness();
       const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
@@ -116,15 +138,19 @@ describe('createAuth', () => {
 
       const result = await promise;
       expect(result.isOk()).toBe(true);
-      const success = result._unsafeUnwrap();
-      expect(success).not.toBeNull();
-      expect(success!.identityAccountId).toEqual(IDENTITY_ACCT);
-      expect(success!.peerStatementAccountId).toEqual(new Uint8Array(32).fill(0x44));
+      const session = result._unsafeUnwrap();
+      expect(session).not.toBeNull();
+      expect(session!.identityAccountId).toEqual(IDENTITY_ACCT);
+      expect(session!.remoteAccount.accountId).toEqual(new Uint8Array(32).fill(0x44));
+      expect(harness.ssoSessionRepository.add).toHaveBeenCalledOnce();
+      expect(harness.userSecretRepository.write).toHaveBeenCalledOnce();
+      const secretsCall = (harness.userSecretRepository.write as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(secretsCall?.[1]).toMatchObject({ identityChatPrivateKey: IDENTITY_CHAT_PRIV });
     });
 
-    it('emits pairingStatus transitions: none -> initial -> pairing(deeplink) -> finished', async () => {
+    it('emits pairingStatus transitions: none -> initial -> pairing(deeplink) -> finished(session)', async () => {
       const harness = buildHarness();
-      const observed: { step: string; payload?: string }[] = [];
+      const observed: { step: string; payload?: string; session?: { id: string } }[] = [];
       harness.auth.pairingStatus.subscribe(s => observed.push(s as never));
 
       const promise = harness.auth.authenticate();
@@ -137,27 +163,32 @@ describe('createAuth', () => {
       expect(steps).toContain('initial');
       const pairing = observed.find(s => s.step === 'pairing');
       expect(pairing?.payload).toMatch(/^polkadotapp:\/\/pair\?handshake=/);
-      expect(steps.at(-1)).toBe('finished');
+      const finished = observed.find(s => s.step === 'finished');
+      expect(finished?.session).toBeDefined();
+      expect(finished?.session?.id).toBeTypeOf('string');
     });
 
-    it('runs the persistOnSuccess hook before resolving', async () => {
-      const persistOnSuccess = vi.fn(() => Promise.resolve());
-      const harness = buildHarness({ persistOnSuccess });
+    it('runs the onAuthSuccess hook with session + identityChatPrivateKey after internal persistence', async () => {
+      const onAuthSuccess = vi.fn(() => Promise.resolve());
+      const harness = buildHarness({ onAuthSuccess });
 
       const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
       harness.deliver([buildSuccessStatement()]);
-
       const result = await promise;
+
       expect(result.isOk()).toBe(true);
-      expect(persistOnSuccess).toHaveBeenCalledTimes(1);
-      const arg = (persistOnSuccess.mock.calls[0] as unknown as [{ identityAccountId: Uint8Array }])[0];
-      expect(arg.identityAccountId).toEqual(IDENTITY_ACCT);
+      expect(onAuthSuccess).toHaveBeenCalledTimes(1);
+      const arg = (
+        onAuthSuccess.mock.calls[0] as unknown as [{ session: { id: string }; identityChatPrivateKey: Uint8Array }]
+      )[0];
+      expect(arg.session.id).toBeTypeOf('string');
+      expect(arg.identityChatPrivateKey).toEqual(IDENTITY_CHAT_PRIV);
     });
 
-    it('fails authenticate when persistOnSuccess throws', async () => {
-      const persistOnSuccess = vi.fn(() => Promise.reject(new Error('persist boom')));
-      const harness = buildHarness({ persistOnSuccess });
+    it('fails authenticate when onAuthSuccess throws', async () => {
+      const onAuthSuccess = vi.fn(() => Promise.reject(new Error('hook boom')));
+      const harness = buildHarness({ onAuthSuccess });
 
       const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
@@ -165,8 +196,8 @@ describe('createAuth', () => {
 
       const result = await promise;
       expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('persist boom');
-      expect(harness.auth.pairingStatus.read()).toEqual({ step: 'pairingError', message: 'persist boom' });
+      expect(result._unsafeUnwrapErr().message).toBe('hook boom');
+      expect(harness.auth.pairingStatus.read()).toEqual({ step: 'pairingError', message: 'hook boom' });
     });
   });
 
@@ -177,7 +208,6 @@ describe('createAuth', () => {
         data: VersionedHandshakeResponse.enc({
           tag: 'V2',
           value: (() => {
-            // Failed body = enum index 2 + length-prefixed string "declined"
             const enc = createEncryption(
               p256.getSharedSecret(new Uint8Array(32).fill(0x66), DEVICE_ENC_PUB).slice(1, 33) as never,
             );
@@ -222,7 +252,6 @@ describe('createAuth', () => {
       harness.auth.abortAuthentication();
       await first;
 
-      // subscribeStatements gets called again on a fresh authenticate
       const second = harness.auth.authenticate();
       expect(second).not.toBe(first);
       await vi.waitFor(() => expect(harness.subscribeStatements).toHaveBeenCalledTimes(2));
@@ -234,6 +263,35 @@ describe('createAuth', () => {
       const { auth } = buildHarness();
       expect(() => auth.abortAuthentication()).not.toThrow();
       expect(auth.pairingStatus.read()).toEqual({ step: 'none' });
+    });
+  });
+
+  describe('default deviceIdentity', () => {
+    it('falls back to deviceIdentityStore.loadOrCreate when no deviceIdentity factory is provided', async () => {
+      let deliver: Deliver | null = null;
+      const unsubscribe = vi.fn();
+      const subscribeStatements = vi.fn((_filter: unknown, onPage: Deliver) => {
+        deliver = onPage;
+        return unsubscribe;
+      });
+      const queryStatements = vi.fn(() => okAsync([]));
+      const statementStore = { subscribeStatements, queryStatements } as unknown as StatementStoreAdapter;
+      const ssoSessionRepository = { add: vi.fn(() => okAsync(undefined)) } as unknown as UserSessionRepository;
+      const userSecretRepository = { write: vi.fn(() => okAsync(undefined)) } as unknown as UserSecretRepository;
+      const deviceIdentityStore = stubDeviceIdentityStore();
+
+      const auth = createAuth({
+        deviceIdentityStore,
+        statementStore,
+        ssoSessionRepository,
+        userSecretRepository,
+      });
+
+      const promise = auth.authenticate();
+      await vi.waitFor(() => expect(subscribeStatements).toHaveBeenCalledTimes(1));
+      expect(deviceIdentityStore.loadOrCreate).toHaveBeenCalledOnce();
+      if (deliver) (deliver as Deliver)({ statements: [buildSuccessStatement()], isComplete: true });
+      await promise;
     });
   });
 
