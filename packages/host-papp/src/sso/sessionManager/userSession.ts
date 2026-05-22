@@ -138,10 +138,7 @@ export function createUserSession({
   });
 
   return {
-    id: userSession.id,
-    localAccount: userSession.localAccount,
-    remoteAccount: userSession.remoteAccount,
-    rootAccountId: userSession.rootAccountId,
+    ...userSession,
 
     signPayload(payload) {
       return requestQueue.call(() => {

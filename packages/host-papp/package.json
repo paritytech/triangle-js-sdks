@@ -38,12 +38,15 @@
     "@novasamatech/scale": "0.7.9",
     "@novasamatech/statement-store": "0.7.9",
     "@novasamatech/storage-adapter": "0.7.9",
+    "@polkadot-api/utils": "^0.4.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.30",
     "nanoevents": "9.1.0",
     "nanoid": "5.1.9",
     "neverthrow": "^8.2.0",
     "polkadot-api": ">=2",
-    "scale-ts": "1.6.1"
+    "rxjs": "^7.8.2",
+    "scale-ts": "1.6.1",
+    "verifiablejs": "1.2.0"
   },
   "publishConfig": {
     "access": "public"

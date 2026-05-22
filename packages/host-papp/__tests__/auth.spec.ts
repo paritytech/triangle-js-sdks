@@ -1,139 +1,118 @@
+import { p256 } from '@noble/curves/nist.js';
 import type { Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
-import { ok, okAsync } from 'neverthrow';
+import { createEncryption } from '@novasamatech/statement-store';
+import { okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { onHostPappDebugMessage } from '../src/debugBus.js';
 import type { HostPappDebugEvent } from '../src/debugTypes.js';
 import { createAuth } from '../src/sso/auth/impl.js';
+import { HandshakeSuccessV2, VersionedHandshakeResponse } from '../src/sso/auth/scale/handshakeV2.js';
+import type { DeviceIdentityForPairing } from '../src/sso/auth/v2/service.js';
+import type { DeviceIdentityStore } from '../src/sso/deviceIdentityStore.js';
 import type { UserSecretRepository } from '../src/sso/userSecretRepository.js';
 import type { UserSessionRepository } from '../src/sso/userSessionRepository.js';
 
-const mocks = vi.hoisted(() => ({
-  decrypt: vi.fn(),
-  generateMnemonic: vi.fn(),
-  handshakeEnc: vi.fn(),
-  responsePayloadDec: vi.fn(),
-  responseSensitiveDec: vi.fn(),
-}));
+const DEVICE_ENC_PRIV = new Uint8Array(32).fill(0x22);
+const DEVICE_ENC_PUB = p256.getPublicKey(DEVICE_ENC_PRIV, false);
+const DEVICE_STMT_ACCT = new Uint8Array(32).fill(0x33);
+const DEVICE_STMT_SECRET = new Uint8Array(64).fill(0x55);
 
-vi.mock('@polkadot-labs/hdkd-helpers', async importOriginal => {
-  const actual = await importOriginal<typeof import('@polkadot-labs/hdkd-helpers')>();
-  return {
-    ...actual,
-    generateMnemonic: mocks.generateMnemonic,
-  };
+const IDENTITY_CHAT_PRIV = new Uint8Array(32).fill(0xdd);
+const IDENTITY_ACCT = new Uint8Array(32).fill(0xa1);
+const ROOT_ACCT = new Uint8Array(32).fill(0xa2);
+const PEER_STMT_ACCT_HEX = '0x' + '44'.repeat(32);
+
+const makeDeviceIdentity = (): DeviceIdentityForPairing => ({
+  statementAccountPublicKey: DEVICE_STMT_ACCT,
+  statementAccountSecret: DEVICE_STMT_SECRET,
+  encryptionPublicKey: DEVICE_ENC_PUB,
+  encryptionPrivateKey: DEVICE_ENC_PRIV,
 });
 
-vi.mock('../src/crypto.js', async importOriginal => {
-  const actual = await importOriginal<typeof import('../src/crypto.js')>();
-  return {
-    ...actual,
-    deriveSr25519Account: vi.fn(() => ({
-      secret: new Uint8Array(64),
-      publicKey: new Uint8Array(32),
-      entropy: new Uint8Array(32),
-      sign: vi.fn(),
-      verify: vi.fn(() => true),
-    })),
-    createEncrSecret: vi.fn(() => new Uint8Array(32)),
-    getEncrPub: vi.fn(() => new Uint8Array(65)),
-    createSharedSecret: vi.fn(() => new Uint8Array(32)),
-  };
-});
+const stubDeviceIdentityStore = (): DeviceIdentityStore =>
+  ({
+    loadOrCreate: vi.fn(() => okAsync({ ...makeDeviceIdentity(), statementAccountSecret: DEVICE_STMT_SECRET })),
+    readLastProcessedHandshakeStatement: vi.fn(() => okAsync(null)),
+    writeLastProcessedHandshakeStatement: vi.fn(() => okAsync(undefined)),
+  }) as unknown as DeviceIdentityStore;
 
-vi.mock('../src/sso/auth/scale/handshake.js', () => ({
-  HandshakeData: { enc: mocks.handshakeEnc },
-  HandshakeResponsePayload: { dec: mocks.responsePayloadDec },
-  HandshakeResponseSensitiveData: { dec: mocks.responseSensitiveDec },
-}));
+const buildSuccessStatement = (): Statement => {
+  const inner = HandshakeSuccessV2.enc({
+    identityAccountId: IDENTITY_ACCT,
+    rootAccountId: ROOT_ACCT,
+    identityChatPrivateKey: IDENTITY_CHAT_PRIV,
+    deviceEncPubKey: DEVICE_ENC_PUB,
+  });
+  // The inner body is a length-dispatched Success (161-byte payload). Wrap it
+  // as the discriminated `EncryptedHandshakeResponseV2::Success` for the
+  // envelope.
+  const successEnvelope = new Uint8Array(inner.length + 1);
+  successEnvelope[0] = 1; // Success discriminant
+  successEnvelope.set(inner, 1);
 
-vi.mock('@novasamatech/statement-store', async importOriginal => {
-  const actual = await importOriginal<typeof import('@novasamatech/statement-store')>();
-  return {
-    ...actual,
-    createAccountId: vi.fn((bytes: Uint8Array) => bytes as never),
-    createLocalSessionAccount: vi.fn((accountId: unknown) => ({ accountId, kind: 'local' }) as never),
-    createRemoteSessionAccount: vi.fn(
-      (accountId: unknown, secret: unknown) => ({ accountId, secret, kind: 'remote' }) as never,
-    ),
-    createEncryption: vi.fn(() => ({ decrypt: mocks.decrypt })),
-    khash: vi.fn(() => new Uint8Array([42, 42, 42])),
-  };
-});
+  // ECDH-encrypt: peer (PApp) uses ephemeral tmpKey + device.encPub
+  const tmpPriv = new Uint8Array(32).fill(0x77);
+  const tmpPub = p256.getPublicKey(tmpPriv, false);
+  const shared = p256.getSharedSecret(tmpPriv, DEVICE_ENC_PUB).slice(1, 33);
+  const enc = createEncryption(shared as never);
+  const encrypted = enc.encrypt(successEnvelope)._unsafeUnwrap();
 
-vi.mock('../src/sso/userSessionRepository.js', async importOriginal => {
-  const actual = await importOriginal<typeof import('../src/sso/userSessionRepository.js')>();
-  return {
-    ...actual,
-    createStoredUserSession: vi.fn(
-      (localAccount: unknown, remoteAccount: unknown, identityAccountId: unknown) =>
-        ({
-          id: 'session-id-1',
-          localAccount,
-          remoteAccount,
-          identityAccountId,
-        }) as never,
-    ),
-  };
-});
-
-type DeliverFn = (statements: Statement[]) => void;
-
-function buildHarness() {
-  let deliver: DeliverFn | null = null;
-  const unsubscribe = vi.fn();
-  const subscribeStatements = vi.fn((_filter: unknown, onPage: (page: { statements: Statement[] }) => void) => {
-    deliver = (statements: Statement[]) => onPage({ statements });
-    return unsubscribe;
+  const statementData = VersionedHandshakeResponse.enc({
+    tag: 'V2',
+    value: { encrypted, tmpKey: tmpPub },
   });
 
-  const statementStore = { subscribeStatements };
-  const ssoSessionRepository = { add: vi.fn(() => okAsync(undefined)) };
-  const userSecretRepository = { write: vi.fn(() => okAsync(undefined)) };
+  return {
+    data: statementData,
+    proof: { type: 'sr25519', value: { signature: '0x' + '00'.repeat(64), signer: PEER_STMT_ACCT_HEX } },
+  } as Statement;
+};
+
+type Deliver = (page: { statements: Statement[]; isComplete: boolean }) => void;
+
+const buildHarness = (overrides: { onAuthSuccess?: () => Promise<void> } = {}) => {
+  let deliver: Deliver | null = null;
+  const unsubscribe = vi.fn();
+  const subscribeStatements = vi.fn((_filter: unknown, onPage: Deliver) => {
+    deliver = onPage;
+    return unsubscribe;
+  });
+  const queryStatements = vi.fn(() => okAsync([]));
+
+  const statementStore = { subscribeStatements, queryStatements } as unknown as StatementStoreAdapter;
+
+  const ssoSessionRepository = { add: vi.fn(() => okAsync(undefined)) } as unknown as UserSessionRepository;
+  const userSecretRepository = { write: vi.fn(() => okAsync(undefined)) } as unknown as UserSecretRepository;
+  const deviceIdentityStore = stubDeviceIdentityStore();
 
   const auth = createAuth({
-    metadata: 'test-metadata',
-    hostMetadata: { hostVersion: '1.0', osType: 'iOS', osVersion: '18' },
-    statementStore: statementStore as unknown as StatementStoreAdapter,
-    ssoSessionRepository: ssoSessionRepository as unknown as UserSessionRepository,
-    userSecretRepository: userSecretRepository as unknown as UserSecretRepository,
+    hostMetadata: { hostName: 'Test Host' },
+    deviceIdentity: makeDeviceIdentity,
+    deviceIdentityStore,
+    statementStore,
+    ssoSessionRepository,
+    userSecretRepository,
+    onAuthSuccess: overrides.onAuthSuccess,
   });
 
   return {
     auth,
-    statementStore,
+    subscribeStatements,
+    queryStatements,
+    unsubscribe,
     ssoSessionRepository,
     userSecretRepository,
-    subscribeStatements,
-    unsubscribe,
-    async waitForSubscription(times = 1) {
-      await vi.waitFor(() => expect(subscribeStatements).toHaveBeenCalledTimes(times));
+    deviceIdentityStore,
+    async waitForSubscription() {
+      await vi.waitFor(() => expect(subscribeStatements).toHaveBeenCalledTimes(1));
     },
-    deliverHandshake() {
+    deliver(statements: Statement[]) {
       if (!deliver) throw new Error('subscribeStatements not yet called');
-      deliver([{ data: new Uint8Array([0xde, 0xad]) } as Statement]);
-    },
-    deliverPage(statements: Statement[]) {
-      if (!deliver) throw new Error('subscribeStatements not yet called');
-      deliver(statements);
+      deliver({ statements, isComplete: true });
     },
   };
-}
-
-beforeEach(() => {
-  mocks.decrypt.mockReset().mockReturnValue(ok(new Uint8Array([7, 7, 7])));
-  mocks.generateMnemonic.mockReset().mockReturnValue('test mnemonic');
-  mocks.handshakeEnc.mockReset().mockReturnValue(new Uint8Array([0xab, 0xcd]));
-  mocks.responsePayloadDec.mockReset().mockReturnValue({
-    tag: 'v1',
-    value: { encrypted: new Uint8Array([1, 2]), tmpKey: new Uint8Array(65) },
-  });
-  mocks.responseSensitiveDec.mockReset().mockReturnValue({
-    sharedSecretDerivationKey: new Uint8Array(65),
-    rootUserAccountId: new Uint8Array(32),
-    identityAccountId: new Uint8Array(32),
-  });
-});
+};
 
 describe('createAuth', () => {
   describe('initial state', () => {
@@ -146,193 +125,137 @@ describe('createAuth', () => {
   describe('authenticate (success path)', () => {
     it('returns the same in-flight ResultAsync on concurrent calls', () => {
       const { auth } = buildHarness();
-
       const first = auth.authenticate();
       const second = auth.authenticate();
-
       expect(second).toBe(first);
     });
 
-    it('resolves with stored session and persists secrets and session', async () => {
+    it('persists the session and resolves with a StoredUserSession on Success', async () => {
       const harness = buildHarness();
-      const { auth, ssoSessionRepository, userSecretRepository } = harness;
-
-      const promise = auth.authenticate();
+      const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      harness.deliverHandshake();
+      harness.deliver([buildSuccessStatement()]);
 
       const result = await promise;
-
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toMatchObject({ id: 'session-id-1' });
-      expect(userSecretRepository.write).toHaveBeenCalledWith(
-        'session-id-1',
-        expect.objectContaining({
-          ssSecret: expect.any(Uint8Array),
-          encrSecret: expect.any(Uint8Array),
-          entropy: expect.any(Uint8Array),
-        }),
-      );
-      expect(ssoSessionRepository.add).toHaveBeenCalledWith(expect.objectContaining({ id: 'session-id-1' }));
+      const session = result._unsafeUnwrap();
+      expect(session).not.toBeNull();
+      expect(session!.identityAccountId).toEqual(IDENTITY_ACCT);
+      expect(session!.remoteAccount.accountId).toEqual(new Uint8Array(32).fill(0x44));
+      expect(harness.ssoSessionRepository.add).toHaveBeenCalledOnce();
+      expect(harness.userSecretRepository.write).toHaveBeenCalledOnce();
+      const secretsCall = (harness.userSecretRepository.write as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(secretsCall?.[1]).toMatchObject({ identityChatPrivateKey: IDENTITY_CHAT_PRIV });
     });
 
-    it('caches the resolved result so subsequent calls return the same ResultAsync', async () => {
+    it('emits pairingStatus transitions: none -> initial -> pairing(deeplink) -> finished(session)', async () => {
       const harness = buildHarness();
-      const { auth } = harness;
+      const observed: { step: string; payload?: string; session?: { id: string } }[] = [];
+      harness.auth.pairingStatus.subscribe(s => observed.push(s as never));
 
-      const promise = auth.authenticate();
+      const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      harness.deliverHandshake();
-      await promise;
-
-      const second = auth.authenticate();
-      expect(second).toBe(promise);
-      expect(mocks.generateMnemonic).toHaveBeenCalledTimes(1);
-    });
-
-    it('emits pairingStatus transitions: none -> initial -> pairing(deeplink) -> finished', async () => {
-      const harness = buildHarness();
-      const { auth } = harness;
-      const observed: Array<{ step: string; payload?: string }> = [];
-      auth.pairingStatus.subscribe(s => observed.push(s as never));
-
-      const promise = auth.authenticate();
-      await harness.waitForSubscription();
-      harness.deliverHandshake();
+      harness.deliver([buildSuccessStatement()]);
       await promise;
 
       const steps = observed.map(s => s.step);
       expect(steps[0]).toBe('none');
       expect(steps).toContain('initial');
       const pairing = observed.find(s => s.step === 'pairing');
-      expect(pairing?.payload).toBe('polkadotapp://pair?handshake=0xabcd');
-      expect(steps.at(-1)).toBe('finished');
+      expect(pairing?.payload).toMatch(/^polkadotapp:\/\/pair\?handshake=/);
+      const finished = observed.find(s => s.step === 'finished');
+      expect(finished?.session).toBeDefined();
+      expect(finished?.session?.id).toBeTypeOf('string');
     });
 
-    it('skips statements with no data and resolves on the first decryptable one', async () => {
-      const harness = buildHarness();
-      const { auth, ssoSessionRepository } = harness;
+    it('runs the onAuthSuccess hook with session + identityChatPrivateKey after internal persistence', async () => {
+      const onAuthSuccess = vi.fn(() => Promise.resolve());
+      const harness = buildHarness({ onAuthSuccess });
 
-      const promise = auth.authenticate();
+      const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      harness.deliverPage([{ data: undefined } as Statement, { data: new Uint8Array([1, 2, 3]) } as Statement]);
+      harness.deliver([buildSuccessStatement()]);
       const result = await promise;
 
       expect(result.isOk()).toBe(true);
-      expect(ssoSessionRepository.add).toHaveBeenCalledTimes(1);
+      expect(onAuthSuccess).toHaveBeenCalledTimes(1);
+      const arg = (
+        onAuthSuccess.mock.calls[0] as unknown as [{ session: { id: string }; identityChatPrivateKey: Uint8Array }]
+      )[0];
+      expect(arg.session.id).toBeTypeOf('string');
+      expect(arg.identityChatPrivateKey).toEqual(IDENTITY_CHAT_PRIV);
+    });
+
+    it('fails authenticate when onAuthSuccess throws', async () => {
+      const onAuthSuccess = vi.fn(() => Promise.reject(new Error('hook boom')));
+      const harness = buildHarness({ onAuthSuccess });
+
+      const promise = harness.auth.authenticate();
+      await harness.waitForSubscription();
+      harness.deliver([buildSuccessStatement()]);
+
+      const result = await promise;
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr().message).toBe('hook boom');
+      expect(harness.auth.pairingStatus.read()).toEqual({ step: 'pairingError', message: 'hook boom' });
     });
   });
 
   describe('authenticate (error paths)', () => {
-    it('publishes pairingError when retrieving the session throws', async () => {
-      mocks.responsePayloadDec.mockImplementation(() => {
-        throw new Error('payload broken');
-      });
+    it('publishes pairingError on a Failed inner response', async () => {
       const harness = buildHarness();
-      const { auth } = harness;
+      const failedStatement: Statement = {
+        data: VersionedHandshakeResponse.enc({
+          tag: 'V2',
+          value: (() => {
+            const enc = createEncryption(
+              p256.getSharedSecret(new Uint8Array(32).fill(0x66), DEVICE_ENC_PUB).slice(1, 33) as never,
+            );
+            // Failed body = enum index 2 + SCALE-compact length (8 << 2 = 0x20) + "declined"
+            const failedPayload = new Uint8Array([2, 0x20, 0x64, 0x65, 0x63, 0x6c, 0x69, 0x6e, 0x65, 0x64]);
+            return {
+              encrypted: enc.encrypt(failedPayload)._unsafeUnwrap(),
+              tmpKey: p256.getPublicKey(new Uint8Array(32).fill(0x66), false),
+            };
+          })(),
+        }),
+        proof: { type: 'sr25519', value: { signature: '0x' + '00'.repeat(64), signer: PEER_STMT_ACCT_HEX } },
+      } as Statement;
 
-      const promise = auth.authenticate();
+      const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      harness.deliverHandshake();
+      harness.deliver([failedStatement]);
+
       const result = await promise;
-
       expect(result.isErr()).toBe(true);
-      expect(auth.pairingStatus.read()).toEqual({
-        step: 'pairingError',
-        message: 'payload broken',
-      });
-    });
-
-    it('publishes pairingError when payload encoding throws synchronously', async () => {
-      mocks.handshakeEnc.mockImplementation(() => {
-        throw new Error('encode broken');
-      });
-      const { auth } = buildHarness();
-
-      const result = await auth.authenticate();
-
-      expect(result.isErr()).toBe(true);
-      expect(auth.pairingStatus.read()).toEqual({
-        step: 'pairingError',
-        message: 'encode broken',
-      });
-    });
-
-    it('does not persist secrets or session when handshake fails', async () => {
-      mocks.handshakeEnc.mockImplementation(() => {
-        throw new Error('encode broken');
-      });
-      const harness = buildHarness();
-      const { auth, userSecretRepository, ssoSessionRepository } = harness;
-
-      await auth.authenticate();
-
-      expect(userSecretRepository.write).not.toHaveBeenCalled();
-      expect(ssoSessionRepository.add).not.toHaveBeenCalled();
+      expect(harness.auth.pairingStatus.read()).toEqual({ step: 'pairingError', message: 'declined' });
     });
   });
 
   describe('abortAuthentication', () => {
-    it('resolves the in-flight authenticate with ok(null)', async () => {
+    it('resolves the in-flight authenticate with ok(null) and resets status', async () => {
       const harness = buildHarness();
-      const { auth } = harness;
-
-      const promise = auth.authenticate();
+      const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      auth.abortAuthentication();
-      // a page must arrive for the subscribe callback to observe the aborted signal
-      harness.deliverPage([]);
+      harness.auth.abortAuthentication();
 
       const result = await promise;
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toBeNull();
-    });
-
-    it('resets pairing status', async () => {
-      const harness = buildHarness();
-      const { auth } = harness;
-
-      const promise = auth.authenticate();
-      await harness.waitForSubscription();
-      auth.abortAuthentication();
-      harness.deliverPage([]);
-      await promise;
-
-      expect(auth.pairingStatus.read()).toEqual({ step: 'none' });
-    });
-
-    it('does not transition pairingStatus to error state on user abort', async () => {
-      const harness = buildHarness();
-      const { auth } = harness;
-      const pairing: Array<{ step: string }> = [];
-      auth.pairingStatus.subscribe(s => pairing.push(s as never));
-
-      const promise = auth.authenticate();
-      await harness.waitForSubscription();
-      auth.abortAuthentication();
-      harness.deliverPage([]);
-      await promise;
-
-      expect(pairing.some(s => s.step === 'pairingError')).toBe(false);
+      expect(harness.auth.pairingStatus.read()).toEqual({ step: 'none' });
     });
 
     it('clears the cached result so the next call starts a fresh attempt', async () => {
       const harness = buildHarness();
-      const { auth } = harness;
-
-      const first = auth.authenticate();
+      const first = harness.auth.authenticate();
       await harness.waitForSubscription();
-      auth.abortAuthentication();
-      harness.deliverPage([]);
+      harness.auth.abortAuthentication();
       await first;
 
-      const second = auth.authenticate();
+      const second = harness.auth.authenticate();
       expect(second).not.toBe(first);
-      expect(mocks.generateMnemonic).toHaveBeenCalledTimes(2);
-
-      auth.abortAuthentication();
-      await harness.waitForSubscription(2);
-      harness.deliverPage([]);
+      await vi.waitFor(() => expect(harness.subscribeStatements).toHaveBeenCalledTimes(2));
+      harness.auth.abortAuthentication();
       await second;
     });
 
@@ -343,6 +266,35 @@ describe('createAuth', () => {
     });
   });
 
+  describe('default deviceIdentity', () => {
+    it('falls back to deviceIdentityStore.loadOrCreate when no deviceIdentity factory is provided', async () => {
+      let deliver: Deliver | null = null;
+      const unsubscribe = vi.fn();
+      const subscribeStatements = vi.fn((_filter: unknown, onPage: Deliver) => {
+        deliver = onPage;
+        return unsubscribe;
+      });
+      const queryStatements = vi.fn(() => okAsync([]));
+      const statementStore = { subscribeStatements, queryStatements } as unknown as StatementStoreAdapter;
+      const ssoSessionRepository = { add: vi.fn(() => okAsync(undefined)) } as unknown as UserSessionRepository;
+      const userSecretRepository = { write: vi.fn(() => okAsync(undefined)) } as unknown as UserSecretRepository;
+      const deviceIdentityStore = stubDeviceIdentityStore();
+
+      const auth = createAuth({
+        deviceIdentityStore,
+        statementStore,
+        ssoSessionRepository,
+        userSecretRepository,
+      });
+
+      const promise = auth.authenticate();
+      await vi.waitFor(() => expect(subscribeStatements).toHaveBeenCalledTimes(1));
+      expect(deviceIdentityStore.loadOrCreate).toHaveBeenCalledOnce();
+      if (deliver) (deliver as Deliver)({ statements: [buildSuccessStatement()], isComplete: true });
+      await promise;
+    });
+  });
+
   describe('debug emits', () => {
     function captureEvents() {
       const events: HostPappDebugEvent[] = [];
@@ -350,14 +302,13 @@ describe('createAuth', () => {
       return { events, unsubscribe };
     }
 
-    it('emits pairing_started and attestation.started eagerly when authenticate() is called', () => {
+    it('emits pairing_started eagerly when authenticate() is called', async () => {
       const { auth } = buildHarness();
       const { events, unsubscribe } = captureEvents();
       try {
         void auth.authenticate();
-
-        expect(events.find(e => e.layer === 'sso' && e.event === 'pairing_started')).toMatchObject({
-          payload: { metadata: 'test-metadata' },
+        await vi.waitFor(() => {
+          expect(events.find(e => e.layer === 'sso' && e.event === 'pairing_started')).toBeTruthy();
         });
       } finally {
         auth.abortAuthentication();
@@ -365,13 +316,13 @@ describe('createAuth', () => {
       }
     });
 
-    it('emits the full SSO pairing sequence and attestation.completed on a successful authenticate', async () => {
+    it('emits the full SSO pairing sequence on a successful authenticate', async () => {
       const harness = buildHarness();
       const { events, unsubscribe } = captureEvents();
       try {
         const promise = harness.auth.authenticate();
         await harness.waitForSubscription();
-        harness.deliverHandshake();
+        harness.deliver([buildSuccessStatement()]);
         const result = await promise;
         expect(result.isOk()).toBe(true);
 
@@ -388,23 +339,25 @@ describe('createAuth', () => {
       }
     });
 
-    it('does not emit pairing_failed or attestation.failed when authentication is aborted by the user', async () => {
+    it('does not emit pairing_failed when authentication is aborted by the user', async () => {
       const harness = buildHarness();
       const { events, unsubscribe } = captureEvents();
       try {
         const promise = harness.auth.authenticate();
         await harness.waitForSubscription();
         harness.auth.abortAuthentication();
-        harness.deliverPage([]);
         const result = await promise;
 
         expect(result.isOk()).toBe(true);
         expect(result._unsafeUnwrap()).toBeNull();
         expect(events.some(e => e.layer === 'sso' && e.event === 'pairing_failed')).toBe(false);
-        expect(events.some(e => e.layer === 'attestation' && e.event === 'failed')).toBe(false);
       } finally {
         unsubscribe();
       }
     });
   });
+});
+
+beforeEach(() => {
+  vi.useRealTimers();
 });

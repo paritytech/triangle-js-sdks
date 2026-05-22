@@ -3,8 +3,10 @@ export { SS_PASEO_STABLE_STAGE_ENDPOINTS, SS_PREVIEW_STAGE_ENDPOINTS, SS_STABLE_
 export type { PappAdapter } from './papp.js';
 export { createPappAdapter } from './papp.js';
 
-export type { HostMetadata } from './sso/auth/impl.js';
+export type { AuthComponent, HostMetadata, OnAuthSuccess } from './sso/auth/impl.js';
 export type { PairingStatus } from './sso/auth/types.js';
+export type { DeviceIdentityForPairing } from './sso/auth/v2/service.js';
+
 export type { UserSession } from './sso/sessionManager/userSession.js';
 export type { StoredUserSession } from './sso/userSessionRepository.js';
 export type { Identity } from './identity/types.js';

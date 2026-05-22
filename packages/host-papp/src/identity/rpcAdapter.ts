@@ -33,10 +33,19 @@ export function createIdentityRpcAdapter(lazyClient: LazyClient): IdentityAdapte
 
         return ok(
           Object.fromEntries(
-            zipWith([accounts, results], x => x).map<[string, Identity | null]>(([accountId, raw]) => {
-              if (!raw) {
+            zipWith([accounts, results], x => x).map<[string, Identity | null]>(([accountId, typedRaw]) => {
+              if (!typedRaw) {
                 return [accountId, null];
               }
+
+              // Runtime metadata may expose fields in snake_case (V1) or
+              // camelCase (V2 multi-device). Read defensively. The .papi
+              // descriptor only types snake_case, so widen here.
+              const raw = typedRaw as unknown as Record<string, unknown> & typeof typedRaw;
+              const fullUsername =
+                (raw.full_username as Uint8Array | undefined) ?? (raw.fullUsername as Uint8Array | undefined);
+              const liteUsername =
+                (raw.lite_username as Uint8Array | undefined) ?? (raw.liteUsername as Uint8Array | undefined);
 
               const credibility: Credibility =
                 raw.credibility.type == 'Lite'
@@ -46,15 +55,16 @@ export function createIdentityRpcAdapter(lazyClient: LazyClient): IdentityAdapte
                   : {
                       type: 'Person',
                       alias: raw.credibility.value.alias as HexString,
-                      lastUpdate: raw.credibility.value.last_update.toString(),
+                      lastUpdate: ((raw.credibility.value as Record<string, unknown>).last_update ??
+                        (raw.credibility.value as Record<string, unknown>).lastUpdate)!.toString(),
                     };
 
               return [
                 accountId,
                 {
                   accountId: accountId,
-                  fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
-                  liteUsername: textDecoder.decode(raw.lite_username),
+                  fullUsername: fullUsername ? textDecoder.decode(fullUsername) : null,
+                  liteUsername: liteUsername ? textDecoder.decode(liteUsername) : '',
                   credibility,
                 },
               ];
