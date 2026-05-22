@@ -1,297 +1,102 @@
-# @novasamatech/host-container
+# @novasamatech/host-chat
 
-A robust solution for hosting and managing decentralized applications (dapps) within the Polkadot ecosystem.
+Account lookup and chat-message codecs for host applications integrating with the Polkadot People chain.
 
 ## Overview
 
-Host container provides the infrastructure layer for securely embedding and communicating with third-party dapps.
-It handles the isolation boundary, message routing, lifecycle management, and security concerns inherent in hosting untrusted web content.
+`@novasamatech/host-chat` exposes the read side of the chat domain: discovering Polkadot
+accounts by username and resolving their on-chain identity from `Resources.Consumers`. It
+also publishes the SCALE codecs used by the chat wire protocol (messages, attachments,
+local-message envelopes) so host applications can decode statements they receive over the
+statement store.
+
+The package is UI-framework agnostic. The main entry point returns plain async functions
+backed by [`neverthrow`](https://github.com/supermacro/neverthrow) `ResultAsync`, and the
+codec exports are pure SCALE codecs with no runtime side effects.
 
 ## Installation
 
 ```shell
-npm install @novasamatech/host-container --save -E
+npm install @novasamatech/host-chat --save -E
 ```
 
-### Basic Container Setup
+## Getting started
 
 ```ts
-import { createContainer, createIframeProvider } from '@novasamatech/host-container';
+import { createAccountService } from '@novasamatech/host-chat';
+import { createLazyClient } from '@novasamatech/statement-store';
 
-const iframe = document.createElement('iframe');
+const lazyClient = createLazyClient(/* chain provider */);
+const accounts = createAccountService('paseo-next-v2', lazyClient);
 
-const provider = createIframeProvider({
-  iframe,
-  url: 'https://dapp.example.com'
-});
-const container = createContainer(provider);
-
-document.body.appendChild(iframe);
-```
-
-## API reference
-
-### handleFeature
-
-```ts
-container.handleFeature((params, { ok, err }) => {
-  if (params.tag === 'Chat') {
-    return ok(supportedChains.has(params.value));
+// Search the off-chain username index for accounts whose username starts with `alice`.
+const search = await accounts.search('alice', 'ASSIGNED');
+if (search.isOk()) {
+  for (const hit of search.value) {
+    console.log(hit.candidateAccountId, hit.username);
   }
-  return ok(false);
-});
-```
+}
 
-### handlePermissionRequest
-
-```ts
-container.handlePermissionRequest(async (params, { ok, err }) => {
-  if (params.tag === 'ChainConnect') {
-    // Show permission dialog to user
-    const approved = await showPermissionDialog(params.value);
-    return approved ? ok(undefined) : err({ tag: 'Rejected' });
-  }
-  return err({ tag: 'Unknown', value: { reason: 'Unsupported permission type' } });
-});
-```
-
-### handleStorageRead
-
-```ts
-container.handleStorageRead(async (key, { ok, err }) => {
-  const value = await storage.get(key);
-  return ok(value ?? null);
-});
-```
-
-### handleStorageWrite
-
-```ts
-container.handleStorageWrite(async ([key, value], { ok, err }) => {
-  try {
-    await storage.set(key, value);
-    return ok(undefined);
-  } catch (e) {
-    return err({ tag: 'Full' });
-  }
-});
-```
-
-### handleStorageClear
-
-```ts
-container.handleStorageClear(async (key, { ok, err }) => {
-  await storage.delete(key);
-  return ok(undefined);
-});
-```
-
-### handleAccountGet
-
-```ts
-container.handleAccountGet(async ([dotnsId, derivationIndex], { ok, err }) => {
-  const account = await getProductAccount(dotnsId, derivationIndex);
-  if (account) {
-    return ok({ publicKey: account.publicKey, name: account.name ?? null });
-  }
-  return err({ tag: 'NotConnected' });
-});
-```
-
-### handleAccountGetAlias
-
-```ts
-container.handleAccountGetAlias(async ([dotnsId, derivationIndex], { ok, err }) => {
-  const alias = await getAccountAlias(dotnsId, derivationIndex);
-  if (alias) {
-    return ok({ context: alias.context, alias: alias.alias });
-  }
-  return err(new RequestCredentialsErr.NotConnected());
-});
-```
-
-### handleAccountCreateProof
-
-```ts
-container.handleAccountCreateProof(async ([[dotnsId, derivationIndex], ringLocation, message], { ok, err }) => {
-  try {
-    const proof = await createRingProof(dotnsId, derivationIndex, ringLocation, message);
-    return ok(proof);
-  } catch (e) {
-    return err({ tag: 'RingNotFound' });
-  }
-});
-```
-
-### handleGetLegacyAccounts
-
-```ts
-container.handleGetLegacyAccounts(async (_, { ok, err }) => {
-  const accounts = await getLegacyAccounts();
-  return ok(accounts);
-});
-```
-
-### handleCreateTransaction
-
-```ts
-container.handleCreateTransaction(async ([productAccountId, payload], { ok, err }) => {
-  try {
-    const signedTx = await createTransaction(productAccountId, payload);
-    return ok(signedTx);
-  } catch (e) {
-    return err({ tag: 'Rejected' });
-  }
-});
-```
-
-### handleCreateTransactionWithLegacyAccount
-
-```ts
-container.handleCreateTransactionWithLegacyAccount(async (payload, { ok, err }) => {
-  try {
-    const signedTx = await createTransactionWithLegacyAccount(payload);
-    return ok(signedTx);
-  } catch (e) {
-    return err({ tag: 'Rejected' });
-  }
-});
-```
-
-### handleSignRaw
-
-```ts
-container.handleSignRaw(async (payload, { ok, err }) => {
-  try {
-    const result = await signRaw(payload);
-    return ok({ signature: result.signature, signedTransaction: result.signedTransaction });
-  } catch (e) {
-    return err({ tag: 'Rejected' });
-  }
-});
-```
-
-### handleSignPayload
-
-```ts
-container.handleSignPayload(async (payload, { ok, err }) => {
-  try {
-    const result = await signPayload(payload);
-    return ok({ signature: result.signature, signedTransaction: result.signedTransaction ?? null });
-  } catch (e) {
-    return err({ tag: 'Rejected' });
-  }
-});
-```
-
-### handleChatCreateContact
-
-```ts
-container.handleChatCreateContact(async (contact, { ok, err }) => {
-  await chatService.registerContact(contact);
-  return ok(undefined);
-});
-```
-
-### handleChatPostMessage
-
-```ts
-container.handleChatPostMessage(async (message, { ok, err }) => {
-  const messageId = await chatService.postMessage(message);
-  return ok({ messageId });
-});
-```
-
-### handleChatActionSubscribe
-
-```ts
-container.handleChatActionSubscribe((_, send, interrupt) => {
-  const listener = (action) => send(action);
-  chatService.on('action', listener);
-  return () => chatService.off('action', listener);
-});
-```
-
-### handleStatementStoreCreateProof
-
-```ts
-container.handleStatementStoreCreateProof(async ([[dotnsId, derivationIndex], statement], { ok, err }) => {
-  try {
-    const proof = await createStatementProof(dotnsId, derivationIndex, statement);
-    return ok(proof);
-  } catch (e) {
-    return err({ tag: 'UnableToSign' });
-  }
-});
-```
-
-### handleJsonRpcMessageSubscribe
-
-```ts
-import { getWsProvider } from 'polkadot-api/ws-provider';
-
-const provider = getWsProvider('wss://rpc.polkadot.io');
-container.handleJsonRpcMessageSubscribe(
-  { genesisHash: '0x...' },
-  provider
-);
-```
-
-### isReady
-
-```ts
-const ready = await container.isReady();
-if (ready) {
-  console.log('Container is ready');
+// Resolve a specific account's on-chain identity.
+const identity = await accounts.getConsumerInfo('5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY');
+if (identity.isOk() && identity.value) {
+  console.log(identity.value.fullUsername, identity.value.credibility);
 }
 ```
 
-### dispose
+### Networks
+
+`createAccountService` accepts one of:
+
+| Network          | People chain endpoint                  |
+| ---------------- | -------------------------------------- |
+| `stable`         | Polkadot People                        |
+| `preview`        | Westend People                         |
+| `paseo-next`     | Paseo People (V1)                      |
+| `paseo-next-v2`  | Paseo People (V2 multi-device)         |
+
+Each network entry pins both the People chain WebSocket URL (used via `lazyClient`) and
+the off-chain identity-backend REST endpoint that `search` queries.
+
+## API
+
+### `createAccountService(network, lazyClient)`
+
+Returns an object with two methods:
+
+- **`search(query, status)`** — query the off-chain username index. `status` is
+  `'ASSIGNED' | 'PENDING'`. Resolves to a list of `{ candidateAccountId, username, status,
+  onchainData, createdAt, updatedAt }` rows.
+- **`getConsumerInfo(address)`** — resolve a single SS58 address to an `Identity`
+  (`{ accountId, fullUsername, liteUsername, credibility }`) by reading
+  `Resources.Consumers` from the People chain. Returns `null` if the account has no
+  consumer entry. Tolerates both snake_case (V1) and camelCase (V2) runtime field names.
+
+Both methods return `ResultAsync<…, Error>`; call `.isOk()` / `.isErr()` to discriminate.
+
+## Codec subpath exports
+
+The chat wire codecs are exposed under explicit subpaths so they can be tree-shaken
+independently of the main entry point:
 
 ```ts
-container.dispose();
+import {
+  ChatMessage,
+  TextContent,
+  RichTextContent,
+  ChatAcceptedContent,
+  DeviceAddedContent,
+  DeviceRemovedContent,
+} from '@novasamatech/host-chat/codec/message';
+
+import {
+  FileMeta,
+  FileVariant,
+  P2PMixnetFile,
+} from '@novasamatech/host-chat/codec/attachment';
+
+import type { ChatSession } from '@novasamatech/host-chat/session';
 ```
 
-### subscribeConnectionStatus
-
-```ts
-const unsubscribe = container.subscribeConnectionStatus((status) => {
-  console.log('Connection status:', status);
-});
-```
-
-## PAPI provider support
-
-Host container supports [PAPI](https://papi.how/) request redirection from product to host container.
-It can be useful to deduplicate socket connections or light client instances between multiple dapps.
-
-To support this feature, you should add two additional handlers to the container:
-
-### Chain support check
-```ts
-const genesisHash = '0x...';
-
-container.handleFeature(async (feature) => {
-  return feature.tag === 'Chain' && feature.value === genesisHash;
-});
-```
-
-### Provider implementation
-
-```ts
-import { getWsProvider } from 'polkadot-api/ws-provider';
-
-const genesisHash = '0x...';
-const provider = getWsProvider('wss://...');
-
-container.connectToPapiProvider(genesisHash, provider);
-```
-
-## Known pitfalls
-
-### CSP error on iframe loading
-If a dapp is hosted on a different domain than the container and uses HTTPS, you should add this meta tag to your host application HTML:
-
-```html
-<meta http-equiv="Content-Security-Policy" content="upgrade-insecure-requests">
-```
+These are byte-compatible with the Android / iOS Polkadot Mobile clients — modify with
+care, the indices are pinned by the protocol.
