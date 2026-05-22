@@ -23,7 +23,7 @@ type AccountService = {
   getConsumerInfo(address: string): ResultAsync<Identity | null, Error>;
 };
 
-type Network = 'paseo-next' | 'preview' | 'stable';
+type Network = 'paseo-next' | 'paseo-next-v2' | 'preview' | 'stable';
 
 type SearchResponse = {
   candidateAccountId: string;
@@ -145,5 +145,11 @@ const NETWORK_CONFIGS: Record<Network, NetworkConfig> = {
     name: 'Paseo Next',
     wsUrl: 'wss://paseo-people-next-rpc.polkadot.io',
     apiUrl: 'https://identity-backend.parity-testnet.parity.io/api/v1',
+  },
+  'paseo-next-v2': {
+    id: 'paseo-next-v2',
+    name: 'Paseo Next V2',
+    wsUrl: 'wss://paseo-people-next-system-rpc.polkadot.io',
+    apiUrl: 'https://identity-backend-next.parity-testnet.parity.io/api/v1',
   },
 };
