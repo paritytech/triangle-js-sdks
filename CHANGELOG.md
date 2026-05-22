@@ -2,17 +2,14 @@
 
 ### 🚀 Features
 
-- **host-papp:** multi-device SSO. `createAuth` / `pappAdapter.sso` keeps the V1 `pairingStatus` / `authenticate()` / `abortAuthentication()` surface — same state transitions, `authenticate()` still resolves to a `StoredUserSession | null`, `pairingStatus.finished` still carries `session`. What's new is the protocol underneath: pairing now runs the V2 multi-device handshake (`VersionedHandshakeProposal::V2` QR proposal, ECDH-encrypted Statement Store response envelope, on-chain `Pending(AllowanceAllocation)` flow). Desktop and web hosts pair with the multi-device iOS/Android Polkadot Mobile builds through the same entry point you've been calling. The V2 codecs, pairing service, and state machine are SDK internals.
-- **host-papp:** the SDK persists the V2 device identity itself. `createPappAdapter` creates and persists a fresh device identity to the configured `StorageAdapter` on first run and reuses it on subsequent launches — no consumer wiring needed. Hosts that want a different persistence backend (Electron Keychain, native secure storage) can override with an optional `deviceIdentity` factory.
-- **host-papp:** the SDK persists pairing-topic statement dedupe state internally too, so stale `Success` statements on chain don't get replayed across launches without consumer plumbing.
-- **host-papp:** `StoredUserSession` gains three optional V2 fields — `identityAccountId` (user identity sr25519 account), `identityChatPublicKey` (P-256 65-byte, derived locally from `identityChatPrivateKey`), and the peer device statement account exposed via `remoteAccount.accountId` — so device-sync and the chat layer can read peer state straight off the session. The matching `identityChatPrivateKey` is persisted into `UserSecretRepository` and passed to the optional `onAuthSuccess` hook for consumers that need it.
-- **host-papp:** new optional `onAuthSuccess` hook on `createPappAdapter` for consumer-specific post-pairing work (telemetry, custom peer caches, device-sync seeding). Fires after the SDK has written the session + secrets to its own repositories. Receives `{ session: StoredUserSession, identityChatPrivateKey: Uint8Array }`.
-- **host-chat:** new `MessageContent` variants at the spec'd indices — `chatAccepted` (14) now carries `{ messageId }` for iOS V1 backward decode; `deviceAdded` (17) `{ statementAccountId, encryptionPublicKey }`; `deviceRemoved` (18) `{ statementAccountId }`; `deviceChatAccepted` (20) `{ requestId, device }` sent on the identity-level session `SessionId(B, A)` encrypted with `K(A, B)` so all of a peer's devices can decrypt without a per-device envelope.
+- **host-papp:** multi-device SSO. SSO pairing now runs the V2 multi-device handshake under the hood, so desktop and web hosts pair with the multi-device iOS/Android Polkadot Mobile builds through the same `createAuth` / `pappAdapter.sso` entry point — `pairingStatus`, `authenticate()`, `abortAuthentication()`, and the `StoredUserSession` returned to consumers are unchanged. The V2 protocol, codecs, and pairing state machine are SDK internals.
+- **host-papp:** the SDK now persists the device identity and pairing-topic dedupe state itself, on the configured `StorageAdapter`, so no extra consumer wiring is needed across launches. Hosts that want a different identity backend (Electron Keychain, native secure storage) can override with an optional `deviceIdentity` factory on `createPappAdapter`.
+- **host-papp:** `StoredUserSession` gains optional V2 fields for the user's identity chat public key and the peer device's statement account, so consumers building device-sync or chat-level features can read peer state straight off the session. A new optional `onAuthSuccess` hook on `createPappAdapter` fires after pairing with `{ session, identityChatPrivateKey }` for consumer-specific post-pairing work (telemetry, custom peer caches, device-sync seeding).
+- **host-chat:** new message variants for the multi-device chat layer — chat-accept now carries the originating message id, and there are new variants for announcing and removing peer devices on the identity-level session, so all of a peer's devices can decrypt without a per-device envelope.
 
 ### 🩹 Fixes
 
-- **host-papp / host-chat:** `identity/rpcAdapter` and `accountService.getConsumerInfo` tolerate both camelCase and snake_case `Resources.Consumers` metadata fields — the V2 multi-device runtime metadata emits camelCase, which previously crashed `raw.stmt_store_slots.map(...)`.
-- **host-chat:** `DeviceAdded` / `DeviceRemoved` use length-prefixed `Bytes()` rather than fixed-size codecs, matching `substrate-sdk-android`'s wire shape for `AccountId` / `EncodedPublicKey` wrapper types (no `@FixedLength`).
+- **host-papp / host-chat:** consumer-info parsing tolerates both camelCase and snake_case `Resources.Consumers` metadata fields — the V2 multi-device runtime metadata emits camelCase, which previously crashed account-resource resolution.
 
 ### ⚠️ Breaking Changes
 
@@ -20,8 +17,8 @@ The migration is essentially two field renames; the auth surface is otherwise un
 
 - **host-papp:** `createPappAdapter` no longer accepts `metadata: string` (the V1 metadata URL) — host name / icon / platform now ride inside `hostMetadata` (sent inline with the V2 QR proposal).
 - **host-papp:** `HostMetadata` reshape — was `{ hostVersion?, osType?, osVersion? }`, now `{ hostName?, hostVersion?, hostIcon?, platformType?, platformVersion?, custom? }`. Map `osType → platformType` and `osVersion → platformVersion` when upgrading.
-- **host-papp:** the V1 SSO handshake is gone. Paired clients on the V1 wire format will not pair against this build — both ends must run the multi-device V2 handshake. (Polkadot Mobile builds with multi-device support are V2.) Persisted V1 SSO sessions don't migrate; they decode short against the extended V2 codec and are wiped on first read, so users need to re-pair.
-- **host-chat:** `MessageContent.chatAccepted` (14) payload changed from `_void` to `{ messageId: string }`. Older clients that emit `_void` will not decode.
+- **host-papp:** the V1 SSO handshake is gone. Both ends must run the multi-device V2 handshake (Polkadot Mobile builds with multi-device support are V2). Persisted V1 SSO sessions don't migrate and are wiped on first read, so users need to re-pair.
+- **host-chat:** the chat-accepted message payload changed shape (now carries the originating message id). Older clients on the V1 form will not decode.
 
 ### ❤️ Thank You
 
