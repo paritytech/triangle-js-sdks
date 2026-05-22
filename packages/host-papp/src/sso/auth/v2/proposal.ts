@@ -8,6 +8,7 @@
  * subscription picks it up.
  */
 
+import { enumValue } from '@novasamatech/scale';
 import { toHex } from 'polkadot-api/utils';
 
 import { VersionedHandshakeProposal } from '../scale/handshakeV2.js';
@@ -25,7 +26,7 @@ export type HandshakeMetadata = {
   hostIcon?: string;
   platformType?: string;
   platformVersion?: string;
-  custom?: { name: string; value: string }[];
+  custom?: Record<string, string>;
 };
 
 type MetadataEntryT = [
@@ -42,32 +43,29 @@ type MetadataEntryT = [
 
 const buildMetadataEntries = (metadata: HandshakeMetadata): MetadataEntryT[] => {
   const entries: MetadataEntryT[] = [];
-  if (metadata.hostName !== undefined) entries.push([{ tag: 'HostName', value: undefined }, metadata.hostName]);
-  if (metadata.hostVersion !== undefined)
-    entries.push([{ tag: 'HostVersion', value: undefined }, metadata.hostVersion]);
-  if (metadata.hostIcon !== undefined) entries.push([{ tag: 'HostIcon', value: undefined }, metadata.hostIcon]);
-  if (metadata.platformType !== undefined)
-    entries.push([{ tag: 'PlatformType', value: undefined }, metadata.platformType]);
+  if (metadata.hostName !== undefined) entries.push([enumValue('HostName', undefined), metadata.hostName]);
+  if (metadata.hostVersion !== undefined) entries.push([enumValue('HostVersion', undefined), metadata.hostVersion]);
+  if (metadata.hostIcon !== undefined) entries.push([enumValue('HostIcon', undefined), metadata.hostIcon]);
+  if (metadata.platformType !== undefined) entries.push([enumValue('PlatformType', undefined), metadata.platformType]);
   if (metadata.platformVersion !== undefined) {
-    entries.push([{ tag: 'PlatformVersion', value: undefined }, metadata.platformVersion]);
+    entries.push([enumValue('PlatformVersion', undefined), metadata.platformVersion]);
   }
-  for (const c of metadata.custom ?? []) {
-    entries.push([{ tag: 'Custom', value: c.name }, c.value]);
+  for (const [key, value] of Object.entries(metadata.custom ?? {})) {
+    entries.push([enumValue('Custom', key), value]);
   }
   return entries;
 };
 
 export const encodeProposal = (device: HandshakeProposalDevice, metadata: HandshakeMetadata): Uint8Array =>
-  VersionedHandshakeProposal.enc({
-    tag: 'V2',
-    value: {
+  VersionedHandshakeProposal.enc(
+    enumValue('V2', {
       device: {
         statementAccountId: device.statementAccountPublicKey,
         encryptionPublicKey: device.encryptionPublicKey,
       },
       metadata: buildMetadataEntries(metadata),
-    },
-  });
+    }),
+  );
 
 export const buildPairingDeeplink = (device: HandshakeProposalDevice, metadata: HandshakeMetadata): string => {
   const bytes = encodeProposal(device, metadata);
