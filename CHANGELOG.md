@@ -1,3 +1,17 @@
+## 0.8.0-1 (2026-05-22)
+
+### 🚀 Features
+
+- multi-device SSO V2 + chat V2 ([#178](https://github.com/paritytech/triangle-js-sdks/pull/178))
+
+### 🩹 Fixes
+
+- **host-chat:** drop private flag so the package is publishable ([#180](https://github.com/paritytech/triangle-js-sdks/pull/180))
+
+### ❤️ Thank You
+
+- Ilya Kalinin
+
 ## 0.8.0 (2026-05-21)
 
 ### 🚀 Features
