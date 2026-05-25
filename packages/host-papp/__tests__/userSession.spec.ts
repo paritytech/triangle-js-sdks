@@ -1,4 +1,5 @@
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
+import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -48,6 +49,7 @@ import type { StoredUserSession } from '../src/sso/userSessionRepository.js';
 
 const SESSION_ID = 'user-session-1';
 const MSG_ID = 'msg-fixed';
+const MAX_SSO_REQUEST_SIZE = 254 * 1024;
 
 function captureEvents() {
   const events: HostPappDebugEvent[] = [];
@@ -75,6 +77,7 @@ function buildSession() {
 }
 
 beforeEach(() => {
+  vi.mocked(createSession).mockClear();
   mocks.nanoid.mockReset().mockReturnValue(MSG_ID);
   mocks.request.mockReset();
   mocks.waitForRequestMessage.mockReset();
@@ -89,6 +92,14 @@ beforeEach(() => {
 // when the corresponding code path runs. If a future refactor drops an emit,
 // the matching assertion below fails.
 describe('createUserSession debug emits', () => {
+  it('configures the statement-store session for mobile-sized SSO requests', () => {
+    buildSession();
+
+    expect(vi.mocked(createSession)).toHaveBeenCalledWith(
+      expect.objectContaining({ maxRequestSize: MAX_SSO_REQUEST_SIZE }),
+    );
+  });
+
   describe('host actions', () => {
     it('signPayload emits host_action_sent then host_action_response_received on success', async () => {
       mocks.request.mockReturnValue(okAsync(undefined));
