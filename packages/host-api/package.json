@@ -24,7 +24,7 @@
   "dependencies": {
     "@novasamatech/scale": "0.8.0-1",
     "nanoevents": "9.1.0",
-    "nanoid": "5.1.9",
+    "nanoid": "5.1.11",
     "neverthrow": "^8.2.0",
     "scale-ts": "1.6.1"
   },

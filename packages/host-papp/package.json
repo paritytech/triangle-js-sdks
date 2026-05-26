@@ -41,7 +41,7 @@
     "@polkadot-api/utils": "^0.4.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.30",
     "nanoevents": "9.1.0",
-    "nanoid": "5.1.9",
+    "nanoid": "5.1.11",
     "neverthrow": "^8.2.0",
     "polkadot-api": ">=2",
     "rxjs": "^7.8.2",
