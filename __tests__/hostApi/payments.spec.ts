@@ -37,6 +37,18 @@ describe('Host API: Payments', () => {
 
       expect(received).toEqual([{ available: 100n }]);
     });
+
+    it('should pass the selected purse to handler', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentBalanceSubscribe>>(() => noop);
+      container.handlePaymentBalanceSubscribe(handler);
+
+      payments.subscribeBalance(noop, 7);
+
+      await delay(50);
+
+      expect(handler).toHaveBeenCalledWith({ purse: 7 }, expect.anything(), expect.anything());
+    });
   });
 
   describe('topUp', () => {
@@ -68,6 +80,21 @@ describe('Host API: Payments', () => {
 
       expect(handler).toHaveBeenCalledWith(
         { amount: 200n, source: { tag: 'ProductAccount', value: 2 } },
+        expect.anything(),
+      );
+    });
+
+    it('should pass the selected purse (into) to handler', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
+        ok(undefined),
+      );
+      container.handlePaymentTopUp(handler);
+
+      await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 }, 5);
+
+      expect(handler).toHaveBeenCalledWith(
+        { into: 5, amount: 200n, source: { tag: 'ProductAccount', value: 2 } },
         expect.anything(),
       );
     });
@@ -115,6 +142,18 @@ describe('Host API: Payments', () => {
       await payments.requestPayment(300n, destination);
 
       expect(handler).toHaveBeenCalledWith({ amount: 300n, destination }, expect.anything());
+    });
+
+    it('should pass the selected purse (from) to handler', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentRequest>>((_params, { ok }) =>
+        ok({ id: 'p-1' }),
+      );
+      container.handlePaymentRequest(handler);
+
+      await payments.requestPayment(300n, destination, 9);
+
+      expect(handler).toHaveBeenCalledWith({ from: 9, amount: 300n, destination }, expect.anything());
     });
 
     it('should reject with Rejected', async () => {
