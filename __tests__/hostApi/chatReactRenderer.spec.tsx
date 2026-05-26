@@ -111,18 +111,18 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
             {/* Box A: contentAlignment, background+Rounded shape, border, fillMaxWidth */}
             <Box
               contentAlignment="topStart"
-              background={{ color: 'backgroundSecondary', shape: { tag: 'Rounded', value: 8 } }}
-              border={{ width: 1, color: 'textTertiary', shape: undefined }}
+              background={{ color: 'bg.surface.container', shape: { tag: 'Rounded', value: 8 } }}
+              border={{ width: 1, color: 'fg.tertiary', shape: undefined }}
               fillMaxWidth
             >
-              <Text style="titleXL" color="textSecondary">
+              <Text style="title.medium.regular" color="fg.secondary">
                 Title
               </Text>
             </Box>
             {/* Box B: background as plain ColorToken, width/height/minWidth/minHeight */}
             <Box
               contentAlignment="center"
-              background="backgroundPrimary"
+              background="bg.surface.main"
               width={40}
               height={40}
               minWidth={20}
@@ -130,25 +130,25 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
             >
               {/* Inner Box: Circle shape, fillMaxWidth + fillMaxHeight */}
               <Box
-                background={{ color: 'backgroundTertiary', shape: { tag: 'Circle', value: undefined } }}
+                background={{ color: 'bg.surface.nested', shape: { tag: 'Circle', value: undefined } }}
                 fillMaxWidth
                 fillMaxHeight
               />
             </Box>
             {/* Row: verticalAlignment, horizontalArrangement, margin; covers bodyM/bodyS/caption + success/warning/error */}
             <Row verticalAlignment="bottom" horizontalArrangement="spaceEvenly" margin={8}>
-              <Text style="bodyM" color="success">
+              <Text style="body.medium.regular" color="fg.success">
                 Item A
               </Text>
               <Spacer width={8} height={4} />
-              <Text style="bodyS" color="warning">
+              <Text style="body.small.regular" color="fg.warning">
                 Item B
               </Text>
-              <Text style="caption" color="error">
+              <Text style="body.small.regular" color="fg.error">
                 Item C
               </Text>
             </Row>
-            <Text style="headline" color="textPrimary">
+            <Text style="headline.large" color="fg.primary">
               Balance: 100 DOT
             </Text>
             {/* Spacer with fillMaxHeight */}
@@ -221,26 +221,26 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     const boxAMods = boxA.value.modifiers as RendererModifier[];
     expect(boxAMods).toContainEqual({
       tag: 'background',
-      value: { color: 'backgroundSecondary', shape: { tag: 'Rounded', value: 8 } },
+      value: { color: 'bg.surface.container', shape: { tag: 'Rounded', value: 8 } },
     });
     expect(boxAMods).toContainEqual({
       tag: 'border',
-      value: { width: 1, color: 'textTertiary', shape: undefined },
+      value: { width: 1, color: 'fg.tertiary', shape: undefined },
     });
     expect(boxAMods).toContainEqual({ tag: 'fillWidth', value: true });
 
-    // Box A > Text: titleXL + textSecondary
+    // Box A > Text: title.medium.regular + fg.secondary
     const boxAText = boxA.value.children[0];
     expect(boxAText.tag).toBe('Text');
-    expect(boxAText.value.props.style).toBe('titleXL');
-    expect(boxAText.value.props.color).toBe('textSecondary');
+    expect(boxAText.value.props.style).toBe('title.medium.regular');
+    expect(boxAText.value.props.color).toBe('fg.secondary');
     expect(boxAText.value.children[0]).toEqual({ tag: 'String', value: 'Title' });
 
     // Box B: contentAlignment, background as plain color token, width/height/minWidth/minHeight
     expect(boxB.tag).toBe('Box');
     expect(boxB.value.props.contentAlignment).toBe('center');
     const boxBMods = boxB.value.modifiers as RendererModifier[];
-    expect(boxBMods).toContainEqual({ tag: 'background', value: { color: 'backgroundPrimary', shape: undefined } });
+    expect(boxBMods).toContainEqual({ tag: 'background', value: { color: 'bg.surface.main', shape: undefined } });
     expect(boxBMods).toContainEqual({ tag: 'width', value: 40 });
     expect(boxBMods).toContainEqual({ tag: 'height', value: 40 });
     expect(boxBMods).toContainEqual({ tag: 'minWidth', value: 20 });
@@ -252,7 +252,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     const innerBoxMods = innerBox.value.modifiers as RendererModifier[];
     expect(innerBoxMods).toContainEqual({
       tag: 'background',
-      value: { color: 'backgroundTertiary', shape: { tag: 'Circle', value: undefined } },
+      value: { color: 'bg.surface.nested', shape: { tag: 'Circle', value: undefined } },
     });
     expect(innerBoxMods).toContainEqual({ tag: 'fillWidth', value: true });
     expect(innerBoxMods).toContainEqual({ tag: 'fillHeight', value: true });
@@ -267,8 +267,8 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     // Row > Text: bodyM + success
     const rowTextA = rowNode.value.children[0];
     expect(rowTextA.tag).toBe('Text');
-    expect(rowTextA.value.props.style).toBe('bodyM');
-    expect(rowTextA.value.props.color).toBe('success');
+    expect(rowTextA.value.props.style).toBe('body.medium.regular');
+    expect(rowTextA.value.props.color).toBe('fg.success');
     expect(rowTextA.value.children[0]).toEqual({ tag: 'String', value: 'Item A' });
 
     // Row > Spacer: width + height modifiers
@@ -281,21 +281,21 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     // Row > Text: bodyS + warning
     const rowTextB = rowNode.value.children[2];
     expect(rowTextB.tag).toBe('Text');
-    expect(rowTextB.value.props.style).toBe('bodyS');
-    expect(rowTextB.value.props.color).toBe('warning');
+    expect(rowTextB.value.props.style).toBe('body.small.regular');
+    expect(rowTextB.value.props.color).toBe('fg.warning');
     expect(rowTextB.value.children[0]).toEqual({ tag: 'String', value: 'Item B' });
 
     // Row > Text: caption + error
     const rowTextC = rowNode.value.children[3];
     expect(rowTextC.tag).toBe('Text');
-    expect(rowTextC.value.props.style).toBe('caption');
-    expect(rowTextC.value.props.color).toBe('error');
+    expect(rowTextC.value.props.style).toBe('body.small.regular');
+    expect(rowTextC.value.props.color).toBe('fg.error');
     expect(rowTextC.value.children[0]).toEqual({ tag: 'String', value: 'Item C' });
 
-    // Text: headline + textPrimary
+    // Text: headline.large + fg.primary
     expect(headlineText.tag).toBe('Text');
-    expect(headlineText.value.props.style).toBe('headline');
-    expect(headlineText.value.props.color).toBe('textPrimary');
+    expect(headlineText.value.props.style).toBe('headline.large');
+    expect(headlineText.value.props.color).toBe('fg.primary');
     expect(headlineText.value.children[0]).toEqual({ tag: 'String', value: 'Balance: 100 DOT' });
 
     // Spacer: fillMaxHeight

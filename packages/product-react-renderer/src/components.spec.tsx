@@ -117,10 +117,10 @@ describe('custom components', () => {
 
   describe('Text', () => {
     it('serializes style and color props', async () => {
-      const { node } = await mount(<Text style="headline" color="textPrimary" />);
+      const { node } = await mount(<Text style="headline.large" color="fg.primary" />);
       expect(node.tag).toBe('Text');
-      expect(node.value.props.style).toBe('headline');
-      expect(node.value.props.color).toBe('textPrimary');
+      expect(node.value.props.style).toBe('headline.large');
+      expect(node.value.props.color).toBe('fg.primary');
     });
 
     it('renders text content as a String child', async () => {
