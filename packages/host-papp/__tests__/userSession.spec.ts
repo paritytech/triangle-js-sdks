@@ -1,5 +1,4 @@
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
-import { createSession } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
@@ -76,7 +75,6 @@ function buildSession() {
 }
 
 beforeEach(() => {
-  vi.mocked(createSession).mockClear();
   mocks.nanoid.mockReset().mockReturnValue(MSG_ID);
   mocks.request.mockReset();
   mocks.waitForRequestMessage.mockReset();
