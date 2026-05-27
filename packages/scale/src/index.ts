@@ -1,3 +1,5 @@
+export { compact } from './compact.js';
+
 export { lazy } from './lazy.js';
 
 export type { HexString } from './hex.js';
@@ -13,6 +15,9 @@ export { Status } from './status.js';
 
 export type { EnumCodec } from './enum.js';
 export { Enum } from './enum.js';
+
+export type { CompactEnumCodec } from './compactEnum.js';
+export { CompactEnum } from './compactEnum.js';
 
 export type { CodecError, ErrCodec } from './err.js';
 export { Err } from './err.js';

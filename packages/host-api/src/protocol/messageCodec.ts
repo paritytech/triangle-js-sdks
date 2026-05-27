@@ -1,5 +1,5 @@
-import type { EnumCodec } from '@novasamatech/scale';
-import { Enum } from '@novasamatech/scale';
+import type { CompactEnumCodec } from '@novasamatech/scale';
+import { CompactEnum } from '@novasamatech/scale';
 import type { Codec, CodecType } from 'scale-ts';
 import { Struct, _void, str } from 'scale-ts';
 
@@ -34,7 +34,7 @@ type HostApiPayloadFields = UnionToIntersection<
   }[keyof HostApiProtocol]
 >;
 
-const createPayload = (hostApi: HostApiProtocol): EnumCodec<HostApiPayloadFields> => {
+const createPayload = (hostApi: HostApiProtocol): CompactEnumCodec<HostApiPayloadFields> => {
   const fields: Record<string, Codec<any>> = {};
 
   for (const [method, payload] of Object.entries(hostApi)) {
@@ -50,10 +50,10 @@ const createPayload = (hostApi: HostApiProtocol): EnumCodec<HostApiPayloadFields
     }
   }
 
-  return Enum(fields as HostApiPayloadFields);
+  return CompactEnum(fields as HostApiPayloadFields);
 };
 
-export type MessagePayloadSchema = CodecType<EnumCodec<HostApiPayloadFields>>;
+export type MessagePayloadSchema = CodecType<CompactEnumCodec<HostApiPayloadFields>>;
 
 export const MessagePayload = createPayload(hostApiProtocol);
 
