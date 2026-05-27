@@ -84,6 +84,46 @@ export const DeviceChatAcceptedContent = Struct({
   device: DeviceInfoContent,
 });
 
+// WebRTC data-channel signalling carried as chat-content variants. Android's
+// `ChatMessageStatementContent.DataChannelOffer/Answer/IceCandidate/Closed`
+// use plain `ByteArray` (no `@FixedLength`), which substrate-sdk-android
+// encodes as length-prefixed `Vec<u8>`. None of these are interpreted by
+// the host on desktop, but the codecs must consume the payload bytes so
+// that any sync/chat envelope mixing them with other variants still decodes
+// cleanly — leaving these as `_void` mis-advances the decoder by N bytes
+// and corrupts every following entry in the envelope.
+export const DataChannelPurpose = Status('AUDIO_CALL', 'VIDEO_CALL');
+
+export const DataChannelOfferContent = Struct({
+  sdp: Bytes(),
+  purpose: DataChannelPurpose,
+});
+
+export const DataChannelAnswerContent = Struct({
+  offerMessageId: str,
+  sdp: Bytes(),
+});
+
+export const DataChannelIceCandidateContent = Struct({
+  offerMessageId: str,
+  sdp: Bytes(),
+});
+
+export const DataChannelClosedContent = Struct({
+  offerMessageId: str,
+});
+
+// Android `CoinagePayment` (index 16):
+//   { totalValue: Balance (compact-encoded), coinKeys: Vec<Vec<u8>> }
+// Desktop doesn't act on coinage, but the codec must consume the payload
+// for the same reason as the data-channel variants above — otherwise a
+// sync `SyncEntity::Messages` carrying a coinage message wipes out every
+// following message in the same envelope at decode time.
+export const CoinagePaymentContent = Struct({
+  totalValue: compact,
+  coinKeys: Vector(Bytes()),
+});
+
 // Note: enum indices MUST match iOS/Android SCALE codecs.
 // Indices are auto-assigned sequentially, so order matters.
 export const MessageContent = Enum({
@@ -95,15 +135,15 @@ export const MessageContent = Enum({
   reactionRemoved: ReactionContent, // 5
   _reserved6: _void, // 6 — reserved (unused)
   reply: ReplyContent, // 7
-  dataChannelOffer: _void, // 8
-  dataChannelAnswer: _void, // 9
-  dataChannelCandidates: _void, // 10
-  _reserved11: _void, // 11 — reserved (unused)
+  dataChannelOffer: DataChannelOfferContent, // 8
+  dataChannelAnswer: DataChannelAnswerContent, // 9
+  dataChannelIceCandidate: DataChannelIceCandidateContent, // 10 (renamed from `dataChannelCandidates`; Android: `DataChannelIceCandidate`)
+  dataChannelClosed: DataChannelClosedContent, // 11 (Android: `DataChannelClosed`)
   edit: EditContent, // 12
   leftChat: _void, // 13
   chatAccepted: ChatAcceptedContent, // 14 (legacy single-device accept, iOS V1)
   richText: RichTextContent, // 15
-  _reserved16: _void, // 16 — reserved (android `coinagePayment`, unused on desktop)
+  coinagePayment: CoinagePaymentContent, // 16 (Android-only; consumed for cross-device sync wire-stability)
   deviceAdded: DeviceAddedContent, // 17
   deviceRemoved: DeviceRemovedContent, // 18
   _reserved19: _void, // 19 — reserved (placeholder so deviceChatAccepted lands on the spec'd index 20)
