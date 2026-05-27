@@ -1,8 +1,8 @@
 import type { EnumCodec } from '@novasamatech/scale';
-import { Enum } from '@novasamatech/scale';
 import type { Codec, CodecType } from 'scale-ts';
 import { Struct, _void, str } from 'scale-ts';
 
+import { CompactEnum } from './compactEnum.js';
 import type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './impl.js';
 import { hostApiProtocol } from './impl.js';
 
@@ -50,7 +50,7 @@ const createPayload = (hostApi: HostApiProtocol): EnumCodec<HostApiPayloadFields
     }
   }
 
-  return Enum(fields as HostApiPayloadFields);
+  return CompactEnum(fields as HostApiPayloadFields);
 };
 
 export type MessagePayloadSchema = CodecType<EnumCodec<HostApiPayloadFields>>;
