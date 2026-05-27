@@ -36,21 +36,31 @@ type HostApiPayloadFields = UnionToIntersection<
 
 const createPayload = (hostApi: HostApiProtocol): EnumCodec<HostApiPayloadFields> => {
   const fields: Record<string, Codec<any>> = {};
+  // Serialization index per field, kept positionally in lockstep with `fields`
+  // so the on-wire ABI is pinned by each method's explicit base index rather
+  // than by object iteration order.
+  const indexes: number[] = [];
 
   for (const [method, payload] of Object.entries(hostApi)) {
     if (payload.method === 'request') {
       fields[`${method}_request`] = payload.request;
+      indexes.push(payload.index);
       fields[`${method}_response`] = payload.response;
+      indexes.push(payload.index + 1);
     }
     if (payload.method === 'subscribe') {
       fields[`${method}_start`] = payload.start;
+      indexes.push(payload.index);
       fields[`${method}_stop`] = _void;
+      indexes.push(payload.index + 1);
       fields[`${method}_interrupt`] = payload.interrupt;
+      indexes.push(payload.index + 2);
       fields[`${method}_receive`] = payload.receive;
+      indexes.push(payload.index + 3);
     }
   }
 
-  return Enum(fields as HostApiPayloadFields);
+  return Enum(fields as HostApiPayloadFields, indexes);
 };
 
 export type MessagePayloadSchema = CodecType<EnumCodec<HostApiPayloadFields>>;

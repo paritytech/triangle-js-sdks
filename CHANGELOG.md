@@ -22,7 +22,7 @@ Multi-device SSO migration is essentially two field renames (the auth surface is
 - **host-papp:** the V1 SSO handshake is gone. Both ends must run the multi-device V2 handshake (Polkadot Mobile builds with multi-device support are V2). Persisted V1 SSO sessions don't migrate and are wiped on first read, so users need to re-pair.
 - **host-chat:** the chat-accepted message payload changed shape (now carries the originating message id). Older clients on the V1 form will not decode.
 - **host-api:** the Host API protocol spec and the SDK were reconciled — see the [protocol-alignment section](./docs/migration/v0.8.md#host-api-protocol-alignment) of the migration guide for steps and examples.
-  - removed the deprecated `host_jsonrpc_message_send` / `host_jsonrpc_message_subscribe` methods; use the `remote_chain_*` methods instead. Removing them shifts the protocol method ids of every later method.
+  - removed the deprecated `host_jsonrpc_message_send` / `host_jsonrpc_message_subscribe` methods; use the `remote_chain_*` methods instead. Their method ids are reserved as a gap, so every other method keeps the id it had in v0.7 — the removal doesn't shift the rest of the protocol.
   - `OptionBool` encoding fix (see Fixes) inverts `true`/`false` relative to older builds — affects signing's `withSignedTransaction` and the custom renderer's `enabled` / `loading`.
   - payment requests (`host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`) gained an optional purse selector field, changing their wire layout.
   - renames — `StorageQueryItem.type` → `queryType`, `RemotePermission.WebRTC` → `WebRtc`, `AllocatableResource.BulletInAllowance` → `BulletinAllowance`.
