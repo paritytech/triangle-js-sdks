@@ -166,6 +166,34 @@ describe('createIdentityRepository.watchIdentity', () => {
     expect(emissions).toEqual([cached]);
   });
 
+  it('does not emit a premature null from an empty cache before the fallback fires', async () => {
+    const storage = createMemoryAdapter(); // cold cache
+    const repo = makeRepo(makeAdapter(new Subject<Identity | null>()), storage);
+
+    const emissions: (Identity | null)[] = [];
+    repo.watchIdentity('acc-1').subscribe(v => emissions.push(v));
+    await flushMicrotasks();
+
+    // The empty-cache seed is filtered out, so nothing is emitted yet — the
+    // fallback timer stays armed instead of being cancelled by a stray null.
+    expect(emissions).toEqual([]);
+
+    vi.advanceTimersByTime(TIMEOUT_MS);
+    expect(emissions).toEqual([null]);
+  });
+
+  it('reads storage only once per watch subscription', async () => {
+    const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(person()) });
+    const readSpy = vi.spyOn(storage, 'read');
+    const repo = makeRepo(makeAdapter(new Subject<Identity | null>()), storage);
+
+    repo.watchIdentity('acc-1').subscribe();
+    await flushMicrotasks();
+
+    // The seed read is shared, not duplicated by the fallback's takeUntil.
+    expect(readSpy).toHaveBeenCalledTimes(1);
+  });
+
   it('drops the cache seed if the live chain emits first', async () => {
     const cached = person('acc-1', 'cached-name');
     const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(cached) });
