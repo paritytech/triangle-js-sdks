@@ -230,6 +230,22 @@ describe('createIdentityRepository.watchIdentity', () => {
     expect(repo.watchIdentity('acc-1')).not.toBe(first);
   });
 
+  it('does not evict a fresh entry when a torn-down stream is re-subscribed', () => {
+    const repo = makeRepo(makeAdapter(new Subject<Identity | null>()));
+
+    const streamA = repo.watchIdentity('acc-1');
+    streamA.subscribe().unsubscribe(); // refCount → 0 evicts streamA
+
+    const streamB = repo.watchIdentity('acc-1'); // fresh entry for the same account
+    expect(streamB).not.toBe(streamA);
+
+    // Re-subscribe + tear down the STALE streamA; its finalize must not delete
+    // streamB's entry just because it shares the account key.
+    streamA.subscribe().unsubscribe();
+
+    expect(repo.watchIdentity('acc-1')).toBe(streamB);
+  });
+
   it('treats two structurally-equal Identity objects as equal even if a new field is added', () => {
     const source = new Subject<Identity | null>();
     const repo = makeRepo(makeAdapter(source));
