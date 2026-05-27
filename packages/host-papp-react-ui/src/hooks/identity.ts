@@ -15,32 +15,27 @@ export function useIdentity(accountId: AccountId | null) {
   useEffect(() => {
     if (!hexAccountId) {
       setPending(false);
+      setIdentity(null);
       return;
     }
 
-    let mounted = true;
-
     setPending(true);
-    papp.identity.getIdentity(hexAccountId).match(
-      identity => {
-        if (mounted) {
-          setIdentity(identity);
-          setPending(false);
-        }
+
+    const subscription = papp.identity.watchIdentity(hexAccountId).subscribe({
+      next: value => {
+        setIdentity(value);
+        setPending(false);
       },
-      () => {
-        if (mounted) {
-          setIdentity(null);
-          setPending(false);
-        }
+      error: () => {
+        setIdentity(null);
+        setPending(false);
       },
-    );
+    });
 
     return () => {
-      setPending(false);
-      mounted = false;
+      subscription.unsubscribe();
     };
-  }, [hexAccountId]);
+  }, [hexAccountId, papp]);
 
   return [identity, pending] as const;
 }

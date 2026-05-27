@@ -1,18 +1,47 @@
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { Result, ResultAsync, err, ok, okAsync } from 'neverthrow';
+import type { Observable } from 'rxjs';
+import { distinctUntilChanged, map, merge, share, takeUntil, tap, timer } from 'rxjs';
 
 import { toError } from '../helpers/utils.js';
 
 import type { Identity, IdentityAdapter, IdentityRepository } from './types.js';
 
+/**
+ * Hard ceiling for `watchIdentity`'s first emission. Without this, a cold or
+ * unreachable WS would leave consumers spinning indefinitely. After the
+ * timeout the stream emits `null`; a real chain emission still arrives later
+ * and takes over, thanks to `distinctUntilChanged`.
+ */
+export const WATCH_IDENTITY_INITIAL_TIMEOUT_MS = 15_000;
+
+function getCacheKey(accountId: string): string {
+  return `identity_${accountId}`;
+}
+
+function identitiesEqual(a: Identity | null, b: Identity | null): boolean {
+  if (a === b) return true;
+  if (a === null || b === null) return false;
+  if (a.fullUsername !== b.fullUsername) return false;
+  if (a.liteUsername !== b.liteUsername) return false;
+  if (a.credibility.type !== b.credibility.type) return false;
+  if (a.credibility.type === 'Person' && b.credibility.type === 'Person') {
+    if (a.credibility.alias !== b.credibility.alias) return false;
+    if (a.credibility.lastUpdate !== b.credibility.lastUpdate) return false;
+  }
+  return true;
+}
+
 export function createIdentityRepository({
   adapter,
   storage,
+  initialEmissionTimeoutMs = WATCH_IDENTITY_INITIAL_TIMEOUT_MS,
 }: {
   adapter: IdentityAdapter;
   storage: StorageAdapter;
+  initialEmissionTimeoutMs?: number;
 }): IdentityRepository {
-  const cachedRequester = createCachedIdentityRequester(storage, accountId => `identity_${accountId}`);
+  const cachedRequester = createCachedIdentityRequester(storage, getCacheKey);
 
   return {
     getIdentity(accountId) {
@@ -20,6 +49,28 @@ export function createIdentityRepository({
     },
     getIdentities(accounts) {
       return cachedRequester(accounts, adapter.readIdentities);
+    },
+    watchIdentity(accountId): Observable<Identity | null> {
+      const source$ = adapter.watchIdentity(accountId).pipe(
+        distinctUntilChanged(identitiesEqual),
+        tap(identity => {
+          // Write-through: every distinct chain value refreshes the storage
+          // cache so non-watching readers see the same freshness.
+          if (identity === null) return;
+          // Best-effort. ResultAsync runs eagerly; a write failure must not
+          // surface on the live read so we don't subscribe to the result.
+          void storage.write(getCacheKey(accountId), JSON.stringify(identity));
+        }),
+        // `takeUntil(source$)` in the fallback below subscribes a second time;
+        // without share() the tap would write twice per emission until the
+        // fallback is cancelled.
+        share(),
+      );
+      const fallback$ = timer(initialEmissionTimeoutMs).pipe(
+        takeUntil(source$),
+        map(() => null),
+      );
+      return merge(source$, fallback$);
     },
   };
 }
