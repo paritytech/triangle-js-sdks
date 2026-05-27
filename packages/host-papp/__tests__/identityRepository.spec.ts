@@ -190,4 +190,78 @@ describe('createIdentityRepository.watchIdentity', () => {
     expect(errors).toHaveLength(1);
     expect(errors[0]?.message).toBe('pallet missing');
   });
+
+  it('emits a cached identity as the first value when the chain is silent', async () => {
+    const cached = person('acc-1', 'cached-name');
+    const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(cached) });
+    const source = new Subject<Identity | null>();
+    const repo = createIdentityRepository({
+      adapter: makeAdapter(source),
+      storage,
+      initialEmissionTimeoutMs: TIMEOUT_MS,
+    });
+
+    const emissions: (Identity | null)[] = [];
+    repo.watchIdentity('acc-1').subscribe(v => emissions.push(v));
+
+    // Flush microtasks the cache read sits on (defer → Promise → from).
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+
+    expect(emissions).toEqual([cached]);
+  });
+
+  it('drops the cache seed if the live chain emits first', async () => {
+    const cached = person('acc-1', 'cached-name');
+    const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(cached) });
+    const source = new Subject<Identity | null>();
+    const repo = createIdentityRepository({
+      adapter: makeAdapter(source),
+      storage,
+      initialEmissionTimeoutMs: TIMEOUT_MS,
+    });
+
+    const emissions: (Identity | null)[] = [];
+    repo.watchIdentity('acc-1').subscribe(v => emissions.push(v));
+
+    // Live beats the (async) cache read.
+    source.next(person('acc-1', 'chain-name'));
+    for (let i = 0; i < 5; i++) await Promise.resolve();
+
+    expect(emissions).toEqual([person('acc-1', 'chain-name')]);
+  });
+
+  it('returns the same Observable for repeated watchIdentity(acc) calls', () => {
+    const storage = createMemoryAdapter();
+    const repo = createIdentityRepository({
+      adapter: makeAdapter(new Subject<Identity | null>()),
+      storage,
+      initialEmissionTimeoutMs: TIMEOUT_MS,
+    });
+
+    expect(repo.watchIdentity('acc-1')).toBe(repo.watchIdentity('acc-1'));
+    expect(repo.watchIdentity('acc-1')).not.toBe(repo.watchIdentity('acc-2'));
+  });
+
+  it('treats two structurally-equal Identity objects as equal even if a new field is added', () => {
+    const source = new Subject<Identity | null>();
+    const storage = createMemoryAdapter();
+    const repo = createIdentityRepository({
+      adapter: makeAdapter(source),
+      storage,
+      initialEmissionTimeoutMs: TIMEOUT_MS,
+    });
+
+    const emissions: (Identity | null)[] = [];
+    repo.watchIdentity('acc-1').subscribe(v => emissions.push(v));
+
+    // Simulate a future field on Identity by widening the value passed
+    // through the adapter. Structural equality must still dedupe identical
+    // payloads so a future schema extension doesn't silently bypass
+    // distinctUntilChanged.
+    const widened = { ...person(), avatarUrl: 'https://example/a.png' } as unknown as Identity;
+    source.next(widened);
+    source.next({ ...person(), avatarUrl: 'https://example/a.png' } as unknown as Identity);
+
+    expect(emissions).toEqual([widened]);
+  });
 });
