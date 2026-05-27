@@ -10,3 +10,5 @@ export {
   generateTicket,
   signWithTicket,
 } from './ticket.js';
+
+export { HopSigningPayloads } from './signingPayloads.js';

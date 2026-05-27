@@ -39,13 +39,15 @@ function createMockHopClient() {
     return okAsync(entry);
   });
 
+  const ackMock = vi.fn(() => okAsync(null));
   const client: HopClient = {
     submit: submitMock,
     claim: claimMock,
+    ack: ackMock,
     poolStatus: vi.fn(() => okAsync({ entryCount: 0, totalBytes: 0, maxBytes: 10_000_000 })),
   };
 
-  return { client, submitMock, claimMock, submittedEntries };
+  return { client, submitMock, claimMock, ackMock, submittedEntries };
 }
 
 describe('file loader', () => {
