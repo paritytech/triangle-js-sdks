@@ -1,7 +1,7 @@
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { Result, ResultAsync, err, ok, okAsync } from 'neverthrow';
 import type { Observable } from 'rxjs';
-import { defer, distinctUntilChanged, map, merge, shareReplay, takeUntil, tap, timer } from 'rxjs';
+import { defer, distinctUntilChanged, finalize, map, merge, shareReplay, takeUntil, tap, timer } from 'rxjs';
 
 import { toError } from '../helpers/utils.js';
 
@@ -45,9 +45,10 @@ export function createIdentityRepository({
 }): IdentityRepository {
   const cachedRequester = createCachedIdentityRequester(storage, getCacheKey);
 
-  // Per-account de-dup: N concurrent watchIdentity(acc) calls share one
-  // chain subscription. refCount tears the upstream down when the last
-  // subscriber leaves, so stale map entries don't hold a WS open.
+  // Per-account de-dup: concurrent watchIdentity(acc) calls share one chain
+  // subscription via the shared stream built below. The entry clears itself —
+  // see the `finalize` in `buildWatch` — so the map can't accumulate dead
+  // streams across distinct accounts.
   const watchCache = new Map<string, Observable<Identity | null>>();
 
   function buildWatch(accountId: string): Observable<Identity | null> {
@@ -70,7 +71,15 @@ export function createIdentityRepository({
       map(() => null as Identity | null),
     );
 
-    return merge(seed$, live$, fallback$).pipe(distinctUntilChanged(identitiesEqual));
+    return merge(seed$, live$, fallback$).pipe(
+      distinctUntilChanged(identitiesEqual),
+      // refCount tears down the chain subscription when the last subscriber
+      // leaves; `finalize` then drops the map entry so a later watch rebuilds
+      // a fresh stream instead of reusing a dead one. The shared `shareReplay`
+      // guarantees this fires once, on the final unsubscribe — not per caller.
+      finalize(() => watchCache.delete(accountId)),
+      shareReplay({ bufferSize: 1, refCount: true }),
+    );
   }
 
   return {
