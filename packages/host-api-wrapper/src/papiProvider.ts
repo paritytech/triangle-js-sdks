@@ -266,7 +266,7 @@ export function createPapiProvider(
           ];
           const typedItems = items.map(item => ({
             key: item.key,
-            type: convertStorageTypeToTyped(item.type),
+            queryType: convertStorageTypeToTyped(item.type),
           }));
           hostApi
             .chainHeadStorage(

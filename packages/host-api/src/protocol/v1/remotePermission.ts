@@ -5,7 +5,7 @@ import { GenericError } from '../commonCodecs.js';
 
 export const RemotePermission = Enum({
   Remote: Vector(str),
-  WebRTC: _void,
+  WebRtc: _void,
   ChainSubmit: _void,
   PreimageSubmit: _void,
   StatementSubmit: _void,

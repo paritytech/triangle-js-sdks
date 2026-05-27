@@ -1,17 +1,3 @@
-## 0.8.0-1 (2026-05-22)
-
-### 🚀 Features
-
-- multi-device SSO V2 + chat V2 ([#178](https://github.com/paritytech/triangle-js-sdks/pull/178))
-
-### 🩹 Fixes
-
-- **host-chat:** drop private flag so the package is publishable ([#180](https://github.com/paritytech/triangle-js-sdks/pull/180))
-
-### ❤️ Thank You
-
-- Ilya Kalinin
-
 ## 0.8.0 (2026-05-21)
 
 ### 🚀 Features
@@ -20,23 +6,31 @@
 - **host-papp:** the SDK now persists the device identity and pairing-topic dedupe state itself, on the configured `StorageAdapter`, so no extra consumer wiring is needed across launches. Hosts that want a different identity backend (Electron Keychain, native secure storage) can override with an optional `deviceIdentity` factory on `createPappAdapter`.
 - **host-papp:** `StoredUserSession` gains optional V2 fields for the user's identity chat public key and the peer device's statement account, so consumers building device-sync or chat-level features can read peer state straight off the session. A new optional `onAuthSuccess` hook on `createPappAdapter` fires after pairing with `{ session, identityChatPrivateKey }` for consumer-specific post-pairing work (telemetry, custom peer caches, device-sync seeding).
 - **host-chat:** new message variants for the multi-device chat layer — chat-accept now carries the originating message id, and there are new variants for announcing and removing peer devices on the identity-level session, so all of a peer's devices can decrypt without a per-device envelope.
+- **host-api-wrapper:** payment methods take an optional purse selector — `subscribeBalance(cb, purse?)`, `topUp(amount, source, into?)`, `requestPayment(amount, destination, from?)`. Omit it to target the main purse, so existing calls are unaffected. New `PurseId` type exported.
 
 ### 🩹 Fixes
 
 - **host-papp / host-chat:** consumer-info parsing tolerates both camelCase and snake_case `Resources.Consumers` metadata fields — the V2 multi-device runtime metadata emits camelCase, which previously crashed account-resource resolution.
+- **scale:** `OptionBool` now uses canonical SCALE encoding (`true` → 1, `false` → 2); the previous build had the two swapped.
 
 ### ⚠️ Breaking Changes
 
-The migration is essentially two field renames; the auth surface is otherwise unchanged.
+Multi-device SSO migration is essentially two field renames (the auth surface is otherwise unchanged). The Host API protocol-alignment changes are wire-level — hosts and products must upgrade together. See the [v0.8 migration guide](./docs/migration/v0.8.md).
 
 - **host-papp:** `createPappAdapter` no longer accepts `metadata: string` (the V1 metadata URL) — host name / icon / platform now ride inside `hostMetadata` (sent inline with the V2 QR proposal).
 - **host-papp:** `HostMetadata` reshape — was `{ hostVersion?, osType?, osVersion? }`, now `{ hostName?, hostVersion?, hostIcon?, platformType?, platformVersion?, custom? }`. Map `osType → platformType` and `osVersion → platformVersion` when upgrading.
 - **host-papp:** the V1 SSO handshake is gone. Both ends must run the multi-device V2 handshake (Polkadot Mobile builds with multi-device support are V2). Persisted V1 SSO sessions don't migrate and are wiped on first read, so users need to re-pair.
 - **host-chat:** the chat-accepted message payload changed shape (now carries the originating message id). Older clients on the V1 form will not decode.
+- **host-api:** the Host API protocol spec and the SDK were reconciled — see the [protocol-alignment section](./docs/migration/v0.8.md#host-api-protocol-alignment) of the migration guide for steps and examples.
+  - removed the deprecated `host_jsonrpc_message_send` / `host_jsonrpc_message_subscribe` methods; use the `remote_chain_*` methods instead. Their method ids are reserved as a gap, so every other method keeps the id it had in v0.7 — the removal doesn't shift the rest of the protocol.
+  - `OptionBool` encoding fix (see Fixes) inverts `true`/`false` relative to older builds — affects signing's `withSignedTransaction` and the custom renderer's `enabled` / `loading`.
+  - payment requests (`host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`) gained an optional purse selector field, changing their wire layout.
+  - renames — `StorageQueryItem.type` → `queryType`, `RemotePermission.WebRTC` → `WebRtc`, `AllocatableResource.BulletInAllowance` → `BulletinAllowance`.
 
 ### ❤️ Thank You
 
 - Ilya Kalinin @kalininilya
+- Sergey Zhuravlev @johnthecat
 
 ## 0.7.9 (2026-05-15)
 

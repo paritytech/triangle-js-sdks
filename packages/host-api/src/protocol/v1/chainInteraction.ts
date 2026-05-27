@@ -38,7 +38,7 @@ export const StorageQueryType = Status(
 
 export const StorageQueryItem = Struct({
   key: Hex(),
-  type: StorageQueryType,
+  queryType: StorageQueryType,
 });
 
 export const StorageResultItem = Struct({
