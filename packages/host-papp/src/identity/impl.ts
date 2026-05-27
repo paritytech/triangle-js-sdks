@@ -1,7 +1,7 @@
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { Result, ResultAsync, err, ok, okAsync } from 'neverthrow';
 import type { Observable } from 'rxjs';
-import { defer, distinctUntilChanged, finalize, map, merge, shareReplay, takeUntil, tap, timer } from 'rxjs';
+import { defer, distinctUntilChanged, filter, finalize, map, merge, shareReplay, takeUntil, tap, timer } from 'rxjs';
 
 import { toError } from '../helpers/utils.js';
 
@@ -62,8 +62,16 @@ export function createIdentityRepository({
       shareReplay({ bufferSize: 1, refCount: true }),
     );
 
-    // Seed from cache so warm consumers exit `pending` before the first chain block.
-    const seed$ = readCachedIdentity(storage, accountId).pipe(takeUntil(live$));
+    // Seed from cache so warm consumers paint a value before the first chain
+    // block. Only a non-null seed is emitted: a cold cache must fall through to
+    // the live read / fallback rather than surface a premature `null` (that
+    // also keeps the fallback timer below reachable). `shareReplay` keeps the
+    // single storage read from being duplicated by the fallback's `takeUntil`.
+    const seed$ = readCachedIdentity(storage, accountId).pipe(
+      filter((identity): identity is Identity => identity !== null),
+      takeUntil(live$),
+      shareReplay({ bufferSize: 1, refCount: true }),
+    );
 
     // Cold-cache + silent-chain safety net: emit `null` so the UI doesn't hang.
     const fallback$ = timer(initialEmissionTimeoutMs).pipe(
