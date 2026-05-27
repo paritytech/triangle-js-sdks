@@ -188,6 +188,20 @@ describe('createIdentityRepository.watchIdentity', () => {
     expect(repo.watchIdentity('acc-1')).not.toBe(repo.watchIdentity('acc-2'));
   });
 
+  it('drops the cache entry once the last subscriber unsubscribes', () => {
+    const repo = makeRepo(makeAdapter(new Subject<Identity | null>()));
+
+    const first = repo.watchIdentity('acc-1');
+    const sub = first.subscribe();
+    // Shared while a subscriber is live.
+    expect(repo.watchIdentity('acc-1')).toBe(first);
+
+    sub.unsubscribe();
+    // refCount → 0 tears the stream down and finalize removes the map entry,
+    // so the next watch builds a fresh stream rather than reusing a dead one.
+    expect(repo.watchIdentity('acc-1')).not.toBe(first);
+  });
+
   it('treats two structurally-equal Identity objects as equal even if a new field is added', () => {
     const source = new Subject<Identity | null>();
     const repo = makeRepo(makeAdapter(source));

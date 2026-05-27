@@ -5,38 +5,22 @@ import { AccountId } from 'polkadot-api';
 import type { Observable } from 'rxjs';
 import { map, throwError } from 'rxjs';
 
-import type { People_lite } from '../../.papi/descriptors/dist/index.js';
+import type { People_lite, People_liteQueries } from '../../.papi/descriptors/dist/index.js';
 import { toError } from '../helpers/utils.js';
 import { zipWith } from '../helpers/zipWith.js';
 
 import type { Credibility, Identity, IdentityAdapter } from './types.js';
 
-type RawConsumers = {
-  full_username?: Uint8Array;
-  fullUsername?: Uint8Array;
-  lite_username?: Uint8Array;
-  liteUsername?: Uint8Array;
-  credibility:
-    | { type: 'Lite' }
-    | {
-        type: 'Person';
-        value: {
-          alias: unknown;
-          last_update?: unknown;
-          lastUpdate?: unknown;
-        };
-      };
-};
+// The raw value type is owned by the papi descriptor; derive it from the
+// `Resources.Consumers` storage entry rather than restating the shape here.
+type RawConsumers = NonNullable<People_liteQueries['Resources']['Consumers']['Value']>;
 
-function decodeRawIdentity(accountId: string, typedRaw: unknown, textDecoder: TextDecoder): Identity | null {
-  if (!typedRaw) return null;
-
-  // Runtime metadata may expose fields in snake_case (V1) or camelCase (V2
-  // multi-device). The .papi descriptor only types snake_case, so widen here
-  // and read defensively.
-  const raw = typedRaw as RawConsumers;
-  const fullUsername = raw.full_username ?? raw.fullUsername;
-  const liteUsername = raw.lite_username ?? raw.liteUsername;
+function decodeRawIdentity(
+  accountId: string,
+  raw: RawConsumers | undefined,
+  textDecoder: TextDecoder,
+): Identity | null {
+  if (!raw) return null;
 
   const credibility: Credibility =
     raw.credibility.type === 'Lite'
@@ -44,13 +28,13 @@ function decodeRawIdentity(accountId: string, typedRaw: unknown, textDecoder: Te
       : {
           type: 'Person',
           alias: raw.credibility.value.alias as HexString,
-          lastUpdate: (raw.credibility.value.last_update ?? raw.credibility.value.lastUpdate)!.toString(),
+          lastUpdate: raw.credibility.value.last_update.toString(),
         };
 
   return {
     accountId,
-    fullUsername: fullUsername ? textDecoder.decode(fullUsername) : null,
-    liteUsername: liteUsername ? textDecoder.decode(liteUsername) : '',
+    fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
+    liteUsername: textDecoder.decode(raw.lite_username),
     credibility,
   };
 }
