@@ -27,7 +27,7 @@ A modality is delivered by an **executable**. v1 defines three executable types:
 
 - **App** — the web application backing the App modality.
 - **Widget** — the web application backing the Widget modality.
-- **Worker** — a single background process backing Pocket and/or Chat (see [Why one Worker, not per modality](#executable-manifest-v1)).
+- **Worker** — a single background process. It may back Pocket and/or Chat, or serve no user-facing surface at all and run purely as background logic (see [Why one Worker, not per modality](#executable-manifest-v1)).
 
 Throughout this RFC, *modality* means a user-facing surface; *executable* means a deployable artifact.
 
@@ -143,7 +143,7 @@ type SemVer = [major: number, minor: number, patch: number, build?: string];
 
 - `app` — full-screen App. No extra fields beyond the common ones.
 - `widget` — `dimensions.height` is the list of grid-step heights the widget can render at; the Host picks one per layout. `width` defaults to `1` column. The grid unit and bounds belong to the Host's dashboard spec (see [Future Directions](#future-directions)). By convention `8` in `height` signals a full-screen widget; this RFC does not normalise that convention.
-- `worker` — background JS worker. `entrypoint` is the module the Host loads inside the worker. `includes` declares which user-facing surfaces this worker serves: `{ chat: true }` means a Host MAY expose "open chat" affordances for the product; `{ pocket: true }` means a Host MAY expose Pocket-artifact navigation; both `true` means the worker serves both. At least one of `includes.chat` / `includes.pocket` MUST be `true` — a worker that serves neither is not a valid v1 executable.
+- `worker` — background JS worker. `entrypoint` is the module the Host loads inside the worker. `includes` declares which user-facing surfaces this worker serves: `{ chat: true }` means a Host MAY expose "open chat" affordances for the product; `{ pocket: true }` means a Host MAY expose Pocket-artifact navigation; both `true` means the worker serves both. Both `false` is also valid: the worker exposes no user-facing surface and runs purely as background logic — for example caching, notification scheduling, or chain bookkeeping that backs the product's other executables. A Host simply exposes no Pocket or Chat affordances for such a worker; it still launches and runs the background process.
 
 Publishers MUST set `kind` to match the subname label the manifest is written under: `app` under `app.<product_id>.dot`, `widget` under `widget.<product_id>.dot`, `worker` under `worker.<product_id>.dot`. Hosts MUST reject a manifest whose `kind` does not match the subname it was read from.
 
@@ -251,7 +251,10 @@ type WorkerConfig = {
   root: string; // Path to the executable directory on disk.
   appVersion: SemVer; // Same SemVer tuple as the matching ExecutableManifest.
   entrypoint: string; // Path to the worker entry module inside the executable directory.
-  includes: Record<'chat' | 'pocket', boolean>; // Same shape as WorkerManifest.includes; at least one MUST be true.
+  includes: { // Same shape as WorkerManifest.includes; both may be false for a background-only worker.
+    chat?: boolean;
+    pocket?: boolean;
+  };
 };
 ```
 
