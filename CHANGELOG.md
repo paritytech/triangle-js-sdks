@@ -1,12 +1,15 @@
-## 0.8.0 (2026-05-21)
+## 0.8.0 (2026-05-27)
 
 ### 🚀 Features
 
 - **host-papp:** multi-device SSO. SSO pairing now runs the V2 multi-device handshake under the hood, so desktop and web hosts pair with the multi-device iOS/Android Polkadot Mobile builds through the same `createAuth` / `pappAdapter.sso` entry point — `pairingStatus`, `authenticate()`, `abortAuthentication()`, and the `StoredUserSession` returned to consumers are unchanged. The V2 protocol, codecs, and pairing state machine are SDK internals.
 - **host-papp:** the SDK now persists the device identity and pairing-topic dedupe state itself, on the configured `StorageAdapter`, so no extra consumer wiring is needed across launches. Hosts that want a different identity backend (Electron Keychain, native secure storage) can override with an optional `deviceIdentity` factory on `createPappAdapter`.
 - **host-papp:** `StoredUserSession` gains optional V2 fields for the user's identity chat public key and the peer device's statement account, so consumers building device-sync or chat-level features can read peer state straight off the session. A new optional `onAuthSuccess` hook on `createPappAdapter` fires after pairing with `{ session, identityChatPrivateKey }` for consumer-specific post-pairing work (telemetry, custom peer caches, device-sync seeding).
+- **host-papp / host-papp-react-ui:** new `pappAdapter.identity.watchIdentity(accountId)` returns a reactive `Observable<Identity | null>` — it emits any cached identity first, then live on-chain updates. The `useIdentity` hook now subscribes to it, so a profile's name/avatar update live instead of being resolved once.
 - **host-chat:** new message variants for the multi-device chat layer — chat-accept now carries the originating message id, and there are new variants for announcing and removing peer devices on the identity-level session, so all of a peer's devices can decrypt without a per-device envelope.
 - **host-api-wrapper:** payment methods take an optional purse selector — `subscribeBalance(cb, purse?)`, `topUp(amount, source, into?)`, `requestPayment(amount, destination, from?)`. Omit it to target the main purse, so existing calls are unaffected. New `PurseId` type exported.
+- **statement-store:** new helpers for substrate slot-account sr25519 signing (`deriveSlotAccountPublicKey`, `signSlotAccountSecret`, `verifySlotAccountSignature`) plus WASM init helpers (`ensureSubstrateSr25519Ready`, `ensureSubstrateSlotSr25519Ready`). New published package `@novasamatech/substrate-slot-sr25519-wasm`. Existing `deriveSr25519PublicKey` / `signWithSr25519Secret` / `verifySr25519Signature` keep the same signatures and outputs.
+- **scale:** `Enum(inner, indexes?)` accepts an optional index array to pin each variant's wire index independent of declaration order.
 
 ### 🩹 Fixes
 
@@ -26,11 +29,16 @@ Multi-device SSO migration is essentially two field renames (the auth surface is
   - `OptionBool` encoding fix (see Fixes) inverts `true`/`false` relative to older builds — affects signing's `withSignedTransaction` and the custom renderer's `enabled` / `loading`.
   - payment requests (`host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`) gained an optional purse selector field, changing their wire layout.
   - renames — `StorageQueryItem.type` → `queryType`, `RemotePermission.WebRTC` → `WebRtc`, `AllocatableResource.BulletInAllowance` → `BulletinAllowance`.
+- **host-api / product-react-renderer:** custom chat renderer design tokens were renamed to the new hierarchical design-system scale — `TypographyStyle` (e.g. `titleXL` → `headline.large`) and `ColorToken` (e.g. `textPrimary` → `fg.primary`). The wire indices are unchanged; only the token identifiers changed. Products that hard-code token strings in a custom renderer must update them — see the [design tokens section](./docs/migration/v0.8.md#custom-renderer-design-tokens).
+- **host-papp:** `IdentityAdapter` gains a required `watchIdentity(accountId)` method. Only affects consumers that supply a custom `adapters.identities`; the default adapter already implements it.
 
 ### ❤️ Thank You
 
 - Ilya Kalinin @kalininilya
 - Sergey Zhuravlev @johnthecat
+- Vitya Livshits @cuteWarmFrog
+- Yanaty
+- Den
 
 ## 0.7.9 (2026-05-15)
 
