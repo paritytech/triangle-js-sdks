@@ -36,8 +36,11 @@ describe('compact', () => {
     }
   });
 
-  it('rejects negative or non-integer input', () => {
+  it('rejects values outside the non-negative safe-integer range', () => {
     expect(() => compact.enc(-1)).toThrow();
     expect(() => compact.enc(1.5)).toThrow();
+    expect(() => compact.enc(Number.MAX_SAFE_INTEGER + 1)).toThrow(/safe integer/);
+    // An oversized (0xff-prefixed) wire value is rejected, not silently rounded.
+    expect(() => compact.dec(new Uint8Array([0xff, 1, 2, 3, 4, 5, 6, 7, 8]))).toThrow(/safe integer/);
   });
 });

@@ -2,6 +2,7 @@ import type { Codec } from 'scale-ts';
 import { _void, str, u8 } from 'scale-ts';
 import { describe, expect, it } from 'vitest';
 
+import { compact } from './compact.js';
 import { CompactEnum } from './compactEnum.js';
 import { Enum } from './enum.js';
 
@@ -49,6 +50,19 @@ describe('CompactEnum', () => {
       const value = { tag, value: 9 };
       expect([...compactCodec.enc(value)]).toEqual([...u8Codec.enc(value)]);
     }
+  });
+
+  it('diverges from a u8 Enum for indices >= 128', () => {
+    const fields: Record<string, typeof u8> = {};
+    for (let i = 0; i <= 200; i++) fields[`v${i}`] = u8;
+    const compactCodec = CompactEnum(fields) as unknown as AnyEnumCodec;
+    const u8Codec = Enum(fields) as unknown as AnyEnumCodec;
+
+    const value = { tag: 'v200', value: 9 };
+    // u8 Enum: single-byte discriminant. CompactEnum: 2-byte compact discriminant.
+    expect([...u8Codec.enc(value)]).toEqual([200, 9]);
+    expect([...compactCodec.enc(value)]).toEqual([...compact.enc(200), 9]);
+    expect([...compactCodec.enc(value)]).not.toEqual([...u8Codec.enc(value)]);
   });
 
   it('supports more than 256 variants (the reason it exists)', () => {
