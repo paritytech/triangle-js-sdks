@@ -3,7 +3,7 @@ import type { LazyClient } from '@novasamatech/statement-store';
 import { errAsync, fromPromise, ok } from 'neverthrow';
 import { AccountId } from 'polkadot-api';
 import type { Observable } from 'rxjs';
-import { map, throwError } from 'rxjs';
+import { defer, map, throwError } from 'rxjs';
 
 import type { People_lite, People_liteQueries } from '../../.papi/descriptors/dist/index.js';
 import { toError } from '../helpers/utils.js';
@@ -75,13 +75,18 @@ export function createIdentityRpcAdapter(lazyClient: LazyClient): IdentityAdapte
     },
 
     watchIdentity(accountId): Observable<Identity | null> {
-      const method = getConsumersStorage();
-      if (!method) {
-        return throwError(() => new Error('Method Resources.Consumers not found'));
-      }
-      return method
-        .watchValue(accCodec.dec(accountId))
-        .pipe(map(emission => decodeRawIdentity(accountId, emission.value, textDecoder)));
+      // `defer` so client resolution and key decoding run on subscribe and any
+      // failure surfaces as a stream error, not a synchronous throw at the call
+      // site (the consumer only attaches its error handler via `.subscribe`).
+      return defer(() => {
+        const method = getConsumersStorage();
+        if (!method) {
+          return throwError(() => new Error('Method Resources.Consumers not found'));
+        }
+        return method
+          .watchValue(accCodec.dec(accountId))
+          .pipe(map(emission => decodeRawIdentity(accountId, emission.value, textDecoder)));
+      });
     },
   };
 }
