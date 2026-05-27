@@ -7,7 +7,7 @@ import { toError } from '../helpers/utils.js';
 
 import type { Identity, IdentityAdapter, IdentityRepository } from './types.js';
 
-export const WATCH_IDENTITY_INITIAL_TIMEOUT_MS = 15_000;
+const WATCH_IDENTITY_INITIAL_TIMEOUT_MS = 15_000;
 
 function getCacheKey(accountId: string): string {
   return `identity_${accountId}`;
@@ -79,15 +79,21 @@ export function createIdentityRepository({
       map(() => null as Identity | null),
     );
 
-    return merge(seed$, live$, fallback$).pipe(
+    const stream: Observable<Identity | null> = merge(seed$, live$, fallback$).pipe(
       distinctUntilChanged(identitiesEqual),
       // refCount tears down the chain subscription when the last subscriber
       // leaves; `finalize` then drops the map entry so a later watch rebuilds
       // a fresh stream instead of reusing a dead one. The shared `shareReplay`
       // guarantees this fires once, on the final unsubscribe — not per caller.
-      finalize(() => watchCache.delete(accountId)),
+      // Guard on identity: a late re-subscribe to an already torn-down stream
+      // must not evict a newer entry that another caller built for this account.
+      finalize(() => {
+        if (watchCache.get(accountId) === stream) watchCache.delete(accountId);
+      }),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
+
+    return stream;
   }
 
   return {
