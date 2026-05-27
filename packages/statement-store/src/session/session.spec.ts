@@ -79,6 +79,7 @@ function makeSession(overrides?: {
     statementStore: adapter,
     encryption: mockEncryption(),
     prover: mockProver,
+    sessionKey: remoteAccount.publicKey,
     maxRequestSize,
   });
   return { session, adapter };

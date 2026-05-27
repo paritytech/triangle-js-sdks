@@ -21,6 +21,8 @@ const DEVICE_STMT_SECRET = new Uint8Array(64).fill(0x55);
 const IDENTITY_CHAT_PRIV = new Uint8Array(32).fill(0xdd);
 const IDENTITY_ACCT = new Uint8Array(32).fill(0xa1);
 const ROOT_ACCT = new Uint8Array(32).fill(0xa2);
+// `papp_encr_pub` from Mobile SSO spec v0.2.2 (HandshakeSuccessV2.sso_encr_pub_key)
+const SSO_ENC_PUB = new Uint8Array(65).fill(0x07);
 const PEER_STMT_ACCT_HEX = '0x' + '44'.repeat(32);
 
 const makeDeviceIdentity = (): DeviceIdentityForPairing => ({
@@ -42,10 +44,11 @@ const buildSuccessStatement = (): Statement => {
     identityAccountId: IDENTITY_ACCT,
     rootAccountId: ROOT_ACCT,
     identityChatPrivateKey: IDENTITY_CHAT_PRIV,
+    ssoEncPubKey: SSO_ENC_PUB,
     deviceEncPubKey: DEVICE_ENC_PUB,
   });
-  // The inner body is a length-dispatched Success (161-byte payload). Wrap it
-  // as the discriminated `EncryptedHandshakeResponseV2::Success` for the
+  // The inner body is a length-dispatched Success (226-byte payload, spec v0.2.2).
+  // Wrap it as the discriminated `EncryptedHandshakeResponseV2::Success` for the
   // envelope.
   const successEnvelope = new Uint8Array(inner.length + 1);
   successEnvelope[0] = 1; // Success discriminant

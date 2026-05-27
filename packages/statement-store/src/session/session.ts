@@ -27,6 +27,20 @@ export type SessionParams = {
   statementStore: StatementStoreAdapter;
   encryption: Encryption;
   prover: StatementProver;
+  /**
+   * Keyed-hash input for SessionId derivation:
+   *   SessionId(A, B) = khash(sessionKey, "session" : AccountId(A) : AccountId(B) : "/" : "/")
+   *
+   * Required because blake2b's key length is bounded (≤ 64 bytes) and the
+   * caller must decide what semantically goes here. V1 sessions historically
+   * passed `remoteAccount.publicKey` (33-byte compressed P-256 — fits) which
+   * conflated the encryption pubkey with the session-derivation key. The V2
+   * spec (Mobile SSO v0.2.2) is explicit that SessionId is keyed by the
+   * ECDH-derived shared secret, so V2 callers should pass that 32-byte value
+   * directly. Pass any 32–64 byte material; out-of-range inputs make blake2b
+   * throw.
+   */
+  sessionKey: Uint8Array;
   maxRequestSize?: number;
 };
 
@@ -75,10 +89,11 @@ export function createSession({
   statementStore,
   encryption,
   prover,
+  sessionKey,
   maxRequestSize = DEFAULT_MAX_REQUEST_SIZE,
 }: SessionParams): Session {
-  const outgoingSessionId = createSessionId(remoteAccount.publicKey, localAccount, remoteAccount);
-  const incomingSessionId = createSessionId(remoteAccount.publicKey, remoteAccount, localAccount);
+  const outgoingSessionId = createSessionId(sessionKey, localAccount, remoteAccount);
+  const incomingSessionId = createSessionId(sessionKey, remoteAccount, localAccount);
 
   const state: SessionState = {
     phase: 'initialization',

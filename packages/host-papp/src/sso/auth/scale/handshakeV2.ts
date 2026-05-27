@@ -71,11 +71,22 @@ export const VersionedHandshakeProposal = Enum({
 
 // ── Response (V2) ───────────────────────────────────────────────────────
 
-/** 32 + 32 + 32 + 65 = 161 bytes (spec v0.2.1) */
+/**
+ * 32 + 32 + 32 + 65 + 65 = 226 bytes (spec v0.2.2).
+ *
+ * `ssoEncPubKey` is `papp_encr_pub` per spec § Encrypted response — V2 — the
+ * P-256 public key PApp uses for SSO session ECDH. Required to compute
+ * `shared_secret_session = ECDH(host_encr_secret, ssoEncPubKey)`. PApp keypair
+ * derivation is implementation-defined: Android derives under `//wallet//sso`
+ * (`SsoDerivationDomains.SSO_DERIVATION_DOMAIN`); iOS currently reuses
+ * `//wallet//chat`. The host treats this field as opaque public material —
+ * which keypair PApp picked is invisible here.
+ */
 export const HandshakeSuccessV2 = Struct({
   identityAccountId: AccountIdCodec,
   rootAccountId: AccountIdCodec,
   identityChatPrivateKey: PrivateKeyCodec,
+  ssoEncPubKey: PublicKeyCodec,
   deviceEncPubKey: PublicKeyCodec,
 });
 
@@ -84,8 +95,23 @@ export type HandshakeSuccessV2Value = {
   /** Nullable for v0.2 peers (Android `feature/location-for-handshake`). */
   rootAccountId: Uint8Array | null;
   identityChatPrivateKey: Uint8Array;
+  /**
+   * Nullable for v0.2 / v0.2.1 peers (any PApp build that does not yet ship
+   * spec v0.2.2). The host's SSO session transport stays inactive while
+   * null — sign/vrf/etc operations fail at the boundary until PApp emits
+   * the new field.
+   */
+  ssoEncPubKey: Uint8Array | null;
   deviceEncPubKey: Uint8Array;
 };
+
+/** 32 + 32 + 32 + 65 = 161 bytes (spec v0.2.1) */
+export const HandshakeSuccessV2_v021 = Struct({
+  identityAccountId: AccountIdCodec,
+  rootAccountId: AccountIdCodec,
+  identityChatPrivateKey: PrivateKeyCodec,
+  deviceEncPubKey: PublicKeyCodec,
+});
 
 /** 32 + 32 + 65 = 129 bytes (spec v0.2 — Android `feature/location-for-handshake`) */
 export const HandshakeSuccessV2Legacy = Struct({
@@ -101,9 +127,16 @@ export type DecodedHandshakeResponseV2 =
 
 /**
  * Length-dispatched decoder for the inner `EncryptedHandshakeResponseV2`
- * plaintext. v0.2 (Android) ships 129-byte Success bodies without
- * `rootAccountId`; v0.2.1 ships 161-byte bodies with it. Surfaces
- * `rootAccountId: null` for the legacy case — chat doesn't need it.
+ * plaintext. Three Success body shapes are accepted, one per spec rev:
+ *
+ *   226 bytes (spec v0.2.2) — includes `ssoEncPubKey` (`papp_encr_pub`).
+ *   161 bytes (spec v0.2.1) — `ssoEncPubKey` absent; surfaced as `null`.
+ *   129 bytes (spec v0.2)   — `rootAccountId` AND `ssoEncPubKey` absent.
+ *
+ * Older peers degrade gracefully: chat continues to work via
+ * `identityChatPrivateKey`, but the SSO session transport (which needs
+ * `ssoEncPubKey` to derive `shared_secret_session`) stays inactive on
+ * the host until the peer upgrades.
  */
 export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHandshakeResponseV2 => {
   if (bytes.length === 0) throw new Error('EncryptedHandshakeResponseV2: empty plaintext');
@@ -115,7 +148,7 @@ export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHa
     return { tag: 'Pending', value: { tag: 'AllowanceAllocation', value: undefined } };
   }
   if (tag === 1) {
-    if (body.length === 161) {
+    if (body.length === 226) {
       const decoded = HandshakeSuccessV2.dec(body);
       return {
         tag: 'Success',
@@ -123,6 +156,20 @@ export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHa
           identityAccountId: decoded.identityAccountId,
           rootAccountId: decoded.rootAccountId,
           identityChatPrivateKey: decoded.identityChatPrivateKey,
+          ssoEncPubKey: decoded.ssoEncPubKey,
+          deviceEncPubKey: decoded.deviceEncPubKey,
+        },
+      };
+    }
+    if (body.length === 161) {
+      const decoded = HandshakeSuccessV2_v021.dec(body);
+      return {
+        tag: 'Success',
+        value: {
+          identityAccountId: decoded.identityAccountId,
+          rootAccountId: decoded.rootAccountId,
+          identityChatPrivateKey: decoded.identityChatPrivateKey,
+          ssoEncPubKey: null,
           deviceEncPubKey: decoded.deviceEncPubKey,
         },
       };
@@ -135,11 +182,12 @@ export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHa
           identityAccountId: decoded.identityAccountId,
           rootAccountId: null,
           identityChatPrivateKey: decoded.identityChatPrivateKey,
+          ssoEncPubKey: null,
           deviceEncPubKey: decoded.deviceEncPubKey,
         },
       };
     }
-    throw new Error(`EncryptedHandshakeResponseV2: Success body length ${body.length} not in {129, 161}`);
+    throw new Error(`EncryptedHandshakeResponseV2: Success body length ${body.length} not in {129, 161, 226}`);
   }
   if (tag === 2) {
     return { tag: 'Failed', value: str.dec(body) };

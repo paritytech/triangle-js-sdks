@@ -51,6 +51,16 @@ export type HandshakeSuccessState = {
    */
   deviceEncPubKey: Uint8Array;
   /**
+   * `papp_encr_pub` from the Mobile SSO spec (v0.2.2 — 65 bytes, P-256
+   * uncompressed). The host's SSO session transport derives
+   * `shared_secret_session = ECDH(host_encr_secret, ssoEncPubKey)` from
+   * this. Nullable because v0.2 and v0.2.1 peers don't ship it; while
+   * null the host's SSO transport stays inactive (sign/vrf/etc continue
+   * to fail at the boundary) and chat keeps working through
+   * `identityChatPrivateKey`.
+   */
+  ssoEncPubKey: Uint8Array | null;
+  /**
    * The pairing-topic statement was signed by PApp's device statement
    * account. `HandshakeSuccessV2` doesn't carry it in the encrypted body, so
    * the pairing service lifts it off `statement.proof.value.signer` and
@@ -93,6 +103,7 @@ export const fromInnerResponse = (
         identityChatPrivateKey: response.value.identityChatPrivateKey,
         identityChatPublicKey: deriveIdentityChatPublicKey(response.value.identityChatPrivateKey),
         deviceEncPubKey: response.value.deviceEncPubKey,
+        ssoEncPubKey: response.value.ssoEncPubKey,
         peerStatementAccountId,
       };
     case 'Failed':
