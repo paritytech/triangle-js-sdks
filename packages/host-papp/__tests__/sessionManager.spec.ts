@@ -1,5 +1,6 @@
 import type { StatementStoreAdapter } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
+import { createMemoryAdapter } from '@novasamatech/storage-adapter';
 import { okAsync } from 'neverthrow';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -25,6 +26,7 @@ vi.mock('../src/sso/ssoSessionProver.js', () => ({
 
 import { onHostPappDebugMessage } from '../src/debugBus.js';
 import type { HostPappDebugEvent } from '../src/debugTypes.js';
+import { createAllowanceRepository } from '../src/sso/allowance/repository.js';
 import { createSsoSessionManager } from '../src/sso/sessionManager/impl.js';
 import type { StoredUserSession, UserSessionRepository } from '../src/sso/userSessionRepository.js';
 
@@ -51,10 +53,12 @@ function buildHarness() {
   } as any;
   const statementStore = {} as StatementStoreAdapter;
   const storage = {} as StorageAdapter;
+  const allowanceRepository = createAllowanceRepository('session-manager-test', createMemoryAdapter());
 
   const manager = createSsoSessionManager({
     ssoSessionRepository,
     userSecretRepository,
+    allowanceRepository,
     statementStore,
     storage,
   });
@@ -95,6 +99,7 @@ beforeEach(() => {
     sendDisconnectMessage: vi.fn(() => okAsync(undefined)),
     signPayload: vi.fn(),
     signRaw: vi.fn(),
+    createTransaction: vi.fn(),
     getRingVrfAlias: vi.fn(),
     requestResourceAllocation: vi.fn(),
   }));

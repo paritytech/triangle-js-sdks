@@ -1,0 +1,15 @@
+[package]
+name = "substrate-slot-sr25519-wasm"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+wasm-bindgen = "0.2.100"
+schnorrkel = { version = "0.11.3", features = ["preaudit_deprecated"] }
+getrandom = { version = "0.2", features = ["js"] }
+
+[profile.release]
+opt-level = "s"

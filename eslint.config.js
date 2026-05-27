@@ -14,7 +14,14 @@ export default defineConfig([
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
 
-  globalIgnores(['**/dist', '**/*.d.ts', '**/.papi']),
+  globalIgnores([
+    '**/dist',
+    '**/wasm-glue/**',
+    '**/*.d.ts',
+    '**/.papi',
+    '**/storybook-static/**',
+    '**/rust/**',
+  ]),
 
   {
     files: ['**/*.{ts,tsx}'],
