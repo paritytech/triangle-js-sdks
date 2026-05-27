@@ -10,7 +10,7 @@ export const HandshakeErr = ErrEnum('HandshakeErr', {
 });
 
 /**
- * HandshakeV1_request = 1 - JAM codec
+ * HandshakeV1_request = 1 - SCALE codec
  */
 export const HandshakeV1_request = u8;
 export const HandshakeV1_response = Result(_void, HandshakeErr);

@@ -881,9 +881,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
             return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
           }
 
-          const jsonRpcItems = items.map((item: { key: HexString; type: string }) => ({
+          const jsonRpcItems = items.map((item: { key: HexString; queryType: string }) => ({
             key: item.key,
-            type: manager.convertStorageQueryTypeToJsonRpc(item.type),
+            type: manager.convertStorageQueryTypeToJsonRpc(item.queryType),
           }));
 
           try {

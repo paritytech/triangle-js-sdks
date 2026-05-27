@@ -1,4 +1,4 @@
-declare module './nodejs/substrate_sr25519_wasm.js' {
+declare module './nodejs/substrate_slot_sr25519_wasm.js' {
   export default function init(
     module_or_path?: URL | RequestInfo | { module_or_path: URL | RequestInfo },
   ): Promise<unknown>;

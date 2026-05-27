@@ -23,7 +23,7 @@ type AccountService = {
   getConsumerInfo(address: string): ResultAsync<Identity | null, Error>;
 };
 
-type Network = 'paseo-next' | 'preview' | 'stable';
+type Network = 'paseo-next' | 'paseo-next-v2' | 'preview' | 'stable';
 
 type SearchResponse = {
   candidateAccountId: string;
@@ -93,8 +93,16 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
 
       const consumerInfo = fromPromise(api.query.Resources?.Consumers?.getValue(address), toError);
 
-      return consumerInfo.map<Identity | null>(raw => {
-        if (!raw) return null;
+      return consumerInfo.map<Identity | null>(typedRaw => {
+        if (!typedRaw) return null;
+
+        // Runtime metadata may expose fields in snake_case (V1) or
+        // camelCase (V2 multi-device). Read defensively.
+        const raw = typedRaw as unknown as Record<string, unknown> & typeof typedRaw;
+        const fullUsername =
+          (raw.full_username as Uint8Array | undefined) ?? (raw.fullUsername as Uint8Array | undefined);
+        const liteUsername =
+          (raw.lite_username as Uint8Array | undefined) ?? (raw.liteUsername as Uint8Array | undefined);
 
         const credibility: Credibility =
           raw.credibility.type === 'Lite'
@@ -104,13 +112,14 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
             : {
                 type: 'Person',
                 alias: raw.credibility.value.alias as HexString,
-                lastUpdate: raw.credibility.value.last_update.toString(),
+                lastUpdate: ((raw.credibility.value as Record<string, unknown>).last_update ??
+                  (raw.credibility.value as Record<string, unknown>).lastUpdate)!.toString(),
               };
 
         return {
           accountId: toHex(accountId.enc(address)),
-          fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
-          liteUsername: textDecoder.decode(raw.lite_username),
+          fullUsername: fullUsername ? textDecoder.decode(fullUsername) : null,
+          liteUsername: liteUsername ? textDecoder.decode(liteUsername) : '',
           credibility: credibility,
         };
       });
@@ -136,5 +145,11 @@ const NETWORK_CONFIGS: Record<Network, NetworkConfig> = {
     name: 'Paseo Next',
     wsUrl: 'wss://paseo-people-next-rpc.polkadot.io',
     apiUrl: 'https://identity-backend.parity-testnet.parity.io/api/v1',
+  },
+  'paseo-next-v2': {
+    id: 'paseo-next-v2',
+    name: 'Paseo Next V2',
+    wsUrl: 'wss://paseo-people-next-system-rpc.polkadot.io',
+    apiUrl: 'https://identity-backend-next.parity-testnet.parity.io/api/v1',
   },
 };

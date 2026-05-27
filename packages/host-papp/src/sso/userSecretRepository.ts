@@ -12,10 +12,14 @@ import { BrandedBytesCodec, stringToBytes } from '../crypto.js';
 import { toError } from '../helpers/utils.js';
 
 type StoredUserSecrets = CodecType<typeof StoredUserSecretsCodec>;
+
 const StoredUserSecretsCodec = Struct({
   ssSecret: BrandedBytesCodec<SsSecret>(),
   encrSecret: BrandedBytesCodec<EncrSecret>(),
   entropy: Bytes(),
+  // V2 addition: user identity chat private key (P-256 raw scalar, 32 bytes).
+  // Sensitive — kept encrypted at rest alongside the per-session ss/encr secrets.
+  identityChatPrivateKey: Bytes(32),
 });
 
 export type UserSecretRepository = ReturnType<typeof createUserSecretRepository>;
@@ -24,10 +28,17 @@ export function createUserSecretRepository(salt: string, storage: StorageAdapter
   const baseKey = 'UserSecrets';
 
   const encode = fromThrowable(StoredUserSecretsCodec.enc, toError);
-  const decode = fromThrowable(
-    (value: Uint8Array | null) => (value ? StoredUserSecretsCodec.dec(value) : null),
-    toError,
-  );
+  const decode = fromThrowable((value: Uint8Array | null) => {
+    if (!value) return null;
+    try {
+      return StoredUserSecretsCodec.dec(value);
+    } catch {
+      // 0.7.x V1 blobs are missing `identityChatPrivateKey` and decode short.
+      // Treat as absent — a fresh handshake (required after 0.8.0 upgrade)
+      // will overwrite.
+      return null;
+    }
+  }, toError);
 
   const encrypt = fromThrowable((value: Uint8Array) => {
     const aes = getAes(salt);

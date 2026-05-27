@@ -4,9 +4,9 @@ import initWasm, {
   substrateSr25519PublicKeyFromSecret,
   substrateSr25519SignFromSecret,
   substrateSr25519Verify,
-} from './nodejs/substrate_sr25519_wasm.js';
+} from './nodejs/substrate_slot_sr25519_wasm.js';
 
-const wasmModuleUrl = new URL('./nodejs/substrate_sr25519_wasm_bg.wasm', import.meta.url);
+const wasmModuleUrl = new URL('./nodejs/substrate_slot_sr25519_wasm_bg.wasm', import.meta.url);
 
 let initDone = false;
 let initPromise: Promise<void> | null = null;

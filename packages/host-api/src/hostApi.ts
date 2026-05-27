@@ -426,17 +426,6 @@ export function createHostApi(transport: Transport): HostApi {
         value: new GenericError({ reason }),
       }));
     },
-
-    jsonrpcMessageSend(payload) {
-      return makeRequest(transport.request('host_jsonrpc_message_send', payload), () => ({
-        tag: payload.tag,
-        value: undefined,
-      }));
-    },
-
-    jsonrpcMessageSubscribe(args, callback) {
-      return transport.subscribe('host_jsonrpc_message_subscribe', args, callback);
-    },
   };
 }
 

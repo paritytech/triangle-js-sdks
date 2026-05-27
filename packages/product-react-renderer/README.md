@@ -46,7 +46,7 @@ import { registerChatMessageRenderer, Text } from '@novasamatech/product-react-r
 chat.onCustomMessageRenderingRequest(
   registerChatMessageRenderer(
     () => undefined,
-    () => <Text style="headline">Hello from the product!</Text>,
+    () => <Text style="headline.large">Hello from the product!</Text>,
   ),
 );
 ```
@@ -65,8 +65,8 @@ chat.onCustomMessageRenderingRequest(
     raw => JSON.parse(new TextDecoder().decode(raw)) as BalancePayload,
     ({ payload }) => (
       <Column>
-        <Text style="headline">{payload.amount}</Text>
-        <Text color="textSecondary">{payload.token}</Text>
+        <Text style="headline.large">{payload.amount}</Text>
+        <Text color="fg.secondary">{payload.token}</Text>
       </Column>
     ),
   ),
@@ -85,7 +85,7 @@ function VoteWidget() {
   const [votes, setVotes] = useState(0);
   return (
     <Column horizontalAlignment="center" padding={16}>
-      <Text style="headline">Votes: {votes}</Text>
+      <Text style="headline.large">Votes: {votes}</Text>
       <Button text="Vote" variant="primary" onClick={() => setVotes(v => v + 1)} />
     </Column>
   );
@@ -110,7 +110,7 @@ chat.onCustomMessageRenderingRequest(
   registerChatMessageRenderer(
     () => undefined,
     ({ messageId, messageType }) => (
-      <Text color="textSecondary">
+      <Text color="fg.secondary">
         [{messageType}] {messageId}
       </Text>
     ),
@@ -132,10 +132,10 @@ All components accept the [shared layout props](#layout-props) in addition to th
 | `color`    | `ColorToken`      | Text color                   |
 | `children` | `ReactNode`       | Text content or nested nodes |
 
-**`TypographyStyle`**: `titleXL` · `headline` · `bodyM` · `bodyS` · `caption`
+**`TypographyStyle`**: `headline.large` · `title.medium.regular` · `body.large.regular` · `body.medium.regular` · `body.small.regular`
 
 ```tsx
-<Text style="headline" color="textPrimary">Balance: 42 DOT</Text>
+<Text style="headline.large" color="fg.primary">Balance: 42 DOT</Text>
 ```
 
 ### `<Button>`
@@ -217,7 +217,7 @@ Stacks children vertically.
 
 ```tsx
 <Column horizontalAlignment="center" verticalArrangement="spaceBetween" padding={16}>
-  <Text style="headline">Title</Text>
+  <Text style="headline.large">Title</Text>
   <Button text="OK" onClick={handleOk} />
 </Column>
 ```
@@ -236,7 +236,7 @@ Stacks children horizontally.
 ```tsx
 <Row verticalAlignment="center" horizontalArrangement="spaceBetween">
   <Text>Label</Text>
-  <Text color="textSecondary">Value</Text>
+  <Text color="fg.secondary">Value</Text>
 </Row>
 ```
 
@@ -251,7 +251,7 @@ Single-child container with optional content alignment.
 **`ContentAlignment`**: `topStart` · `topCenter` · `topEnd` · `centerStart` · `center` · `centerEnd` · `bottomStart` · `bottomCenter` · `bottomEnd`
 
 ```tsx
-<Box contentAlignment="center" background="backgroundSecondary" padding={8}>
+<Box contentAlignment="center" background="bg.surface.container" padding={8}>
   <Text>Centered</Text>
 </Box>
 ```
@@ -300,19 +300,19 @@ Every component accepts these props to control sizing, spacing, and appearance.
 
 ```tsx
 // Plain color
-<Box background="backgroundSecondary" />
+<Box background="bg.surface.container" />
 
 // Color + shape
-<Box background={{ color: 'backgroundSecondary', shape: { tag: 'Rounded', value: 8 } }} />
-<Box background={{ color: 'backgroundTertiary', shape: { tag: 'Circle' } }} />
+<Box background={{ color: 'bg.surface.container', shape: { tag: 'Rounded', value: 8 } }} />
+<Box background={{ color: 'bg.surface.nested', shape: { tag: 'Circle' } }} />
 ```
 
 ### Border
 
 ```tsx
-<Box border={{ width: 1, color: 'textTertiary' }} />
+<Box border={{ width: 1, color: 'fg.tertiary' }} />
 // With a rounded corner
-<Box border={{ width: 1, color: 'success', shape: { tag: 'Rounded', value: 4 } }} />
+<Box border={{ width: 1, color: 'fg.success', shape: { tag: 'Rounded', value: 4 } }} />
 ```
 
 ---
@@ -321,15 +321,15 @@ Every component accepts these props to control sizing, spacing, and appearance.
 
 | Token                  | Description                 |
 |------------------------|-----------------------------|
-| `textPrimary`          | Primary text                |
-| `textSecondary`        | Secondary / supporting text |
-| `textTertiary`         | Tertiary / hint text        |
-| `backgroundPrimary`    | Primary surface             |
-| `backgroundSecondary`  | Secondary surface           |
-| `backgroundTertiary`   | Tertiary surface            |
-| `success`              | Positive / success state    |
-| `warning`              | Warning state               |
-| `error`                | Error / destructive state   |
+| `fg.primary`           | Primary text                |
+| `fg.secondary`         | Secondary / supporting text |
+| `fg.tertiary`          | Tertiary / hint text        |
+| `bg.surface.main`      | Primary surface             |
+| `bg.surface.container` | Secondary surface           |
+| `bg.surface.nested`    | Tertiary surface            |
+| `fg.success`           | Positive / success state    |
+| `fg.warning`           | Warning state               |
+| `fg.error`             | Error / destructive state   |
 
 ---
 
@@ -367,7 +367,7 @@ const renderer = createRenderer({
 // Mount the initial tree.
 renderer.mount(
   <Column>
-    <Text style="headline">Hello</Text>
+    <Text style="headline.large">Hello</Text>
     <Button text="OK" onClick={() => console.log('clicked')} />
   </Column>,
 );
@@ -382,10 +382,10 @@ renderer.unmount();
 
 ```tsx
 // First render
-renderer.mount(<Text style="headline">Loading…</Text>);
+renderer.mount(<Text style="headline.large">Loading…</Text>);
 
 // Later — update in place
-renderer.mount(<Text style="headline">Done!</Text>);
+renderer.mount(<Text style="headline.large">Done!</Text>);
 ```
 
 ### Manual integration with `onCustomMessageRenderingRequest`
@@ -398,7 +398,7 @@ import { createRenderer, Text } from '@novasamatech/product-react-renderer';
 chat.onCustomMessageRenderingRequest(({ messageId, messageType, payload, subscribeActions }, render) => {
   const renderer = createRenderer({ onRender: render, subscribeActions });
 
-  renderer.mount(<Text style="headline">{messageType}</Text>);
+  renderer.mount(<Text style="headline.large">{messageType}</Text>);
 
   // Return the cleanup callback.
   return () => {

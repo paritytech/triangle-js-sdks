@@ -10,7 +10,7 @@ export const useAuthStatus = () => {
       return pairingStatus.session;
     }
     return null;
-  }, [pairingStatus.step]);
+  }, [pairingStatus]);
 
   return {
     status: pairingStatus,

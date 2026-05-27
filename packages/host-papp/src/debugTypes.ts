@@ -25,7 +25,7 @@ export type SsoDebugEvent =
       event: 'pairing_started';
       flowId: string;
       timestamp: number;
-      payload: { metadata: string };
+      payload: { metadata: unknown };
     }
   | {
       layer: 'sso';
@@ -39,14 +39,14 @@ export type SsoDebugEvent =
       event: 'awaiting_response';
       flowId: string;
       timestamp: number;
-      payload: { topic: string };
+      payload: Record<string, never>;
     }
   | {
       layer: 'sso';
       event: 'response_received';
       flowId: string;
       timestamp: number;
-      payload: { sessionId: string };
+      payload: { identityAccountId: Uint8Array };
     }
   | {
       layer: 'sso';

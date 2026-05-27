@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
-const wasmJs = join(packageRoot, 'dist/nodejs/substrate_sr25519_wasm.js');
+const wasmJs = join(packageRoot, 'dist/nodejs/substrate_slot_sr25519_wasm.js');
 
 const run = (cmd, args) => {
   const result = spawnSync(cmd, args, { cwd: packageRoot, stdio: 'inherit' });

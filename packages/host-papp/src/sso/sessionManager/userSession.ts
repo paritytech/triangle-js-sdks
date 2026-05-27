@@ -26,6 +26,8 @@ import type { SigningPayloadRequest, SigningPayloadResponseData, SigningRawReque
 // payload is for an SDK version the mobile app doesn't support yet. After
 // this timeout the queue task fails, freeing the pool for the next request.
 const QUEUE_TASK_TIMEOUT_MS = 180_000;
+// Mobile SSO statements allow 256 KiB total; keep headroom for statement/session overhead.
+const MAX_SSO_REQUEST_SIZE = 254 * 1024;
 
 function withQueueTimeout<T>(resultAsync: ResultAsync<T, Error>, label: string): ResultAsync<T, Error> {
   const timeoutPromise = new Promise<Result<T, Error>>(resolve =>
@@ -128,6 +130,7 @@ export function createUserSession({
     statementStore,
     encryption,
     prover,
+    maxRequestSize: MAX_SSO_REQUEST_SIZE,
   });
 
   const processedMessages = fieldListView<string>({
@@ -138,10 +141,7 @@ export function createUserSession({
   });
 
   return {
-    id: userSession.id,
-    localAccount: userSession.localAccount,
-    remoteAccount: userSession.remoteAccount,
-    rootAccountId: userSession.rootAccountId,
+    ...userSession,
 
     signPayload(payload) {
       return requestQueue.call(() => {
