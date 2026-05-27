@@ -11,7 +11,7 @@ npm install @novasamatech/host-api --save -E
 ## Usage
 
 The Host API package is composed of four main parts:
-* **Protocol** — JAM codecs according to [proposal](https://hackmd.io/@zhuravlev-novasama-1337/B1kW0RWmbg);
+* **Protocol** — SCALE codecs;
 * **Provider** — IPC interface, depends on environment;
 * **Transport** — wrapper around protocol for making actual calls;
 * **Host API** — wrapper around transport for direct usage of business methods.
