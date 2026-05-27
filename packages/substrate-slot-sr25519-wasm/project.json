@@ -7,7 +7,7 @@
       "cache": true,
       "options": {
         "cwd": "{projectRoot}",
-        "commands": ["npm run build:ts"],
+        "commands": ["npm run build"],
         "parallel": false
       }
     }

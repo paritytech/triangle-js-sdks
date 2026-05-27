@@ -6,10 +6,10 @@ Matches Android/iOS Substrate SDK (`SlotAccountKey`, `createKeypairFromSecret`),
 
 ## Build
 
-Requires [wasm-pack](https://rustwasm.github.io/wasm-pack/installer/) and Rust.
-
 ```bash
 npm run build
 ```
 
-WASM glue is generated into `dist/nodejs/`; the TypeScript API lives in `src/index.ts`.
+Prebuilt wasm glue is committed in `wasm-glue/` and copied into `dist/nodejs/` during build. **Rust and wasm-pack are only required** when changing the Rust crate — run `npm run build:wasm` to regenerate `wasm-glue/` and commit the updated files.
+
+The TypeScript API lives in `src/index.ts`.

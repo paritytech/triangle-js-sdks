@@ -25,12 +25,13 @@
   },
   "files": [
     "dist",
+    "wasm-glue",
     "README.md"
   ],
   "scripts": {
     "build": "node scripts/build.mjs",
-    "build:wasm": "wasm-pack build rust --release --target web --out-dir ../dist/nodejs",
-    "build:ts": "node scripts/link-nodejs.mjs && tsc --build tsconfig.json"
+    "build:wasm": "wasm-pack build rust --release --target web --out-dir ../dist/nodejs && node scripts/sync-wasm-glue.mjs",
+    "build:ts": "node scripts/ensure-wasm.mjs && node scripts/link-nodejs.mjs && tsc --build tsconfig.json"
   },
   "publishConfig": {
     "access": "public"
