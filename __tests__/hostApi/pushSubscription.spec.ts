@@ -8,7 +8,7 @@ import {
   createTransport,
   enumValue,
 } from '@novasamatech/host-api';
-import { createPushBroadcaster, createPushSubscriptionManager } from '@novasamatech/host-api-wrapper';
+import { createPushSubscriptionManager } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 
@@ -22,9 +22,8 @@ function setup() {
   const sdkTransport = createTransport(providers.sdk);
   const hostApi = createHostApi(sdkTransport);
   const pushSubscription = createPushSubscriptionManager(sdkTransport);
-  const pushBroadcaster = createPushBroadcaster(sdkTransport);
 
-  return { container, hostApi, pushSubscription, pushBroadcaster };
+  return { container, hostApi, pushSubscription };
 }
 
 const signerA = new Uint8Array(32).fill(0xa1);
@@ -382,13 +381,13 @@ describe('Wrapper: createPushSubscriptionManager', () => {
   });
 });
 
-describe('Wrapper: createPushBroadcaster', () => {
+describe('Wrapper: broadcast (via createPushSubscriptionManager)', () => {
   it('broadcast resolves with the messageHash', async () => {
-    const { container, pushBroadcaster } = setup();
+    const { container, pushSubscription } = setup();
     const messageHash = new Uint8Array(32).fill(0x7f);
     container.handlePushBroadcast((_, { ok }) => ok({ messageHash }));
 
-    const result = await pushBroadcaster.broadcast({
+    const result = await pushSubscription.broadcast({
       topics: [topicX],
       content: { title: 't', body: 'b', deeplink: undefined },
     });
@@ -397,13 +396,13 @@ describe('Wrapper: createPushBroadcaster', () => {
   });
 
   it('broadcast rejects with NotificationSystemUnavailable when host returns one', async () => {
-    const { container, pushBroadcaster } = setup();
+    const { container, pushSubscription } = setup();
     container.handlePushBroadcast((_, { err }) =>
       err(new PushBroadcastErr.NotificationSystemUnavailable({ reason: 'backend offline' })),
     );
 
     await expect(
-      pushBroadcaster.broadcast({
+      pushSubscription.broadcast({
         topics: [topicX],
         content: { title: 't', body: 'b', deeplink: undefined },
       }),
