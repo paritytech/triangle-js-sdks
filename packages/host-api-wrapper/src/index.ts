@@ -41,6 +41,12 @@ export { createLocalStorage, hostLocalStorage } from './localStorage.js';
 export type { NotificationId, PushNotificationInput } from './notification.js';
 export { createNotificationManager, notificationManager } from './notification.js';
 
+export type { PushRule } from './pushSubscription.js';
+export { createPushSubscriptionManager, pushSubscriptionManager } from './pushSubscription.js';
+
+export type { PushBroadcastContent, PushBroadcastInput, PushBroadcastResult } from './pushBroadcast.js';
+export { createPushBroadcaster, pushBroadcaster } from './pushBroadcast.js';
+
 export { createPreimageManager, preimageManager } from './preimage.js';
 
 export type { PaymentBalance, PaymentStatus, TopUpSource } from './payments.js';

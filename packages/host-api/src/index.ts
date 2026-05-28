@@ -90,6 +90,15 @@ export { StorageErr } from './protocol/v1/localStorage.js';
 export { DevicePermission } from './protocol/v1/devicePermission.js';
 export { RemotePermission } from './protocol/v1/remotePermission.js';
 export { NotificationId, PushNotification, PushNotificationError } from './protocol/v1/notification.js';
+export {
+  PushAddRulesErr,
+  PushBroadcastContent,
+  PushBroadcastErr,
+  PushListRulesErr,
+  PushRemoveRulesErr,
+  PushRule,
+  PushSetRulesErr,
+} from './protocol/v1/pushSubscription.js';
 export { NavigateToErr } from './protocol/v1/navigation.js';
 export { PreimageKey, PreimageSubmitErr, PreimageValue } from './protocol/v1/preimage.js';
 export { AllocatableResource, AllocationOutcome, ResourceAllocationErr } from './protocol/v1/resourceAllocation.js';
