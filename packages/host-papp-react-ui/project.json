@@ -1,0 +1,16 @@
+{
+  "name": "@novasamatech/host-papp-react-ui",
+  "projectType": "library",
+  "targets": {
+    "build": {
+      "executor": "nx:run-commands",
+      "outputs": ["{projectRoot}/dist"],
+      "cache": true,
+      "options": {
+        "cwd": "{projectRoot}",
+        "commands": ["npm run build"],
+        "parallel": false
+      }
+    }
+  }
+}

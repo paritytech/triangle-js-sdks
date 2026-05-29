@@ -25,6 +25,9 @@
     "dist",
     "README.md"
   ],
+  "scripts": {
+    "build": "vite build"
+  },
   "peerDependencies": {
     "react": ">=18",
     "react-dom": ">=18"
