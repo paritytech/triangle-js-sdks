@@ -361,7 +361,7 @@ export function createSession({
         rejectFn = rej;
       });
       state.pendingDelivery.set(token, { resolve: resolveFn, reject: rejectFn, promise });
-      // Ensure a rejection from clearOutgoingBatch()/dispose() is always handled,
+      // Ensure a rejection from clearOutgoingStatement()/dispose() is always handled,
       // even when no caller attached via waitForResponseMessage(); the real waiter
       // still receives the rejection through its own handler.
       promise.catch(() => undefined);
@@ -441,7 +441,7 @@ export function createSession({
       };
     },
 
-    clearOutgoingBatch() {
+    clearOutgoingStatement() {
       const outgoing = state.outgoingRequest;
       // Reuse the current expiry (do NOT call nextExpiry): the live batch was last
       // submitted at state.expiry, so an empty statement at the same expiry on the

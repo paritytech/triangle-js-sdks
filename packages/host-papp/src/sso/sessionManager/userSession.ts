@@ -378,7 +378,7 @@ export function createUserSession({
       // Clears the in-flight on-chain request batch and rejects the pending
       // response waiter, which makes any in-flight signPayload/signRaw task
       // reject and frees the single-slot request queue.
-      return session.clearOutgoingBatch();
+      return session.clearOutgoingStatement();
     },
 
     dispose() {

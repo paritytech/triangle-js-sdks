@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   submitRequestMessage: vi.fn(),
   sessionSubscribe: vi.fn(),
   sessionDispose: vi.fn(),
-  clearOutgoingBatch: vi.fn(),
+  clearOutgoingStatement: vi.fn(),
   fieldListRead: vi.fn(),
   fieldListMutate: vi.fn(),
   nanoid: vi.fn(),
@@ -27,7 +27,7 @@ vi.mock('@novasamatech/statement-store', async importOriginal => {
       submitRequestMessage: mocks.submitRequestMessage,
       subscribe: mocks.sessionSubscribe,
       dispose: mocks.sessionDispose,
-      clearOutgoingBatch: mocks.clearOutgoingBatch,
+      clearOutgoingStatement: mocks.clearOutgoingStatement,
     })),
   };
 });
@@ -83,7 +83,7 @@ beforeEach(() => {
   mocks.submitRequestMessage.mockReset().mockReturnValue(okAsync(undefined));
   mocks.sessionSubscribe.mockReset();
   mocks.sessionDispose.mockReset();
-  mocks.clearOutgoingBatch.mockReset().mockReturnValue(okAsync(undefined));
+  mocks.clearOutgoingStatement.mockReset().mockReturnValue(okAsync(undefined));
   mocks.fieldListRead.mockReset().mockReturnValue(okAsync([]));
   mocks.fieldListMutate.mockReset().mockReturnValue(okAsync(undefined));
 });
@@ -282,17 +282,17 @@ describe('createUserSession debug emits', () => {
 });
 
 describe('createUserSession abort', () => {
-  it('delegates to the session clearOutgoingBatch and resolves ok', async () => {
+  it('delegates to the session clearOutgoingStatement and resolves ok', async () => {
     const session = buildSession();
 
     const result = await session.abort();
 
-    expect(mocks.clearOutgoingBatch).toHaveBeenCalledTimes(1);
+    expect(mocks.clearOutgoingStatement).toHaveBeenCalledTimes(1);
     expect(result.isOk()).toBe(true);
   });
 
-  it('propagates a clearOutgoingBatch failure', async () => {
-    mocks.clearOutgoingBatch.mockReturnValue(errAsync(new Error('boom')));
+  it('propagates a clearOutgoingStatement failure', async () => {
+    mocks.clearOutgoingStatement.mockReturnValue(errAsync(new Error('boom')));
     const session = buildSession();
 
     const result = await session.abort();
