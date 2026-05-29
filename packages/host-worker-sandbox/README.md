@@ -32,6 +32,58 @@ unbindFeatureSupported();
 sandbox.dispose();
 ```
 
+## ES Module Imports
+
+By default, `import` declarations in worker code fail at load time. To enable ES
+modules (static `import` / `export` and dynamic `import()`), pass a
+`resolveModule` hook. It is called for every import the VM encounters and
+returns the module's source on demand:
+
+```ts
+type ResolvedModule = { filename: string; content: string | Uint8Array };
+
+type ModuleResolver = (
+  specifier: string,
+  importer: string | null,
+  defaultResolve: (specifier: string, importer: string | null) => string,
+) => Promise<ResolvedModule | null> | ResolvedModule | null;
+```
+
+- `importer` is the resolved `filename` of the module issuing the import, or
+  `null` for the entrypoint's own imports.
+- The resolver chooses each module's canonical `filename`. Returning the **same
+  `filename`** for two imports makes them share a single module instance
+  (dedup — the module executes once).
+- `content` may be a `string` or a `Uint8Array` (decoded as UTF-8).
+- Return `null` to signal "not found" (the import fails with
+  `Module not found: …`). Throwing or rejecting surfaces that error to the import.
+- `defaultResolve` POSIX-joins a relative specifier (`./x`, `../x`) against the
+  importer's directory; bare specifiers pass through unchanged. The common case
+  is `(specifier, importer, defaultResolve) => archive[defaultResolve(specifier, importer)]`.
+
+When `resolveModule` is configured, `run()` requires a `name` identifying the
+entrypoint so its relative imports can resolve against it:
+
+```ts
+const archive: Record<string, string> = {
+  'app/util.js': 'export const tag = 7;',
+  'app/index.js': `
+    import { tag } from './util.js';
+    __HOST_API_PORT__.postMessage(new Uint8Array([tag]));
+  `,
+};
+
+const sandbox = await createSandbox('example-product.dot', {
+  resolveModule: (specifier, importer, defaultResolve) => {
+    const filename = defaultResolve(specifier, importer);
+    const content = archive[filename];
+    return content === undefined ? null : { filename, content };
+  },
+});
+
+await sandbox.run(archive['app/index.js'], { name: 'app/index.js' });
+```
+
 ## Web API Support
 
 The QuickJS VM does not include browser or Node.js globals. The following Web APIs are injected manually so worker code can rely on them.
