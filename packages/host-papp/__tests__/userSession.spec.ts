@@ -291,7 +291,7 @@ describe('createUserSession abortPendingRequests', () => {
     expect(result.isOk()).toBe(true);
   });
 
-  it('propagates a clearOutgoingBatch failure', async () => {
+  it('propagates a clearOutgoingStatement failure', async () => {
     mocks.clearOutgoingStatement.mockReturnValue(errAsync(new Error('boom')));
     const session = buildSession();
 
