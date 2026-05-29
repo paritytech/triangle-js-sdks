@@ -774,7 +774,7 @@ describe('session', () => {
     it('cancels messages queued before the batch is submitted (init still pending)', async () => {
       // queryStatements never resolves, so init() stays pending and the message
       // sits in the queue with outgoingRequest still null.
-      const neverResolves = vi.fn().mockReturnValue(new ResultAsync(new Promise(() => undefined)));
+      const neverResolves = vi.fn().mockReturnValue(ResultAsync.fromSafePromise(new Promise(() => undefined)));
       const { session, adapter } = makeSession({ queryStatements: neverResolves });
 
       const submit = await session.submitRequestMessage(Bytes(), new Uint8Array([7]));
