@@ -686,4 +686,63 @@ describe('session', () => {
       expect(result.unwrapOr({ responseCode: 'unknown' as const }).responseCode).toBe('success');
     });
   });
+
+  describe('clearOutgoingBatch', () => {
+    it('is a no-op when there is no outgoing request', async () => {
+      const { session, adapter } = makeSession();
+      await delay();
+      const before = adapter.submitStatement.mock.calls.length;
+
+      const result = await session.clearOutgoingBatch();
+
+      expect(result.isOk()).toBe(true);
+      expect(adapter.submitStatement.mock.calls.length).toBe(before);
+    });
+
+    it('submits an empty request batch on the same channel at >= the live expiry and clears state', async () => {
+      const { session, adapter } = makeSession();
+      await delay();
+
+      const rawCodec = Bytes();
+      void session.submitRequestMessage(rawCodec, new Uint8Array([1, 2, 3]));
+      await delay();
+
+      const liveCall = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+      const liveDecoded = StatementData.dec(liveCall.data!);
+      expect(liveDecoded.tag).toBe('request');
+      if (liveDecoded.tag === 'request') expect(liveDecoded.value.data.length).toBe(1);
+
+      const result = await session.clearOutgoingBatch();
+      expect(result.isOk()).toBe(true);
+
+      const clearCall = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+      const clearDecoded = StatementData.dec(clearCall.data!);
+      expect(clearDecoded.tag).toBe('request');
+      if (clearDecoded.tag === 'request') expect(clearDecoded.value.data).toEqual([]);
+      expect(clearCall.channel).toBe(liveCall.channel);
+      expect(clearCall.expiry).toBeGreaterThanOrEqual(liveCall.expiry!);
+
+      // Outgoing state is cleared: the next message starts a brand-new batch (data length 1, not 2).
+      void session.submitRequestMessage(rawCodec, new Uint8Array([4]));
+      await delay();
+      const afterClear = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+      const afterDecoded = StatementData.dec(afterClear.data!);
+      if (afterDecoded.tag === 'request') expect(afterDecoded.value.data.length).toBe(1);
+    });
+
+    it('rejects the pending response waiter so callers unwind', async () => {
+      const { session } = makeSession();
+      await delay();
+
+      const submit = await session.submitRequestMessage(Bytes(), new Uint8Array([9]));
+      expect(submit.isOk()).toBe(true);
+      const requestId = submit._unsafeUnwrap().requestId;
+      const waiter = session.waitForResponseMessage(requestId);
+
+      await session.clearOutgoingBatch();
+
+      const waited = await waiter;
+      expect(waited.isErr()).toBe(true);
+    });
+  });
 });

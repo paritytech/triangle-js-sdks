@@ -40,6 +40,14 @@ export type Session = {
 
   submitRequestMessage<T>(codec: Codec<T>, payload: T): ResultAsync<{ requestId: string }, Error>;
   submitResponseMessage(requestId: string, responseCode: ResponseStatus): ResultAsync<void, Error>;
+  /**
+   * Replace the in-flight outgoing request batch with an empty one on the same
+   * request channel at the session's current expiry (the statement store keeps
+   * one statement per channel and rejects only a LOWER expiry, so an equal/higher
+   * expiry supersedes the live batch). Then drop local outgoing state and reject
+   * the pending response waiter. No-op when there is no outgoing request.
+   */
+  clearOutgoingBatch(): ResultAsync<void, Error>;
   waitForRequestMessage<T, S>(codec: Codec<T>, filter: Filter<T, S>): ResultAsync<S, Error>;
   waitForResponseMessage(requestId: string): ResultAsync<ResponseMessage, Error>;
   subscribe<T>(codec: Codec<T>, callback: Callback<Message<T>[]>): VoidFunction;
