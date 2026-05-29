@@ -1,5 +1,6 @@
 import type { Statement } from '@novasamatech/sdk-statement';
 import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
+import type { Result } from 'neverthrow';
 import { ResultAsync, errAsync, ok, okAsync } from 'neverthrow';
 import type { CodecType } from 'scale-ts';
 import { Bytes, str } from 'scale-ts';
@@ -774,7 +775,9 @@ describe('session', () => {
     it('cancels messages queued before the batch is submitted (init still pending)', async () => {
       // queryStatements never resolves, so init() stays pending and the message
       // sits in the queue with outgoingRequest still null.
-      const neverResolves = vi.fn().mockReturnValue(new ResultAsync(new Promise(() => undefined)));
+      const neverResolves = vi
+        .fn()
+        .mockReturnValue(new ResultAsync(new Promise<Result<unknown, unknown>>(() => undefined)));
       const { session, adapter } = makeSession({ queryStatements: neverResolves });
 
       const submit = await session.submitRequestMessage(Bytes(), new Uint8Array([7]));
