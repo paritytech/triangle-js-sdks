@@ -435,7 +435,22 @@ export function createSession({
 
     clearOutgoingBatch() {
       const outgoing = state.outgoingRequest;
-      if (outgoing === null) return okAsync(undefined);
+
+      // Always drop local outgoing state and reject pending waiters, regardless of
+      // whether there is a live on-chain batch to supersede. This covers messages
+      // that were queued before the batch went out (e.g. during init, while
+      // outgoingRequest is still null) and guarantees cleanup even when the
+      // superseding submission below fails.
+      const clearLocalState = () => {
+        state.outgoingRequest = null;
+        state.messageQueue = [];
+        rejectAllPending(new Error('Outgoing batch aborted'));
+      };
+
+      if (outgoing === null) {
+        clearLocalState();
+        return okAsync(undefined);
+      }
 
       const requestId = outgoing.requestIds[outgoing.requestIds.length - 1]!;
       const encoded = fromThrowable(
@@ -445,12 +460,20 @@ export function createSession({
         tag: 'request',
         value: { requestId, data: [] },
       });
-      if (encoded.isErr()) return errAsync(encoded.error);
+      if (encoded.isErr()) {
+        clearLocalState();
+        return errAsync(encoded.error);
+      }
 
       // Reuse the current expiry (do NOT call nextExpiry): the live batch was last
       // submitted at state.expiry, so an empty statement at the same expiry on the
       // same channel supersedes it. The store rejects only a strictly lower expiry.
       const expiry = state.expiry;
+
+      // Clear local state up-front so the session is freed even if the superseding
+      // submission fails; the caller still receives any submission error.
+      clearLocalState();
+
       return encryption
         .encrypt(encoded.value)
         .map<Statement>(encrypted => ({
@@ -460,12 +483,7 @@ export function createSession({
           data: encrypted,
         }))
         .asyncAndThen(prover.generateMessageProof)
-        .andThen(statementStore.submitStatement)
-        .andTee(() => {
-          state.outgoingRequest = null;
-          state.messageQueue = [];
-          rejectAllPending(new Error('Outgoing batch aborted'));
-        });
+        .andThen(statementStore.submitStatement);
     },
 
     dispose() {
