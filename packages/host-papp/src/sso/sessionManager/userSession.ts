@@ -390,7 +390,7 @@ export function createUserSession({
       requestAbort = new AbortController();
       // Then supersede the in-flight on-chain batch with an empty one and reject
       // any session-level response waiters left orphaned by the dropped tasks.
-      return session.clearOutgoingBatch();
+      return session.clearOutgoingStatement();
     },
 
     dispose() {

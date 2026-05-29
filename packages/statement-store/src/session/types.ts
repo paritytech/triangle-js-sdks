@@ -48,7 +48,7 @@ export type Session = {
    * all pending response waiters are rejected, including queued messages that have
    * not yet been submitted and even if the superseding submission itself fails.
    */
-  clearOutgoingBatch(): ResultAsync<void, Error>;
+  clearOutgoingStatement(): ResultAsync<void, Error>;
   waitForRequestMessage<T, S>(codec: Codec<T>, filter: Filter<T, S>): ResultAsync<S, Error>;
   waitForResponseMessage(requestId: string): ResultAsync<ResponseMessage, Error>;
   subscribe<T>(codec: Codec<T>, callback: Callback<Message<T>[]>): VoidFunction;

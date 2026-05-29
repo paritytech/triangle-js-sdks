@@ -1,5 +1,6 @@
 import type { Statement } from '@novasamatech/sdk-statement';
 import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
+import type { Result } from 'neverthrow';
 import { ResultAsync, errAsync, ok, okAsync } from 'neverthrow';
 import type { CodecType } from 'scale-ts';
 import { Bytes, str } from 'scale-ts';
@@ -687,13 +688,13 @@ describe('session', () => {
     });
   });
 
-  describe('clearOutgoingBatch', () => {
+  describe('clearOutgoingStatement', () => {
     it('is a no-op when there is no outgoing request', async () => {
       const { session, adapter } = makeSession();
       await delay();
       const before = adapter.submitStatement.mock.calls.length;
 
-      const result = await session.clearOutgoingBatch();
+      const result = await session.clearOutgoingStatement();
 
       expect(result.isOk()).toBe(true);
       expect(adapter.submitStatement.mock.calls.length).toBe(before);
@@ -712,7 +713,7 @@ describe('session', () => {
       expect(liveDecoded.tag).toBe('request');
       if (liveDecoded.tag === 'request') expect(liveDecoded.value.data.length).toBe(1);
 
-      const result = await session.clearOutgoingBatch();
+      const result = await session.clearOutgoingStatement();
       expect(result.isOk()).toBe(true);
 
       const clearCall = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
@@ -739,7 +740,7 @@ describe('session', () => {
       const requestId = submit._unsafeUnwrap().requestId;
       const waiter = session.waitForResponseMessage(requestId);
 
-      await session.clearOutgoingBatch();
+      await session.clearOutgoingStatement();
 
       const waited = await waiter;
       expect(waited.isErr()).toBe(true);
@@ -755,7 +756,7 @@ describe('session', () => {
       const waiter = session.waitForResponseMessage(requestId);
 
       adapter.submitStatement.mockReturnValueOnce(errAsync(new Error('store rejected')));
-      const result = await session.clearOutgoingBatch();
+      const result = await session.clearOutgoingStatement();
       expect(result.isErr()).toBe(true);
 
       // The pending waiter is rejected despite the failed submission.
@@ -774,7 +775,9 @@ describe('session', () => {
     it('cancels messages queued before the batch is submitted (init still pending)', async () => {
       // queryStatements never resolves, so init() stays pending and the message
       // sits in the queue with outgoingRequest still null.
-      const neverResolves = vi.fn().mockReturnValue(ResultAsync.fromSafePromise(new Promise(() => undefined)));
+      const neverResolves = vi
+        .fn()
+        .mockReturnValue(new ResultAsync(new Promise<Result<unknown, unknown>>(() => undefined)));
       const { session, adapter } = makeSession({ queryStatements: neverResolves });
 
       const submit = await session.submitRequestMessage(Bytes(), new Uint8Array([7]));
@@ -782,7 +785,7 @@ describe('session', () => {
       const waiter = session.waitForResponseMessage(requestId);
       const submitsBefore = adapter.submitStatement.mock.calls.length;
 
-      const result = await session.clearOutgoingBatch();
+      const result = await session.clearOutgoingStatement();
       expect(result.isOk()).toBe(true);
 
       // The queued waiter is rejected rather than left to be submitted after init.

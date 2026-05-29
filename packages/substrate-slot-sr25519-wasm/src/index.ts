@@ -4,15 +4,19 @@ import initWasm, {
   substrateSr25519PublicKeyFromSecret,
   substrateSr25519SignFromSecret,
   substrateSr25519Verify,
-} from './nodejs/substrate_slot_sr25519_wasm.js';
+} from '../wasm/substrate_slot_sr25519_wasm.js';
 
-const wasmModuleUrl = new URL('./nodejs/substrate_slot_sr25519_wasm_bg.wasm', import.meta.url);
+const wasmModuleUrl = new URL('../wasm/substrate_slot_sr25519_wasm_bg.wasm', import.meta.url);
 
 let initDone = false;
 let initPromise: Promise<void> | null = null;
 
 const initSlotWasm = async () => {
-  if (process.env.VITEST === 'true') {
+  // Node can't `fetch` a `file:` URL, so when the wasm is a real on-disk file read it and init
+  // synchronously; a browser/worker gets an http/blob URL (rewritten by its bundler) and falls
+  // through to async fetch init. Scheme is the reliable signal — `process.env` gets baked away by
+  // vite in `dist/`.
+  if (wasmModuleUrl.protocol === 'file:') {
     const { readFileSync } = await import('node:fs');
     const { fileURLToPath } = await import('node:url');
     initWasmSync({ module: readFileSync(fileURLToPath(wasmModuleUrl)) });
