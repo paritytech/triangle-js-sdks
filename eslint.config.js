@@ -16,7 +16,7 @@ export default defineConfig([
 
   globalIgnores([
     '**/dist',
-    '**/wasm-glue/**',
+    '**/wasm/**',
     '**/*.d.ts',
     '**/.papi',
     '**/storybook-static/**',

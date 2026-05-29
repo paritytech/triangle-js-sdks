@@ -10,6 +10,11 @@ Matches Android/iOS Substrate SDK (`SlotAccountKey`, `createKeypairFromSecret`),
 npm run build
 ```
 
-Prebuilt wasm glue is committed in `wasm-glue/` and copied into `dist/nodejs/` during build. **Rust and wasm-pack are only required** when changing the Rust crate — run `npm run build:wasm` to regenerate `wasm-glue/` and commit the updated files.
+`npm run build` runs `vite build`: it bundles `src/index.ts` into `dist/index.js` and emits the
+wasm as a sibling asset `dist/substrate_slot_sr25519_wasm_bg.wasm` (not inlined). The prebuilt
+wasm-bindgen glue is committed in `wasm-glue/` and imported directly by `src/index.ts`.
+
+**Rust and wasm-pack are only required** when changing the Rust crate — run `npm run build:wasm` to
+regenerate `wasm-glue/` (via a throwaway `.wasm-glue-build/` dir) and commit the updated files.
 
 The TypeScript API lives in `src/index.ts`.

@@ -1,2 +1,3 @@
 /rust/target
-/src/nodejs
+/dist
+/.wasm-glue-build
