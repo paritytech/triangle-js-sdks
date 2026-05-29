@@ -84,11 +84,6 @@ const sandbox = await createSandbox('example-product.dot', {
 await sandbox.run(archive['app/index.js'], { name: 'app/index.js' });
 ```
 
-The sandbox runs on the Asyncify-built QuickJS variant (a larger WASM binary
-with some per-call overhead) so the module loader can await the host resolver.
-This variant is used whether or not `resolveModule` is set; all other globals
-behave identically.
-
 ## Web API Support
 
 The QuickJS VM does not include browser or Node.js globals. The following Web APIs are injected manually so worker code can rely on them.
