@@ -2,8 +2,8 @@ import type { Provider } from '@novasamatech/host-api';
 import { createDefaultLogger } from '@novasamatech/host-api';
 import type { Container } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
-import type { QuickJSContext, QuickJSHandle, VmPropertyDescriptor } from 'quickjs-emscripten';
-import { newQuickJSWASMModule } from 'quickjs-emscripten';
+import type { QuickJSAsyncContext, QuickJSContext, QuickJSHandle, VmPropertyDescriptor } from 'quickjs-emscripten';
+import { newQuickJSAsyncWASMModule } from 'quickjs-emscripten';
 
 import { extractBytesFromVm, sendBytesToVm } from './buffers.js';
 import { injectAbortController } from './globals/AbortController.js';
@@ -19,11 +19,15 @@ import { injectCryptoSubtle } from './globals/cryptoSubtle.js';
 import type { FetchResolver } from './globals/fetch.js';
 import { injectFetch } from './globals/fetch.js';
 import { injectIntervals, injectQueueMicrotask, injectTimeouts } from './globals/timers.js';
+import type { ModuleId, ModuleResolver } from './moduleLoader.js';
+import { createModuleLoader } from './moduleLoader.js';
 
 export type Sandbox = {
   container: Container;
   provider: Provider;
-  run: (code: string | Uint8Array) => Promise<void>;
+  // `name` identifies the entrypoint module so its relative imports can resolve
+  // against it. Required when `resolveModule` is configured; ignored otherwise.
+  run: (code: string | Uint8Array, options?: { name?: ModuleId }) => Promise<void>;
   dispose: VoidFunction;
 };
 
@@ -35,6 +39,10 @@ export type SandboxOptions = {
   // Host hook for `crypto.subtle.*` inside the sandbox. If omitted, `crypto.subtle`
   // is not injected (only `crypto.getRandomValues` is available).
   subtleResolver?: SubtleResolver;
+  // Host hook returning ES module source on demand. When provided, worker code
+  // may use `import` / `export` and dynamic `import()`. When omitted, `import`
+  // declarations fail at load time.
+  resolveModule?: ModuleResolver;
 };
 
 // Shared mutable state for the onmessage property descriptor.
@@ -255,7 +263,7 @@ class SandboxPort {
 }
 
 class QuickJsSandbox implements Sandbox {
-  private readonly vm: QuickJSContext;
+  private readonly vm: QuickJSAsyncContext;
   private readonly port: SandboxPort;
   private readonly toUint8ArrayFn: QuickJSHandle;
   private readonly disposeTimers: VoidFunction;
@@ -266,7 +274,7 @@ class QuickJsSandbox implements Sandbox {
   readonly container: Container;
   readonly provider: Provider;
 
-  constructor(productId: string, vm: QuickJSContext, options: SandboxOptions = {}) {
+  constructor(productId: string, vm: QuickJSAsyncContext, options: SandboxOptions = {}) {
     this.productId = productId;
     this.vm = vm;
     this.options = options;
@@ -287,6 +295,15 @@ class QuickJsSandbox implements Sandbox {
 
   private injectGlobals(): VoidFunction {
     const { vm } = this;
+
+    if (this.options.resolveModule) {
+      const { moduleLoader, moduleNormalizer } = createModuleLoader({
+        resolver: this.options.resolveModule,
+        logger: this.provider.logger,
+        isDisposed: () => this.disposed,
+      });
+      vm.runtime.setModuleLoader(moduleLoader, moduleNormalizer);
+    }
 
     const portHandle = this.port.buildHandle();
     vm.setProp(vm.global, '__HOST_WEBVIEW_MARK__', vm.true);
@@ -346,10 +363,18 @@ class QuickJsSandbox implements Sandbox {
     };
   }
 
-  async run(code: string | Uint8Array): Promise<void> {
+  async run(code: string | Uint8Array, options: { name?: ModuleId } = {}): Promise<void> {
     const { vm } = this;
     const str = typeof code === 'string' ? code : new TextDecoder().decode(code);
-    const result = vm.evalCode(str, `${this.productId ?? 'unknown_product'}/worker.js`, {
+
+    if (this.options.resolveModule && options.name == null) {
+      throw new Error('Sandbox.run: { name } is required when resolveModule is configured');
+    }
+    const filename = options.name ?? `${this.productId ?? 'unknown_product'}/worker.js`;
+
+    // evalCodeAsync (not evalCode) so the async module loader can await the
+    // host `resolveModule` hook while QuickJS resolves the import graph.
+    const result = await vm.evalCodeAsync(str, filename, {
       type: 'module',
       strict: true,
     });
@@ -454,7 +479,11 @@ const __sandboxFinalizer = new FinalizationRegistry<() => void>(free => free());
 export async function createSandbox(productId: string, options: SandboxOptions = {}): Promise<Sandbox> {
   // One WASM instance per sandbox to contain abort blast radius — see
   // QuickJsSandbox.dispose() for why JS_FreeRuntime can abort.
-  const QuickJS = await newQuickJSWASMModule();
+  //
+  // The Asyncify-built async module is used (rather than the smaller sync one)
+  // so the ES module loader can await the host `resolveModule` hook. All other
+  // globals operate on the QuickJSContext superclass API and are unaffected.
+  const QuickJS = await newQuickJSAsyncWASMModule();
   const vm = QuickJS.newContext();
   const sandbox = new QuickJsSandbox(productId, vm, options);
   __sandboxFinalizer.register(

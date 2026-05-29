@@ -1007,4 +1007,191 @@ describe('createSandbox', () => {
       });
     });
   });
+
+  // ─────────────────────────────────────────────────────────────────────────────
+  // ES module imports: opt-in `resolveModule` hook supplies module sources on
+  // demand so worker code can use `import` / `export` and dynamic `import()`.
+  // ─────────────────────────────────────────────────────────────────────────────
+  describe('ES module imports', () => {
+    it('loads a static import whose export the entrypoint uses', async () => {
+      const sandbox = await createSandbox('test', {
+        resolveModule: (specifier, _importer, defaultResolve) => {
+          const filename = defaultResolve(specifier, _importer);
+          if (filename === 'math.js') {
+            return { filename, content: 'export const add = (a, b) => a + b;' };
+          }
+          return null;
+        },
+      });
+      const ready = new Promise<number>(resolve => sandbox.provider.subscribe(b => resolve(b[0] ?? 0)));
+      await sandbox.run(
+        `
+          import { add } from 'math.js';
+          __HOST_API_PORT__.postMessage(new Uint8Array([add(2, 3)]));
+        `,
+        { name: 'index.js' },
+      );
+      expect(await ready).toBe(5);
+      sandbox.dispose();
+    });
+
+    it('resolves a relative import against the importer via defaultResolve', async () => {
+      const entry = `
+        import { tag } from './util.js';
+        __HOST_API_PORT__.postMessage(new Uint8Array([tag]));
+      `;
+      const archive: Record<string, string> = { 'app/util.js': 'export const tag = 7;' };
+      const sandbox = await createSandbox('test', {
+        resolveModule: (specifier, importer, defaultResolve) => {
+          const filename = defaultResolve(specifier, importer);
+          const content = archive[filename];
+          return content === undefined ? null : { filename, content };
+        },
+      });
+      const ready = new Promise<number>(resolve => sandbox.provider.subscribe(b => resolve(b[0] ?? 0)));
+      await sandbox.run(entry, { name: 'app/index.js' });
+      expect(await ready).toBe(7);
+      sandbox.dispose();
+    });
+
+    it('resolves a transitive import chain (A → B → C)', async () => {
+      const entry = `
+        import { b } from './b.js';
+        __HOST_API_PORT__.postMessage(new Uint8Array([b]));
+      `;
+      const archive: Record<string, string> = {
+        'c.js': 'export const c = 4;',
+        'b.js': "import { c } from './c.js'; export const b = c + 1;",
+      };
+      const sandbox = await createSandbox('test', {
+        resolveModule: (specifier, importer, defaultResolve) => {
+          const filename = defaultResolve(specifier, importer);
+          const content = archive[filename];
+          return content === undefined ? null : { filename, content };
+        },
+      });
+      const ready = new Promise<number>(resolve => sandbox.provider.subscribe(b => resolve(b[0] ?? 0)));
+      await sandbox.run(entry, { name: 'a.js' });
+      expect(await ready).toBe(5);
+      sandbox.dispose();
+    });
+
+    it('dedupes by filename — a shared module is executed only once', async () => {
+      const evalCounts: number[] = [];
+      const archive: Record<string, string> = {
+        // Each import of shared.js increments a host-observable counter at module
+        // top level; if QuickJS deduped, the counter only advances once.
+        'shared.js': '__HOST_API_PORT__.postMessage(new Uint8Array([1])); export const v = 1;',
+        'left.js': "import { v } from './shared.js'; export const left = v;",
+        'right.js': "import { v } from './shared.js'; export const right = v;",
+      };
+      const sandbox = await createSandbox('test', {
+        resolveModule: (specifier, importer, defaultResolve) => {
+          const filename = defaultResolve(specifier, importer);
+          const content = archive[filename];
+          return content === undefined ? null : { filename, content };
+        },
+      });
+      sandbox.provider.subscribe(() => evalCounts.push(1));
+      await sandbox.run(
+        `
+          import { left } from './left.js';
+          import { right } from './right.js';
+          if (left + right !== 2) throw new Error('imports broken');
+        `,
+        { name: 'index.js' },
+      );
+      // shared.js evaluated once despite being imported by both left and right.
+      expect(evalCounts).toHaveLength(1);
+      sandbox.dispose();
+    });
+
+    it('supports dynamic import() resolving asynchronously', async () => {
+      const sandbox = await createSandbox('test', {
+        resolveModule: async (specifier, importer, defaultResolve) => {
+          await Promise.resolve();
+          const filename = defaultResolve(specifier, importer);
+          if (filename === 'lazy.js') return { filename, content: 'export const n = 9;' };
+          return null;
+        },
+      });
+      const ready = new Promise<number>(resolve => sandbox.provider.subscribe(b => resolve(b[0] ?? 0)));
+      await sandbox.run(
+        `
+          (async () => {
+            const mod = await import('lazy.js');
+            __HOST_API_PORT__.postMessage(new Uint8Array([mod.n]));
+          })();
+        `,
+        { name: 'index.js' },
+      );
+      expect(await ready).toBe(9);
+      sandbox.dispose();
+    });
+
+    it('decodes Uint8Array module content as utf-8', async () => {
+      const source = new TextEncoder().encode('export const ch = "€".codePointAt(0) & 0xff;');
+      const sandbox = await createSandbox('test', {
+        resolveModule: (specifier, _importer, defaultResolve) => {
+          const filename = defaultResolve(specifier, _importer);
+          return filename === 'bytes.js' ? { filename, content: source } : null;
+        },
+      });
+      const ready = new Promise<number>(resolve => sandbox.provider.subscribe(b => resolve(b[0] ?? 0)));
+      await sandbox.run(
+        `
+          import { ch } from 'bytes.js';
+          __HOST_API_PORT__.postMessage(new Uint8Array([ch]));
+        `,
+        { name: 'index.js' },
+      );
+      // '€'.codePointAt(0) === 0x20AC; low byte 0xAC. Proves the bytes were
+      // decoded as utf-8 and parsed, not mangled.
+      expect(await ready).toBe(0xac);
+      sandbox.dispose();
+    });
+
+    it('surfaces a Module not found error when the resolver returns null', async () => {
+      const sandbox = await createSandbox('test', {
+        resolveModule: () => null,
+      });
+      await expect(sandbox.run(`import 'missing.js';`, { name: 'index.js' })).rejects.toThrow(/Module not found/);
+      sandbox.dispose();
+    });
+
+    it('surfaces an error thrown by the resolver', async () => {
+      const sandbox = await createSandbox('test', {
+        resolveModule: () => {
+          throw new Error('resolver exploded');
+        },
+      });
+      await expect(sandbox.run(`import 'boom.js';`, { name: 'index.js' })).rejects.toThrow(/resolver exploded/);
+      sandbox.dispose();
+    });
+
+    it('rejects run() without a name when resolveModule is configured', async () => {
+      const sandbox = await createSandbox('test', {
+        resolveModule: () => null,
+      });
+      await expect(sandbox.run('const x = 1;')).rejects.toThrow(/is required when resolveModule/);
+      sandbox.dispose();
+    });
+
+    it('does not enable module loading when resolveModule is omitted', async () => {
+      const sandbox = await createSandbox('test');
+      await expect(sandbox.run(`import 'anything.js';`)).rejects.toThrow('Sandbox error');
+      sandbox.dispose();
+    });
+
+    it('dispose() works after modules have been loaded', async () => {
+      const sandbox = await createSandbox('test', {
+        resolveModule: (specifier, _importer, defaultResolve) => {
+          const filename = defaultResolve(specifier, _importer);
+          return filename === 'm.js' ? { filename, content: 'export const v = 1;' } : null;
+        },
+      });
+      await sandbox.run(`import { v } from 'm.js'; if (v !== 1) throw new Error('bad');`, { name: 'index.js' });
+      expect(() => sandbox.dispose()).not.toThrow();
+    });
+  });
 });
