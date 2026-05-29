@@ -97,6 +97,7 @@ function withHostActionTrace<T>(
 
 export type UserSession = StoredUserSession & {
   sendDisconnectMessage(): ResultAsync<void, Error>;
+  abort(): ResultAsync<void, Error>;
   signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
   signRaw(payload: SigningRawRequest): ResultAsync<SigningPayloadResponseData, Error>;
   createTransaction(payload: CreateTransactionRequest): ResultAsync<Uint8Array, Error>;
@@ -371,6 +372,13 @@ export function createUserSession({
             console.error('Error while updating processed sso messages:', error);
           });
       });
+    },
+
+    abort() {
+      // Clears the in-flight on-chain request batch and rejects the pending
+      // response waiter, which makes any in-flight signPayload/signRaw task
+      // reject and frees the single-slot request queue.
+      return session.clearOutgoingBatch();
     },
 
     dispose() {
