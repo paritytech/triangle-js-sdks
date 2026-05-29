@@ -356,7 +356,7 @@ export function createSession({
       // Ensure a rejection from clearOutgoingBatch()/dispose() is always handled,
       // even when no caller attached via waitForResponseMessage(); the real waiter
       // still receives the rejection through its own handler.
-      promise.catch(() => {});
+      promise.catch(() => undefined);
 
       if (state.phase === 'initialization') {
         state.messageQueue.push({ encoded, token });
