@@ -1,6 +1,7 @@
 import type { Statement } from '@novasamatech/sdk-statement';
 import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
-import { ok, okAsync } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { ResultAsync, errAsync, ok, okAsync } from 'neverthrow';
 import type { CodecType } from 'scale-ts';
 import { Bytes, str } from 'scale-ts';
 import { describe, expect, it, vi } from 'vitest';
@@ -684,6 +685,114 @@ describe('session', () => {
       const result = await responsePromise;
       expect(result.isOk()).toBe(true);
       expect(result.unwrapOr({ responseCode: 'unknown' as const }).responseCode).toBe('success');
+    });
+  });
+
+  describe('clearOutgoingStatement', () => {
+    it('is a no-op when there is no outgoing request', async () => {
+      const { session, adapter } = makeSession();
+      await delay();
+      const before = adapter.submitStatement.mock.calls.length;
+
+      const result = await session.clearOutgoingStatement();
+
+      expect(result.isOk()).toBe(true);
+      expect(adapter.submitStatement.mock.calls.length).toBe(before);
+    });
+
+    it('submits an empty request batch on the same channel at >= the live expiry and clears state', async () => {
+      const { session, adapter } = makeSession();
+      await delay();
+
+      const rawCodec = Bytes();
+      void session.submitRequestMessage(rawCodec, new Uint8Array([1, 2, 3]));
+      await delay();
+
+      const liveCall = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+      const liveDecoded = StatementData.dec(liveCall.data!);
+      expect(liveDecoded.tag).toBe('request');
+      if (liveDecoded.tag === 'request') expect(liveDecoded.value.data.length).toBe(1);
+
+      const result = await session.clearOutgoingStatement();
+      expect(result.isOk()).toBe(true);
+
+      const clearCall = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+      const clearDecoded = StatementData.dec(clearCall.data!);
+      expect(clearDecoded.tag).toBe('request');
+      if (clearDecoded.tag === 'request') expect(clearDecoded.value.data).toEqual([]);
+      expect(clearCall.channel).toBe(liveCall.channel);
+      expect(clearCall.expiry).toBeGreaterThanOrEqual(liveCall.expiry!);
+
+      // Outgoing state is cleared: the next message starts a brand-new batch (data length 1, not 2).
+      void session.submitRequestMessage(rawCodec, new Uint8Array([4]));
+      await delay();
+      const afterClear = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+      const afterDecoded = StatementData.dec(afterClear.data!);
+      if (afterDecoded.tag === 'request') expect(afterDecoded.value.data.length).toBe(1);
+    });
+
+    it('rejects the pending response waiter so callers unwind', async () => {
+      const { session } = makeSession();
+      await delay();
+
+      const submit = await session.submitRequestMessage(Bytes(), new Uint8Array([9]));
+      expect(submit.isOk()).toBe(true);
+      const requestId = submit._unsafeUnwrap().requestId;
+      const waiter = session.waitForResponseMessage(requestId);
+
+      await session.clearOutgoingStatement();
+
+      const waited = await waiter;
+      expect(waited.isErr()).toBe(true);
+    });
+
+    it('clears local state and rejects waiters even when the superseding submission fails', async () => {
+      const { session, adapter } = makeSession();
+      await delay();
+
+      const rawCodec = Bytes();
+      const submit = await session.submitRequestMessage(rawCodec, new Uint8Array([1, 2, 3]));
+      const requestId = submit._unsafeUnwrap().requestId;
+      const waiter = session.waitForResponseMessage(requestId);
+
+      adapter.submitStatement.mockReturnValueOnce(errAsync(new Error('store rejected')));
+      const result = await session.clearOutgoingStatement();
+      expect(result.isErr()).toBe(true);
+
+      // The pending waiter is rejected despite the failed submission.
+      const waited = await waiter;
+      expect(waited.isErr()).toBe(true);
+
+      // Local state is cleared: the next message starts a brand-new batch (data length 1, not 2).
+      adapter.submitStatement.mockReturnValue(okAsync(undefined));
+      void session.submitRequestMessage(rawCodec, new Uint8Array([4]));
+      await delay();
+      const afterClear = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+      const afterDecoded = StatementData.dec(afterClear.data!);
+      if (afterDecoded.tag === 'request') expect(afterDecoded.value.data.length).toBe(1);
+    });
+
+    it('cancels messages queued before the batch is submitted (init still pending)', async () => {
+      // queryStatements never resolves, so init() stays pending and the message
+      // sits in the queue with outgoingRequest still null.
+      const neverResolves = vi
+        .fn()
+        .mockReturnValue(new ResultAsync(new Promise<Result<unknown, unknown>>(() => undefined)));
+      const { session, adapter } = makeSession({ queryStatements: neverResolves });
+
+      const submit = await session.submitRequestMessage(Bytes(), new Uint8Array([7]));
+      const requestId = submit._unsafeUnwrap().requestId;
+      const waiter = session.waitForResponseMessage(requestId);
+      const submitsBefore = adapter.submitStatement.mock.calls.length;
+
+      const result = await session.clearOutgoingStatement();
+      expect(result.isOk()).toBe(true);
+
+      // The queued waiter is rejected rather than left to be submitted after init.
+      const waited = await waiter;
+      expect(waited.isErr()).toBe(true);
+      // No empty batch is submitted since there was no live on-chain request yet.
+      expect(adapter.submitStatement.mock.calls.length).toBe(submitsBefore);
     });
   });
 });

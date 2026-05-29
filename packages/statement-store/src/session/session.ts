@@ -97,13 +97,12 @@ export function createSession({
   let storeUnsub: VoidFunction | null = null;
   let responseStoreUnsub: VoidFunction | null = null;
 
-  function submitStatementData(
+  function submitStatementAt(
+    expiry: bigint,
     channel: Uint8Array,
     topicSessionId: SessionId,
     data: Uint8Array,
   ): ResultAsync<void, Error> {
-    state.expiry = nextExpiry(state.expiry);
-    const expiry = state.expiry;
     return encryption
       .encrypt(data)
       .map<Statement>(encrypted => ({
@@ -114,6 +113,15 @@ export function createSession({
       }))
       .asyncAndThen(prover.generateMessageProof)
       .andThen(statementStore.submitStatement);
+  }
+
+  function submitStatementData(
+    channel: Uint8Array,
+    topicSessionId: SessionId,
+    data: Uint8Array,
+  ): ResultAsync<void, Error> {
+    state.expiry = nextExpiry(state.expiry);
+    return submitStatementAt(state.expiry, channel, topicSessionId, data);
   }
 
   function encodeAndSubmitRequest(requestId: string, messages: Uint8Array[]): void {
@@ -353,6 +361,10 @@ export function createSession({
         rejectFn = rej;
       });
       state.pendingDelivery.set(token, { resolve: resolveFn, reject: rejectFn, promise });
+      // Ensure a rejection from clearOutgoingStatement()/dispose() is always handled,
+      // even when no caller attached via waitForResponseMessage(); the real waiter
+      // still receives the rejection through its own handler.
+      promise.catch(() => undefined);
 
       if (state.phase === 'initialization') {
         state.messageQueue.push({ encoded, token });
@@ -427,6 +439,37 @@ export function createSession({
           }
         }
       };
+    },
+
+    clearOutgoingStatement() {
+      const outgoing = state.outgoingRequest;
+      // Reuse the current expiry (do NOT call nextExpiry): the live batch was last
+      // submitted at state.expiry, so an empty statement at the same expiry on the
+      // same channel supersedes it. The store rejects only a strictly lower expiry.
+      const expiry = state.expiry;
+
+      // Always drop local outgoing state and reject pending waiters up-front,
+      // regardless of which path follows. This covers messages queued before the
+      // batch went out (e.g. during init, while outgoingRequest is still null) and
+      // guarantees cleanup even if the superseding submission below fails — the
+      // caller still receives any submission error.
+      state.outgoingRequest = null;
+      state.messageQueue = [];
+      rejectAllPending(new Error('Outgoing batch aborted'));
+
+      if (outgoing === null) return okAsync(undefined);
+
+      const requestId = outgoing.requestIds[outgoing.requestIds.length - 1]!;
+      const encoded = fromThrowable(
+        StatementData.enc,
+        toError,
+      )({
+        tag: 'request',
+        value: { requestId, data: [] },
+      });
+      if (encoded.isErr()) return errAsync(encoded.error);
+
+      return submitStatementAt(expiry, createRequestChannel(outgoingSessionId), outgoingSessionId, encoded.value);
     },
 
     dispose() {
