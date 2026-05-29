@@ -1,5 +1,6 @@
 {
   "name": "@novasamatech/substrate-slot-sr25519-wasm",
+  "projectType": "library",
   "targets": {
     "build": {
       "executor": "nx:run-commands",

@@ -281,11 +281,11 @@ describe('createUserSession debug emits', () => {
   });
 });
 
-describe('createUserSession abort', () => {
+describe('createUserSession abortPendingRequests', () => {
   it('delegates to the session clearOutgoingStatement and resolves ok', async () => {
     const session = buildSession();
 
-    const result = await session.abort();
+    const result = await session.abortPendingRequests();
 
     expect(mocks.clearOutgoingStatement).toHaveBeenCalledTimes(1);
     expect(result.isOk()).toBe(true);
@@ -295,8 +295,45 @@ describe('createUserSession abort', () => {
     mocks.clearOutgoingStatement.mockReturnValue(errAsync(new Error('boom')));
     const session = buildSession();
 
-    const result = await session.abort();
+    const result = await session.abortPendingRequests();
 
     expect(result.isErr()).toBe(true);
+  });
+
+  it('rejects the in-flight and queued signing requests, freeing the queue', async () => {
+    mocks.nanoid.mockReturnValueOnce('in-flight').mockReturnValueOnce('queued');
+    mocks.request.mockReturnValue(okAsync(undefined));
+    // Never resolves on its own — the request stays in flight until aborted.
+    mocks.waitForRequestMessage.mockReturnValue(ResultAsync.fromSafePromise(new Promise(() => undefined)));
+
+    const session = buildSession();
+    const inFlight = session.signPayload({} as any); // takes the single slot
+    const queued = session.signRaw({} as any); // waits behind it
+
+    await session.abortPendingRequests();
+
+    const [inFlightResult, queuedResult] = await Promise.all([inFlight, queued]);
+    expect(inFlightResult.isErr()).toBe(true);
+    expect(queuedResult.isErr()).toBe(true);
+    expect(mocks.clearOutgoingStatement).toHaveBeenCalledTimes(1);
+  });
+
+  it('lets a fresh request through after an abort', async () => {
+    mocks.request.mockReturnValue(okAsync(undefined));
+    let resolveFirst: (() => void) | undefined;
+    mocks.waitForRequestMessage
+      .mockReturnValueOnce(
+        ResultAsync.fromSafePromise(new Promise<any>(resolve => (resolveFirst = () => resolve(undefined)))),
+      )
+      .mockReturnValue(okAsync({ success: true, value: { signed: new Uint8Array() } as any }));
+
+    const session = buildSession();
+    const aborted = session.signPayload({} as any);
+    await session.abortPendingRequests();
+    expect((await aborted).isErr()).toBe(true);
+    resolveFirst?.(); // settle the orphaned inner waiter so it doesn't dangle
+
+    const result = await session.signPayload({} as any);
+    expect(result.isOk()).toBe(true);
   });
 });

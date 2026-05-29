@@ -20,9 +20,14 @@ type Task<T = unknown> = {
   resolve: (value: T) => void;
   reject: (error: unknown) => void;
   signal?: AbortSignal;
+  retryTimeout?: ReturnType<typeof setTimeout>;
 };
 
 type TaskParams = { pool?: string; signal?: AbortSignal };
+
+function abortReason(signal: AbortSignal): Error {
+  return signal.reason instanceof Error ? signal.reason : new Error('Task aborted');
+}
 
 /**
  * Task manager with queues, retries and named pools.
@@ -41,14 +46,24 @@ class AsyncTaskPool {
 
   call<T>(fn: () => ResultAsync<T, Error>, params?: TaskParams) {
     const { resolve, reject, promise } = promiseWithResolvers<T>();
+    const signal = params?.signal;
+
+    // An already-aborted signal never enqueues the task — reject up-front.
+    if (signal?.aborted) {
+      reject(abortReason(signal));
+      return fromPromise(promise, toError);
+    }
+
     const task: Task<T> = {
       fn,
       pool: params?.pool ?? DEFAULT_POOL,
       retry: 0,
       resolve,
       reject,
-      signal: params?.signal,
+      signal,
     };
+
+    signal?.addEventListener('abort', () => this.abortTask(task as Task), { once: true });
 
     this.queue.push(task as Task);
     this.processPool(task.pool);
@@ -71,6 +86,26 @@ class AsyncTaskPool {
 
       const unsubscribe = this.events.on('settled', handler);
     });
+  }
+
+  // Drop a task because its signal aborted, whether it is still queued, waiting on a
+  // retry timer, or already running. Rejecting a promise that later settles on its own
+  // is a no-op, so the in-flight fn finishing afterwards can't override this rejection.
+  private abortTask(task: Task) {
+    if (task.retryTimeout !== undefined) {
+      clearTimeout(task.retryTimeout);
+    }
+
+    const queueIndex = this.queue.indexOf(task);
+    if (queueIndex >= 0) {
+      this.queue.splice(queueIndex, 1);
+    }
+    this.activeTasks = this.activeTasks.filter(x => x !== task);
+
+    task.reject(task.signal ? abortReason(task.signal) : new Error('Task aborted'));
+    // Free the slot the task held (or would have held) so the pool keeps draining.
+    this.processPool(task.pool);
+    this.tryToSettlePool(task.pool);
   }
 
   private processPool(pool: string) {
@@ -100,18 +135,18 @@ class AsyncTaskPool {
     this.activeTasks.push(task);
 
     const handleError = (task: Task, error: Error) => {
+      // The task was already rejected by abortTask; don't reject again or schedule a retry.
+      if (task.signal?.aborted) {
+        return;
+      }
+
       if (task.retry >= this.config.retryCount) {
         task.reject(error);
       } else {
-        if (task.signal?.aborted) {
-          task.reject(error);
-          return;
-        }
-
         const retryDelay = this.retryDelay(task);
 
         task.retry++;
-        setTimeout(() => {
+        task.retryTimeout = setTimeout(() => {
           this.queue.push(task);
           this.processPool(pool);
         }, retryDelay);
