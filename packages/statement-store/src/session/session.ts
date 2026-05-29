@@ -353,6 +353,10 @@ export function createSession({
         rejectFn = rej;
       });
       state.pendingDelivery.set(token, { resolve: resolveFn, reject: rejectFn, promise });
+      // Ensure a rejection from clearOutgoingBatch()/dispose() is always handled,
+      // even when no caller attached via waitForResponseMessage(); the real waiter
+      // still receives the rejection through its own handler.
+      promise.catch(() => {});
 
       if (state.phase === 'initialization') {
         state.messageQueue.push({ encoded, token });
@@ -427,6 +431,41 @@ export function createSession({
           }
         }
       };
+    },
+
+    clearOutgoingBatch() {
+      const outgoing = state.outgoingRequest;
+      if (outgoing === null) return okAsync(undefined);
+
+      const requestId = outgoing.requestIds[outgoing.requestIds.length - 1]!;
+      const encoded = fromThrowable(
+        StatementData.enc,
+        toError,
+      )({
+        tag: 'request',
+        value: { requestId, data: [] },
+      });
+      if (encoded.isErr()) return errAsync(encoded.error);
+
+      // Reuse the current expiry (do NOT call nextExpiry): the live batch was last
+      // submitted at state.expiry, so an empty statement at the same expiry on the
+      // same channel supersedes it. The store rejects only a strictly lower expiry.
+      const expiry = state.expiry;
+      return encryption
+        .encrypt(encoded.value)
+        .map<Statement>(encrypted => ({
+          expiry,
+          channel: toHex(createRequestChannel(outgoingSessionId)) as `0x${string}`,
+          topics: [toHex(outgoingSessionId) as `0x${string}`],
+          data: encrypted,
+        }))
+        .asyncAndThen(prover.generateMessageProof)
+        .andThen(statementStore.submitStatement)
+        .andTee(() => {
+          state.outgoingRequest = null;
+          state.messageQueue = [];
+          rejectAllPending(new Error('Outgoing batch aborted'));
+        });
     },
 
     dispose() {
