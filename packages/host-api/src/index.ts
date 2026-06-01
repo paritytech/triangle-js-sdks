@@ -132,4 +132,4 @@ export {
   TransactionStopV1_request,
   TransactionStopV1_response,
 } from './protocol/v1/chainInteraction.js';
-export { Theme } from './protocol/v1/theme.js';
+export { Theme, ThemeName, ThemeVariant } from './protocol/v1/theme.js';
