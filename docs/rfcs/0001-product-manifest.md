@@ -210,7 +210,22 @@ A Bulletin CID is therefore `CIDv1(raw, sha256(data))`. Its encoded length is fi
 
 Every dotNS contract call is composed as ABI-encoded calldata and dispatched through the dotNS chain's `pallet-revive`:
 
-- **Reads** (`owner`, `resolver`, `text`): wrap the calldata in a `ReviveApi.call(...)` dry-run RPC; ABI-decode the result. Used by both publishers and Hosts.
+- **Reads** (`owner`, `resolver`, `text`): wrap the calldata in a `ReviveApi.call(origin, …)` dry-run RPC; ABI-decode the result. The dry-run requires an `origin` account, but nothing is signed, charged, or mutated — so it MUST NOT be a real keypair such as `//Alice` (using one couples reads to an account that may be unfunded, unknown, or absent in a given environment). Instead, derive the deterministic **Revive system account** using Substrate's standard `PalletId` account convention: the 4-byte tag `modl`, followed by the 8-byte `pallet-revive` ID `py/reviv`, zero-padded to a 32-byte `AccountId`. This account need not exist or hold a balance; it only names the dry-run caller, keeping reads environment-independent. Used by both publishers and Hosts.
+
+The 32-byte derivation (Rust):
+
+```rust
+fn pallet_account(pallet_id: &[u8; 8]) -> [u8; 32] {
+    let mut account = [0u8; 32];
+    account[..4].copy_from_slice(b"modl");
+    account[4..12].copy_from_slice(pallet_id);
+    account
+}
+
+let account = pallet_account(b"py/reviv");
+// 0x6d6f646c70792f7265766976000000…0000
+```
+
 - **Writes** (`setResolver`, `setSubnodeOwner`, `setSubnodeResolver`, `setText`): the same calldata is sent as a signed Substrate extrinsic that invokes `pallet-revive::call(...)`. Fees and nonce are handled by the normal transaction flow. Publishers only.
 
 ## Publisher implementation
