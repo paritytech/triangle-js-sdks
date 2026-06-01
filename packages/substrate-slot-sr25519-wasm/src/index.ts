@@ -1,40 +1,29 @@
 import initWasm, {
-  initSync as initWasmSync,
   substrateSlotSecretFromSeed,
   substrateSr25519PublicKeyFromSecret,
   substrateSr25519SignFromSecret,
   substrateSr25519Verify,
 } from '../wasm/substrate_slot_sr25519_wasm.js';
 
-const wasmModuleUrl = new URL('../wasm/substrate_slot_sr25519_wasm_bg.wasm', import.meta.url);
-
 let initDone = false;
 let initPromise: Promise<void> | null = null;
 
-const initSlotWasm = async () => {
-  // Node can't `fetch` a `file:` URL, so when the wasm is a real on-disk file read it and init
-  // synchronously; a browser/worker gets an http/blob URL (rewritten by its bundler) and falls
-  // through to async fetch init. Scheme is the reliable signal — `process.env` gets baked away by
-  // vite in `dist/`.
-  if (wasmModuleUrl.protocol === 'file:') {
-    const { readFileSync } = await import('node:fs');
-    const { fileURLToPath } = await import('node:url');
-    initWasmSync({ module: readFileSync(fileURLToPath(wasmModuleUrl)) });
-
-    return;
-  }
-
-  await initWasm({ module_or_path: wasmModuleUrl });
-};
-
-/** Initialize WASM (call from host startup / tests). */
+/**
+ * Initialize WASM (call from host startup / tests).
+ *
+ * `initWasm()` with no argument resolves the wasm from the wasm-bindgen glue's own
+ * `new URL('..._bg.wasm', import.meta.url)` default, which Vite's lib build inlines as a `data:`
+ * URL. `fetch` resolves that `data:` URL on every target (Node ≥18, browsers, workers), so one
+ * async path serves all platforms — no `node:fs`/`node:url` fallback, hence no dynamic `import()`
+ * for the bundler to wrap in vite-specific preload globals.
+ */
 export function ensureSubstrateSlotSr25519Ready(): Promise<void> {
   if (initDone) {
     return Promise.resolve();
   }
 
   if (!initPromise) {
-    initPromise = initSlotWasm().then(() => {
+    initPromise = initWasm().then(() => {
       initDone = true;
     });
   }

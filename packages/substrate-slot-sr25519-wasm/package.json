@@ -25,7 +25,6 @@
   },
   "files": [
     "dist",
-    "wasm-glue",
     "README.md"
   ],
   "scripts": {
