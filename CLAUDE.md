@@ -73,4 +73,4 @@ Run `npm run build` before `typecheck` since typecheck depends on built artifact
 
 ## Implementation Notes
 
-- **IMPORTANT**: `docs/design/host-api-protocol.md` is the source of truth for the host ↔ product protocol. Any protocol change must land in the specification first, then be synced to `host-api` and any other affected packages — never the other way around.
+- **IMPORTANT**: The [truapi specification](https://github.com/paritytech/truapi/tree/main/rust/crates/truapi) is the source of truth for the host ↔ product protocol. Any protocol change must land in the specification first, then be synced to `host-api` and any other affected packages — never the other way around.
