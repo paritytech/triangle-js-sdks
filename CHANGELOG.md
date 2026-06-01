@@ -1,3 +1,13 @@
+## 0.8.2 (2026-06-01)
+
+### 🩹 Fixes
+
+- **substrate-slot-sr25519-wasm:** the published build no longer depends on Vite runtime globals.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.8.1 (2026-06-01)
 
 ### 🩹 Fixes
