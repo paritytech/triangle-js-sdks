@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-worker-sandbox",
   "type": "module",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "description": "QuickJS-based sandbox for running product worker code with Triangle Host API.",
   "license": "Apache-2.0",
   "repository": {
@@ -25,8 +25,8 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/host-api": "0.8.0",
-    "@novasamatech/host-container": "0.8.0",
+    "@novasamatech/host-api": "0.8.1",
+    "@novasamatech/host-container": "0.8.1",
     "quickjs-emscripten": "0.32.0"
   },
   "publishConfig": {
