@@ -14,6 +14,7 @@ import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 
+import { AccountId } from 'polkadot-api';
 import { describe, expect, it, vi } from 'vitest';
 
 import { delay } from './__mocks__/helpers.js';
@@ -232,6 +233,32 @@ describe('Host API: Accounts', () => {
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+  });
+
+  describe('getLegacyAccountSigner', () => {
+    it('sends the wire signer as an SS58 address, not a hex public key', async () => {
+      const { container, accountsProvider } = setup();
+
+      let capturedSigner: string | undefined;
+      container.handleSignRawWithLegacyAccount((params, { ok }) => {
+        capturedSigner = params.signer;
+        return ok({
+          signature: toHex(new Uint8Array(64).fill(7)),
+          signedTransaction: undefined,
+        });
+      });
+
+      const signer = accountsProvider.getLegacyAccountSigner(mockLegacyAccount);
+      await signer.signBytes(new TextEncoder().encode('hello'));
+
+      expect(capturedSigner).toBeDefined();
+      // Regression guard for the legacy-account signing bug: the wallet matches
+      // accounts by SS58 address, so the signer must NOT be a raw hex pubkey.
+      expect(capturedSigner!.startsWith('0x')).toBe(false);
+      // ...and it must round-trip back to the account's public key.
+      const accountId = AccountId();
+      expect(toHex(accountId.enc(capturedSigner!))).toBe(toHex(mockPublicKey));
     });
   });
 
