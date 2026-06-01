@@ -1,3 +1,13 @@
+## 0.8.1 (2026-06-01)
+
+### 🩹 Fixes
+
+- **statement-store:** declare `@novasamatech/substrate-slot-sr25519-wasm` as a direct dependency. The slot-account sr25519 helpers shipped in 0.8.0 (`deriveSlotAccountPublicKey`, `signSlotAccountSecret`, `verifySlotAccountSignature`, `ensureSubstrateSlotSr25519Ready`) imported it only transitively, so a clean install could fail to resolve the WASM package. Also bumps `@polkadot-api/substrate-bindings` 0.20.2 → 0.20.3.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.8.0 (2026-06-01)
 
 ### 🚀 Features
