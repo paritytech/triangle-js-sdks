@@ -1,5 +1,5 @@
 import { Enum, ErrEnum } from '@novasamatech/scale';
-import { Bytes, Option, Result, Struct, _void, str, u128, u32 } from 'scale-ts';
+import { Bytes, Option, Result, Struct, Vector, _void, str, u128, u32 } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
 
@@ -9,6 +9,8 @@ import { DerivationIndex } from './accounts.js';
 
 export const Ed25519PrivateKey = Bytes(32);
 
+export const Sr25519SecretKey = Bytes(32);
+
 export const PaymentId = str;
 
 // Optional purse selector (RFC 0017). `undefined` (None) targets MAIN_PURSE.
@@ -17,6 +19,7 @@ export const CoinPaymentPurseId = u32;
 export const PaymentTopUpSource = Enum({
   ProductAccount: DerivationIndex,
   PrivateKey: Ed25519PrivateKey,
+  Coins: Vector(Sr25519SecretKey),
 });
 
 export const PaymentBalance = Struct({
@@ -40,9 +43,15 @@ export const PaymentBalanceErr = ErrEnum('PaymentBalanceErr', {
   Unknown: [GenericErr, 'unknown error'],
 });
 
+// Carries the amount that was credited when only some coins could be claimed.
+export const PartialPaymentErr = Struct({
+  credited: u128,
+});
+
 export const PaymentTopUpErr = ErrEnum('PaymentTopUpErr', {
   InsufficientFunds: [_void, 'insufficient funds'],
   InvalidSource: [_void, 'invalid source'],
+  PartialPayment: [PartialPaymentErr, ({ credited }) => `partial payment: credited ${credited}`],
   Unknown: [GenericErr, 'unknown error'],
 });
 
