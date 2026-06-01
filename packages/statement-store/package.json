@@ -27,7 +27,8 @@
   "dependencies": {
     "@novasamatech/scale": "0.8.0",
     "@novasamatech/sdk-statement": "^0.6.0",
-    "@polkadot-api/substrate-bindings": "^0.20.2",
+    "@novasamatech/substrate-slot-sr25519-wasm": "0.8.0",
+    "@polkadot-api/substrate-bindings": "^0.20.3",
     "@polkadot-api/substrate-client": "^0.7.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.30",
     "@polkadot-labs/schnorrkel-wasm": "0.0.8",
