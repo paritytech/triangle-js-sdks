@@ -246,6 +246,7 @@ export function createAuth({
       {
         identityAccountId: createAccountId(success.identityAccountId),
         identityChatPublicKey: success.identityChatPublicKey,
+        ssoEncPubKey: success.ssoEncPubKey ?? undefined,
       },
     );
 
