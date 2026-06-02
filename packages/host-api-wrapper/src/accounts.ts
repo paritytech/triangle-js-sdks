@@ -28,6 +28,7 @@ import {
 import { decAnyMetadata, unifyMetadata } from '@polkadot-api/substrate-bindings';
 import { err, ok } from 'neverthrow';
 import type { PolkadotSigner } from 'polkadot-api';
+import { AccountId } from 'polkadot-api';
 import { getPolkadotSignerFromPjs } from 'polkadot-api/pjs-signer';
 
 import { sandboxTransport } from './sandboxTransport.js';
@@ -283,8 +284,13 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
       };
     },
     getLegacyAccountSigner(account: LegacyAccount): PolkadotSigner {
+      // The pjs `address` is propagated verbatim into the wire `signer` field
+      // (see `signer: payload.address` / `signer: raw.address` below), so it
+      // must be an SS58 address the wallet can match — not a raw hex public
+      // key. Mirrors the injected-extension path, which uses accountId.dec.
+      const accountId = AccountId();
       return getPolkadotSignerFromPjs(
-        toHex(account.publicKey),
+        accountId.dec(account.publicKey),
         async payload => {
           const codecPayload: CodecType<typeof SigningPayloadWithoutAccount> = {
             signer: payload.address,
