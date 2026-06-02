@@ -1,3 +1,14 @@
+## 0.8.3 (2026-06-02)
+
+### 🚀 Features
+
+- **host-api / host-api-wrapper:** `topUp` accepts a new `coins` source (RFC 0021) — `topUp(amount, { type: 'coins', keys })` — to credit a balance directly from raw sr25519 coin secret keys, skipping the on-chain round trip. Existing `productAccount` / `privateKey` sources are unchanged.
+- **host-api:** new `PaymentTopUpErr.PartialPayment` error carrying `{ credited }` — reports how much was credited when only some coins could be claimed.
+
+### ❤️ Thank You
+
+- @valentunn
+
 ## 0.8.2 (2026-06-01)
 
 ### 🩹 Fixes
