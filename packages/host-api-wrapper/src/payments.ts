@@ -18,9 +18,6 @@ export type TopUpSource =
 /** CoinPayment purse identifier (RFC 0017). Omit to target the main purse. */
 export type PurseId = number;
 
-/** CoinPayment purse identifier (RFC 0017). Omit to target the main purse. */
-export type PurseId = number;
-
 export const createPaymentManager = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
   const version = 'v1' as const;
