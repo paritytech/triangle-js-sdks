@@ -10,7 +10,13 @@ export type PaymentBalance = {
 
 export type PaymentStatus = { type: 'processing' } | { type: 'completed' } | { type: 'failed'; reason: string };
 
-export type TopUpSource = { type: 'productAccount'; derivationIndex: number } | { type: 'privateKey'; key: Uint8Array };
+export type TopUpSource =
+  | { type: 'productAccount'; derivationIndex: number }
+  | { type: 'privateKey'; key: Uint8Array }
+  | { type: 'coins'; keys: Uint8Array[] };
+
+/** CoinPayment purse identifier (RFC 0017). Omit to target the main purse. */
+export type PurseId = number;
 
 /** CoinPayment purse identifier (RFC 0017). Omit to target the main purse. */
 export type PurseId = number;
@@ -43,7 +49,9 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
               tag: 'ProductAccount' as const,
               value: source.derivationIndex,
             }
-          : { tag: 'PrivateKey' as const, value: source.key };
+          : source.type === 'privateKey'
+            ? { tag: 'PrivateKey' as const, value: source.key }
+            : { tag: 'Coins' as const, value: source.keys };
 
       return resultToPromise(
         unwrapVersionedResult(version, hostApi.paymentTopUp(enumValue(version, { into, amount, source: sourceCodec }))),

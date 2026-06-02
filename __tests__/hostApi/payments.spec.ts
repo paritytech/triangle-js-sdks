@@ -69,6 +69,28 @@ describe('Host API: Payments', () => {
       await expect(payments.topUp(50n, { type: 'privateKey', key })).resolves.toBeUndefined();
     });
 
+    it('should resolve with Coins source', async () => {
+      const { container, payments } = setup();
+      const keys = [new Uint8Array(32).fill(1), new Uint8Array(32).fill(2)];
+
+      container.handlePaymentTopUp((_params, { ok }) => ok(undefined));
+
+      await expect(payments.topUp(75n, { type: 'coins', keys })).resolves.toBeUndefined();
+    });
+
+    it('should pass coin keys to handler', async () => {
+      const { container, payments } = setup();
+      const keys = [new Uint8Array(32).fill(7), new Uint8Array(32).fill(9)];
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
+        ok(undefined),
+      );
+      container.handlePaymentTopUp(handler);
+
+      await payments.topUp(75n, { type: 'coins', keys });
+
+      expect(handler).toHaveBeenCalledWith({ amount: 75n, source: { tag: 'Coins', value: keys } }, expect.anything());
+    });
+
     it('should pass amount and source to handler', async () => {
       const { container, payments } = setup();
       const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
@@ -117,6 +139,17 @@ describe('Host API: Payments', () => {
       await expect(payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 })).rejects.toBeInstanceOf(
         PaymentTopUpErr.InvalidSource,
       );
+    });
+
+    it('should reject with PartialPayment carrying the credited amount', async () => {
+      const { container, payments } = setup();
+      const keys = [new Uint8Array(32).fill(1), new Uint8Array(32).fill(2)];
+
+      container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.PartialPayment({ credited: 40n })));
+
+      await expect(payments.topUp(75n, { type: 'coins', keys })).rejects.toMatchObject({
+        payload: { credited: 40n },
+      });
     });
   });
 
