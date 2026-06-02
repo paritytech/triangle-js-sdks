@@ -46,6 +46,7 @@ export { createPapiStatementStoreAdapter } from './adapter/rpc.js';
 export {
   createSr25519Derivation,
   createSr25519Secret,
+  deriveProductAccountPublicKey,
   deriveSlotAccountPublicKey,
   deriveSr25519PublicKey,
   ensureSubstrateSlotSr25519Ready,

@@ -94,6 +94,34 @@ export function deriveSr25519PublicKey(secret: Uint8Array) {
   return substrateSr25519PublicKey(secret);
 }
 
+/**
+ * Derive a product account's sr25519 **public** key from the user's root
+ * account public key alone — no secret required.
+ *
+ * Mirrors the wallet's product-account derivation path
+ * `/product/<productId>/<derivationIndex>` (polkadot-app
+ * `ProductAccountId.derivationPath`). All junctions are *soft*, so the child
+ * public key is derivable from the parent public key via sr25519 soft public
+ * derivation — `rootAccountId` is the documented "parent for soft-derivation
+ * of product accounts" in the V2 SSO handshake. The result is the address the
+ * paired wallet signs with for `[productId, derivationIndex]`, which a product
+ * SDK must stamp into the extrinsic it asks the wallet to sign.
+ */
+export function deriveProductAccountPublicKey(
+  rootPublicKey: Uint8Array,
+  productId: string,
+  derivationIndex: number,
+): Uint8Array {
+  const derivations = parseDerivations(`/product/${productId}/${derivationIndex}`);
+
+  return derivations.reduce((publicKey, [type, code]) => {
+    if (type !== 'soft') {
+      throw new Error(`product-account derivation must be soft; got hard junction "${code}"`);
+    }
+    return Uint8Array.from(sr25519HDKD.publicSoft(publicKey, createChainCode(code)));
+  }, rootPublicKey);
+}
+
 export function signWithSr25519Secret(secret: Uint8Array, message: Uint8Array) {
   return substrateSr25519Sign(secret, message);
 }

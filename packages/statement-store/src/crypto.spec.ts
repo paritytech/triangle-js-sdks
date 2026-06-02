@@ -10,7 +10,9 @@ import { str, u64 } from 'scale-ts';
 import { beforeAll, describe, expect, it } from 'vitest';
 
 import {
+  createSr25519Derivation,
   createSr25519Secret,
+  deriveProductAccountPublicKey,
   deriveSlotAccountPublicKey,
   deriveSr25519PublicKey,
   signSlotAccountSecret,
@@ -118,5 +120,36 @@ describe('sr25519 crypto (Substrate-compatible)', () => {
     const wasmSecret = wasmDeriveAllowanceKeypair(miniSecret).slice(0, 64);
 
     expect(toHex(scureSecret)).toBe(toHex(wasmSecret));
+  });
+
+  it('derives a product account public key from the root public key (soft public derivation)', () => {
+    const entropy = mnemonicToEntropy(DEV_MNEMONIC);
+    const rootSecret = createSr25519Secret(entropy);
+    const rootPublicKey = deriveSr25519PublicKey(rootSecret);
+
+    const productId = 'host-playground.dot';
+    const derivationIndex = 0;
+
+    // Wallet side: secret soft-derivation over /product/<id>/<idx>, then public.
+    // This is what the paired wallet signs with for [productId, derivationIndex].
+    const walletSecret = createSr25519Derivation(rootSecret, `/product/${productId}/${derivationIndex}`);
+    const walletPublicKey = deriveSr25519PublicKey(walletSecret);
+
+    // SDK side: derive the same public key from the root *public* key alone.
+    const derived = deriveProductAccountPublicKey(rootPublicKey, productId, derivationIndex);
+
+    expect(toHex(derived)).toBe(toHex(walletPublicKey));
+    // Sanity: a product account is not the root account.
+    expect(toHex(derived)).not.toBe(toHex(rootPublicKey));
+  });
+
+  it('derives distinct product accounts per productId and derivationIndex', () => {
+    const rootPublicKey = deriveSr25519PublicKey(createSr25519Secret(mnemonicToEntropy(DEV_MNEMONIC)));
+    const a = deriveProductAccountPublicKey(rootPublicKey, 'app-a.dot', 0);
+    const b = deriveProductAccountPublicKey(rootPublicKey, 'app-b.dot', 0);
+    const a1 = deriveProductAccountPublicKey(rootPublicKey, 'app-a.dot', 1);
+
+    expect(toHex(a)).not.toBe(toHex(b));
+    expect(toHex(a)).not.toBe(toHex(a1));
   });
 });
