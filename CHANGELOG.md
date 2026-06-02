@@ -1,3 +1,34 @@
+## 0.8.3 (2026-06-02)
+
+### 🚀 Features
+
+- **host-api / host-api-wrapper:** `topUp` accepts a new `coins` source (RFC 0021) — `topUp(amount, { type: 'coins', keys })` — to credit a balance directly from raw sr25519 coin secret keys, skipping the on-chain round trip. Existing `productAccount` / `privateKey` sources are unchanged.
+- **host-api:** new `PaymentTopUpErr.PartialPayment` error carrying `{ credited }` — reports how much was credited when only some coins could be claimed.
+
+### ❤️ Thank You
+
+- @valentunn
+
+## 0.8.2 (2026-06-01)
+
+### 🩹 Fixes
+
+- **substrate-slot-sr25519-wasm:** the published build no longer depends on Vite runtime globals.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
+## 0.8.1 (2026-06-01)
+
+### 🩹 Fixes
+
+- **statement-store:** declare `@novasamatech/substrate-slot-sr25519-wasm` as a direct dependency. The slot-account sr25519 helpers shipped in 0.8.0 (`deriveSlotAccountPublicKey`, `signSlotAccountSecret`, `verifySlotAccountSignature`, `ensureSubstrateSlotSr25519Ready`) imported it only transitively, so a clean install could fail to resolve the WASM package. Also bumps `@polkadot-api/substrate-bindings` 0.20.2 → 0.20.3.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.8.0 (2026-06-01)
 
 ### 🚀 Features

@@ -10,11 +10,13 @@ Matches Android/iOS Substrate SDK (`SlotAccountKey`, `createKeypairFromSecret`),
 npm run build
 ```
 
-`npm run build` runs `vite build`: it bundles `src/index.ts` into `dist/index.js` and emits the
-wasm as a sibling asset `dist/substrate_slot_sr25519_wasm_bg.wasm` (not inlined). The prebuilt
-wasm-bindgen glue is committed in `wasm-glue/` and imported directly by `src/index.ts`.
+`npm run build` runs `vite build` in library mode: it bundles `src/index.ts` into a single
+self-contained `dist/index.js` with the wasm inlined as a `data:` URL. Inlining keeps the package
+free of vite-specific runtime globals (no `__vitePreload`) and of `node:fs` fallbacks, so it loads
+on any platform that has `fetch` — Node, browsers, workers — via one async init path. The prebuilt
+wasm-bindgen glue is committed in `wasm/` and imported directly by `src/index.ts`.
 
 **Rust and wasm-pack are only required** when changing the Rust crate — run `npm run build:wasm` to
-regenerate `wasm-glue/` (via a throwaway `.wasm-glue-build/` dir) and commit the updated files.
+regenerate `wasm/` (via a throwaway `.wasm-glue-build/` dir) and commit the updated files.
 
 The TypeScript API lives in `src/index.ts`.
