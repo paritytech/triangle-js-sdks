@@ -62,7 +62,7 @@ describe('Host API: Payments', () => {
 
     it('should resolve with PrivateKey source', async () => {
       const { container, payments } = setup();
-      const key = new Uint8Array(32).fill(1);
+      const key = new Uint8Array(64).fill(1);
 
       container.handlePaymentTopUp((_params, { ok }) => ok(undefined));
 
@@ -71,7 +71,7 @@ describe('Host API: Payments', () => {
 
     it('should resolve with Coins source', async () => {
       const { container, payments } = setup();
-      const keys = [new Uint8Array(32).fill(1), new Uint8Array(32).fill(2)];
+      const keys = [new Uint8Array(64).fill(1), new Uint8Array(64).fill(2)];
 
       container.handlePaymentTopUp((_params, { ok }) => ok(undefined));
 
@@ -80,7 +80,7 @@ describe('Host API: Payments', () => {
 
     it('should pass coin keys to handler', async () => {
       const { container, payments } = setup();
-      const keys = [new Uint8Array(32).fill(7), new Uint8Array(32).fill(9)];
+      const keys = [new Uint8Array(64).fill(7), new Uint8Array(64).fill(9)];
       const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
         ok(undefined),
       );
@@ -143,7 +143,7 @@ describe('Host API: Payments', () => {
 
     it('should reject with PartialPayment carrying the credited amount', async () => {
       const { container, payments } = setup();
-      const keys = [new Uint8Array(32).fill(1), new Uint8Array(32).fill(2)];
+      const keys = [new Uint8Array(64).fill(1), new Uint8Array(64).fill(2)];
 
       container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.PartialPayment({ credited: 40n })));
 
