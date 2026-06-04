@@ -1,3 +1,25 @@
+## 0.8.5 (2026-06-04)
+
+### 🚀 Features
+
+- **host-papp / statement-store:** the V2 SSO handshake now carries the mobile app's SSO encryption public key (`ssoEncPubKey`), letting the host derive the shared secret for the encrypted SSO session. It is persisted on `StoredUserSession` and passed to the `onAuthSuccess` hook, and is `null` when paired with a pre-v0.2.2 app. See the [SSO session encryption key section](./docs/migration/v0.8.md#sso-session-encryption-key-ssoencpubkey) of the migration guide.
+- **statement-store:** `createSession` takes an explicit `sessionKey` used to derive the session address, so multi-device callers can key a session on the SSO shared secret instead of the peer's public key. See the [`createSession` session key section](./docs/migration/v0.8.md#createsession-session-key) of the migration guide.
+- **host-chat:** image and video attachments can carry a thumbnail, and attachments now include the hop node endpoint so the receiver can check it against its allowlist before connecting.
+
+### 🩹 Fixes
+
+- **host-chat:** WebRTC call-signalling and coinage-payment messages are now decoded with their real payloads instead of being skipped — previously one such message could corrupt the rest of a synced message batch.
+- **handoff-service:** file downloads now sign the correct domain-separated claim payload. Signing the raw hash was rejected by the hop server and surfaced as a misleading "Data not found" error. Adds an `ack` method to the hop client.
+
+### ⚠️ Breaking Changes
+
+- **statement-store:** `createSession` now requires a `sessionKey`. Direct callers must pass one — `remoteAccount.publicKey` preserves the previous behaviour. See the [`createSession` session key section](./docs/migration/v0.8.md#createsession-session-key) of the migration guide.
+- **host-chat:** the attachment and chat-message SCALE codecs changed shape (thumbnail, node endpoint, real call-signalling / coinage payloads). These are wire-level — chat peers must upgrade together. See the [host-chat section](./docs/migration/v0.8.md#host-chat) of the migration guide.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.8.4 (2026-06-03)
 
 ### 🩹 Fixes
