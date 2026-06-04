@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/product-react-renderer",
   "type": "module",
-  "version": "0.8.3",
+  "version": "0.8.4",
   "description": "React wrapper for custom renderer format from host-api-wrapper",
   "license": "Apache-2.0",
   "repository": {
@@ -24,8 +24,8 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/host-api": "0.8.3",
-    "@novasamatech/host-api-wrapper": "0.8.3",
+    "@novasamatech/host-api": "0.8.4",
+    "@novasamatech/host-api-wrapper": "0.8.4",
     "scale-ts": "1.6.1",
     "react-reconciler": "0.33.0"
   },

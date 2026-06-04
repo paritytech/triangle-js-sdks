@@ -1,3 +1,21 @@
+## 0.8.4 (2026-06-03)
+
+### 🩹 Fixes
+
+- **host-api:** payment top-up secret keys are now 64-byte sr25519 secret keys. `PaymentTopUpSource.PrivateKey` changed from a 32-byte ed25519 key to a 64-byte sr25519 secret key, and each `Coins` key is likewise 64 bytes (was 32). This corrects the wire codec for the RFC 0021 top-up sources shipped in 0.8.3 — see the [coin top-ups section](./docs/migration/v0.8.md#coin-top-ups) of the migration guide.
+- **host-api:** active subscriptions are torn down when the transport is disposed. A producer that still had a batched emission queued no longer throws `Transport is disposed`, and `_stop` / destroy now stop producers instead of leaving them emitting into a dead transport.
+- **host-api-wrapper:** `getLegacyAccountSigner` now sends the account's SS58 address as the wire `signer` instead of a raw hex public key, so the wallet can match the signing account — mirroring the injected-extension path.
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-api-wrapper:** the byte layout of `PaymentTopUpSource` changed — `PrivateKey` and `Coins` keys are now 64-byte sr25519 secret keys (were 32 bytes in 0.8.3). This is a wire-level change; hosts and products that exchange `privateKey` / `coins` top-ups must upgrade together. The `host-api-wrapper` `TopUpSource` TypeScript shape is unchanged (`Uint8Array` / `Uint8Array[]`) — only the expected key length differs.
+
+### ❤️ Thank You
+
+- decrypto21
+- valentunn @valentunn
+- Vitya Livshits @cuteWarmFrog
+
 ## 0.8.3 (2026-06-02)
 
 ### 🚀 Features

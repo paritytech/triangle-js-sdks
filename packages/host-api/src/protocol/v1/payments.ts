@@ -7,9 +7,7 @@ import { DerivationIndex } from './accounts.js';
 
 // common types
 
-export const Ed25519PrivateKey = Bytes(32);
-
-export const Sr25519SecretKey = Bytes(32);
+export const Sr25519SecretKey = Bytes(64);
 
 export const PaymentId = str;
 
@@ -18,7 +16,7 @@ export const CoinPaymentPurseId = u32;
 
 export const PaymentTopUpSource = Enum({
   ProductAccount: DerivationIndex,
-  PrivateKey: Ed25519PrivateKey,
+  PrivateKey: Sr25519SecretKey,
   Coins: Vector(Sr25519SecretKey),
 });
 
