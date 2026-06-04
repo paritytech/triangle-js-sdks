@@ -8,6 +8,7 @@ import type { HexString, PoolStatus, RequestFn } from './types.js';
 export type HopClient = {
   submit(data: Uint8Array, recipients: Uint8Array[]): ResultAsync<PoolStatus, Error>;
   claim(hash: Uint8Array, signature: Uint8Array): ResultAsync<Uint8Array, Error>;
+  ack(hash: Uint8Array, signature: Uint8Array): ResultAsync<null, Error>;
   poolStatus(): ResultAsync<PoolStatus, Error>;
 };
 
@@ -43,6 +44,16 @@ export function createHopClient(requestFn: RequestFn): HopClient {
         requestFn<HexString>('hop_claim', [toHexString(hash), encodeSr25519Signature(signature)]).then(hex =>
           fromHex(hex),
         ),
+        toError,
+      );
+    },
+
+    ack(hash, signature) {
+      // hop_ack acknowledges a successful claim so the server can evict the
+      // entry. Android calls this after every successful claim; failure is
+      // non-fatal for the receiver (best-effort cleanup).
+      return fromPromise(
+        requestFn('hop_ack', [toHexString(hash), encodeSr25519Signature(signature)]).then(() => null),
         toError,
       );
     },

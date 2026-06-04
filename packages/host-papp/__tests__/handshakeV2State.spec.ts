@@ -14,6 +14,7 @@ import {
 
 const fixedChatPrivateKey = new Uint8Array(32).fill(0xdd);
 const fixedChatPublicKey = p256.getPublicKey(fixedChatPrivateKey, false);
+const fixedSsoEncPubKey = new Uint8Array(65).fill(0x06);
 
 const makeSuccess = (overrides: Partial<HandshakeState & { tag: 'Success' }> = {}): HandshakeState => ({
   tag: 'Success',
@@ -22,6 +23,7 @@ const makeSuccess = (overrides: Partial<HandshakeState & { tag: 'Success' }> = {
   identityChatPrivateKey: fixedChatPrivateKey,
   identityChatPublicKey: fixedChatPublicKey,
   deviceEncPubKey: new Uint8Array(65).fill(0x04),
+  ssoEncPubKey: fixedSsoEncPubKey,
   peerStatementAccountId: null,
   ...overrides,
 });
@@ -35,13 +37,14 @@ describe('fromInnerResponse', () => {
     expect(fromInnerResponse(r)).toEqual({ tag: 'Pending', reason: 'AllowanceAllocation' });
   });
 
-  it('maps v0.2.1 Success to Success state and derives identityChatPublicKey from priv key', () => {
+  it('maps v0.2.2 Success to Success state and derives identityChatPublicKey from priv key', () => {
     const r: DecodedHandshakeResponseV2 = {
       tag: 'Success',
       value: {
         identityAccountId: new Uint8Array(32).fill(0xa1),
         rootAccountId: new Uint8Array(32).fill(0xa2),
         identityChatPrivateKey: fixedChatPrivateKey,
+        ssoEncPubKey: fixedSsoEncPubKey,
         deviceEncPubKey: new Uint8Array(65).fill(0x04),
       },
     };
@@ -53,6 +56,24 @@ describe('fromInnerResponse', () => {
     expect(state.identityChatPrivateKey).toEqual(fixedChatPrivateKey);
     expect(state.identityChatPublicKey).toEqual(fixedChatPublicKey);
     expect(state.deviceEncPubKey).toEqual(new Uint8Array(65).fill(0x04));
+    expect(state.ssoEncPubKey).toEqual(fixedSsoEncPubKey);
+  });
+
+  it('surfaces ssoEncPubKey=null for pre-v0.2.2 Success payloads', () => {
+    const r: DecodedHandshakeResponseV2 = {
+      tag: 'Success',
+      value: {
+        identityAccountId: new Uint8Array(32).fill(0xa1),
+        rootAccountId: new Uint8Array(32).fill(0xa2),
+        identityChatPrivateKey: fixedChatPrivateKey,
+        ssoEncPubKey: null,
+        deviceEncPubKey: new Uint8Array(65).fill(0x04),
+      },
+    };
+    const state = fromInnerResponse(r);
+    expect(state.tag).toBe('Success');
+    if (state.tag !== 'Success') return;
+    expect(state.ssoEncPubKey).toBeNull();
   });
 
   it('preserves rootAccountId=null for v0.2 Success payloads', () => {
@@ -62,6 +83,7 @@ describe('fromInnerResponse', () => {
         identityAccountId: new Uint8Array(32).fill(0xa1),
         rootAccountId: null,
         identityChatPrivateKey: fixedChatPrivateKey,
+        ssoEncPubKey: null,
         deviceEncPubKey: new Uint8Array(65).fill(0x04),
       },
     };

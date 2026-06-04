@@ -80,6 +80,9 @@ function makeSession(overrides?: {
     statementStore: adapter,
     encryption: mockEncryption(),
     prover: mockProver,
+    // Preserve the pre-refactor SessionId derivation (keyed on the peer's
+    // encryption pubkey) so existing channel/topic assertions hold.
+    sessionKey: remoteAccount.publicKey,
     maxRequestSize,
   });
   return { session, adapter };

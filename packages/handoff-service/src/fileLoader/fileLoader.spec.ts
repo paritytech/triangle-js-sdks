@@ -42,6 +42,7 @@ function createMockHopClient() {
   const client: HopClient = {
     submit: submitMock,
     claim: claimMock,
+    ack: vi.fn(() => okAsync(null)),
     poolStatus: vi.fn(() => okAsync({ entryCount: 0, totalBytes: 0, maxBytes: 10_000_000 })),
   };
 

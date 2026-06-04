@@ -5,6 +5,7 @@ import { errAsync, okAsync } from 'neverthrow';
 
 import { UploadedFile } from '../codec.js';
 import {
+  HopSigningPayloads,
   createFileEncryption,
   deriveEncryptionKey,
   derivePublicKey,
@@ -88,16 +89,32 @@ export type DownloadParams = {
   onProgress?: (received: number, total: number) => void;
 };
 
+// Sign the canonical claim payload (`blake2b256("hop-claim-v1:" || hash)`)
+// instead of the raw hash — the HOP server validates the signature against
+// this exact payload, identical to Android's `HopSigningPayloads.claim`.
+// Signing the raw hash was the previous behaviour; the server then rejected
+// the signature and returned the error as "Data not found", indistinguishable
+// from an actually-missing entry.
+function signClaimPayload(claimTicket: Uint8Array, hash: Uint8Array): Uint8Array {
+  return signWithTicket(claimTicket, HopSigningPayloads.claim(hash));
+}
+
 export function downloadFile(params: DownloadParams): ResultAsync<Uint8Array, Error> {
   const { identifier, claimTicket, hopClient, onProgress } = params;
 
   const encryptionKey = deriveEncryptionKey(claimTicket);
   const encryption = createFileEncryption(encryptionKey);
 
-  const metadataSignature = signWithTicket(claimTicket, identifier);
+  const claim = (hash: Uint8Array) => {
+    // Skip ack — claim already evicts the entry server-side, and firing a
+    // fire-and-forget ack on the same WSS during chunk loops can stall the
+    // next claim's response (observed in practice). Android calls ack
+    // explicitly per claim, but it's not required for the receive to
+    // complete; the server keeps cleanup paths idempotent.
+    return hopClient.claim(hash, signClaimPayload(claimTicket, hash));
+  };
 
-  return hopClient
-    .claim(identifier, metadataSignature)
+  return claim(identifier)
     .andThen(encryptedMetadata => {
       try {
         const metadataBytes = encryption.decrypt(encryptedMetadata);
@@ -116,9 +133,7 @@ export function downloadFile(params: DownloadParams): ResultAsync<Uint8Array, Er
       for (let i = 0; i < totalChunks; i++) {
         const chunkHash = chunkHashes[i]!;
         result = result.andThen(decryptedChunks => {
-          const chunkSignature = signWithTicket(claimTicket, chunkHash);
-
-          return hopClient.claim(chunkHash, chunkSignature).andThen(encryptedChunk => {
+          return claim(chunkHash).andThen(encryptedChunk => {
             try {
               const chunk = encryption.decrypt(encryptedChunk);
               onProgress?.(i + 1, totalChunks);

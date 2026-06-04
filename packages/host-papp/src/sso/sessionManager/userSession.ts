@@ -138,6 +138,12 @@ export function createUserSession({
     statementStore,
     encryption,
     prover,
+    // V1 sessions historically derived SessionId by feeding the peer's raw
+    // encryption pubkey into khash; preserve that behaviour here so existing
+    // V1 channels stay byte-identical post-refactor. V2 callers (e.g.
+    // polkadot-desktop's V2SsoSession) pass the ECDH-derived shared secret
+    // explicitly per Mobile SSO spec v0.2.2.
+    sessionKey: userSession.remoteAccount.publicKey,
     maxRequestSize: MAX_SSO_REQUEST_SIZE,
   });
 

@@ -31,6 +31,13 @@ export type AuthComponent = ReturnType<typeof createAuth>;
 export type OnAuthSuccess = (event: {
   session: StoredUserSession;
   identityChatPrivateKey: Uint8Array;
+  /**
+   * `papp_encr_pub` from Mobile SSO spec v0.2.2. `null` when the peer
+   * shipped a pre-v0.2.2 `HandshakeSuccessV2` body (no `sso_encr_pub_key`
+   * field on the wire). The host's SSO session transport stays inactive
+   * while null; chat is unaffected since it uses `identityChatPrivateKey`.
+   */
+  ssoEncPubKey: Uint8Array | null;
 }) => Promise<void> | void;
 
 type Params = {
@@ -239,6 +246,7 @@ export function createAuth({
       {
         identityAccountId: createAccountId(success.identityAccountId),
         identityChatPublicKey: success.identityChatPublicKey,
+        ssoEncPubKey: success.ssoEncPubKey ?? undefined,
       },
     );
 
@@ -253,7 +261,13 @@ export function createAuth({
       .andThen(() =>
         onAuthSuccess
           ? ResultAsync.fromPromise(
-              Promise.resolve(onAuthSuccess({ session, identityChatPrivateKey: success.identityChatPrivateKey })),
+              Promise.resolve(
+                onAuthSuccess({
+                  session,
+                  identityChatPrivateKey: success.identityChatPrivateKey,
+                  ssoEncPubKey: success.ssoEncPubKey,
+                }),
+              ),
               toError,
             ).map(() => session)
           : okAsync(session),

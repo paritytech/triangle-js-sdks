@@ -21,6 +21,7 @@ const DEVICE_STMT_SECRET = new Uint8Array(64).fill(0x55);
 const IDENTITY_CHAT_PRIV = new Uint8Array(32).fill(0xdd);
 const IDENTITY_ACCT = new Uint8Array(32).fill(0xa1);
 const ROOT_ACCT = new Uint8Array(32).fill(0xa2);
+const SSO_ENC_PUB = new Uint8Array(65).fill(0x06);
 const PEER_STMT_ACCT_HEX = '0x' + '44'.repeat(32);
 
 const makeDeviceIdentity = (): DeviceIdentityForPairing => ({
@@ -42,11 +43,12 @@ const buildSuccessStatement = (): Statement => {
     identityAccountId: IDENTITY_ACCT,
     rootAccountId: ROOT_ACCT,
     identityChatPrivateKey: IDENTITY_CHAT_PRIV,
+    ssoEncPubKey: SSO_ENC_PUB,
     deviceEncPubKey: DEVICE_ENC_PUB,
   });
-  // The inner body is a length-dispatched Success (161-byte payload). Wrap it
-  // as the discriminated `EncryptedHandshakeResponseV2::Success` for the
-  // envelope.
+  // The inner body is a length-dispatched Success (226-byte v0.2.2 payload).
+  // Wrap it as the discriminated `EncryptedHandshakeResponseV2::Success` for
+  // the envelope.
   const successEnvelope = new Uint8Array(inner.length + 1);
   successEnvelope[0] = 1; // Success discriminant
   successEnvelope.set(inner, 1);
@@ -168,7 +170,7 @@ describe('createAuth', () => {
       expect(finished?.session?.id).toBeTypeOf('string');
     });
 
-    it('runs the onAuthSuccess hook with session + identityChatPrivateKey after internal persistence', async () => {
+    it('runs the onAuthSuccess hook with session + identityChatPrivateKey + ssoEncPubKey after internal persistence', async () => {
       const onAuthSuccess = vi.fn(() => Promise.resolve());
       const harness = buildHarness({ onAuthSuccess });
 
@@ -180,10 +182,13 @@ describe('createAuth', () => {
       expect(result.isOk()).toBe(true);
       expect(onAuthSuccess).toHaveBeenCalledTimes(1);
       const arg = (
-        onAuthSuccess.mock.calls[0] as unknown as [{ session: { id: string }; identityChatPrivateKey: Uint8Array }]
+        onAuthSuccess.mock.calls[0] as unknown as [
+          { session: { id: string }; identityChatPrivateKey: Uint8Array; ssoEncPubKey: Uint8Array | null },
+        ]
       )[0];
       expect(arg.session.id).toBeTypeOf('string');
       expect(arg.identityChatPrivateKey).toEqual(IDENTITY_CHAT_PRIV);
+      expect(arg.ssoEncPubKey).toEqual(SSO_ENC_PUB);
     });
 
     it('fails authenticate when onAuthSuccess throws', async () => {
