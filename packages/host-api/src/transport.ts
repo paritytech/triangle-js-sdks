@@ -412,9 +412,6 @@ export function createTransport(provider: Provider): Transport {
         const unsubscribe = handler(
           payload.value as never,
           value => {
-            // The transport may be disposed while a producer still has a batched
-            // emission queued. Drop it instead of throwing 'Transport is disposed'.
-            if (disposed) return;
             const receivePayload = enumValue(receiveAction, value) as never as PickMessagePayload<
               ComposeMessageAction<Method, 'receive'>
             >;
@@ -423,7 +420,6 @@ export function createTransport(provider: Provider): Transport {
           value => {
             interrupted = true;
             subscriptions.delete(requestId);
-            if (disposed) return;
             transport.postMessage(
               requestId,
               enumValue(interruptAction, value) as never as PickMessagePayload<
@@ -441,28 +437,14 @@ export function createTransport(provider: Provider): Transport {
       });
 
       const unsubStop = transport.listenMessages(stopAction, requestId => {
-        const unsubscribe = subscriptions.get(requestId);
-        if (unsubscribe) {
-          subscriptions.delete(requestId);
-          unsubscribe();
-        }
+        subscriptions.get(requestId)?.();
       });
 
-      const teardown = () => {
+      return () => {
         subscriptions.forEach(unsub => unsub());
-        subscriptions.clear();
         unsubStart();
         unsubStop();
-        unsubDestroy();
       };
-
-      // Tear down active producer subscriptions when the transport is destroyed.
-      // Consumers (e.g. host-container's subscription slot) discard the cleanup
-      // returned below, so without this a disposed transport leaves producers
-      // running and emitting into a dead transport.
-      const unsubDestroy = transport.onDestroy(teardown);
-
-      return teardown;
     },
 
     postMessage(requestId, payload) {

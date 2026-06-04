@@ -82,56 +82,6 @@ describe('transport', () => {
     });
   });
 
-  describe('disposal', () => {
-    it('tears down active producer subscriptions on destroy()', () => {
-      const providers = createProviders();
-      const events = createNanoEvents<{ push: VoidFunction }>();
-
-      const host = createTransport(providers.host);
-      const sdk = createTransport(providers.sdk);
-
-      const hostUnsubscribe = vi.fn();
-      host.handleSubscription('host_account_connection_status_subscribe', (_, send) => {
-        const unsub = events.on('push', () => send({ tag: 'v1', value: 'connected' }));
-        return () => {
-          unsub();
-          hostUnsubscribe();
-        };
-      });
-
-      sdk.subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, vi.fn());
-
-      host.destroy();
-
-      // The producer subscription opened by the handler must be torn down,
-      // otherwise it keeps emitting into a disposed transport.
-      expect(hostUnsubscribe).toHaveBeenCalledTimes(1);
-    });
-
-    it('does not throw when a producer emits after destroy()', () => {
-      const providers = createProviders();
-      const events = createNanoEvents<{ push: VoidFunction }>();
-
-      const host = createTransport(providers.host);
-      const sdk = createTransport(providers.sdk);
-
-      host.handleSubscription('host_account_connection_status_subscribe', (_, send) => {
-        const unsub = events.on('push', () => send({ tag: 'v1', value: 'connected' }));
-        return unsub;
-      });
-
-      const handler = vi.fn();
-      sdk.subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, handler);
-
-      host.destroy();
-
-      // A batched emission queued before disposal must not throw
-      // 'Transport is disposed'; it is silently dropped.
-      expect(() => events.emit('push')).not.toThrow();
-      expect(handler).not.toHaveBeenCalled();
-    });
-  });
-
   describe('debug hook', () => {
     it('emits outgoing events when postMessage is called and still delivers the message', () => {
       const providers = createProviders();
