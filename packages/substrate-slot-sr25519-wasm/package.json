@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/substrate-slot-sr25519-wasm",
   "type": "module",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Substrate sr25519 slot-account crypto (SecretKey::from_bytes) for mobile SlotAccountKey",
   "license": "Apache-2.0",
   "repository": {

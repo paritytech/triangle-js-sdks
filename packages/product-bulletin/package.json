@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/product-bulletin",
   "type": "module",
-  "version": "0.8.4",
+  "version": "0.8.5",
   "description": "Bulletin Chain client adapter for Polkadot product applications",
   "license": "Apache-2.0",
   "repository": {
@@ -27,7 +27,7 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/host-api-wrapper": "0.8.4",
+    "@novasamatech/host-api-wrapper": "0.8.5",
     "@parity/bulletin-sdk": "^0.3.0",
     "polkadot-api": ">=2"
   },
