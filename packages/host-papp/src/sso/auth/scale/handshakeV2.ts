@@ -23,9 +23,16 @@
  *                               P-256 uncompressed). Tells the host which key to
  *                               use when addressing chat envelopes back to the
  *                               authorising PApp device.
+ *   - `ssoEncPubKey`          — `papp_encr_pub` (65 bytes, P-256 uncompressed); see
+ *                               the `HandshakeSuccessV2` codec doc below.
+ *   - `rootEntropySource`     — 32 bytes; `blake2b256_keyed(rootAccountSecret,
+ *                               "product-entropy-derivation")` per RFC-0007 (layer 1).
+ *                               Lets the host derive product entropy deterministically
+ *                               (`host_derive_entropy`) without ever holding the raw
+ *                               root account secret. See the codec doc below.
  *
- * Total wire length of `Success` is 32 + 32 + 32 + 65 = 161 bytes. Transit security
- * comes from the outer envelope's ECDH-AES wrap; no per-field signature is
+ * Total wire length of `Success` is 32 + 32 + 32 + 65 + 65 + 32 = 258 bytes. Transit
+ * security comes from the outer envelope's ECDH-AES wrap; no per-field signature is
  * carried — multi-device authorisation is asserted by the user-identity-signed
  * roster events (`DeviceAdded`/`DeviceRemoved`) published separately.
  */
@@ -36,6 +43,7 @@ import { Bytes, Enum, Struct, Tuple, Vector, _void, str } from 'scale-ts';
 const AccountIdCodec = Bytes(32);
 const PublicKeyCodec = Bytes(65);
 const PrivateKeyCodec = Bytes(32);
+const EntropySourceCodec = Bytes(32);
 
 // ── Proposal ────────────────────────────────────────────────────────────
 
@@ -72,7 +80,9 @@ export const VersionedHandshakeProposal = Enum({
 // ── Response (V2) ───────────────────────────────────────────────────────
 
 /**
- * 32 + 32 + 32 + 65 + 65 = 226 bytes (spec v0.2.2).
+ * 32 + 32 + 32 + 65 + 65 + 32 = 258 bytes. Appends `rootEntropySource` to the
+ * v0.2.2 body; this revision is not yet pinned in the Mobile SSO spec (latest
+ * defined there is v0.2.2 — the 226-byte `HandshakeSuccessV2_v022` below).
  *
  * `ssoEncPubKey` is `papp_encr_pub` per spec § Encrypted response — V2 — the
  * P-256 public key PApp uses for SSO session ECDH. Required to compute
@@ -81,6 +91,13 @@ export const VersionedHandshakeProposal = Enum({
  * (`SsoDerivationDomains.SSO_DERIVATION_DOMAIN`); iOS currently reuses
  * `//wallet//chat`. The host treats this field as opaque public material —
  * which keypair PApp picked is invisible here.
+ *
+ * `rootEntropySource` is `blake2b256_keyed(rootAccountSecret,
+ * "product-entropy-derivation")` — layer 1 of the RFC-0007 derivation. PApp
+ * computes it from the root account secret and shares it here so the host can
+ * derive product entropy (`host_derive_entropy`) via
+ * `deriveProductEntropyFromSource` without ever holding the raw secret. Every
+ * conforming host derives identical entropy from it.
  */
 export const HandshakeSuccessV2 = Struct({
   identityAccountId: AccountIdCodec,
@@ -88,6 +105,7 @@ export const HandshakeSuccessV2 = Struct({
   identityChatPrivateKey: PrivateKeyCodec,
   ssoEncPubKey: PublicKeyCodec,
   deviceEncPubKey: PublicKeyCodec,
+  rootEntropySource: EntropySourceCodec,
 });
 
 export type HandshakeSuccessV2Value = {
@@ -103,7 +121,23 @@ export type HandshakeSuccessV2Value = {
    */
   ssoEncPubKey: Uint8Array | null;
   deviceEncPubKey: Uint8Array;
+  /**
+   * RFC-0007 layer-1 `rootEntropySource`. Null for peers that don't send it
+   * (everything up to and including spec v0.2.2); while null the host cannot
+   * serve `host_derive_entropy` and must surface an error rather than fall back
+   * to a non-deterministic secret.
+   */
+  rootEntropySource: Uint8Array | null;
 };
+
+/** 32 + 32 + 32 + 65 + 65 = 226 bytes (spec v0.2.2 — `rootEntropySource` absent). */
+export const HandshakeSuccessV2_v022 = Struct({
+  identityAccountId: AccountIdCodec,
+  rootAccountId: AccountIdCodec,
+  identityChatPrivateKey: PrivateKeyCodec,
+  ssoEncPubKey: PublicKeyCodec,
+  deviceEncPubKey: PublicKeyCodec,
+});
 
 /** 32 + 32 + 32 + 65 = 161 bytes (spec v0.2.1) */
 export const HandshakeSuccessV2_v021 = Struct({
@@ -127,16 +161,18 @@ export type DecodedHandshakeResponseV2 =
 
 /**
  * Length-dispatched decoder for the inner `EncryptedHandshakeResponseV2`
- * plaintext. Three Success body shapes are accepted, one per spec rev:
+ * plaintext. Four Success body shapes are accepted, one per spec rev:
  *
- *   226 bytes (spec v0.2.2) — includes `ssoEncPubKey` (`papp_encr_pub`).
+ *   258 bytes — includes `rootEntropySource` (RFC-0007 layer 1); not yet a named spec rev.
+ *   226 bytes (spec v0.2.2) — `rootEntropySource` absent; surfaced as `null`.
  *   161 bytes (spec v0.2.1) — `ssoEncPubKey` absent; surfaced as `null`.
  *   129 bytes (spec v0.2)   — `rootAccountId` AND `ssoEncPubKey` absent.
  *
  * Older peers degrade gracefully: chat continues to work via
  * `identityChatPrivateKey`, but the SSO session transport (which needs
- * `ssoEncPubKey` to derive `shared_secret_session`) stays inactive on
- * the host until the peer upgrades.
+ * `ssoEncPubKey` to derive `shared_secret_session`) and `host_derive_entropy`
+ * (which needs `rootEntropySource`) stay inactive on the host until the peer
+ * upgrades.
  */
 export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHandshakeResponseV2 => {
   if (bytes.length === 0) throw new Error('EncryptedHandshakeResponseV2: empty plaintext');
@@ -148,7 +184,7 @@ export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHa
     return { tag: 'Pending', value: { tag: 'AllowanceAllocation', value: undefined } };
   }
   if (tag === 1) {
-    if (body.length === 226) {
+    if (body.length === 258) {
       const decoded = HandshakeSuccessV2.dec(body);
       return {
         tag: 'Success',
@@ -158,6 +194,21 @@ export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHa
           identityChatPrivateKey: decoded.identityChatPrivateKey,
           ssoEncPubKey: decoded.ssoEncPubKey,
           deviceEncPubKey: decoded.deviceEncPubKey,
+          rootEntropySource: decoded.rootEntropySource,
+        },
+      };
+    }
+    if (body.length === 226) {
+      const decoded = HandshakeSuccessV2_v022.dec(body);
+      return {
+        tag: 'Success',
+        value: {
+          identityAccountId: decoded.identityAccountId,
+          rootAccountId: decoded.rootAccountId,
+          identityChatPrivateKey: decoded.identityChatPrivateKey,
+          ssoEncPubKey: decoded.ssoEncPubKey,
+          deviceEncPubKey: decoded.deviceEncPubKey,
+          rootEntropySource: null,
         },
       };
     }
@@ -171,6 +222,7 @@ export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHa
           identityChatPrivateKey: decoded.identityChatPrivateKey,
           ssoEncPubKey: null,
           deviceEncPubKey: decoded.deviceEncPubKey,
+          rootEntropySource: null,
         },
       };
     }
@@ -184,10 +236,11 @@ export const decodeEncryptedHandshakeResponseV2 = (bytes: Uint8Array): DecodedHa
           identityChatPrivateKey: decoded.identityChatPrivateKey,
           ssoEncPubKey: null,
           deviceEncPubKey: decoded.deviceEncPubKey,
+          rootEntropySource: null,
         },
       };
     }
-    throw new Error(`EncryptedHandshakeResponseV2: Success body length ${body.length} not in {129, 161, 226}`);
+    throw new Error(`EncryptedHandshakeResponseV2: Success body length ${body.length} not in {129, 161, 226, 258}`);
   }
   if (tag === 2) {
     return { tag: 'Failed', value: str.dec(body) };
@@ -223,7 +276,7 @@ export type EncryptedHandshakeResponseV2Value =
  * Inner handshake response variant. Wire shape (matches peer SCALE encoding):
  *
  *   - Pending → 0x00 || HandshakeStatusV2 (today: 0x00 for AllowanceAllocation), 2 bytes total
- *   - Success → 0x01 || HandshakeSuccessV2 (161 bytes), 162 bytes total
+ *   - Success → 0x01 || HandshakeSuccessV2 (258 bytes with rootEntropySource), 259 bytes total
  *   - Failed  → 0x02 || SCALE-encoded UTF-8 reason string
  *
  * Earlier builds shipped a custom length-dispatched codec assuming elision —

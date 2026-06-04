@@ -259,7 +259,10 @@ export function createAuth({
       .write(session.id, {
         ssSecret: identity.statementAccountSecret as SsSecret,
         encrSecret: identity.encryptionPrivateKey as EncrSecret,
-        entropy: new Uint8Array(0),
+        // RFC-0007 layer-1 source from the handshake; `None` when the peer
+        // doesn't send it (up to spec v0.2.2), leaving host_derive_entropy
+        // unavailable.
+        rootEntropySource: success.rootEntropySource ?? undefined,
         identityChatPrivateKey: success.identityChatPrivateKey,
       })
       .andThen(() => ssoSessionRepository.add(session))

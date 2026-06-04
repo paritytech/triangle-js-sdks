@@ -61,6 +61,13 @@ export type HandshakeSuccessState = {
    */
   ssoEncPubKey: Uint8Array | null;
   /**
+   * RFC-0007 `rootEntropySource` — lets the host serve `host_derive_entropy`
+   * without ever holding the raw root secret. Sensitive; persist in secure
+   * storage. Null for peers that don't send it (up to spec v0.2.2), which
+   * leaves entropy derivation unavailable.
+   */
+  rootEntropySource: Uint8Array | null;
+  /**
    * The pairing-topic statement was signed by PApp's device statement
    * account. `HandshakeSuccessV2` doesn't carry it in the encrypted body, so
    * the pairing service lifts it off `statement.proof.value.signer` and
@@ -104,6 +111,7 @@ export const fromInnerResponse = (
         identityChatPublicKey: deriveIdentityChatPublicKey(response.value.identityChatPrivateKey),
         deviceEncPubKey: response.value.deviceEncPubKey,
         ssoEncPubKey: response.value.ssoEncPubKey,
+        rootEntropySource: response.value.rootEntropySource,
         peerStatementAccountId,
       };
     case 'Failed':

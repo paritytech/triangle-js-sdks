@@ -5,7 +5,7 @@ import type { ResultAsync } from 'neverthrow';
 import { fromThrowable } from 'neverthrow';
 import { fromHex, toHex } from 'polkadot-api/utils';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Struct } from 'scale-ts';
+import { Bytes, Option, Struct } from 'scale-ts';
 
 import type { EncrSecret, SsSecret } from '../crypto.js';
 import { BrandedBytesCodec, stringToBytes } from '../crypto.js';
@@ -16,7 +16,12 @@ type StoredUserSecrets = CodecType<typeof StoredUserSecretsCodec>;
 const StoredUserSecretsCodec = Struct({
   ssSecret: BrandedBytesCodec<SsSecret>(),
   encrSecret: BrandedBytesCodec<EncrSecret>(),
-  entropy: Bytes(),
+  // RFC-0007 layer-1 `rootEntropySource` received in `HandshakeSuccessV2`.
+  // `None` when the paired peer doesn't send it (up to spec v0.2.2), else the
+  // 32-byte source. Consumed by the host's `host_derive_entropy` handler via
+  // `deriveProductEntropyFromSource`. (Slot was previously the unused
+  // `entropy` field.)
+  rootEntropySource: Option(Bytes(32)),
   // V2 addition: user identity chat private key (P-256 raw scalar, 32 bytes).
   // Sensitive — kept encrypted at rest alongside the per-session ss/encr secrets.
   identityChatPrivateKey: Bytes(32),

@@ -28,6 +28,7 @@ const ROOT_ACCT = new Uint8Array(32).fill(0xa2);
 const SSO_ENC_PRIV = new Uint8Array(32).fill(0x06);
 const SSO_ENC_PUB = p256.getPublicKey(SSO_ENC_PRIV, false);
 const EXPECTED_SHARED_SECRET = p256.getSharedSecret(DEVICE_ENC_PRIV, SSO_ENC_PUB).slice(1, 33);
+const ROOT_ENTROPY_SOURCE = new Uint8Array(32).fill(0x07);
 const PEER_STMT_ACCT_HEX = '0x' + '44'.repeat(32);
 
 const makeDeviceIdentity = (): DeviceIdentityForPairing => ({
@@ -74,6 +75,7 @@ const buildSuccessStatement = (): Statement =>
       identityChatPrivateKey: IDENTITY_CHAT_PRIV,
       ssoEncPubKey: SSO_ENC_PUB,
       deviceEncPubKey: DEVICE_ENC_PUB,
+      rootEntropySource: ROOT_ENTROPY_SOURCE,
     }),
   );
 
@@ -165,7 +167,10 @@ describe('createAuth', () => {
       expect(harness.ssoSessionRepository.add).toHaveBeenCalledOnce();
       expect(harness.userSecretRepository.write).toHaveBeenCalledOnce();
       const secretsCall = (harness.userSecretRepository.write as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(secretsCall?.[1]).toMatchObject({ identityChatPrivateKey: IDENTITY_CHAT_PRIV });
+      expect(secretsCall?.[1]).toMatchObject({
+        identityChatPrivateKey: IDENTITY_CHAT_PRIV,
+        rootEntropySource: ROOT_ENTROPY_SOURCE,
+      });
     });
 
     it('emits pairingStatus transitions: none -> initial -> pairing(deeplink) -> finished(session)', async () => {
