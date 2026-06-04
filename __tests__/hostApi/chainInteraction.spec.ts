@@ -9,6 +9,38 @@ import type { JsonRpcMessage } from '@polkadot-api/json-rpc-provider';
 import type { JsonRpcProvider } from 'polkadot-api';
 import { describe, expect, it, vi } from 'vitest';
 
+const createChainMockProvider = () => {
+  const send = vi.fn();
+  const disconnect = vi.fn();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let onMessage: ((msg: any) => void) | null = null;
+
+  const provider: JsonRpcProvider = cb => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onMessage = cb as any;
+    return { send, disconnect };
+  };
+
+  return {
+    provider,
+    send,
+    disconnect,
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    simulateMessage: (msg: any) => onMessage?.(msg),
+  };
+};
+
+const chainMockSentMessages = (
+  mock: ReturnType<typeof createChainMockProvider>,
+): Array<{ id: string; method: string; params: unknown[] }> =>
+  mock.send.mock.calls.map(([msg]) => msg as { id: string; method: string; params: unknown[] });
+
+const findChainMockCallId = (mock: ReturnType<typeof createChainMockProvider>, method: string): string => {
+  const match = chainMockSentMessages(mock).find(msg => msg.method === method);
+  if (!match) throw new Error(`no '${method}' call found`);
+  return match.id;
+};
+
 import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
 
@@ -16,10 +48,11 @@ function setup(chainId: HexString) {
   const providers = createHostApiProviders();
   const container = createContainer(providers.host);
   const sdkTransport = createTransport(providers.sdk);
+  const hostApi = createHostApi(sdkTransport);
 
   const provider = createPapiProvider(chainId, undefined, { transport: sdkTransport });
 
-  return { container, provider };
+  return { container, provider, hostApi };
 }
 
 describe('Host API: Chain Interaction', () => {
@@ -918,6 +951,72 @@ describe('Host API: Chain Interaction', () => {
 
       // Should not receive any messages since feature is not supported
       expect(receivedMessages).toEqual([]);
+    });
+  });
+
+  describe('chainHead recovery after stop (container handlers)', () => {
+    it('remote_chain_head_header queues through stop→refollow gap instead of failing fast', async () => {
+      const chainId = WellKnownChain.polkadotRelay;
+      const { container, provider, hostApi } = setup(chainId);
+      const mock = createChainMockProvider();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const receivedMessages: any[] = [];
+
+      container.handleFeatureSupported((params, { ok }) => ok(params.tag === 'Chain' && params.value === chainId));
+      container.handleChainConnection(() => mock.provider);
+
+      const sdkConnection = provider(msg => receivedMessages.push(msg));
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 1, method: 'chainHead_v1_follow', params: [true] });
+      await vi.waitFor(() => {
+        expect(chainMockSentMessages(mock).some(m => m.method === 'chainHead_v1_follow')).toBe(true);
+      });
+
+      mock.simulateMessage({
+        jsonrpc: '2.0',
+        id: findChainMockCallId(mock, 'chainHead_v1_follow'),
+        result: 'sub-id-1',
+      });
+      await delay(20);
+
+      mock.simulateMessage({
+        jsonrpc: '2.0',
+        method: 'chainHead_v1_followEvent',
+        params: { subscription: 'sub-id-1', result: { event: 'stop' } },
+      });
+      await delay(20);
+
+      const headerPromise = hostApi.chainHeadHeader(
+        enumValue('v1', {
+          genesisHash: chainId,
+          followSubscriptionId: 'follow_0',
+          hash: '0xblock' as HexString,
+        }),
+      );
+
+      expect(chainMockSentMessages(mock).find(m => m.method === 'chainHead_v1_header')).toBeUndefined();
+
+      sdkConnection.send({ jsonrpc: '2.0', id: 2, method: 'chainHead_v1_follow', params: [true] });
+      await vi.waitFor(() => {
+        expect(chainMockSentMessages(mock).filter(m => m.method === 'chainHead_v1_follow')).toHaveLength(2);
+      });
+
+      const followCalls = chainMockSentMessages(mock).filter(m => m.method === 'chainHead_v1_follow');
+      mock.simulateMessage({ jsonrpc: '2.0', id: followCalls[1]!.id, result: 'sub-id-2' });
+      await delay(20);
+
+      const headerCall = chainMockSentMessages(mock).find(m => m.method === 'chainHead_v1_header');
+      expect(headerCall?.params?.[0]).toBe('sub-id-2');
+      expect(headerCall?.params?.[1]).toMatch(/^0x[0-9a-f]+$/i);
+      mock.simulateMessage({ jsonrpc: '2.0', id: headerCall!.id, result: '0xheader' });
+      await delay(20);
+
+      const headerResult = await headerPromise;
+      expect(headerResult.isOk()).toBe(true);
+      if (headerResult.isOk()) {
+        expect(headerResult.value.tag).toBe('v1');
+        expect(headerResult.value.value).toMatch(/^0x[0-9a-f]+$/i);
+      }
     });
   });
 });

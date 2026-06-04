@@ -822,7 +822,11 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
           return () => {
             manager.stopFollow(genesisHash, followId);
-            manager.releaseChain(genesisHash);
+            // Keep the chain client while refollow/recovery is in flight. Unsubscribing
+            // the dead follow after Stop must not tear down pending chain-head ops.
+            if (!manager.shouldRetainChainEntry(genesisHash)) {
+              manager.releaseChain(genesisHash);
+            }
           };
         }),
       );
@@ -834,10 +838,6 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
             return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
           }
           const { genesisHash, hash } = message.value;
-
-          if (!manager.hasActiveFollow(genesisHash)) {
-            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
-          }
 
           try {
             const result = await manager.chainHeadOp(genesisHash, 'chainHead_v1_header', [hash]);
@@ -856,10 +856,6 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
           }
           const { genesisHash, hash } = message.value;
 
-          if (!manager.hasActiveFollow(genesisHash)) {
-            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
-          }
-
           try {
             const result = await manager.chainHeadOp(genesisHash, 'chainHead_v1_body', [hash]);
             return enumValue('v1', resultOk(manager.convertOperationStartedResult(result)));
@@ -876,10 +872,6 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
             return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
           }
           const { genesisHash, hash, items, childTrie } = message.value;
-
-          if (!manager.hasActiveFollow(genesisHash)) {
-            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
-          }
 
           const jsonRpcItems = items.map((item: { key: HexString; queryType: string }) => ({
             key: item.key,
@@ -907,10 +899,6 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
           }
           const params = message.value;
 
-          if (!manager.hasActiveFollow(params.genesisHash)) {
-            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
-          }
-
           try {
             const result = await manager.chainHeadOp(params.genesisHash, 'chainHead_v1_call', [
               params.hash,
@@ -932,10 +920,6 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
           }
           const { genesisHash, hashes } = message.value;
 
-          if (!manager.hasActiveFollow(genesisHash)) {
-            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
-          }
-
           try {
             await manager.chainHeadOp(genesisHash, 'chainHead_v1_unpin', [hashes]);
             return enumValue('v1', resultOk(undefined));
@@ -953,10 +937,6 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
           }
           const { genesisHash, operationId } = message.value;
 
-          if (!manager.hasActiveFollow(genesisHash)) {
-            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
-          }
-
           try {
             await manager.chainHeadOp(genesisHash, 'chainHead_v1_continue', [operationId]);
             return enumValue('v1', resultOk(undefined));
@@ -973,10 +953,6 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
             return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
           }
           const { genesisHash, operationId } = message.value;
-
-          if (!manager.hasActiveFollow(genesisHash)) {
-            return enumValue('v1', resultErr(new GenericError({ reason: 'No active follow for this chain' })));
-          }
 
           try {
             await manager.chainHeadOp(genesisHash, 'chainHead_v1_stopOperation', [operationId]);

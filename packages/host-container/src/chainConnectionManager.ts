@@ -102,6 +102,15 @@ export function createChainConnectionManager(
     return null;
   }
 
+  function shouldRetainChainEntry(genesisHash: HexString): boolean {
+    const entry = chains.get(genesisHash);
+    if (!entry) return false;
+    if (activeFollow(genesisHash)) return true;
+    if (entry.pendingOps.length > 0) return true;
+    if (entry.recoveringSince !== null && Date.now() - entry.recoveringSince <= refollowTimeoutMs) return true;
+    return false;
+  }
+
   return {
     getOrCreateChain(genesisHash: HexString): boolean {
       const existing = chains.get(genesisHash);
@@ -133,10 +142,24 @@ export function createChainConnectionManager(
       const follow: FollowEntry = { response: null, onEvent };
       entry.follows.set(followId, follow);
 
+      const handleStop = () => {
+        entry.follows.delete(followId);
+        follow.response?.unfollow();
+        follow.response = null;
+        entry.recoveringSince = Date.now();
+      };
+
       const response = entry.client.chainHead(
         withRuntime,
         // substrate-client renames the spec's `event` field to `type`. Restore it.
-        ({ type, ...rest }) => onEvent({ event: type, ...rest } as FollowEvent),
+        ({ type, ...rest }) => {
+          const event = { event: type, ...rest } as FollowEvent;
+          // Spec stop can surface as a follow notification on the wire; substrate-client's
+          // success callback typings omit 'stop' (it uses StopError), so check the restored
+          // spec-shaped event field instead of narrowing `type` directly.
+          if (event.event === 'stop') handleStop();
+          onEvent(event);
+        },
         error => {
           // The follow is dead. Drop the entry so it doesn't accumulate as a
           // tombstone; clear the response field on the (now-detached)
@@ -147,12 +170,9 @@ export function createChainConnectionManager(
           // genuine failures, not protocol-driven restarts.
           // Explicit unfollow defends against substrate-client retaining
           // pinnedBlocks/runtime past Stop.
-          entry.follows.delete(followId);
-          follow.response?.unfollow();
-          follow.response = null;
           if (error instanceof StopError) {
+            handleStop();
             onEvent({ event: 'stop' });
-            entry.recoveringSince = Date.now();
           }
         },
       );
@@ -186,6 +206,15 @@ export function createChainConnectionManager(
     hasActiveFollow(genesisHash: HexString): boolean {
       return activeFollow(genesisHash) !== null;
     },
+
+    /** True while chain-head ops may queue after a recent Stop, before refollow completes. */
+    isRecoveringAfterStop(genesisHash: HexString): boolean {
+      const entry = chains.get(genesisHash);
+      if (!entry || entry.recoveringSince === null) return false;
+      return Date.now() - entry.recoveringSince <= refollowTimeoutMs;
+    },
+
+    shouldRetainChainEntry,
 
     chainHeadOp(genesisHash: HexString, method: string, params: unknown[]): Promise<unknown> {
       const follow = activeFollow(genesisHash);

@@ -69,6 +69,24 @@ describe('chainConnectionManager', () => {
       expect(manager.hasActiveFollow(GENESIS)).toBe(true);
     });
 
+    it('opens the refollow recovery window when stop arrives as a follow event', () => {
+      const mock = createMockProvider();
+      const manager = createChainConnectionManager(() => mock.provider);
+
+      manager.getOrCreateChain(GENESIS);
+      manager.startFollow(GENESIS, true, vi.fn());
+      mock.simulateMessage({ jsonrpc: '2.0', id: findCallId(mock, 'chainHead_v1_follow'), result: 'sub-id-1' });
+
+      mock.simulateMessage({
+        jsonrpc: '2.0',
+        method: 'chainHead_v1_followEvent',
+        params: { subscription: 'sub-id-1', result: { event: 'stop' } },
+      });
+
+      expect(manager.hasActiveFollow(GENESIS)).toBe(false);
+      expect(manager.isRecoveringAfterStop(GENESIS)).toBe(true);
+    });
+
     it('forwards a synthetic stop event to the listener and clears hasActiveFollow', () => {
       const mock = createMockProvider();
       const manager = createChainConnectionManager(() => mock.provider);
@@ -346,6 +364,25 @@ describe('chainConnectionManager', () => {
 
       mock.simulateMessage({ jsonrpc: '2.0', id: headerCall!.id, result: '0xheader' });
       await expect(opPromise).resolves.toBe('0xheader');
+    });
+
+    it('retains the chain entry after stopFollow when recovery or pending ops are in flight', () => {
+      const mock = createMockProvider();
+      const manager = createChainConnectionManager(() => mock.provider);
+
+      manager.getOrCreateChain(GENESIS);
+      const { followId } = manager.startFollow(GENESIS, true, vi.fn());
+      mock.simulateMessage({ jsonrpc: '2.0', id: findCallId(mock, 'chainHead_v1_follow'), result: 'sub-id-1' });
+
+      mock.simulateMessage({
+        jsonrpc: '2.0',
+        method: 'chainHead_v1_followEvent',
+        params: { subscription: 'sub-id-1', result: { event: 'stop' } },
+      });
+
+      manager.stopFollow(GENESIS, followId);
+      expect(manager.shouldRetainChainEntry(GENESIS)).toBe(true);
+      expect(mock.disconnect).not.toHaveBeenCalled();
     });
 
     it('rejects queued ops when the chain is disposed before a refollow', async () => {
