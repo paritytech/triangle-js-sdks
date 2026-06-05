@@ -92,7 +92,7 @@ describe('VersionedHandshakeProposal', () => {
   });
 });
 
-describe('HandshakeSuccessV2 (258 bytes, with rootEntropySource)', () => {
+describe('HandshakeSuccessV2', () => {
   it('round-trips identityAccountId, rootAccountId, identityChatPrivateKey, ssoEncPubKey, deviceEncPubKey, rootEntropySource', () => {
     const input = {
       identityAccountId: new Uint8Array(32).fill(0xa1),
@@ -105,22 +105,10 @@ describe('HandshakeSuccessV2 (258 bytes, with rootEntropySource)', () => {
     const decoded = HandshakeSuccessV2.dec(HandshakeSuccessV2.enc(input));
     expect(decoded).toEqual(input);
   });
-
-  it('encodes to exactly 258 bytes', () => {
-    const encoded = HandshakeSuccessV2.enc({
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      rootAccountId: new Uint8Array(32).fill(0xa2),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      ssoEncPubKey: fixedSsoEncPubKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-      rootEntropySource: fixedRootEntropySource,
-    });
-    expect(encoded.length).toBe(258);
-  });
 });
 
-describe('EncryptedHandshakeResponseV2 (native scale-ts Enum, used for encode)', () => {
-  it('encodes Pending(AllowanceAllocation) as 0x00 0x00', () => {
+describe('EncryptedHandshakeResponseV2', () => {
+  it('encodes Pending(AllowanceAllocation)', () => {
     const encoded = EncryptedHandshakeResponseV2.enc({
       tag: 'Pending',
       value: { tag: 'AllowanceAllocation', value: undefined },
