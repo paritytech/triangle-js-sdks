@@ -241,6 +241,11 @@ export function createAuth({
       identityChatPublicKey: success.identityChatPublicKey,
       ssoEncPubKey: success.ssoEncPubKey,
       rootEntropySource: success.rootEntropySource,
+      // The peer device's long-lived P-256 encryption key. Persisted (rather
+      // than derived into `remoteAccount.publicKey`, which is the SSO shared
+      // secret consumed by the session manager's `createEncryption`) so the
+      // host's device-sync channel can address the paired device by ECDH.
+      deviceEncPubKey: success.deviceEncPubKey,
     });
 
     return userSecretRepository
