@@ -1,26 +1,3 @@
-## 0.8.5 (2026-06-05)
-
-### 🚀 Features
-
-- add SSO encryption pubkey support (Mobile SSO spec v0.2.2) ([#202](https://github.com/paritytech/triangle-js-sdks/pull/202))
-- derive product entropy from rootEntropySource (RFC-7) ([#205](https://github.com/paritytech/triangle-js-sdks/pull/205))
-
-### 🩹 Fixes
-
-- statement store deps ([#192](https://github.com/paritytech/triangle-js-sdks/pull/192))
-- **host-api:** tear down subscriptions on transport disposal ([#196](https://github.com/paritytech/triangle-js-sdks/pull/196))
-- **host-api:** tear down subscriptions on transport disposal" ([#196](https://github.com/paritytech/triangle-js-sdks/pull/196), [#201](https://github.com/paritytech/triangle-js-sdks/pull/201))
-- **host-api-wrapper:** send SS58 address as legacy account signer ([#193](https://github.com/paritytech/triangle-js-sdks/pull/193))
-- **host-papp:** derive V2 session key from ECDH shared secret ([#206](https://github.com/paritytech/triangle-js-sdks/pull/206))
-
-### ❤️ Thank You
-
-- decrypto21
-- Raman Shekhawat @justraman
-- Sergey Zhuravlev @johnthecat
-- Torsten Stüber @TorstenStueber
-- Vitya Livshits @cuteWarmFrog
-
 ## 0.8.6 (2026-06-05)
 
 ### 🚀 Features
