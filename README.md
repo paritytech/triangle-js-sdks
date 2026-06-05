@@ -42,3 +42,15 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 ## Contribution
 
 See [CONTRIBUTING.md](./CONTRIBUTING.md) for more information.
+
+## Security
+
+These packages are reference SDKs, not a hardened, production-ready release. If you build on them, you are responsible
+for:
+
+- Reviewing the code yourself before relying on it; we publish a reference, not an audited library
+- Pinning versions and keeping dependencies up to date and free of known vulnerabilities
+- Securing the application you build with these SDKs
+- Tracking the latest tagged releases for security fixes; older releases are not backported (exceptions might apply)
+
+For Parity's security disclosure process and Bug Bounty program, see <https://parity.io/bug-bounty>.
