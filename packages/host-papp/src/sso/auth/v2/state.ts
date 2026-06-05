@@ -17,52 +17,20 @@
 
 import type { CodecType } from 'scale-ts';
 
-import type { EncryptedHandshakeResponseV2 } from '../scale/handshakeV2.js';
+import type { EncryptedHandshakeResponseV2, HandshakeSuccessV2 } from '../scale/handshakeV2.js';
 import { deriveIdentityChatPublicKey } from '../scale/handshakeV2.js';
 
 export type HandshakeIdleState = { tag: 'Idle' };
 export type HandshakeSubmittedState = { tag: 'Submitted' };
 export type HandshakePendingState = { tag: 'Pending'; reason: 'AllowanceAllocation' };
-export type HandshakeSuccessState = {
+export type HandshakeSuccessState = CodecType<typeof HandshakeSuccessV2> & {
   tag: 'Success';
-  /** User identity sr25519 accountId (32 bytes). */
-  identityAccountId: Uint8Array;
-  /**
-   * User root sr25519 accountId (32 bytes) — the parent for soft-derivation
-   * of product accounts. PApp and host derive identically so a dapp sees the
-   * same address on every device; chat does not use it.
-   */
-  rootAccountId: Uint8Array;
-  /**
-   * User identity chat P-256 private key (32 bytes raw scalar) shared by
-   * PApp with this device per the multi-device spec. Sensitive; persist in
-   * OS-keychain-backed secure storage and never forward.
-   */
-  identityChatPrivateKey: Uint8Array;
   /**
    * Derived locally from `identityChatPrivateKey` via P-256 scalar
    * multiplication (uncompressed 65-byte form). Both sides MUST derive
    * identically; downstream session topics depend on it.
    */
   identityChatPublicKey: Uint8Array;
-  /**
-   * Encryption public key of the authorising PApp device (65 bytes,
-   * P-256 uncompressed). Used by the host when addressing chat envelopes
-   * back to the authorising device.
-   */
-  deviceEncPubKey: Uint8Array;
-  /**
-   * `papp_encr_pub` (65 bytes, P-256 uncompressed). The host's SSO session
-   * transport derives `shared_secret_session = ECDH(host_encr_secret,
-   * ssoEncPubKey)` from this.
-   */
-  ssoEncPubKey: Uint8Array;
-  /**
-   * RFC-0007 `rootEntropySource` — lets the host serve `host_derive_entropy`
-   * without ever holding the raw root secret. Sensitive; persist in secure
-   * storage.
-   */
-  rootEntropySource: Uint8Array;
   /**
    * The pairing-topic statement was signed by PApp's device statement
    * account. `HandshakeSuccessV2` doesn't carry it in the encrypted body, so

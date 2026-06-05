@@ -32,9 +32,7 @@ export type AuthComponent = ReturnType<typeof createAuth>;
 export type OnAuthSuccess = (event: {
   session: StoredUserSession;
   identityChatPrivateKey: Uint8Array;
-  /**
-   * `papp_encr_pub` from Mobile SSO spec v0.2.
-   */
+  /** `papp_encr_pub` — PApp's P-256 SSO ECDH public key. */
   ssoEncPubKey: Uint8Array;
 }) => Promise<void> | void;
 
@@ -233,9 +231,6 @@ export function createAuth({
     _flowId: string,
   ): ResultAsync<StoredUserSession, Error> {
     const localAccount = createLocalSessionAccount(createAccountId(identity.statementAccountPublicKey));
-    if (!success.ssoEncPubKey) {
-      return errAsync(new Error('Missing ssoEncPubKey in handshake response'));
-    }
     if (!success.peerStatementAccountId) {
       return errAsync(new Error("Can't derive peerStatementAccountId from statement proof signer"));
     }
@@ -245,15 +240,13 @@ export function createAuth({
       identityAccountId: createAccountId(success.identityAccountId),
       identityChatPublicKey: success.identityChatPublicKey,
       ssoEncPubKey: success.ssoEncPubKey,
+      rootEntropySource: success.rootEntropySource,
     });
 
     return userSecretRepository
       .write(session.id, {
         ssSecret: identity.statementAccountSecret as SsSecret,
         encrSecret: identity.encryptionPrivateKey as EncrSecret,
-        // RFC-0007 layer-1 source from the handshake; consumed by the host's
-        // `host_derive_entropy` handler via `deriveProductEntropyFromSource`.
-        rootEntropySource: success.rootEntropySource,
         identityChatPrivateKey: success.identityChatPrivateKey,
       })
       .andThen(() => ssoSessionRepository.add(session))

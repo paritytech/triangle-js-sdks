@@ -150,12 +150,12 @@ describe('createAuth', () => {
       expect(session!.remoteAccount.accountId).toEqual(new Uint8Array(32).fill(0x44));
       expect(session!.remoteAccount.publicKey).toEqual(EXPECTED_SHARED_SECRET);
       expect(session!.ssoEncPubKey).toEqual(SSO_ENC_PUB);
+      expect(session!.rootEntropySource).toEqual(ROOT_ENTROPY_SOURCE);
       expect(harness.ssoSessionRepository.add).toHaveBeenCalledOnce();
       expect(harness.userSecretRepository.write).toHaveBeenCalledOnce();
       const secretsCall = (harness.userSecretRepository.write as ReturnType<typeof vi.fn>).mock.calls[0];
       expect(secretsCall?.[1]).toMatchObject({
         identityChatPrivateKey: IDENTITY_CHAT_PRIV,
-        rootEntropySource: ROOT_ENTROPY_SOURCE,
       });
     });
 

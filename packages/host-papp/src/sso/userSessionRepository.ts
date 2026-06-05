@@ -20,17 +20,21 @@ const storedUserSessionCodec = Struct({
   rootAccountId: AccountIdCodec,
   identityAccountId: AccountIdCodec,
   identityChatPublicKey: Bytes(65),
-  // `papp_encr_pub` (Mobile SSO spec v0.2.2, 65-byte uncompressed P-256).
-  // Persisted so the host can rebuild its SSO session transport
-  // (`shared_secret_session = ECDH(host_encr_secret, ssoEncPubKey)`) on a
-  // cold start without re-running the handshake. `None` for pre-v0.2.2 peers.
+  // `papp_encr_pub` (65-byte uncompressed P-256). Persisted so the host can
+  // rebuild its SSO session transport (`shared_secret_session =
+  // ECDH(host_encr_secret, ssoEncPubKey)`) on a cold start without re-running
+  // the handshake.
   ssoEncPubKey: Bytes(65),
+  // RFC-0007 layer-1 `rootEntropySource` from the handshake; consumed by the
+  // host's `host_derive_entropy` handler via `deriveProductEntropyFromSource`.
+  rootEntropySource: Bytes(32),
 });
 
 type StoredUserSessionV2Extras = {
   identityAccountId: AccountId;
   identityChatPublicKey: Uint8Array;
   ssoEncPubKey: Uint8Array;
+  rootEntropySource: Uint8Array;
 };
 
 export function createStoredUserSession(
@@ -47,6 +51,7 @@ export function createStoredUserSession(
     identityAccountId: extras.identityAccountId,
     identityChatPublicKey: extras.identityChatPublicKey,
     ssoEncPubKey: extras.ssoEncPubKey,
+    rootEntropySource: extras.rootEntropySource,
   };
 }
 

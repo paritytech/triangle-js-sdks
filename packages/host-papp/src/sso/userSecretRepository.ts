@@ -16,9 +16,6 @@ type StoredUserSecrets = CodecType<typeof StoredUserSecretsCodec>;
 const StoredUserSecretsCodec = Struct({
   ssSecret: BrandedBytesCodec<SsSecret>(),
   encrSecret: BrandedBytesCodec<EncrSecret>(),
-  // RFC-0007 layer-1 `rootEntropySource` from the handshake; consumed by the
-  // host's `host_derive_entropy` handler via `deriveProductEntropyFromSource`.
-  rootEntropySource: Bytes(32),
   // V2 addition: user identity chat private key (P-256 raw scalar, 32 bytes).
   // Sensitive — kept encrypted at rest alongside the per-session ss/encr secrets.
   identityChatPrivateKey: Bytes(32),
