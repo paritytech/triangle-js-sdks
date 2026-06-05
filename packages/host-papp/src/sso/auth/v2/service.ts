@@ -27,7 +27,7 @@ import type { Statement, StatementStoreAdapter } from '@novasamatech/statement-s
 import type { Observable } from 'rxjs';
 import { BehaviorSubject } from 'rxjs';
 
-import { VersionedHandshakeResponse, decodeEncryptedHandshakeResponseV2 } from '../scale/handshakeV2.js';
+import { EncryptedHandshakeResponseV2, VersionedHandshakeResponse } from '../scale/handshakeV2.js';
 
 import { decryptResponseEnvelope } from './envelope.js';
 import type { HandshakeMetadata } from './proposal.js';
@@ -66,6 +66,10 @@ export type StartPairingDeps = {
    * `initialProcessedDataHex` value is up to date.
    */
   onStatementProcessed?: (dataHex: string) => void;
+  /**
+   * Turns on logging for statement store interaction
+   */
+  __DEBUG?: boolean;
 };
 
 export type Pairing = {
@@ -131,13 +135,10 @@ export const startPairingV2 = (deps: StartPairingDeps): Pairing => {
   };
 
   const log = (msg: string, extra?: unknown) => {
+    if (!deps.__DEBUG) return;
     if (extra === undefined) console.info(`[sso-v2] ${msg}`);
     else console.info(`[sso-v2] ${msg}`, extra);
   };
-
-  log(`subscribing to pairing topic ${toHexFull(topic)}`);
-  log(`device statementAccountId ${toHexFull(deps.deviceIdentity.statementAccountPublicKey)}`);
-  log(`device encryptionPublicKey ${toHexFull(deps.deviceIdentity.encryptionPublicKey)}`);
 
   // One-shot probe: query the topic right away so we know whether any answer
   // statement was already posted before our subscription connected.
@@ -180,7 +181,7 @@ export const startPairingV2 = (deps: StartPairingDeps): Pairing => {
 
     let next: HandshakeState;
     try {
-      next = fromInnerResponse(decodeEncryptedHandshakeResponseV2(innerBytes), peerStatementAccountId);
+      next = fromInnerResponse(EncryptedHandshakeResponseV2.dec(innerBytes), peerStatementAccountId);
     } catch (err) {
       log(`inner decode failed; innerBytes (${innerBytes.length}b) = ${toHexFull(innerBytes)}`, err);
       return;

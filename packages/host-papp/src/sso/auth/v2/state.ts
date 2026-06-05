@@ -15,7 +15,9 @@
  * before submitting any V2 statements.
  */
 
-import type { DecodedHandshakeResponseV2 } from '../scale/handshakeV2.js';
+import type { CodecType } from 'scale-ts';
+
+import type { EncryptedHandshakeResponseV2 } from '../scale/handshakeV2.js';
 import { deriveIdentityChatPublicKey } from '../scale/handshakeV2.js';
 
 export type HandshakeIdleState = { tag: 'Idle' };
@@ -95,7 +97,7 @@ export const submitted = (): HandshakeSubmittedState => ({ tag: 'Submitted' });
  * runs `decodeEncryptedHandshakeResponseV2` first.
  */
 export const fromInnerResponse = (
-  response: DecodedHandshakeResponseV2,
+  response: CodecType<typeof EncryptedHandshakeResponseV2>,
   peerStatementAccountId: Uint8Array | null = null,
 ): HandshakeState => {
   switch (response.tag) {

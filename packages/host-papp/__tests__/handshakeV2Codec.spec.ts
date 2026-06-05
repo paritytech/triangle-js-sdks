@@ -1,5 +1,4 @@
 import { p256 } from '@noble/curves/nist.js';
-import { str } from 'scale-ts';
 import { describe, expect, it } from 'vitest';
 
 import type { MetadataEntry } from '../src/sso/auth/scale/handshakeV2.js';
@@ -12,13 +11,9 @@ import {
   HandshakeResponseV2,
   HandshakeStatusV2,
   HandshakeSuccessV2,
-  HandshakeSuccessV2Legacy,
-  HandshakeSuccessV2_v021,
-  HandshakeSuccessV2_v022,
   MetadataKey,
   VersionedHandshakeProposal,
   VersionedHandshakeResponse,
-  decodeEncryptedHandshakeResponseV2,
   deriveIdentityChatPublicKey,
 } from '../src/sso/auth/scale/handshakeV2.js';
 
@@ -121,183 +116,6 @@ describe('HandshakeSuccessV2 (258 bytes, with rootEntropySource)', () => {
       rootEntropySource: fixedRootEntropySource,
     });
     expect(encoded.length).toBe(258);
-  });
-});
-
-describe('HandshakeSuccessV2_v022 (spec v0.2.2, 226 bytes)', () => {
-  it('round-trips identityAccountId, rootAccountId, identityChatPrivateKey, ssoEncPubKey, deviceEncPubKey', () => {
-    const input = {
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      rootAccountId: new Uint8Array(32).fill(0xa2),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      ssoEncPubKey: fixedSsoEncPubKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-    };
-    const decoded = HandshakeSuccessV2_v022.dec(HandshakeSuccessV2_v022.enc(input));
-    expect(decoded).toEqual(input);
-  });
-
-  it('encodes to exactly 226 bytes', () => {
-    const encoded = HandshakeSuccessV2_v022.enc({
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      rootAccountId: new Uint8Array(32).fill(0xa2),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      ssoEncPubKey: fixedSsoEncPubKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-    });
-    expect(encoded.length).toBe(226);
-  });
-});
-
-describe('HandshakeSuccessV2_v021 (spec v0.2.1, 161 bytes)', () => {
-  it('round-trips identityAccountId, rootAccountId, identityChatPrivateKey, deviceEncPubKey', () => {
-    const input = {
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      rootAccountId: new Uint8Array(32).fill(0xa2),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-    };
-    const decoded = HandshakeSuccessV2_v021.dec(HandshakeSuccessV2_v021.enc(input));
-    expect(decoded).toEqual(input);
-  });
-
-  it('encodes to exactly 161 bytes', () => {
-    const encoded = HandshakeSuccessV2_v021.enc({
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      rootAccountId: new Uint8Array(32).fill(0xa2),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-    });
-    expect(encoded.length).toBe(161);
-  });
-});
-
-describe('HandshakeSuccessV2Legacy (spec v0.2, 129 bytes)', () => {
-  it('round-trips identityAccountId, identityChatPrivateKey, deviceEncPubKey', () => {
-    const input = {
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-    };
-    const decoded = HandshakeSuccessV2Legacy.dec(HandshakeSuccessV2Legacy.enc(input));
-    expect(decoded).toEqual(input);
-  });
-
-  it('encodes to exactly 129 bytes', () => {
-    const encoded = HandshakeSuccessV2Legacy.enc({
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-    });
-    expect(encoded.length).toBe(129);
-  });
-});
-
-describe('decodeEncryptedHandshakeResponseV2 (length-dispatched plaintext decoder)', () => {
-  it('decodes Pending(AllowanceAllocation) = 0x00 0x00', () => {
-    const decoded = decodeEncryptedHandshakeResponseV2(new Uint8Array([0x00, 0x00]));
-    expect(decoded).toEqual({ tag: 'Pending', value: { tag: 'AllowanceAllocation', value: undefined } });
-  });
-
-  it('decodes a 258-byte Success body with rootEntropySource', () => {
-    const body = HandshakeSuccessV2.enc({
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      rootAccountId: new Uint8Array(32).fill(0xa2),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      ssoEncPubKey: fixedSsoEncPubKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-      rootEntropySource: fixedRootEntropySource,
-    });
-    const bytes = new Uint8Array(1 + body.length);
-    bytes[0] = 0x01;
-    bytes.set(body, 1);
-    const decoded = decodeEncryptedHandshakeResponseV2(bytes);
-    expect(decoded.tag).toBe('Success');
-    if (decoded.tag !== 'Success') return;
-    expect(decoded.value.rootAccountId).toEqual(new Uint8Array(32).fill(0xa2));
-    expect(decoded.value.ssoEncPubKey).toEqual(fixedSsoEncPubKey);
-    expect(decoded.value.deviceEncPubKey).toEqual(new Uint8Array(65).fill(0x04));
-    expect(decoded.value.rootEntropySource).toEqual(fixedRootEntropySource);
-  });
-
-  it('decodes a 226-byte v0.2.2 Success body with ssoEncPubKey and surfaces rootEntropySource as null', () => {
-    const body = HandshakeSuccessV2_v022.enc({
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      rootAccountId: new Uint8Array(32).fill(0xa2),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      ssoEncPubKey: fixedSsoEncPubKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-    });
-    const bytes = new Uint8Array(1 + body.length);
-    bytes[0] = 0x01;
-    bytes.set(body, 1);
-    const decoded = decodeEncryptedHandshakeResponseV2(bytes);
-    expect(decoded.tag).toBe('Success');
-    if (decoded.tag !== 'Success') return;
-    expect(decoded.value.rootAccountId).toEqual(new Uint8Array(32).fill(0xa2));
-    expect(decoded.value.ssoEncPubKey).toEqual(fixedSsoEncPubKey);
-    expect(decoded.value.deviceEncPubKey).toEqual(new Uint8Array(65).fill(0x04));
-    expect(decoded.value.rootEntropySource).toBeNull();
-  });
-
-  it('decodes a 161-byte v0.2.1 Success body with rootAccountId and surfaces ssoEncPubKey as null', () => {
-    const body = HandshakeSuccessV2_v021.enc({
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      rootAccountId: new Uint8Array(32).fill(0xa2),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-    });
-    const bytes = new Uint8Array(1 + body.length);
-    bytes[0] = 0x01;
-    bytes.set(body, 1);
-    const decoded = decodeEncryptedHandshakeResponseV2(bytes);
-    expect(decoded.tag).toBe('Success');
-    if (decoded.tag !== 'Success') return;
-    expect(decoded.value.rootAccountId).toEqual(new Uint8Array(32).fill(0xa2));
-    expect(decoded.value.identityChatPrivateKey).toEqual(fixedChatPrivateKey);
-    expect(decoded.value.ssoEncPubKey).toBeNull();
-    expect(decoded.value.rootEntropySource).toBeNull();
-  });
-
-  it('decodes a 129-byte v0.2 Success body and surfaces rootAccountId as null', () => {
-    const body = HandshakeSuccessV2Legacy.enc({
-      identityAccountId: new Uint8Array(32).fill(0xa1),
-      identityChatPrivateKey: fixedChatPrivateKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
-    });
-    const bytes = new Uint8Array(1 + body.length);
-    bytes[0] = 0x01;
-    bytes.set(body, 1);
-    const decoded = decodeEncryptedHandshakeResponseV2(bytes);
-    expect(decoded.tag).toBe('Success');
-    if (decoded.tag !== 'Success') return;
-    expect(decoded.value.rootAccountId).toBeNull();
-    expect(decoded.value.ssoEncPubKey).toBeNull();
-    expect(decoded.value.rootEntropySource).toBeNull();
-    expect(decoded.value.identityAccountId).toEqual(new Uint8Array(32).fill(0xa1));
-  });
-
-  it('rejects a Success body of unknown length', () => {
-    const bytes = new Uint8Array(50);
-    bytes[0] = 0x01;
-    expect(() => decodeEncryptedHandshakeResponseV2(bytes)).toThrow(/not in \{129, 161, 226, 258\}/);
-  });
-
-  it('decodes Failed with a UTF-8 reason string', () => {
-    const reason = 'duplicate';
-    const reasonBytes = str.enc(reason);
-    const bytes = new Uint8Array(1 + reasonBytes.length);
-    bytes[0] = 0x02;
-    bytes.set(reasonBytes, 1);
-    expect(decodeEncryptedHandshakeResponseV2(bytes)).toEqual({ tag: 'Failed', value: reason });
-  });
-
-  it('rejects an empty plaintext', () => {
-    expect(() => decodeEncryptedHandshakeResponseV2(new Uint8Array(0))).toThrow(/empty plaintext/);
-  });
-
-  it('rejects an unknown variant discriminant', () => {
-    expect(() => decodeEncryptedHandshakeResponseV2(new Uint8Array([0x07, 0x00]))).toThrow(/unknown variant/);
   });
 });
 

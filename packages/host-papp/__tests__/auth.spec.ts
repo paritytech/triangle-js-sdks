@@ -7,11 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { onHostPappDebugMessage } from '../src/debugBus.js';
 import type { HostPappDebugEvent } from '../src/debugTypes.js';
 import { createAuth } from '../src/sso/auth/impl.js';
-import {
-  HandshakeSuccessV2,
-  HandshakeSuccessV2_v021,
-  VersionedHandshakeResponse,
-} from '../src/sso/auth/scale/handshakeV2.js';
+import { HandshakeSuccessV2, VersionedHandshakeResponse } from '../src/sso/auth/scale/handshakeV2.js';
 import type { DeviceIdentityForPairing } from '../src/sso/auth/v2/service.js';
 import type { DeviceIdentityStore } from '../src/sso/deviceIdentityStore.js';
 import type { UserSecretRepository } from '../src/sso/userSecretRepository.js';
@@ -76,16 +72,6 @@ const buildSuccessStatement = (): Statement =>
       ssoEncPubKey: SSO_ENC_PUB,
       deviceEncPubKey: DEVICE_ENC_PUB,
       rootEntropySource: ROOT_ENTROPY_SOURCE,
-    }),
-  );
-
-const buildSuccessStatementWithoutSso = (): Statement =>
-  wrapSuccessBody(
-    HandshakeSuccessV2_v021.enc({
-      identityAccountId: IDENTITY_ACCT,
-      rootAccountId: ROOT_ACCT,
-      identityChatPrivateKey: IDENTITY_CHAT_PRIV,
-      deviceEncPubKey: DEVICE_ENC_PUB,
     }),
   );
 
@@ -257,23 +243,6 @@ describe('createAuth', () => {
       const result = await promise;
       expect(result.isErr()).toBe(true);
       expect(harness.auth.pairingStatus.read()).toEqual({ step: 'pairingError', message: 'declined' });
-    });
-
-    it('fails when a pre-v0.2.2 Success omits ssoEncPubKey (cannot derive the session secret)', async () => {
-      const harness = buildHarness();
-      const promise = harness.auth.authenticate();
-      await harness.waitForSubscription();
-      harness.deliver([buildSuccessStatementWithoutSso()]);
-
-      const result = await promise;
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().message).toBe('Missing ssoEncPubKey in handshake response');
-      expect(harness.auth.pairingStatus.read()).toEqual({
-        step: 'pairingError',
-        message: 'Missing ssoEncPubKey in handshake response',
-      });
-      expect(harness.ssoSessionRepository.add).not.toHaveBeenCalled();
-      expect(harness.userSecretRepository.write).not.toHaveBeenCalled();
     });
   });
 
