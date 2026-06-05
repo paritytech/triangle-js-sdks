@@ -54,3 +54,5 @@ for:
 - Tracking the latest tagged releases for security fixes; older releases are not backported (exceptions might apply)
 
 For Parity's security disclosure process and Bug Bounty program, see <https://parity.io/bug-bounty>.
+
+<!-- CI smoke test: verifying CI runs after open-sourcing. Safe to remove. -->
