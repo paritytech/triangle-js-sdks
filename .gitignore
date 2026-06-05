@@ -6,6 +6,11 @@ npm-debug.log*
 node_modules
 *.local
 
+# Env files (a bare .env is NOT covered by *.local)
+.env
+.env.*
+!.env.example
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
