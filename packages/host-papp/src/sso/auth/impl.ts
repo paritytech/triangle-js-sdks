@@ -3,6 +3,7 @@ import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount 
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 
 import type { EncrSecret, SsSecret } from '../../crypto.js';
+import { createSharedSecret } from '../../crypto.js';
 import { createFlowId, emitHostPappDebugMessage } from '../../debugBus.js';
 import { AbortError } from '../../helpers/abortError.js';
 import { createState, readonly } from '../../helpers/state.js';
@@ -235,9 +236,13 @@ export function createAuth({
     _flowId: string,
   ): ResultAsync<StoredUserSession, Error> {
     const localAccount = createLocalSessionAccount(createAccountId(identity.statementAccountPublicKey));
+    if (!success.ssoEncPubKey) {
+      return errAsync(new Error('Missing ssoEncPubKey in handshake response'));
+    }
+    const sharedSecret = createSharedSecret(identity.encryptionPrivateKey as EncrSecret, success.ssoEncPubKey);
     const remoteAccount = createRemoteSessionAccount(
       createAccountId(success.peerStatementAccountId ?? new Uint8Array(32)),
-      success.deviceEncPubKey,
+      sharedSecret,
     );
     const session = createStoredUserSession(
       localAccount,
