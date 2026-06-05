@@ -10,7 +10,7 @@
  *
  * `Success` carries:
  *   - `identityAccountId`     — user identity sr25519 accountId (32 bytes).
- *                               Adressing for chat / username lookup / session
+ *                               Addressing for chat / username lookup / session
  *                               topic derivation.
  *   - `rootAccountId`         — user root sr25519 accountId (32 bytes). Parent
  *                               for soft-derivation of product accounts; PApp

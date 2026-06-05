@@ -33,12 +33,9 @@ export type OnAuthSuccess = (event: {
   session: StoredUserSession;
   identityChatPrivateKey: Uint8Array;
   /**
-   * `papp_encr_pub` from Mobile SSO spec v0.2.2. `null` when the peer
-   * shipped a pre-v0.2.2 `HandshakeSuccessV2` body (no `sso_encr_pub_key`
-   * field on the wire). The host's SSO session transport stays inactive
-   * while null; chat is unaffected since it uses `identityChatPrivateKey`.
+   * `papp_encr_pub` from Mobile SSO spec v0.2.
    */
-  ssoEncPubKey: Uint8Array | null;
+  ssoEncPubKey: Uint8Array;
 }) => Promise<void> | void;
 
 type Params = {
@@ -259,10 +256,9 @@ export function createAuth({
       .write(session.id, {
         ssSecret: identity.statementAccountSecret as SsSecret,
         encrSecret: identity.encryptionPrivateKey as EncrSecret,
-        // RFC-0007 layer-1 source from the handshake; `None` when the peer
-        // doesn't send it (up to spec v0.2.2), leaving host_derive_entropy
-        // unavailable.
-        rootEntropySource: success.rootEntropySource ?? undefined,
+        // RFC-0007 layer-1 source from the handshake; consumed by the host's
+        // `host_derive_entropy` handler via `deriveProductEntropyFromSource`.
+        rootEntropySource: success.rootEntropySource,
         identityChatPrivateKey: success.identityChatPrivateKey,
       })
       .andThen(() => ssoSessionRepository.add(session))

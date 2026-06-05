@@ -29,11 +29,10 @@ export type HandshakeSuccessState = {
   identityAccountId: Uint8Array;
   /**
    * User root sr25519 accountId (32 bytes) — the parent for soft-derivation
-   * of product accounts. Nullable: peers on spec v0.2 (Android
-   * `feature/location-for-handshake`) omit this field. Product-account
-   * derivation degrades gracefully when absent; chat does not use it.
+   * of product accounts. PApp and host derive identically so a dapp sees the
+   * same address on every device; chat does not use it.
    */
-  rootAccountId: Uint8Array | null;
+  rootAccountId: Uint8Array;
   /**
    * User identity chat P-256 private key (32 bytes raw scalar) shared by
    * PApp with this device per the multi-device spec. Sensitive; persist in
@@ -53,22 +52,17 @@ export type HandshakeSuccessState = {
    */
   deviceEncPubKey: Uint8Array;
   /**
-   * `papp_encr_pub` from the Mobile SSO spec (v0.2.2 — 65 bytes, P-256
-   * uncompressed). The host's SSO session transport derives
-   * `shared_secret_session = ECDH(host_encr_secret, ssoEncPubKey)` from
-   * this. Nullable because v0.2 and v0.2.1 peers don't ship it; while
-   * null the host's SSO transport stays inactive (sign/vrf/etc continue
-   * to fail at the boundary) and chat keeps working through
-   * `identityChatPrivateKey`.
+   * `papp_encr_pub` (65 bytes, P-256 uncompressed). The host's SSO session
+   * transport derives `shared_secret_session = ECDH(host_encr_secret,
+   * ssoEncPubKey)` from this.
    */
-  ssoEncPubKey: Uint8Array | null;
+  ssoEncPubKey: Uint8Array;
   /**
    * RFC-0007 `rootEntropySource` — lets the host serve `host_derive_entropy`
    * without ever holding the raw root secret. Sensitive; persist in secure
-   * storage. Null for peers that don't send it (up to spec v0.2.2), which
-   * leaves entropy derivation unavailable.
+   * storage.
    */
-  rootEntropySource: Uint8Array | null;
+  rootEntropySource: Uint8Array;
   /**
    * The pairing-topic statement was signed by PApp's device statement
    * account. `HandshakeSuccessV2` doesn't carry it in the encrypted body, so
@@ -92,9 +86,9 @@ export const idle = (): HandshakeIdleState => ({ tag: 'Idle' });
 export const submitted = (): HandshakeSubmittedState => ({ tag: 'Submitted' });
 
 /**
- * Translate the length-dispatched-decoded `EncryptedHandshakeResponseV2` into
- * the public state. Pure — no I/O. The caller decrypts the outer envelope and
- * runs `decodeEncryptedHandshakeResponseV2` first.
+ * Translate a decoded `EncryptedHandshakeResponseV2` into the public state.
+ * Pure — no I/O. The caller decrypts the outer envelope and decodes the inner
+ * payload via `EncryptedHandshakeResponseV2.dec` first.
  */
 export const fromInnerResponse = (
   response: CodecType<typeof EncryptedHandshakeResponseV2>,

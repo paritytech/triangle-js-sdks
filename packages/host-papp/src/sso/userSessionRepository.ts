@@ -55,18 +55,8 @@ export const createUserSessionRepository = (storage: StorageAdapter) => {
 
   return fieldListView<StoredUserSession>({
     storage,
-    key: 'SsoSessions',
-    from: x => {
-      try {
-        return codec.dec(fromHex(x));
-      } catch {
-        // 0.7.x V1 blobs use the prior codec shape and won't decode against
-        // V2's extended struct. Treat as empty so the caller (and the
-        // fieldListView mutate machinery) start clean; the next write
-        // overwrites the bad blob.
-        return [];
-      }
-    },
+    key: 'SsoSessionsV2',
+    from: x => codec.dec(fromHex(x)),
     to: x => toHex(codec.enc(x)),
   });
 };
