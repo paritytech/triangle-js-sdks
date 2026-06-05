@@ -1,3 +1,24 @@
+## 0.8.6 (2026-06-05)
+
+### 🚀 Features
+
+- **host-container:** product entropy can now be derived from a `rootEntropySource` instead of the raw root account secret (RFC-0007 "Option 1"). New `deriveProductEntropyFromSource` export skips layer 1 of the BLAKE2b scheme and yields byte-identical output, so a host that only receives `rootEntropySource` over the SSO handshake can serve `host_derive_entropy` without ever holding the root secret.
+- **host-papp:** `StoredUserSession` now carries the handshake `rootEntropySource`, ready for the host's entropy-derivation handler.
+
+### 🩹 Fixes
+
+- **host-papp:** the V2 SSO session key is now derived via ECDH from the host's encryption private key and the peer's `ssoEncPubKey`, instead of using the peer's raw device key directly. A missing `ssoEncPubKey` in the handshake response is now rejected with a clear error rather than producing a broken session.
+
+### ⚠️ Breaking Changes
+
+- **host-papp:** stored SSO secrets and sessions moved to new `…V2` storage keys and dropped their legacy-blob fallbacks. Several previously-optional V2 session fields (`identityAccountId`, `identityChatPublicKey`, `ssoEncPubKey`) are now required. Existing persisted sessions are not migrated — a fresh SSO handshake (re-pairing) is required after upgrading.
+
+### ❤️ Thank You
+
+- Torsten Stüber @TorstenStueber
+- Raman Shekhawat
+- Sergey Zhuravlev @johnthecat
+
 ## 0.8.5 (2026-06-04)
 
 ### 🚀 Features
