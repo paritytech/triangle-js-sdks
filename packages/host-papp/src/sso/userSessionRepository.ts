@@ -5,7 +5,7 @@ import { fieldListView } from '@novasamatech/storage-adapter';
 import { nanoid } from 'nanoid';
 import { fromHex, toHex } from 'polkadot-api/utils';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Option, Struct, Vector, str } from 'scale-ts';
+import { Bytes, Struct, Vector, str } from 'scale-ts';
 
 export type UserSessionRepository = ReturnType<typeof createUserSessionRepository>;
 
@@ -18,26 +18,26 @@ const storedUserSessionCodec = Struct({
   localAccount: LocalSessionAccountCodec,
   remoteAccount: RemoteSessionAccountCodec,
   rootAccountId: AccountIdCodec,
-  identityAccountId: Option(AccountIdCodec),
-  identityChatPublicKey: Option(Bytes(65)),
+  identityAccountId: AccountIdCodec,
+  identityChatPublicKey: Bytes(65),
   // `papp_encr_pub` (Mobile SSO spec v0.2.2, 65-byte uncompressed P-256).
   // Persisted so the host can rebuild its SSO session transport
   // (`shared_secret_session = ECDH(host_encr_secret, ssoEncPubKey)`) on a
   // cold start without re-running the handshake. `None` for pre-v0.2.2 peers.
-  ssoEncPubKey: Option(Bytes(65)),
+  ssoEncPubKey: Bytes(65),
 });
 
 type StoredUserSessionV2Extras = {
-  identityAccountId?: AccountId;
-  identityChatPublicKey?: Uint8Array;
-  ssoEncPubKey?: Uint8Array;
+  identityAccountId: AccountId;
+  identityChatPublicKey: Uint8Array;
+  ssoEncPubKey: Uint8Array;
 };
 
 export function createStoredUserSession(
   localAccount: LocalSessionAccount,
   remoteAccount: RemoteSessionAccount,
   rootAccountId: AccountId,
-  extras: StoredUserSessionV2Extras = {},
+  extras: StoredUserSessionV2Extras,
 ): StoredUserSession {
   return {
     id: nanoid(12),

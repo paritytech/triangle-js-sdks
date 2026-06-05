@@ -236,21 +236,16 @@ export function createAuth({
     if (!success.ssoEncPubKey) {
       return errAsync(new Error('Missing ssoEncPubKey in handshake response'));
     }
+    if (!success.peerStatementAccountId) {
+      return errAsync(new Error("Can't derive peerStatementAccountId from statement proof signer"));
+    }
     const sharedSecret = createSharedSecret(identity.encryptionPrivateKey as EncrSecret, success.ssoEncPubKey);
-    const remoteAccount = createRemoteSessionAccount(
-      createAccountId(success.peerStatementAccountId ?? new Uint8Array(32)),
-      sharedSecret,
-    );
-    const session = createStoredUserSession(
-      localAccount,
-      remoteAccount,
-      createAccountId(success.rootAccountId ?? new Uint8Array(32)),
-      {
-        identityAccountId: createAccountId(success.identityAccountId),
-        identityChatPublicKey: success.identityChatPublicKey,
-        ssoEncPubKey: success.ssoEncPubKey ?? undefined,
-      },
-    );
+    const remoteAccount = createRemoteSessionAccount(createAccountId(success.peerStatementAccountId), sharedSecret);
+    const session = createStoredUserSession(localAccount, remoteAccount, createAccountId(success.rootAccountId), {
+      identityAccountId: createAccountId(success.identityAccountId),
+      identityChatPublicKey: success.identityChatPublicKey,
+      ssoEncPubKey: success.ssoEncPubKey,
+    });
 
     return userSecretRepository
       .write(session.id, {
