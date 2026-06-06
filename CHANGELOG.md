@@ -1,3 +1,13 @@
+## 0.8.7 (2026-06-06)
+
+### 🩹 Fixes
+
+- **host-papp:** the authorising device's encryption public key (`deviceEncPubKey`) from the V2 handshake response is now persisted on `StoredUserSession` and exposed on the session, so the host can ECDH-address the paired device (e.g. for device-sync). It was previously decoded but dropped on persistence, leaving consumers to mis-read the 32-byte SSO shared secret in `remoteAccount.publicKey` as a public key.
+
+### ⚠️ Breaking Changes
+
+- **host-papp:** `StoredUserSession` gained a required `deviceEncPubKey` field (65-byte uncompressed P-256). Sessions persisted before this change do not decode and are not migrated — a fresh SSO handshake (re-pairing / reset app data) is required after upgrading.
+
 ## 0.8.6 (2026-06-05)
 
 ### 🚀 Features

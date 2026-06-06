@@ -11,8 +11,6 @@ export type UserSessionRepository = ReturnType<typeof createUserSessionRepositor
 
 export type StoredUserSession = CodecType<typeof storedUserSessionCodec>;
 
-// V2 fields trail V1 fields so a future schema rev can append further
-// `Option`-wrapped fields without breaking decode of 0.8.0 blobs.
 const storedUserSessionCodec = Struct({
   id: str,
   localAccount: LocalSessionAccountCodec,
@@ -28,6 +26,13 @@ const storedUserSessionCodec = Struct({
   // RFC-0007 layer-1 `rootEntropySource` from the handshake; consumed by the
   // host's `host_derive_entropy` handler via `deriveProductEntropyFromSource`.
   rootEntropySource: Bytes(32),
+  // Encryption public key of the authorising PApp device (65-byte uncompressed
+  // P-256), lifted from `HandshakeResponseV2.deviceEncPubKey`. Distinct from
+  // `ssoEncPubKey` (the SSO session keypair) and from `remoteAccount.publicKey`
+  // (the derived SSO shared secret): this is the peer device's long-lived ECDH
+  // key, used by the host's device-sync channel to address the paired device.
+  // Always present — `HandshakeResponseV2` carries it for every V2 pairing.
+  deviceEncPubKey: Bytes(65),
 });
 
 type StoredUserSessionV2Extras = {
@@ -35,6 +40,7 @@ type StoredUserSessionV2Extras = {
   identityChatPublicKey: Uint8Array;
   ssoEncPubKey: Uint8Array;
   rootEntropySource: Uint8Array;
+  deviceEncPubKey: Uint8Array;
 };
 
 export function createStoredUserSession(
@@ -52,6 +58,7 @@ export function createStoredUserSession(
     identityChatPublicKey: extras.identityChatPublicKey,
     ssoEncPubKey: extras.ssoEncPubKey,
     rootEntropySource: extras.rootEntropySource,
+    deviceEncPubKey: extras.deviceEncPubKey,
   };
 }
 
@@ -60,7 +67,7 @@ export const createUserSessionRepository = (storage: StorageAdapter) => {
 
   return fieldListView<StoredUserSession>({
     storage,
-    key: 'SsoSessionsV2',
+    key: 'SsoSessionsV3',
     from: x => codec.dec(fromHex(x)),
     to: x => toHex(codec.enc(x)),
   });
