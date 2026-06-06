@@ -11,12 +11,6 @@ export type UserSessionRepository = ReturnType<typeof createUserSessionRepositor
 
 export type StoredUserSession = CodecType<typeof storedUserSessionCodec>;
 
-// scale-ts has no notion of optional trailing fields: decoding a blob that
-// ends before a struct's last field throws ("offset outside bounds"), so a
-// schema rev that appends a field cannot read back blobs written without it.
-// There is deliberately no in-codec back-compat — a blob from before a field
-// was added requires the host to reset app data / re-pair. Append new fields
-// at the tail (never insert) so the layout stays append-only.
 const storedUserSessionCodec = Struct({
   id: str,
   localAccount: LocalSessionAccountCodec,
@@ -73,7 +67,7 @@ export const createUserSessionRepository = (storage: StorageAdapter) => {
 
   return fieldListView<StoredUserSession>({
     storage,
-    key: 'SsoSessionsV2',
+    key: 'SsoSessionsV3',
     from: x => codec.dec(fromHex(x)),
     to: x => toHex(codec.enc(x)),
   });
