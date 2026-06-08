@@ -19,7 +19,7 @@ export type { ResponseStatus } from './session/scale/statementData.js';
 export { Request, Response, ResponseCode, StatementData } from './session/scale/statementData.js';
 
 export type { StatementProver } from './session/statementProver.js';
-export { createSr25519Prover } from './session/statementProver.js';
+export { createSlotAccountProver, createSr25519Prover } from './session/statementProver.js';
 
 export type { Encryption } from './session/encyption.js';
 export { createEncryption } from './session/encyption.js';

@@ -1,6 +1,6 @@
 import type { StatementProver } from '@novasamatech/statement-store';
 import {
-  createSr25519Prover,
+  createSlotAccountProver,
   deriveSlotAccountPublicKey,
   ensureSubstrateSlotSr25519Ready,
   signSlotAccountSecret,
@@ -111,7 +111,12 @@ export function createAllowanceService({
       );
     },
     getStatementStoreProver(sessionId, productId) {
-      return fetchKey(sessionId, productId, 'statementStore').map(secret => createSr25519Prover(secret));
+      return fetchKey(sessionId, productId, 'statementStore').andThen(secret =>
+        ResultAsync.fromPromise(
+          ensureSubstrateSlotSr25519Ready().then(() => createSlotAccountProver(secret)),
+          e => new AllowanceError('UnexpectedResponse', e instanceof Error ? e.message : String(e)),
+        ),
+      );
     },
   };
 }
