@@ -2,9 +2,6 @@
 
 > The following is a prototype, reference implementation, and proof-of-concept. This open source code is provided for research, experimentation, and developer education only. This code has not been audited, is actively experimental, and may contain bugs, vulnerabilities, or incomplete features. Use at your own risk.
 
-> [!NOTE]
-> This implementation is suitable for **Web3 Summit** demonstration purposes, but is **not yet production ready**. Features, APIs, and architecture may still change significantly as the project evolves.
-
 ## Specification
 
 * [**Host API protocol**](https://github.com/paritytech/truapi/tree/main/rust/crates/truapi) — source of truth for the host ↔ product integration protocol.
