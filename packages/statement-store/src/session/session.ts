@@ -6,6 +6,7 @@ import type { Codec, CodecType } from 'scale-ts';
 import { Struct, str } from 'scale-ts';
 
 import type { StatementStoreAdapter } from '../adapter/types.js';
+import { ExpiryTooLowError } from '../adapter/types.js';
 import { khash, stringToBytes } from '../crypto.js';
 import { nonNullable, toError } from '../helpers.js';
 import type { SessionId } from '../model/session.js';
@@ -236,7 +237,14 @@ export function createSession({
         data: encrypted,
       }))
       .asyncAndThen(prover.generateMessageProof)
-      .andThen(statementStore.submitStatement);
+      .andThen(statementStore.submitStatement)
+      .orElse(error => {
+        // The chain is the source of truth for a channel's priority. If our in-memory counter
+        // drifted behind it (a prior run, another writer, or propagation lag), resync to the
+        // reported minimum so the retry — and every later submit — clears it.
+        if (error instanceof ExpiryTooLowError && error.min > state.expiry) state.expiry = error.min;
+        return errAsync(error);
+      });
   }
 
   // Settle and remove the pending-delivery entries for the given tokens.
@@ -481,7 +489,13 @@ export function createSession({
     for (const s of ownStatements) {
       if (s.expiry !== undefined && s.expiry > maxExpiry) maxExpiry = s.expiry;
     }
-    state.expiry = nextExpiry(maxExpiry);
+    // Never regress the counter. The query is a snapshot taken when init() began; a statement
+    // submitted while init was in flight (e.g. an auto-ACK for a peer request that arrived during
+    // the query) has already advanced both state.expiry and the on-chain channel past that
+    // snapshot. Overwriting unconditionally would drop the counter below the on-chain priority,
+    // making the next submit collide at an equal expiry.
+    const seeded = nextExpiry(maxExpiry);
+    if (seeded > state.expiry) state.expiry = seeded;
 
     for (const s of [...ownStatements, ...peerStatements]) {
       if (s.data) state.seenStatements.add(toHex(s.data));

@@ -257,6 +257,52 @@ describe('session', () => {
       // After init the queue is drained.
       expect(adapter.submitStatement).toHaveBeenCalled();
     });
+
+    it('does not regress its expiry counter when a response is submitted during init', async () => {
+      // A peer request auto-ACKed while init() is still in flight advances both state.expiry and
+      // the on-chain channel past the init query snapshot. init() must not reset the counter below
+      // that, or the next submit collides at an equal expiry (the single-writer drift).
+      let releaseInit!: () => void;
+      const initBarrier = new Promise<void>(resolve => {
+        releaseInit = resolve;
+      });
+      const queryStatements = vi.fn(() => ResultAsync.fromSafePromise(initBarrier.then(() => [] as Statement[])));
+      const { subscribeStatements, callbacks } = capturingSubscribe();
+      const { session, adapter } = makeSession({ queryStatements, subscribeStatements });
+
+      session.respondToRequests(rawCodec, () => 'success'); // activates the subscription + auto-ACK
+
+      // Two peer requests answered while init() is still pending → two response submits.
+      callbacks[0]!({
+        statements: [makeStatement({ tag: 'request', value: { requestId: 'a', data: [new Uint8Array([1])] } })],
+        isComplete: true,
+      });
+      callbacks[0]!({
+        statements: [makeStatement({ tag: 'request', value: { requestId: 'b', data: [new Uint8Array([2])] } })],
+        isComplete: true,
+      });
+      await delay();
+
+      const inInitMax = adapter.submitStatement.mock.calls
+        .map(c => (c[0] as Statement).expiry ?? 0n)
+        .reduce((m, e) => (e > m ? e : m), 0n);
+      expect(inInitMax).toBeGreaterThan(0n); // sanity: responses really went out during init
+
+      releaseInit();
+      await delay();
+
+      // A response after init completes must use an expiry strictly above the in-init submits.
+      callbacks[0]!({
+        statements: [makeStatement({ tag: 'request', value: { requestId: 'c', data: [new Uint8Array([3])] } })],
+        isComplete: true,
+      });
+      await delay();
+
+      const afterInit = (adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement).expiry ?? 0n;
+      expect(afterInit).toBeGreaterThan(inInitMax);
+
+      session.dispose();
+    });
   });
 
   // On restart a session rebuilds its in-flight state from the on-chain statements. A request is
@@ -1098,6 +1144,27 @@ describe('session', () => {
       await new Promise(resolve => setTimeout(resolve, 150)); // allow retry
 
       expect(adapter.submitStatement.mock.calls.length).toBeGreaterThanOrEqual(2); // 1 failure + ≥1 retry
+      session.dispose();
+    }, 3000);
+
+    it('resyncs its expiry above the chain minimum after an ExpiryTooLow rejection', async () => {
+      // The in-memory expiry counter has drifted behind the channel's real priority (prior run /
+      // other writer / propagation lag). The chain reports the minimum; the retry must clear it.
+      const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n; // well above the wall-clock priority
+      let calls = 0;
+      const submitStatement = vi.fn((stmt: Statement) => {
+        calls++;
+        return calls === 1 ? errAsync(new ExpiryTooLowError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined);
+      });
+      const { session, adapter } = makeSession({ submitStatement });
+      await delay();
+
+      void session.submitRequestMessage(rawCodec, new Uint8Array([1]));
+      await new Promise(resolve => setTimeout(resolve, 100)); // allow the retry (25ms backoff)
+
+      expect(adapter.submitStatement.mock.calls.length).toBeGreaterThanOrEqual(2);
+      const retried = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+      expect(retried.expiry ?? 0n).toBeGreaterThan(CHAIN_MIN); // healed past the chain minimum
       session.dispose();
     }, 3000);
 
