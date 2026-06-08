@@ -1,12 +1,23 @@
+import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
+import { deriveSlotAccountPublicKey, deriveSr25519PublicKey } from '@novasamatech/statement-store';
 import { createMemoryAdapter } from '@novasamatech/storage-adapter';
+import {
+  ensureSubstrateSlotSr25519Ready,
+  substrateSlotSecretFromSeedBytes,
+} from '@novasamatech/substrate-slot-sr25519-wasm';
+import { mnemonicToMiniSecret } from '@polkadot-labs/hdkd-helpers';
 import { errAsync, okAsync } from 'neverthrow';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { createAllowanceService } from '../src/sso/allowance/impl.js';
 import { createAllowanceRepository } from '../src/sso/allowance/repository.js';
 import type { UserSession } from '../src/sso/sessionManager/userSession.js';
 
-// A non-zero 32-byte secret so deriveSr25519PublicKey produces a valid key.
+const DEV_MNEMONIC = 'bottom drive obey lake curtain smoke basket hold race lonely fit walk';
+
+const toHex = (bytes: Uint8Array) => `0x${[...bytes].map(b => b.toString(16).padStart(2, '0')).join('')}`;
+
+// A non-zero 64-byte blob used as a bulletin slot key in allocation/cache tests.
 const FAKE_SECRET = new Uint8Array(64).fill(7);
 const ANOTHER_SECRET = new Uint8Array(64).fill(11);
 
@@ -149,6 +160,47 @@ describe('createAllowanceService', () => {
   });
 
   describe('getStatementStoreProver', () => {
+    beforeAll(async () => {
+      await ensureSubstrateSlotSr25519Ready();
+    });
+
+    it('returns a prover that signs under the slot-derived public key', async () => {
+      const slotSecret = substrateSlotSecretFromSeedBytes(mnemonicToMiniSecret(DEV_MNEMONIC));
+      const session = makeSession();
+      const repository = createAllowanceRepository('salt', createMemoryAdapter());
+      vi.mocked(session.requestResourceAllocation).mockReturnValue(
+        okAsync([
+          {
+            tag: 'Allocated',
+            value: { tag: 'StatementStoreAllowance', value: { slotAccountKey: slotSecret } },
+          },
+        ]),
+      );
+      const service = createAllowanceService({ sessions: makeSessions(session), repository });
+
+      const proverResult = await service.getStatementStoreProver('session-1', 'product.dot');
+
+      expect(proverResult.isOk()).toBe(true);
+
+      const prover = proverResult._unsafeUnwrap();
+      const signed = (
+        await prover.generateMessageProof({
+          expiry: createExpiryFromDuration(3600),
+          data: new Uint8Array([1, 2, 3]),
+          topics: [],
+          channel: `0x${'00'.repeat(32)}`,
+        })
+      )._unsafeUnwrap();
+
+      expect(signed.proof.type).toBe('sr25519');
+      if (signed.proof.type !== 'sr25519') {
+        throw new Error(`unexpected proof type ${signed.proof.type}`);
+      }
+
+      expect(signed.proof.value.signer).toBe(toHex(deriveSlotAccountPublicKey(slotSecret)));
+      expect(signed.proof.value.signer).not.toBe(toHex(deriveSr25519PublicKey(slotSecret)));
+    });
+
     it('requests StatementStoreAllowance and caches under the statementStore key', async () => {
       const session = makeSession();
       const repository = createAllowanceRepository('salt', createMemoryAdapter());
