@@ -2,11 +2,26 @@
 
 ### 🩹 Fixes
 
+- **statement-store:** reworked the session to match the iOS/Android implementations. Concurrent incoming requests are now tracked independently (an older request stays answerable after a newer one arrives), transient submit/query failures are retried with a short backoff, and message batches are sized against the full encoded request payload instead of the raw bytes. Statement expiry is pinned to a non-expiring max with a wall-clock priority so channel supersession is deterministic, and a request id is best-effort recovered from a corrupt payload so the sender can be NACKed. Adds an in-memory adapter for tests.
+- **statement-store / host-papp:** the SSO allowance service now builds its statement-store prover from the mobile slot-account secret (`privateKey || nonce`) via the new `createSlotAccountProver`, instead of treating it as a raw sr25519 secret — proofs now sign and verify against the correct slot-account public key.
 - **host-papp:** the authorising device's encryption public key (`deviceEncPubKey`) from the V2 handshake response is now persisted on `StoredUserSession` and exposed on the session, so the host can ECDH-address the paired device (e.g. for device-sync). It was previously decoded but dropped on persistence, leaving consumers to mis-read the 32-byte SSO shared secret in `remoteAccount.publicKey` as a public key.
+- bumped `polkadot-api` to 2.1.6, which fixes a double-notification bug.
 
 ### ⚠️ Breaking Changes
 
 - **host-papp:** `StoredUserSession` gained a required `deviceEncPubKey` field (65-byte uncompressed P-256). Sessions persisted before this change do not decode and are not migrated — a fresh SSO handshake (re-pairing / reset app data) is required after upgrading.
+
+### 🏡 Chore
+
+- every published package now ships a `LICENSE` file, and a repo-wide `THIRD_PARTY_NOTICES.md` records dependency licenses.
+- added a `SECURITY.md` policy and hardened `.env` handling in `.gitignore`.
+
+### ❤️ Thank You
+
+- Ilya Kalinin
+- PG Herveou @pgherveou
+- Sergey Zhuravlev @johnthecat
+- Yanaty
 
 ## 0.8.6 (2026-06-05)
 
