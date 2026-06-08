@@ -1,5 +1,7 @@
 # Collection of SDKs for developing Polkadot applications
 
+> The following is a prototype, reference implementation, and proof-of-concept. This open source code is provided for research, experimentation, and developer education only. This code has not been audited, is actively experimental, and may contain bugs, vulnerabilities, or incomplete features. Use at your own risk.
+
 > [!NOTE]
 > This implementation is suitable for **Web3 Summit** demonstration purposes, but is **not yet production ready**. Features, APIs, and architecture may still change significantly as the project evolves.
 
@@ -54,3 +56,4 @@ for:
 - Tracking the latest tagged releases for security fixes; older releases are not backported (exceptions might apply)
 
 For Parity's security disclosure process and Bug Bounty program, see <https://parity.io/bug-bounty>.
+
