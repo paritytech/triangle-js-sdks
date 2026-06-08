@@ -109,6 +109,18 @@ import {
   PreimageSubmitV1_request,
   PreimageSubmitV1_response,
 } from './v1/preimage.js';
+import {
+  PushAddRulesV1_request,
+  PushAddRulesV1_response,
+  PushBroadcastV1_request,
+  PushBroadcastV1_response,
+  PushListRulesV1_request,
+  PushListRulesV1_response,
+  PushRemoveRulesV1_request,
+  PushRemoveRulesV1_response,
+  PushSetRulesV1_request,
+  PushSetRulesV1_response,
+} from './v1/pushSubscription.js';
 import { RemotePermissionV1_request, RemotePermissionV1_response } from './v1/remotePermission.js';
 import { RequestResourceAllocationV1_request, RequestResourceAllocationV1_response } from './v1/resourceAllocation.js';
 import {
@@ -445,5 +457,25 @@ export const hostApiProtocol = {
 
   host_push_notification_cancel: versionedRequest(indexer.request(), {
     v1: [PushNotificationCancelV1_request, PushNotificationCancelV1_response],
+  }),
+
+  host_push_add_rules: versionedRequest({
+    v1: [PushAddRulesV1_request, PushAddRulesV1_response],
+  }),
+
+  host_push_remove_rules: versionedRequest({
+    v1: [PushRemoveRulesV1_request, PushRemoveRulesV1_response],
+  }),
+
+  host_push_list_rules: versionedRequest({
+    v1: [PushListRulesV1_request, PushListRulesV1_response],
+  }),
+
+  host_push_set_rules: versionedRequest({
+    v1: [PushSetRulesV1_request, PushSetRulesV1_response],
+  }),
+
+  host_push_broadcast: versionedRequest({
+    v1: [PushBroadcastV1_request, PushBroadcastV1_response],
   }),
 } as const;
