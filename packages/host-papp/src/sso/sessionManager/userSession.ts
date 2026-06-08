@@ -36,14 +36,25 @@ function withQueueTimeout<T>(resultAsync: ResultAsync<T, Error>, label: string):
   return ResultAsync.fromPromise(Promise.race([resultAsync, timeoutPromise]), toError).andThen(r => r);
 }
 
-type ProcessedMessage =
-  | {
-      processed: true;
-      message: CodecType<typeof RemoteMessageCodec>;
-    }
-  | {
-      processed: false;
-    };
+/**
+ * The transport ACK (`session.request`) and the peer's application `reply`
+ * (`session.waitForRequestMessage`) travel on independent channels whose
+ * arrival order is non-deterministic. Race them: resolve as soon as the reply
+ * arrives, and fail fast if the ACK errors first (e.g. the peer reports a
+ * decode failure and will never send a reply). A successful ACK is purely
+ * informational here — only the reply completes the call.
+ *
+ * Callers MUST register `reply` before issuing `request` so the reply
+ * subscriber is live before the request goes out.
+ */
+function awaitReplyOrAckFailure<S>(
+  request: ResultAsync<void, Error>,
+  reply: ResultAsync<S, Error>,
+): ResultAsync<S, Error> {
+  // ACK ok → never settle (let the reply win); ACK err → surface immediately.
+  const ackFailure = request.andThen(() => ResultAsync.fromSafePromise(new Promise<S>(() => undefined)));
+  return ResultAsync.fromSafePromise(Promise.race([reply, ackFailure])).andThen(result => result);
+}
 
 /**
  * Derive a stable `actionKind` label from a remote-message envelope.
@@ -162,7 +173,6 @@ export function createUserSession({
         const messageId = nanoid();
         const data = enumValue('v1', enumValue('SignRequest', enumValue('Payload', payload)));
         emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
-        const request = session.request(RemoteMessageCodec, { messageId, data });
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -174,15 +184,17 @@ export function createUserSession({
           }
         };
 
-        const inner = request
-          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-          .andThen(message => {
-            if (message.success) {
-              return ok(message.value);
-            } else {
-              return err(new Error(message.value));
-            }
-          });
+        // Register the reply waiter before sending the request (see awaitReplyOrAckFailure).
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(message => {
+          if (message.success) {
+            return ok(message.value);
+          } else {
+            return err(new Error(message.value));
+          }
+        });
 
         return withHostActionTrace(withQueueTimeout(inner, 'signPayload'), messageId, userSession.id);
       });
@@ -193,7 +205,6 @@ export function createUserSession({
         const messageId = nanoid();
         const data = enumValue('v1', enumValue('SignRequest', enumValue('Raw', payload)));
         emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
-        const request = session.request(RemoteMessageCodec, { messageId, data });
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -205,15 +216,16 @@ export function createUserSession({
           }
         };
 
-        const inner = request
-          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-          .andThen(message => {
-            if (message.success) {
-              return ok(message.value);
-            } else {
-              return err(new Error(message.value));
-            }
-          });
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(message => {
+          if (message.success) {
+            return ok(message.value);
+          } else {
+            return err(new Error(message.value));
+          }
+        });
 
         return withHostActionTrace(withQueueTimeout(inner, 'signRaw'), messageId, userSession.id);
       });
@@ -222,10 +234,7 @@ export function createUserSession({
     createTransaction(payload) {
       return enqueue(() => {
         const messageId = nanoid();
-        const request = session.request(RemoteMessageCodec, {
-          messageId,
-          data: enumValue('v1', enumValue('CreateTransactionRequest', payload)),
-        });
+        const data = enumValue('v1', enumValue('CreateTransactionRequest', payload));
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -237,17 +246,79 @@ export function createUserSession({
           }
         };
 
-        const inner = request
-          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-          .andThen(message => {
-            if (message.success) {
-              return ok(message.value);
-            } else {
-              return err(new Error(message.value));
-            }
-          });
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(message => {
+          if (message.success) {
+            return ok(message.value);
+          } else {
+            return err(new Error(message.value));
+          }
+        });
 
         return withQueueTimeout(inner, 'createTransaction');
+      });
+    },
+
+    getRingVrfAlias(productAccountId, productId) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue(
+          'v1',
+          enumValue('RingVrfAliasRequest', {
+            productAccountId,
+            productId,
+          }),
+        );
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'RingVrfAliasResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        return withHostActionTrace(
+          awaitReplyOrAckFailure(request, reply).andThen(result =>
+            result.success ? ok(result.value) : err(new Error(result.value)),
+          ),
+          messageId,
+          userSession.id,
+        );
+      });
+    },
+
+    requestResourceAllocation(payload) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue('v1', enumValue('ResourceAllocationRequest', payload));
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'ResourceAllocationResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(result =>
+          result.success ? ok(result.value) : err(new Error(result.value)),
+        );
+
+        return withQueueTimeout(inner, 'requestResourceAllocation');
       });
     },
 
@@ -262,128 +333,69 @@ export function createUserSession({
       );
     },
 
-    getRingVrfAlias(productAccountId, productId) {
-      return enqueue(() => {
-        const messageId = nanoid();
-        const data = enumValue(
-          'v1',
-          enumValue('RingVrfAliasRequest', {
-            productAccountId,
-            productId,
-          }),
-        );
-        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
-        const request = session.request(RemoteMessageCodec, { messageId, data });
-
-        const responseFilter = (message: RemoteMessage) => {
-          if (
-            message.data.tag === 'v1' &&
-            message.data.value.tag === 'RingVrfAliasResponse' &&
-            message.data.value.value.respondingTo === messageId
-          ) {
-            return message.data.value.value.payload;
-          }
-        };
-
-        return withHostActionTrace(
-          request
-            .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-            .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value)))),
-          messageId,
-          userSession.id,
-        );
-      });
-    },
-
-    requestResourceAllocation(request) {
-      return enqueue(() => {
-        const messageId = nanoid();
-        const sendRequest = session.request(RemoteMessageCodec, {
-          messageId,
-          data: enumValue('v1', enumValue('ResourceAllocationRequest', request)),
-        });
-
-        const responseFilter = (message: RemoteMessage) => {
-          if (
-            message.data.tag === 'v1' &&
-            message.data.value.tag === 'ResourceAllocationResponse' &&
-            message.data.value.value.respondingTo === messageId
-          ) {
-            return message.data.value.value.payload;
-          }
-        };
-
-        const inner = sendRequest
-          .andThen(() => session.waitForRequestMessage(RemoteMessageCodec, responseFilter))
-          .andThen(result => (result.success ? ok(result.value) : err(new Error(result.value))));
-
-        return withQueueTimeout(inner, 'requestResourceAllocation');
-      });
-    },
-
     subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>) {
-      return session.subscribe(RemoteMessageCodec, messages => {
-        processedMessages
+      // App-level side effects for one decoded incoming request: dedup, invoke
+      // the consumer callback, emit debug events, and persist the processed id.
+      // Run independently of the ACK (see respondToRequests handler below) so a
+      // forgotten, failed, or duplicate handler never blocks the response we owe
+      // the peer.
+      const runSideEffects = (value: CodecType<typeof RemoteMessageCodec>): void => {
+        const messageId = value.messageId;
+        void processedMessages
           .read()
           .andThen(processed => {
-            const results = messages.map<ResultAsync<ProcessedMessage, Error>>(message => {
-              if (message.type === 'request' && message.payload.status === 'parsed') {
-                const payload = message.payload;
+            if (processed.includes(messageId)) return okAsync<void, Error>(undefined);
 
-                const isMessageProcessed = processed.includes(payload.value.messageId);
-                if (isMessageProcessed) {
-                  return okAsync({ processed: false });
+            const actionKind = actionKindFromMessageData(value.data);
+            emitHostPappDebugMessage({
+              layer: 'session',
+              event: 'peer_action_received',
+              flowId: messageId,
+              timestamp: Date.now(),
+              payload: { sessionId: userSession.id, messageId, actionKind },
+            });
+
+            return callback(value)
+              .andTee(processed => {
+                if (processed) {
+                  emitHostPappDebugMessage({
+                    layer: 'session',
+                    event: 'peer_action_processed',
+                    flowId: messageId,
+                    timestamp: Date.now(),
+                    payload: { sessionId: userSession.id, messageId },
+                  });
                 }
-
-                const messageId = payload.value.messageId;
-                const actionKind = actionKindFromMessageData(payload.value.data);
+              })
+              .orTee(error => {
+                console.error('Error while processing sso message:', error);
                 emitHostPappDebugMessage({
                   layer: 'session',
-                  event: 'peer_action_received',
+                  event: 'peer_action_failed',
                   flowId: messageId,
                   timestamp: Date.now(),
-                  payload: { sessionId: userSession.id, messageId, actionKind },
+                  payload: { sessionId: userSession.id, messageId, reason: error.message },
                 });
-
-                return callback(payload.value)
-                  .andTee(processed => {
-                    if (processed) {
-                      emitHostPappDebugMessage({
-                        layer: 'session',
-                        event: 'peer_action_processed',
-                        flowId: messageId,
-                        timestamp: Date.now(),
-                        payload: { sessionId: userSession.id, messageId },
-                      });
-                    }
-                  })
-                  .orTee(error => {
-                    console.error('Error while processing sso message:', error);
-                    emitHostPappDebugMessage({
-                      layer: 'session',
-                      event: 'peer_action_failed',
-                      flowId: messageId,
-                      timestamp: Date.now(),
-                      payload: { sessionId: userSession.id, messageId, reason: error.message },
-                    });
-                  })
-                  .orElse(() => okAsync(false))
-                  .map(processed => (processed ? { processed, message: payload.value } : { processed }));
-              }
-              return okAsync({ processed: false });
-            });
-
-            return ResultAsync.combine(results).andThen(results => {
-              const newMessages = results.filter(x => x.processed).map(x => x.message.messageId);
-              if (newMessages.length > 0) {
-                return processedMessages.mutate(x => x.concat(newMessages));
-              }
-              return okAsync();
-            });
+              })
+              .orElse(() => okAsync<boolean, Error>(false))
+              .andThen(processed =>
+                processed ? processedMessages.mutate(x => x.concat(messageId)) : okAsync<void, Error>(undefined),
+              );
           })
           .orTee(error => {
             console.error('Error while updating processed sso messages:', error);
           });
+      };
+
+      // The session auto-submits the ResponseStatus this handler returns, so an
+      // incoming request can never go unanswered. The ACK is transport-level:
+      // the statement already decrypted to be delivered, so the only failure
+      // observable here is a decode failure. Always answer — even a duplicate —
+      // because a peer retransmit means it never saw our previous ACK.
+      return session.respondToRequests(RemoteMessageCodec, message => {
+        if (message.payload.status !== 'parsed') return 'decodingFailed';
+        runSideEffects(message.payload.value);
+        return 'success';
       });
     },
 
