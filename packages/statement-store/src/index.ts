@@ -15,6 +15,7 @@ export {
 
 export type { Session } from './session/types.js';
 export { createSession } from './session/session.js';
+export type { ResponseStatus } from './session/scale/statementData.js';
 export { Request, Response, ResponseCode, StatementData } from './session/scale/statementData.js';
 
 export type { StatementProver } from './session/statementProver.js';
@@ -27,6 +28,8 @@ export { DecodingError, DecryptionError, UnknownError } from './session/error.js
 
 export type { LazyClient } from './adapter/lazyClient.js';
 export { createLazyClient } from './adapter/lazyClient.js';
+export type { InMemoryStatementStore } from './adapter/inMemory.js';
+export { createInMemoryStatementStore } from './adapter/inMemory.js';
 export type { StatementStoreAdapter } from './adapter/types.js';
 export {
   AccountFullError,

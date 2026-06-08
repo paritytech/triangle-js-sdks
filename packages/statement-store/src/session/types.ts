@@ -41,6 +41,21 @@ export type Session = {
   submitRequestMessage<T>(codec: Codec<T>, payload: T): ResultAsync<{ requestId: string }, Error>;
   submitResponseMessage(requestId: string, responseCode: ResponseStatus): ResultAsync<void, Error>;
   /**
+   * Subscribe to incoming peer requests and answer each one automatically.
+   * The handler returns the transport-level {@link ResponseStatus} (or a
+   * `ResultAsync` resolving to one) that the session submits as the response on
+   * the peer's behalf; a handler that errors is answered with `'unknown'`.
+   *
+   * This is the can't-forget counterpart to {@link submitResponseMessage}: the
+   * ACK is driven by the handler's return value, so a consumer cannot receive a
+   * request and silently fail to respond. Response-type statements are ignored
+   * (only requests are answered).
+   */
+  respondToRequests<T>(
+    codec: Codec<T>,
+    handler: (request: RequestMessage<T>) => ResponseStatus | ResultAsync<ResponseStatus, Error>,
+  ): VoidFunction;
+  /**
    * Replace the in-flight outgoing request batch with an empty one on the same
    * request channel at the session's current expiry (the statement store keeps
    * one statement per channel and rejects only a LOWER expiry, so an equal/higher

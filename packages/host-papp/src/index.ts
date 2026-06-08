@@ -21,3 +21,7 @@ export type {
   SigningRequest,
 } from './sso/sessionManager/scale/signing.js';
 export type { RingVrfAliasRequest, RingVrfAliasResponse } from './sso/sessionManager/scale/ringVrf.js';
+export type {
+  CreateTransactionRequest,
+  CreateTransactionResponse,
+} from './sso/sessionManager/scale/createTransaction.js';

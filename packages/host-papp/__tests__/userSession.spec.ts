@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   waitForRequestMessage: vi.fn(),
   submitRequestMessage: vi.fn(),
   sessionSubscribe: vi.fn(),
+  respondToRequests: vi.fn(),
   sessionDispose: vi.fn(),
   clearOutgoingStatement: vi.fn(),
   fieldListRead: vi.fn(),
@@ -26,6 +27,7 @@ vi.mock('@novasamatech/statement-store', async importOriginal => {
       waitForRequestMessage: mocks.waitForRequestMessage,
       submitRequestMessage: mocks.submitRequestMessage,
       subscribe: mocks.sessionSubscribe,
+      respondToRequests: mocks.respondToRequests,
       dispose: mocks.sessionDispose,
       clearOutgoingStatement: mocks.clearOutgoingStatement,
     })),
@@ -82,6 +84,7 @@ beforeEach(() => {
   mocks.waitForRequestMessage.mockReset();
   mocks.submitRequestMessage.mockReset().mockReturnValue(okAsync(undefined));
   mocks.sessionSubscribe.mockReset();
+  mocks.respondToRequests.mockReset().mockReturnValue(vi.fn());
   mocks.sessionDispose.mockReset();
   mocks.clearOutgoingStatement.mockReset().mockReturnValue(okAsync(undefined));
   mocks.fieldListRead.mockReset().mockReturnValue(okAsync([]));
@@ -125,6 +128,8 @@ describe('createUserSession debug emits', () => {
 
     it('signPayload emits host_action_failed when the request rejects', async () => {
       mocks.request.mockReturnValue(errAsync(new Error('peer rejected')));
+      // Reply never arrives — the ACK error must fast-fail the call on its own.
+      mocks.waitForRequestMessage.mockReturnValue(ResultAsync.fromSafePromise(new Promise(() => undefined)));
 
       const session = buildSession();
       const { events, unsubscribe } = captureEvents();
@@ -183,6 +188,7 @@ describe('createUserSession debug emits', () => {
     function makePeerMessage(messageId: string, innerTag: string) {
       return {
         type: 'request',
+        requestId: messageId,
         payload: {
           status: 'parsed',
           value: {
@@ -193,21 +199,101 @@ describe('createUserSession debug emits', () => {
       } as any;
     }
 
-    it('emits peer_action_received and peer_action_processed when the callback returns true', async () => {
-      let invokeHandler: ((messages: any[]) => void) | undefined;
-      mocks.sessionSubscribe.mockImplementation((_codec, handler) => {
-        invokeHandler = handler;
+    function makeUndecodableMessage(requestId: string) {
+      return {
+        type: 'request',
+        requestId,
+        payload: { status: 'failed', value: new Uint8Array([1, 2, 3]) },
+      } as any;
+    }
+
+    // The consumer drives auto-ACK through session.respondToRequests: its handler
+    // returns the transport-level ResponseStatus the session submits on our behalf.
+    function captureResponder() {
+      let handler: ((message: any) => unknown) | undefined;
+      mocks.respondToRequests.mockImplementation((_codec, h) => {
+        handler = h;
         return vi.fn();
       });
+      return () => handler!;
+    }
+
+    const flush = () => new Promise(resolve => setImmediate(resolve));
+
+    it('auto-ACKs a decoded incoming request with success', async () => {
+      const getHandler = captureResponder();
+      const session = buildSession();
+      const { unsubscribe } = captureEvents();
+      try {
+        session.subscribe(vi.fn(() => okAsync(true)));
+        const status = getHandler()(makePeerMessage('peer-msg-ack', 'Disconnected'));
+        expect(status).toBe('success');
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('auto-ACKs a peer reply (e.g. SignResponse) with success even though the subscribe callback ignores it', async () => {
+      // Mirrors impl.ts: the consumer callback acts only on Disconnected and returns false
+      // (a no-op) for every reply. That false must NOT gate the transport ACK.
+      const getHandler = captureResponder();
+      const session = buildSession();
+      const { unsubscribe } = captureEvents();
+      try {
+        session.subscribe(vi.fn(() => okAsync(false)));
+        const status = getHandler()(makePeerMessage('reply-1', 'SignResponse'));
+        expect(status).toBe('success');
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('auto-ACKs an undecodable incoming request with decodingFailed', async () => {
+      const getHandler = captureResponder();
+      const session = buildSession();
+      const { unsubscribe } = captureEvents();
+      try {
+        session.subscribe(vi.fn(() => okAsync(true)));
+        const status = getHandler()(makeUndecodableMessage('peer-msg-bad'));
+        expect(status).toBe('decodingFailed');
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('re-ACKs an already-processed request with success without re-running the callback', async () => {
+      const getHandler = captureResponder();
+      mocks.fieldListRead.mockReturnValue(okAsync(['peer-msg-dup']));
 
       const session = buildSession();
       const { events, unsubscribe } = captureEvents();
       try {
         const callback = vi.fn(() => okAsync(true));
         session.subscribe(callback);
-        invokeHandler!([makePeerMessage('peer-msg-1', 'Disconnected')]);
 
-        await new Promise(resolve => setImmediate(resolve));
+        // The peer retransmitted because it never saw our ACK: we MUST ACK again,
+        // but the side effects (callback, debug emits) must not re-run.
+        const status = getHandler()(makePeerMessage('peer-msg-dup', 'Disconnected'));
+        await flush();
+
+        expect(status).toBe('success');
+        expect(callback).not.toHaveBeenCalled();
+        expect(events.filter(e => e.layer === 'session')).toHaveLength(0);
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('emits peer_action_received and peer_action_processed when the callback returns true', async () => {
+      const getHandler = captureResponder();
+      const session = buildSession();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        const callback = vi.fn(() => okAsync(true));
+        session.subscribe(callback);
+        getHandler()(makePeerMessage('peer-msg-1', 'Disconnected'));
+
+        await flush();
 
         const received = events.find(e => e.event === 'peer_action_received');
         const processed = events.find(e => e.event === 'peer_action_processed');
@@ -225,11 +311,7 @@ describe('createUserSession debug emits', () => {
     });
 
     it('emits peer_action_failed when the callback errors', async () => {
-      let invokeHandler: ((messages: any[]) => void) | undefined;
-      mocks.sessionSubscribe.mockImplementation((_codec, handler) => {
-        invokeHandler = handler;
-        return vi.fn();
-      });
+      const getHandler = captureResponder();
       // silence the console.error from the production code's orTee
       const errorSpy = vi.spyOn(console, 'error').mockImplementation(vi.fn());
 
@@ -238,9 +320,9 @@ describe('createUserSession debug emits', () => {
       try {
         const callback = vi.fn(() => errAsync(new Error('handler boom')) as unknown as ResultAsync<boolean, Error>);
         session.subscribe(callback);
-        invokeHandler!([makePeerMessage('peer-msg-2', 'Disconnected')]);
+        getHandler()(makePeerMessage('peer-msg-2', 'Disconnected'));
 
-        await new Promise(resolve => setImmediate(resolve));
+        await flush();
 
         const received = events.find(e => e.event === 'peer_action_received');
         const failed = events.find(e => e.event === 'peer_action_failed');
@@ -256,11 +338,7 @@ describe('createUserSession debug emits', () => {
     });
 
     it('does not emit anything for messages that were already processed in a previous run', async () => {
-      let invokeHandler: ((messages: any[]) => void) | undefined;
-      mocks.sessionSubscribe.mockImplementation((_codec, handler) => {
-        invokeHandler = handler;
-        return vi.fn();
-      });
+      const getHandler = captureResponder();
       mocks.fieldListRead.mockReturnValue(okAsync(['peer-msg-3']));
 
       const session = buildSession();
@@ -268,9 +346,9 @@ describe('createUserSession debug emits', () => {
       try {
         const callback = vi.fn(() => okAsync(true));
         session.subscribe(callback);
-        invokeHandler!([makePeerMessage('peer-msg-3', 'Disconnected')]);
+        getHandler()(makePeerMessage('peer-msg-3', 'Disconnected'));
 
-        await new Promise(resolve => setImmediate(resolve));
+        await flush();
 
         expect(events.filter(e => e.layer === 'session')).toHaveLength(0);
         expect(callback).not.toHaveBeenCalled();
@@ -279,6 +357,33 @@ describe('createUserSession debug emits', () => {
       }
     });
   });
+});
+
+describe('createUserSession request/reply ordering', () => {
+  // The transport ACK (session.request) and the peer's application reply
+  // (waitForRequestMessage) are independent channels with non-deterministic
+  // arrival order. The reply must not be gated on the ACK, otherwise a lost or
+  // late ACK wedges the call for the full queue timeout even though the answer
+  // already arrived.
+  it('resolves from the peer reply without waiting for the request ACK', async () => {
+    mocks.request.mockReturnValue(ResultAsync.fromSafePromise(new Promise<void>(() => undefined))); // ACK never resolves
+    mocks.waitForRequestMessage.mockReturnValue(
+      okAsync({ success: true, value: { signature: new Uint8Array() } as any }),
+    );
+
+    const session = buildSession();
+    const result = await session.signPayload({} as any);
+    expect(result.isOk()).toBe(true);
+  }, 2000);
+
+  it('fails fast when the request ACK errors even if no reply ever arrives', async () => {
+    mocks.request.mockReturnValue(errAsync(new Error('decoding failed')));
+    mocks.waitForRequestMessage.mockReturnValue(ResultAsync.fromSafePromise(new Promise(() => undefined))); // reply never
+
+    const session = buildSession();
+    const result = await session.signPayload({} as any);
+    expect(result.isErr()).toBe(true);
+  }, 2000);
 });
 
 describe('createUserSession abortPendingRequests', () => {
