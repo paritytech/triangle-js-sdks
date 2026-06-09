@@ -1,7 +1,7 @@
 import type { SignedStatement, Statement } from '@novasamatech/sdk-statement';
 import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
 import type { Result } from 'neverthrow';
-import { ResultAsync, errAsync, ok, okAsync } from 'neverthrow';
+import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
 import type { CodecType } from 'scale-ts';
 import { Bytes, Struct, str } from 'scale-ts';
 import { describe, expect, it, vi } from 'vitest';
@@ -14,7 +14,7 @@ import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount 
 import type { Encryption } from './encyption.js';
 import { DecodingError, UnknownError } from './error.js';
 import { StatementData } from './scale/statementData.js';
-import { STATEMENT_OVERHEAD, createSession, nextExpiry } from './session.js';
+import { STATEMENT_OVERHEAD, createSession } from './session.js';
 import type { StatementProver } from './statementProver.js';
 
 // Real signature work belongs in statementProver tests; this stub stamps a
@@ -124,6 +124,24 @@ function lastSubmittedRequestId(adapter: ReturnType<typeof makeAdapter>): string
   return decoded.tag === 'request' ? decoded.value.requestId : '';
 }
 
+// A submitStatement mock that defers every submission instead of resolving: each call records a
+// `{ requestId, settle }` entry in `pendings`, letting a test land or reject submissions in a chosen
+// order (used to drive shared-channel supersession races). Works for request and response payloads.
+function deferredSubmit() {
+  const pendings: Array<{ requestId: string; settle: (r: Result<void, Error>) => void }> = [];
+  const submitStatement = vi.fn((stmt: Statement) => {
+    const decoded = StatementData.dec(stmt.data!);
+    const requestId = decoded.tag === 'request' || decoded.tag === 'response' ? decoded.value.requestId : '';
+    return ResultAsync.fromPromise(
+      new Promise<void>((resolve, reject) => {
+        pendings.push({ requestId, settle: r => (r.isOk() ? resolve() : reject(r.error)) });
+      }),
+      e => e as Error,
+    );
+  });
+  return { submitStatement, pendings };
+}
+
 // Encoded size of the request payload (the statement `data` field) for these messages —
 // what the session sizes batches against. Includes the requestId (a fixed-length nanoid)
 // and the SCALE vector framing, so it is larger than the raw message bytes alone.
@@ -177,34 +195,6 @@ function makeMobile(adapter: StatementStoreAdapter) {
 
 describe('session', () => {
   const rawCodec = Bytes();
-
-  // Statement expiry/priority: u64 = (expiration_epoch << 32) | priority. The high word is pinned
-  // to 0xFFFFFFFF (non-expiring) and the low word is a wall-clock-floored monotonic priority that
-  // drives channel supersession. (Spec §1; matches iOS/Android.)
-  describe('expiry priority', () => {
-    it('encodes a non-expiring statement (high word pinned to 0xFFFFFFFF)', () => {
-      expect(nextExpiry(0n) >> 32n).toBe(0xffff_ffffn);
-    });
-
-    it('carries a wall-clock priority in the low word', () => {
-      const result = nextExpiry(0n);
-      expect(result & 0xffff_ffffn).toBeGreaterThan(0n);
-    });
-
-    it('increments by one when the current value already exceeds the wall-clock priority', () => {
-      const high = (0xffff_ffffn << 32n) | 0xffff_ffffn; // max u64
-      expect(nextExpiry(high)).toBe(high + 1n);
-    });
-
-    it('is strictly monotonic across repeated calls', () => {
-      let expiry = 0n;
-      for (let i = 0; i < 5; i++) {
-        const next = nextExpiry(expiry);
-        expect(next).toBeGreaterThan(expiry);
-        expiry = next;
-      }
-    });
-  });
 
   // On creation a session queries both of its topics, derives the starting expiry, and buffers
   // anything it finds until it goes active. (Spec §5 initialization.)
@@ -960,6 +950,46 @@ describe('session', () => {
       expect(second.isOk()).toBe(true);
       expect(adapter.submitStatement.mock.calls.length).toBeGreaterThan(submitsBefore);
     }, 3000);
+
+    it('absorbs a superseded response rejected as ExpiryTooLow and keeps the request answered', async () => {
+      // Two incoming requests are answered on the SHARED response channel. The response to A is in
+      // flight when the response to B takes over the channel; A then lands at a now-lower expiry and
+      // the store rejects it (ExpiryTooLow). That supersession is expected: B's response owns the
+      // channel, so A's rejection must be absorbed (not surfaced) and A must stay marked answered —
+      // re-answering would only clobber B. (Returning ok here is also what stops respondToRequests
+      // from logging it as a failed response.)
+      const reqA = makeStatement({ tag: 'request', value: { requestId: 'A', data: [] } });
+      const { subscribeStatements, callbacks } = capturingSubscribe();
+      const { submitStatement, pendings } = deferredSubmit();
+      const { session, adapter } = makeSession({ peer: [reqA], subscribeStatements, submitStatement });
+      await delay();
+      session.subscribe(rawCodec, vi.fn()); // activate the store subscription
+      const reqB = makeStatement({ tag: 'request', value: { requestId: 'B', data: [] } });
+      callbacks[0]!({ statements: [reqB], isComplete: true });
+      await delay();
+
+      const resAPromise = session.submitResponseMessage('A', 'success'); // in flight on the shared channel
+      const resBPromise = session.submitResponseMessage('B', 'success'); // supersedes A
+      await delay(); // both reach submitStatement
+
+      expect(pendings).toHaveLength(2);
+      pendings.find(p => p.requestId === 'B')!.settle(ok(undefined)); // B lands, owns the channel
+      pendings.find(p => p.requestId === 'A')!.settle(err(new ExpiryTooLowError(0n, 0n))); // A lands late, rejected
+
+      const resA = await resAPromise;
+      const resB = await resBPromise;
+      expect(resB.isOk()).toBe(true);
+      expect(resA.isOk()).toBe(true); // superseded rejection absorbed, not surfaced as an error
+
+      // A stays answered: re-answering it must NOT submit again (which would clobber B's response).
+      const submitsBefore = adapter.submitStatement.mock.calls.length;
+      const reAnswer = await session.submitResponseMessage('A', 'success');
+      await delay();
+      expect(reAnswer.isOk()).toBe(true);
+      expect(adapter.submitStatement.mock.calls.length).toBe(submitsBefore); // deduped → no resubmit
+
+      session.dispose();
+    }, 3000);
   });
 
   // clearOutgoingStatement aborts the in-flight request: it drops local state, rejects waiters, and
@@ -975,6 +1005,27 @@ describe('session', () => {
       expect(result.isOk()).toBe(true);
       expect(adapter.submitStatement.mock.calls.length).toBe(before);
     });
+
+    it('absorbs an ExpiryTooLow on the superseding empty batch as success', async () => {
+      // clearOutgoingStatement runs a single direct submit (no submitWithRetry). If the empty batch
+      // is rejected ExpiryTooLow, the channel already advanced past us — the request is already gone
+      // — so the clear has effectively happened. The caller must see success, not the sync artifact.
+      let calls = 0;
+      const submitStatement = vi.fn((stmt: Statement) =>
+        ++calls === 1
+          ? okAsync(undefined) // the request itself lands
+          : errAsync(new ExpiryTooLowError(stmt.expiry ?? 0n, (0xffff_ffffn << 32n) | 9_000_000_000n)),
+      );
+      const { session } = makeSession({ submitStatement });
+      await delay();
+
+      void session.submitRequestMessage(rawCodec, new Uint8Array([1]));
+      await delay();
+
+      const cleared = await session.clearOutgoingStatement();
+      expect(cleared.isOk()).toBe(true); // ExpiryTooLow suppressed
+      session.dispose();
+    }, 3000);
 
     it('submits an empty batch on the same channel at a higher expiry and clears local state', async () => {
       const { session, adapter } = makeSession();
@@ -1168,6 +1219,36 @@ describe('session', () => {
       session.dispose();
     }, 3000);
 
+    it('keeps retrying a live ExpiryTooLow past the transient-retry cap until it lands', async () => {
+      // ExpiryTooLow is a sync artifact, not a chain failure: while the submission is still live the
+      // session keeps retrying (resyncing each time) BEYOND MAX_SUBMIT_RETRIES until it lands, and
+      // never surfaces ExpiryTooLow to the caller. (A non-ExpiryTooLow error gives up at the cap —
+      // see the test below.)
+      const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n;
+      let calls = 0;
+      const submitStatement = vi.fn((stmt: Statement) =>
+        ++calls <= 6 ? errAsync(new ExpiryTooLowError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined),
+      );
+      const { session } = makeSession({ submitStatement });
+      await delay();
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      try {
+        const submit = await session.submitRequestMessage(rawCodec, new Uint8Array([1]));
+        let waiterRejected = false;
+        void session.waitForResponseMessage(submit._unsafeUnwrap().requestId).mapErr(() => (waiterRejected = true));
+
+        await new Promise(resolve => setTimeout(resolve, 300)); // 6 retries × 25ms backoff + slack
+
+        expect(calls).toBeGreaterThanOrEqual(7); // retried well past the 3-attempt cap, then landed
+        expect(errorSpy).not.toHaveBeenCalledWith('submitRequest failed:', expect.anything());
+        expect(waiterRejected).toBe(false); // ExpiryTooLow never surfaced to the caller
+      } finally {
+        errorSpy.mockRestore();
+        session.dispose();
+      }
+    }, 3000);
+
     it('rejects the pending waiter once request-submission retries are exhausted', async () => {
       const { session } = makeSession({
         submitStatement: vi.fn().mockReturnValue(errAsync(new Error('store rejected'))),
@@ -1180,6 +1261,45 @@ describe('session', () => {
       const waited = await session.waitForResponseMessage(requestId);
       expect(waited.isErr()).toBe(true);
     }, 2000);
+
+    it('absorbs a superseded older submission rejected as ExpiryTooLow without surfacing an error', async () => {
+      // Two messages batch onto one outgoing request: the first submission (requestId A) is in
+      // flight when the second (requestId B, higher expiry, SAME tokens) is sent. B lands first and
+      // sets the channel priority; A then lands at a now-lower expiry and the store rejects it with
+      // ExpiryTooLow. A is superseded, so its rejection is expected protocol behaviour — it must not
+      // be logged as an error and must not reject the shared waiters (B carries them).
+      const { submitStatement, pendings } = deferredSubmit();
+      const { session, adapter } = makeSession({ submitStatement });
+      await delay();
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      try {
+        const first = (await session.submitRequestMessage(rawCodec, new Uint8Array([1])))._unsafeUnwrap();
+        void session.submitRequestMessage(rawCodec, new Uint8Array([2])); // batches onto the same outgoing request
+        await delay(); // let both submissions reach submitStatement
+
+        expect(pendings).toHaveLength(2);
+        const liveRequestId = lastSubmittedRequestId(adapter); // the newer (B) submission
+        const live = pendings.find(p => p.requestId === liveRequestId)!;
+        const superseded = pendings.find(p => p.requestId !== liveRequestId)!;
+
+        let firstWaiterRejected = false;
+        void session.waitForResponseMessage(first.requestId).mapErr(() => {
+          firstWaiterRejected = true;
+        });
+
+        live.settle(ok(undefined)); // B lands, claims the channel priority
+        await delay();
+        superseded.settle(err(new ExpiryTooLowError(0n, 0n))); // A lands late and is rejected
+        await delay();
+
+        expect(errorSpy).not.toHaveBeenCalledWith('submitRequest failed:', expect.anything());
+        expect(firstWaiterRejected).toBe(false); // superseded failure must not reject the shared waiter
+      } finally {
+        errorSpy.mockRestore();
+        session.dispose();
+      }
+    }, 3000);
   });
 
   describe('dispose', () => {
@@ -1204,6 +1324,45 @@ describe('session', () => {
       await new Promise(resolve => setTimeout(resolve, 100)); // retry window elapses
 
       expect(queryStatements.mock.calls.length).toBe(callsBeforeDispose); // disposed → no further init queries
+    }, 3000);
+
+    it('rejects submitRequestMessage after dispose instead of hanging', async () => {
+      const { session, adapter } = makeSession();
+      await delay();
+      session.dispose();
+
+      const result = await session.submitRequestMessage(rawCodec, new Uint8Array([1]));
+      expect(result.isErr()).toBe(true); // surfaced immediately, not a token left pending forever
+      expect(adapter.submitStatement).not.toHaveBeenCalled();
+    });
+
+    it('rejects submitResponseMessage after dispose', async () => {
+      const { session } = makeSession();
+      await delay();
+      session.dispose();
+
+      const result = await session.submitResponseMessage('any-id', 'success');
+      expect(result.isErr()).toBe(true);
+    });
+
+    it('does not re-activate when disposed while init is in flight', async () => {
+      // dispose() lands during init's query await; init must bail before restoring state / flipping
+      // phase to 'active', otherwise a torn-down session looks alive and accepts new work.
+      let resolveQueries!: (s: Statement[]) => void;
+      const gate = new Promise<Statement[]>(resolve => (resolveQueries = resolve));
+      const queryStatements = vi.fn(() => ResultAsync.fromSafePromise(gate));
+      const { session, adapter } = makeSession({ queryStatements });
+
+      const queued = await session.submitRequestMessage(rawCodec, new Uint8Array([1])); // queued during init
+      expect(queued.isOk()).toBe(true);
+
+      session.dispose(); // dispose mid-init
+      resolveQueries([]); // init resumes — must bail before draining the queue / activating
+      await settle();
+
+      expect(adapter.submitStatement).not.toHaveBeenCalled(); // no resurrection-driven submit
+      const after = await session.submitRequestMessage(rawCodec, new Uint8Array([2]));
+      expect(after.isErr()).toBe(true); // session stays disposed
     }, 3000);
   });
 

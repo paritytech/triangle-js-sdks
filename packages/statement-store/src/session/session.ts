@@ -17,6 +17,7 @@ import type { Callback } from '../types.js';
 import type { Encryption } from './encyption.js';
 import { DecodingError, DecryptionError, UnknownError } from './error.js';
 import { toMessage } from './messageMapper.js';
+import { nextExpiry } from './priority.js';
 import type { ResponseStatus } from './scale/statementData.js';
 import { StatementData } from './scale/statementData.js';
 import type { StatementProver } from './statementProver.js';
@@ -47,6 +48,10 @@ export type SessionParams = {
 
 const DEFAULT_MAX_REQUEST_SIZE = 4096;
 
+// Rejection reason shared by dispose() and the disposed guards on submit*, so a torn-down session
+// always fails new and in-flight work the same way.
+const SESSION_DISPOSED = 'Session disposed';
+
 // Bounded retry for transient transport failures (the spec mandates retrying queries
 // and submit_statement on connection failure). The TS adapter doesn't expose connection
 // state, so we approximate with a short fixed backoff and an attempt cap.
@@ -61,20 +66,6 @@ const RETRY_DELAY_MS = 25;
  * `maxStatementSize - overhead` rather than the raw statement limit.
  */
 export const STATEMENT_OVERHEAD = 32 + 32 + 8 + 64 + 32; // 168 bytes
-
-/**
- * Statement expiry/priority, u64 = (expiration_epoch << 32) | priority (spec layout).
- * We pin the high word to 0xFFFFFFFF (max → effectively non-expiring, matching iOS &
- * Android) and use the low word as a wall-clock-floored monotonic priority, so channel
- * supersession is driven by the priority regardless of how the store compares the field.
- * Returns a value strictly greater than `current` (i.e. `max(current + 1, now-priority)`).
- */
-const NEVER_EXPIRE_HIGH = 0xffff_ffffn;
-export function nextExpiry(current: bigint): bigint {
-  const nowSecs = BigInt(Math.floor(Date.now() / 1000));
-  const timestampPriority = (NEVER_EXPIRE_HIGH << 32n) | nowSecs;
-  return timestampPriority > current ? timestampPriority : current + 1n;
-}
 
 type Subscriber = {
   codec: Codec<unknown>;
@@ -164,19 +155,33 @@ function makeDeferred(): PendingDelivery {
   return { resolve, reject, promise };
 }
 
-// Retry a submit on failure with a short backoff, up to `attemptsLeft` extra attempts.
-// A successful submit returns immediately (no delay on the happy path). `shouldRetry` is
-// re-checked before each retry: once the submission is superseded, aborted, or the session
-// is disposed it returns false, so a stale retry can never resurrect an old statement.
+// Retry a submit on failure with a short backoff. `shouldRetry` is re-checked before each retry:
+// once the submission is superseded, aborted, or the session is disposed it returns false, so a
+// stale retry can never resurrect an old statement.
+//
+// ExpiryTooLow is treated specially: it is never a chain/statement failure, only a sign our
+// in-memory expiry lagged the channel's on-chain priority. submitStatementData has already resynced
+// us above the reported minimum, so the next attempt submits higher. We therefore retry ExpiryTooLow
+// WITHOUT spending the `attemptsLeft` transient-failure budget — keeping at it until it lands or the
+// submission is superseded — and, once superseded, swallow it as success. The upshot: ExpiryTooLow
+// never surfaces to callers. (Other errors keep the bounded retry and propagate when exhausted.)
 function submitWithRetry(
   submit: () => ResultAsync<void, Error>,
   attemptsLeft: number,
   shouldRetry: () => boolean,
 ): ResultAsync<void, Error> {
+  // How to settle once we stop retrying: a no-longer-live submission rejected with ExpiryTooLow
+  // simply lost the channel race to a newer, higher-priority statement — benign, so report success.
+  const settle = (error: Error): ResultAsync<void, Error> =>
+    !shouldRetry() && error instanceof ExpiryTooLowError ? okAsync<void, Error>(undefined) : errAsync(error);
+
   return submit().orElse(error => {
-    if (attemptsLeft <= 0 || !shouldRetry()) return errAsync(error);
+    const expiryTooLow = error instanceof ExpiryTooLowError;
+    if (!shouldRetry() || (!expiryTooLow && attemptsLeft <= 0)) return settle(error);
+    // ExpiryTooLow is always recoverable while live, so it doesn't consume the retry budget.
+    const nextAttempts = expiryTooLow ? attemptsLeft : attemptsLeft - 1;
     return ResultAsync.fromSafePromise(new Promise<void>(resolve => setTimeout(resolve, RETRY_DELAY_MS))).andThen(() =>
-      !shouldRetry() ? errAsync(error) : submitWithRetry(submit, attemptsLeft - 1, shouldRetry),
+      shouldRetry() ? submitWithRetry(submit, nextAttempts, shouldRetry) : settle(error),
     );
   });
 }
@@ -270,18 +275,18 @@ export function createSession({
         ),
       )
       .mapErr(e => {
-        if (disposed) return;
-        console.error('submitRequest failed:', e);
-        // Retries are exhausted. If this is still the live submission (not already
-        // superseded by a newer retransmit), the request never landed — fail its
-        // waiters rather than let them hang. A superseded older submission failing
-        // is expected and must NOT reject, since the newer one carries the same tokens.
+        // ExpiryTooLow is handled in submitWithRetry (retried until it lands, swallowed once
+        // superseded), so an error reaching here is a different, genuine failure. If this submission
+        // was already superseded by a newer retransmit (same tokens) it is not the live request's
+        // concern — drop it silently; the newer one carries the waiters. Otherwise the bounded
+        // retries are exhausted on the LIVE submission: the request never landed, so fail its
+        // waiters rather than let them hang.
         const outgoing = state.outgoingRequest;
-        if (outgoing && outgoing.requestIds[outgoing.requestIds.length - 1] === requestId) {
-          settleTokens(outgoing.tokens, deferred => deferred.reject(e));
-          state.outgoingRequest = null;
-          processMessageQueue();
-        }
+        if (disposed || !outgoing || outgoing.requestIds.at(-1) !== requestId) return;
+        console.error('submitRequest failed:', e);
+        settleTokens(outgoing.tokens, deferred => deferred.reject(e));
+        state.outgoingRequest = null;
+        processMessageQueue();
       });
   }
 
@@ -507,6 +512,7 @@ export function createSession({
       ).then(outcomes => outcomes.map(o => (o.kind === 'decoded' ? o.data : null)).filter(nonNullable));
 
     const [ownDecoded, peerDecoded] = await Promise.all([decodeAll(ownStatements), decodeAll(peerStatements)]);
+    if (disposed) return;
 
     // Both parties publish on their own outgoing topic, so the OUTGOING query returns our
     // requests + OUR responses, and the INCOMING query returns the peer's requests + the
@@ -557,6 +563,8 @@ export function createSession({
     },
 
     submitRequestMessage<T>(codec: Codec<T>, message: T) {
+      if (disposed) return errAsync(new Error(SESSION_DISPOSED));
+
       const encode = fromThrowable(codec.enc, toError);
       const encodedResult = encode(message);
       if (encodedResult.isErr()) return errAsync(encodedResult.error);
@@ -587,6 +595,7 @@ export function createSession({
     },
 
     submitResponseMessage(requestId: string, responseCode: ResponseStatus) {
+      if (disposed) return errAsync(new Error(SESSION_DISPOSED));
       const incoming = state.incomingRequests.get(requestId);
       if (!incoming) return errAsync(new Error(`No incoming request with id ${requestId}`));
       if (incoming.responded) {
@@ -614,6 +623,19 @@ export function createSession({
           // Answered: it no longer needs replaying to future subscribers.
           .andTee(() => pruneBufferedRequest(requestId))
           .orElse(error => {
+            // ExpiryTooLow is handled in submitWithRetry (swallowed once a newer response supersedes
+            // this one on the shared channel), so an error here is a different failure. If this is no
+            // longer the latest response (superseded) or the session is disposed, keep the request
+            // marked answered — re-answering would only clobber the newer response — and absorb the
+            // error. NOTE: the shared response channel still only exposes the latest response to the
+            // peer, so reliably ACKing several outstanding requests needs the protocol-level fix
+            // tracked separately.
+            if (disposed || lastResponseRequestId !== requestId) {
+              pruneBufferedRequest(requestId);
+              return okAsync<void, Error>(undefined);
+            }
+            // The live response genuinely failed after exhausting retries — roll back so a later
+            // peer retransmit can still be answered, and surface the error.
             incoming.responded = false;
             return errAsync(error);
           })
@@ -726,8 +748,15 @@ export function createSession({
       // Supersede the live batch with an empty one. Use submitStatementData so the
       // empty statement goes out at a STRICTLY higher expiry — the store rejects an
       // equal-or-lower expiry on the same channel, so reusing state.expiry would
-      // leave the original request live on-chain.
-      return submitStatementData(createRequestChannel(outgoingSessionId), outgoingSessionId, encoded.value);
+      // leave the original request live on-chain. Route through submitWithRetry with
+      // shouldRetry:()=>false so it inherits the single ExpiryTooLow policy — a rejection
+      // means the channel already advanced past us, so the clear already happened → absorb it —
+      // without retrying (clearing is a one-shot supersede, not a request that must land).
+      return submitWithRetry(
+        () => submitStatementData(createRequestChannel(outgoingSessionId), outgoingSessionId, encoded.value),
+        0,
+        () => false,
+      );
     },
 
     dispose() {
@@ -744,9 +773,9 @@ export function createSession({
       state.messageQueue = [];
       // Settle any waitForRequestMessage() promises so callers unwind instead of
       // hanging forever. Snapshot first — rejecting mutates the set.
-      for (const rejectWaiter of [...requestWaiters]) rejectWaiter(new Error('Session disposed'));
+      for (const rejectWaiter of [...requestWaiters]) rejectWaiter(new Error(SESSION_DISPOSED));
       requestWaiters.clear();
-      rejectAllPending(new Error('Session disposed'));
+      rejectAllPending(new Error(SESSION_DISPOSED));
     },
   };
 
