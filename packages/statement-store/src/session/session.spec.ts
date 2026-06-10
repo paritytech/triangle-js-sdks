@@ -8,7 +8,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import { createInMemoryStatementStore } from '../adapter/inMemory.js';
 import type { StatementStoreAdapter, StatementsPage } from '../adapter/types.js';
-import { ExpiryTooLowError } from '../adapter/types.js';
+import { AccountFullError, ExpiryTooLowError } from '../adapter/types.js';
 import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount } from '../model/sessionAccount.js';
 
 import type { Encryption } from './encyption.js';
@@ -990,6 +990,41 @@ describe('session', () => {
 
       session.dispose();
     }, 3000);
+
+    it('absorbs a superseded response rejected as AccountFull and keeps the request answered', async () => {
+      // Mirror of the ExpiryTooLow supersession test: once the submission is no longer live, an
+      // AccountFull rejection means we simply lost the channel race — absorb it as success.
+      const reqA = makeStatement({ tag: 'request', value: { requestId: 'A', data: [] } });
+      const { subscribeStatements, callbacks } = capturingSubscribe();
+      const { submitStatement, pendings } = deferredSubmit();
+      const { session, adapter } = makeSession({ peer: [reqA], subscribeStatements, submitStatement });
+      await delay();
+      session.subscribe(rawCodec, vi.fn());
+      const reqB = makeStatement({ tag: 'request', value: { requestId: 'B', data: [] } });
+      callbacks[0]!({ statements: [reqB], isComplete: true });
+      await delay();
+
+      const resAPromise = session.submitResponseMessage('A', 'success');
+      const resBPromise = session.submitResponseMessage('B', 'success');
+      await delay();
+
+      expect(pendings).toHaveLength(2);
+      pendings.find(p => p.requestId === 'B')!.settle(ok(undefined)); // B lands, owns the channel
+      pendings.find(p => p.requestId === 'A')!.settle(err(new AccountFullError(0n, 0n))); // A lands late, rejected
+
+      const resA = await resAPromise;
+      const resB = await resBPromise;
+      expect(resB.isOk()).toBe(true);
+      expect(resA.isOk()).toBe(true); // superseded rejection absorbed, not surfaced as an error
+
+      const submitsBefore = adapter.submitStatement.mock.calls.length;
+      const reAnswer = await session.submitResponseMessage('A', 'success');
+      await delay();
+      expect(reAnswer.isOk()).toBe(true);
+      expect(adapter.submitStatement.mock.calls.length).toBe(submitsBefore); // deduped → no resubmit
+
+      session.dispose();
+    }, 3000);
   });
 
   // clearOutgoingStatement aborts the in-flight request: it drops local state, rejects waiters, and
@@ -1219,6 +1254,28 @@ describe('session', () => {
       session.dispose();
     }, 3000);
 
+    it('resyncs its expiry above the chain minimum after an AccountFull rejection', async () => {
+      // accountFull is the account-quota variant of channelPriorityTooLow: the account is full of
+      // higher-priority statements and ours can only land above the reported minimum. Same recovery
+      // as ExpiryTooLow: adopt the minimum, resubmit above it.
+      const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n; // well above the wall-clock priority
+      let calls = 0;
+      const submitStatement = vi.fn((stmt: Statement) => {
+        calls++;
+        return calls === 1 ? errAsync(new AccountFullError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined);
+      });
+      const { session, adapter } = makeSession({ submitStatement });
+      await delay();
+
+      void session.submitRequestMessage(rawCodec, new Uint8Array([1]));
+      await new Promise(resolve => setTimeout(resolve, 100)); // allow the retry (25ms backoff)
+
+      expect(adapter.submitStatement.mock.calls.length).toBeGreaterThanOrEqual(2);
+      const retried = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+      expect(retried.expiry ?? 0n).toBeGreaterThan(CHAIN_MIN); // healed past the chain minimum
+      session.dispose();
+    }, 3000);
+
     it('keeps retrying a live ExpiryTooLow past the transient-retry cap until it lands', async () => {
       // ExpiryTooLow is a sync artifact, not a chain failure: while the submission is still live the
       // session keeps retrying (resyncing each time) BEYOND MAX_SUBMIT_RETRIES until it lands, and
@@ -1243,6 +1300,35 @@ describe('session', () => {
         expect(calls).toBeGreaterThanOrEqual(7); // retried well past the 3-attempt cap, then landed
         expect(errorSpy).not.toHaveBeenCalledWith('submitRequest failed:', expect.anything());
         expect(waiterRejected).toBe(false); // ExpiryTooLow never surfaced to the caller
+      } finally {
+        errorSpy.mockRestore();
+        session.dispose();
+      }
+    }, 3000);
+
+    it('keeps retrying a live AccountFull past the transient-retry cap until it lands', async () => {
+      // Like ExpiryTooLow, AccountFull is a priority-sync artifact, not a chain failure: while the
+      // submission is live the session must keep retrying (resyncing each time) BEYOND
+      // MAX_SUBMIT_RETRIES until it lands, and never surface AccountFull to the caller.
+      const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n;
+      let calls = 0;
+      const submitStatement = vi.fn((stmt: Statement) =>
+        ++calls <= 6 ? errAsync(new AccountFullError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined),
+      );
+      const { session } = makeSession({ submitStatement });
+      await delay();
+
+      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      try {
+        const submit = await session.submitRequestMessage(rawCodec, new Uint8Array([1]));
+        let waiterRejected = false;
+        void session.waitForResponseMessage(submit._unsafeUnwrap().requestId).mapErr(() => (waiterRejected = true));
+
+        await new Promise(resolve => setTimeout(resolve, 300)); // 6 retries × 25ms backoff + slack
+
+        expect(calls).toBeGreaterThanOrEqual(7); // retried well past the 3-attempt cap, then landed
+        expect(errorSpy).not.toHaveBeenCalledWith('submitRequest failed:', expect.anything());
+        expect(waiterRejected).toBe(false); // AccountFull never surfaced to the caller
       } finally {
         errorSpy.mockRestore();
         session.dispose();

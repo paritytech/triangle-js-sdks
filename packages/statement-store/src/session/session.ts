@@ -6,7 +6,7 @@ import type { Codec, CodecType } from 'scale-ts';
 import { Struct, str } from 'scale-ts';
 
 import type { StatementStoreAdapter } from '../adapter/types.js';
-import { ExpiryTooLowError } from '../adapter/types.js';
+import { AccountFullError, ExpiryTooLowError } from '../adapter/types.js';
 import { khash, stringToBytes } from '../crypto.js';
 import { nonNullable, toError } from '../helpers.js';
 import type { SessionId } from '../model/session.js';
@@ -159,12 +159,18 @@ function makeDeferred(): PendingDelivery {
 // once the submission is superseded, aborted, or the session is disposed it returns false, so a
 // stale retry can never resurrect an old statement.
 //
-// ExpiryTooLow is treated specially: it is never a chain/statement failure, only a sign our
-// in-memory expiry lagged the channel's on-chain priority. submitStatementData has already resynced
-// us above the reported minimum, so the next attempt submits higher. We therefore retry ExpiryTooLow
-// WITHOUT spending the `attemptsLeft` transient-failure budget — keeping at it until it lands or the
-// submission is superseded — and, once superseded, swallow it as success. The upshot: ExpiryTooLow
-// never surfaces to callers. (Other errors keep the bounded retry and propagate when exhausted.)
+// ExpiryTooLow and AccountFull are treated specially: they are never a chain/statement failure,
+// only a sign our in-memory expiry lagged the chain's priority floor (channel supersession for
+// ExpiryTooLow, account-quota eviction for AccountFull — both report the minimum to clear).
+// submitStatementData has already resynced us above the reported minimum, so the next attempt
+// submits higher. We therefore retry them WITHOUT spending the `attemptsLeft` transient-failure
+// budget — keeping at it until it lands or the submission is superseded — and, once superseded,
+// swallow them as success. The upshot: priority errors never surface to callers. (Other errors
+// keep the bounded retry and propagate when exhausted.)
+function isPriorityTooLow(error: unknown): error is ExpiryTooLowError | AccountFullError {
+  return error instanceof ExpiryTooLowError || error instanceof AccountFullError;
+}
+
 function submitWithRetry(
   submit: () => ResultAsync<void, Error>,
   attemptsLeft: number,
@@ -173,10 +179,10 @@ function submitWithRetry(
   // How to settle once we stop retrying: a no-longer-live submission rejected with ExpiryTooLow
   // simply lost the channel race to a newer, higher-priority statement — benign, so report success.
   const settle = (error: Error): ResultAsync<void, Error> =>
-    !shouldRetry() && error instanceof ExpiryTooLowError ? okAsync<void, Error>(undefined) : errAsync(error);
+    !shouldRetry() && isPriorityTooLow(error) ? okAsync<void, Error>(undefined) : errAsync(error);
 
   return submit().orElse(error => {
-    const expiryTooLow = error instanceof ExpiryTooLowError;
+    const expiryTooLow = isPriorityTooLow(error);
     if (!shouldRetry() || (!expiryTooLow && attemptsLeft <= 0)) return settle(error);
     // ExpiryTooLow is always recoverable while live, so it doesn't consume the retry budget.
     const nextAttempts = expiryTooLow ? attemptsLeft : attemptsLeft - 1;
@@ -247,7 +253,7 @@ export function createSession({
         // The chain is the source of truth for a channel's priority. If our in-memory counter
         // drifted behind it (a prior run, another writer, or propagation lag), resync to the
         // reported minimum so the retry — and every later submit — clears it.
-        if (error instanceof ExpiryTooLowError && error.min > state.expiry) state.expiry = error.min;
+        if (isPriorityTooLow(error) && error.min > state.expiry) state.expiry = error.min;
         return errAsync(error);
       });
   }
