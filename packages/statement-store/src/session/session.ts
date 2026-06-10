@@ -176,16 +176,17 @@ function submitWithRetry(
   attemptsLeft: number,
   shouldRetry: () => boolean,
 ): ResultAsync<void, Error> {
-  // How to settle once we stop retrying: a no-longer-live submission rejected with ExpiryTooLow
-  // simply lost the channel race to a newer, higher-priority statement — benign, so report success.
+  // How to settle once we stop retrying: a no-longer-live submission rejected with a priority error
+  // (ExpiryTooLow / AccountFull) simply lost the channel race to a newer, higher-priority statement
+  // — benign, so report success.
   const settle = (error: Error): ResultAsync<void, Error> =>
     !shouldRetry() && isPriorityTooLow(error) ? okAsync<void, Error>(undefined) : errAsync(error);
 
   return submit().orElse(error => {
-    const expiryTooLow = isPriorityTooLow(error);
-    if (!shouldRetry() || (!expiryTooLow && attemptsLeft <= 0)) return settle(error);
-    // ExpiryTooLow is always recoverable while live, so it doesn't consume the retry budget.
-    const nextAttempts = expiryTooLow ? attemptsLeft : attemptsLeft - 1;
+    const priorityTooLow = isPriorityTooLow(error);
+    if (!shouldRetry() || (!priorityTooLow && attemptsLeft <= 0)) return settle(error);
+    // Priority errors are always recoverable while live, so they don't consume the retry budget.
+    const nextAttempts = priorityTooLow ? attemptsLeft : attemptsLeft - 1;
     return ResultAsync.fromSafePromise(new Promise<void>(resolve => setTimeout(resolve, RETRY_DELAY_MS))).andThen(() =>
       shouldRetry() ? submitWithRetry(submit, nextAttempts, shouldRetry) : settle(error),
     );
@@ -281,8 +282,9 @@ export function createSession({
         ),
       )
       .mapErr(e => {
-        // ExpiryTooLow is handled in submitWithRetry (retried until it lands, swallowed once
-        // superseded), so an error reaching here is a different, genuine failure. If this submission
+        // Priority errors (ExpiryTooLow / AccountFull) are handled in submitWithRetry (retried
+        // until it lands, swallowed once superseded), so an error reaching here is a different,
+        // genuine failure. If this submission
         // was already superseded by a newer retransmit (same tokens) it is not the live request's
         // concern — drop it silently; the newer one carries the waiters. Otherwise the bounded
         // retries are exhausted on the LIVE submission: the request never landed, so fail its
@@ -629,8 +631,9 @@ export function createSession({
           // Answered: it no longer needs replaying to future subscribers.
           .andTee(() => pruneBufferedRequest(requestId))
           .orElse(error => {
-            // ExpiryTooLow is handled in submitWithRetry (swallowed once a newer response supersedes
-            // this one on the shared channel), so an error here is a different failure. If this is no
+            // Priority errors (ExpiryTooLow / AccountFull) are handled in submitWithRetry (swallowed
+            // once a newer response supersedes this one on the shared channel), so an error here is a
+            // different failure. If this is no
             // longer the latest response (superseded) or the session is disposed, keep the request
             // marked answered — re-answering would only clobber the newer response — and absorb the
             // error. NOTE: the shared response channel still only exposes the latest response to the
@@ -755,9 +758,10 @@ export function createSession({
       // empty statement goes out at a STRICTLY higher expiry — the store rejects an
       // equal-or-lower expiry on the same channel, so reusing state.expiry would
       // leave the original request live on-chain. Route through submitWithRetry with
-      // shouldRetry:()=>false so it inherits the single ExpiryTooLow policy — a rejection
-      // means the channel already advanced past us, so the clear already happened → absorb it —
-      // without retrying (clearing is a one-shot supersede, not a request that must land).
+      // shouldRetry:()=>false so it inherits the priority-error policy — a rejection with a
+      // priority error (ExpiryTooLow / AccountFull) means the channel already advanced past us,
+      // so the clear already happened → absorb it — without retrying (clearing is a one-shot
+      // supersede, not a request that must land).
       return submitWithRetry(
         () => submitStatementData(createRequestChannel(outgoingSessionId), outgoingSessionId, encoded.value),
         0,
