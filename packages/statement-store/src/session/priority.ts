@@ -13,7 +13,7 @@ const NEVER_EXPIRE_HIGH = 0xffffffffn;
  * mobile client's, so any cross-client or shared-channel priority comparison would always rank a
  * TS-written statement above a mobile-written one. Keeping the base aligned removes that landmine.
  */
-const PRIORITY_EPOCH_OFFSET = 1_763_164_800n;
+export const PRIORITY_EPOCH_OFFSET = 1_763_164_800n;
 
 export function nextExpiry(current: bigint): bigint {
   const nowSecs = BigInt(Math.floor(Date.now() / 1000));
