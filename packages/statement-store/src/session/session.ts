@@ -475,7 +475,7 @@ export function createSession({
     // never regresses — so a statement submitted while init was in flight (e.g. an auto-ACK for a
     // peer request that arrived during the query) keeps the counter ahead of this snapshot, the
     // same guarantee the old conditional seeding gave. The next submit then draws strictly above
-    // both the seen on-chain maximum and the wall clock, so it cannot collide at an equal expiry.
+    // the seen on-chain maximum and at least the wall-clock priority, so it cannot collide at an equal expiry.
     allocator.raiseFloor(maxExpiry);
 
     for (const s of [...ownStatements, ...peerStatements]) {
@@ -736,7 +736,12 @@ export function createSession({
       // supersede, not a request that must land).
       return submitWithRetry(
         () => submitStatementData(createRequestChannel(outgoingSessionId), outgoingSessionId, encoded.value),
-        { attempts: 0, priorityAttempts: 'unbounded', delaysMs: RETRY_DELAY_MS, shouldRetry: () => false },
+        {
+          attempts: 0,
+          priorityAttempts: 'unbounded',
+          delaysMs: RETRY_DELAY_MS, // unreachable: attempts 0 + shouldRetry false — required by the options type
+          shouldRetry: () => false,
+        },
       );
     },
 
