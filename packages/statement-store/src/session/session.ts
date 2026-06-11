@@ -6,18 +6,20 @@ import type { Codec, CodecType } from 'scale-ts';
 import { Struct, str } from 'scale-ts';
 
 import type { StatementStoreAdapter } from '../adapter/types.js';
-import { AccountFullError, ExpiryTooLowError } from '../adapter/types.js';
 import { khash, stringToBytes } from '../crypto.js';
 import { nonNullable, toError } from '../helpers.js';
 import type { SessionId } from '../model/session.js';
 import { createSessionId } from '../model/session.js';
 import type { LocalSessionAccount, RemoteSessionAccount } from '../model/sessionAccount.js';
+import type { ExpiryAllocator } from '../submit/allocator.js';
+import { createExpiryAllocator } from '../submit/allocator.js';
+import { submitWithRetry } from '../submit/retry.js';
+import { submitStatementOnce } from '../submit/submitStatement.js';
 import type { Callback } from '../types.js';
 
 import type { Encryption } from './encyption.js';
 import { DecodingError, DecryptionError, UnknownError } from './error.js';
 import { toMessage } from './messageMapper.js';
-import { nextExpiry } from './priority.js';
 import type { ResponseStatus } from './scale/statementData.js';
 import { StatementData } from './scale/statementData.js';
 import type { StatementProver } from './statementProver.js';
@@ -43,6 +45,13 @@ export type SessionParams = {
    * throw.
    */
   sessionKey: Uint8Array;
+  /**
+   * Expiry source for this session's submits. Inject ONE shared allocator when
+   * several writers (sessions, raw submits) sign with the same account, so
+   * same-second submits cannot tie. Defaults to a private allocator —
+   * identical to the previous per-session behavior.
+   */
+  allocator?: ExpiryAllocator;
   maxRequestSize?: number;
 };
 
@@ -89,7 +98,6 @@ type OutgoingRequest = {
 type SessionState = {
   phase: 'initialization' | 'active' | 'failed';
   initError: Error | null;
-  expiry: bigint;
   outgoingRequest: OutgoingRequest | null;
   // Tracks every incoming request by its id with its own responded flag, so an
   // older request stays answerable after a newer one arrives, and an async
@@ -155,44 +163,6 @@ function makeDeferred(): PendingDelivery {
   return { resolve, reject, promise };
 }
 
-// Retry a submit on failure with a short backoff. `shouldRetry` is re-checked before each retry:
-// once the submission is superseded, aborted, or the session is disposed it returns false, so a
-// stale retry can never resurrect an old statement.
-//
-// ExpiryTooLow and AccountFull are treated specially: they are never a chain/statement failure,
-// only a sign our in-memory expiry lagged the chain's priority floor (channel supersession for
-// ExpiryTooLow, account-quota eviction for AccountFull — both report the minimum to clear).
-// submitStatementData has already resynced us above the reported minimum, so the next attempt
-// submits higher. We therefore retry them WITHOUT spending the `attemptsLeft` transient-failure
-// budget — keeping at it until it lands or the submission is superseded — and, once superseded,
-// swallow them as success. The upshot: priority errors never surface to callers. (Other errors
-// keep the bounded retry and propagate when exhausted.)
-function isPriorityTooLow(error: unknown): error is ExpiryTooLowError | AccountFullError {
-  return error instanceof ExpiryTooLowError || error instanceof AccountFullError;
-}
-
-function submitWithRetry(
-  submit: () => ResultAsync<void, Error>,
-  attemptsLeft: number,
-  shouldRetry: () => boolean,
-): ResultAsync<void, Error> {
-  // How to settle once we stop retrying: a no-longer-live submission rejected with a priority error
-  // (ExpiryTooLow / AccountFull) simply lost the channel race to a newer, higher-priority statement
-  // — benign, so report success.
-  const settle = (error: Error): ResultAsync<void, Error> =>
-    !shouldRetry() && isPriorityTooLow(error) ? okAsync<void, Error>(undefined) : errAsync(error);
-
-  return submit().orElse(error => {
-    const priorityTooLow = isPriorityTooLow(error);
-    if (!shouldRetry() || (!priorityTooLow && attemptsLeft <= 0)) return settle(error);
-    // Priority errors are always recoverable while live, so they don't consume the retry budget.
-    const nextAttempts = priorityTooLow ? attemptsLeft : attemptsLeft - 1;
-    return ResultAsync.fromSafePromise(new Promise<void>(resolve => setTimeout(resolve, RETRY_DELAY_MS))).andThen(() =>
-      shouldRetry() ? submitWithRetry(submit, nextAttempts, shouldRetry) : settle(error),
-    );
-  });
-}
-
 export function createSession({
   localAccount,
   remoteAccount,
@@ -200,6 +170,7 @@ export function createSession({
   encryption,
   prover,
   sessionKey,
+  allocator = createExpiryAllocator(),
   maxRequestSize = DEFAULT_MAX_REQUEST_SIZE,
 }: SessionParams): Session {
   const outgoingSessionId = createSessionId(sessionKey, localAccount, remoteAccount);
@@ -211,7 +182,6 @@ export function createSession({
   const state: SessionState = {
     phase: 'initialization',
     initError: null,
-    expiry: 0n,
     outgoingRequest: null,
     incomingRequests: new Map(),
     messageQueue: [],
@@ -232,31 +202,19 @@ export function createSession({
   // latest is live — a retry for an older one must not resurrect it).
   let lastResponseRequestId: string | null = null;
 
-  // Submit on `channel`/`topicSessionId` at the next (strictly increasing) expiry.
+  // Encrypt, then submit on `channel`/`topicSessionId` at the allocator's next (strictly
+  // increasing) expiry. On a priority rejection submitStatementOnce resyncs the allocator to the
+  // chain-reported minimum before propagating, so the retry — and every later submit — clears it.
   function submitStatementData(
     channel: Uint8Array,
     topicSessionId: SessionId,
     data: Uint8Array,
   ): ResultAsync<void, Error> {
-    state.expiry = nextExpiry(state.expiry);
-    const expiry = state.expiry;
     return encryption
       .encrypt(data)
-      .map<Statement>(encrypted => ({
-        expiry,
-        channel: toHex(channel) as `0x${string}`,
-        topics: [toHex(topicSessionId) as `0x${string}`],
-        data: encrypted,
-      }))
-      .asyncAndThen(prover.generateMessageProof)
-      .andThen(statementStore.submitStatement)
-      .orElse(error => {
-        // The chain is the source of truth for a channel's priority. If our in-memory counter
-        // drifted behind it (a prior run, another writer, or propagation lag), resync to the
-        // reported minimum so the retry — and every later submit — clears it.
-        if (isPriorityTooLow(error) && error.min > state.expiry) state.expiry = error.min;
-        return errAsync(error);
-      });
+      .asyncAndThen(encrypted =>
+        submitStatementOnce({ statementStore, prover, allocator, channel, topics: [topicSessionId], data: encrypted }),
+      );
   }
 
   // Settle and remove the pending-delivery entries for the given tokens.
@@ -270,16 +228,27 @@ export function createSession({
     }
   }
 
+  // Session retry policy (this and every submitWithRetry call below): priority errors
+  // (ExpiryTooLow / AccountFull) are retried with `priorityAttempts: 'unbounded'` — they never
+  // consume the transient-failure budget, because submitStatementData has already resynced the
+  // allocator above the chain-reported minimum, so the next attempt submits higher. We keep at it
+  // until the statement lands or the submission is superseded; once superseded, a priority
+  // rejection is swallowed as success (it merely lost the channel race to a newer, higher-priority
+  // statement). The upshot: priority errors never surface to session callers. Other errors keep
+  // the bounded retry and propagate when exhausted. `shouldRetry` is re-checked before each retry:
+  // once the submission is superseded, aborted, or the session is disposed it returns false, so a
+  // stale retry can never resurrect an old statement.
   function encodeAndSubmitRequest(requestId: string, messages: Uint8Array[]): void {
     encodeStatementData({ tag: 'request', value: { requestId, data: messages } })
       .asyncAndThen(data =>
-        submitWithRetry(
-          () => submitStatementData(createRequestChannel(outgoingSessionId), outgoingSessionId, data),
-          MAX_SUBMIT_RETRIES,
+        submitWithRetry(() => submitStatementData(createRequestChannel(outgoingSessionId), outgoingSessionId, data), {
+          attempts: MAX_SUBMIT_RETRIES,
+          priorityAttempts: 'unbounded',
+          delaysMs: RETRY_DELAY_MS,
           // Only keep retrying while this is still the live submission (not superseded by a
           // newer retransmit, aborted via clearOutgoingStatement, or disposed).
-          () => !disposed && state.outgoingRequest?.requestIds.at(-1) === requestId,
-        ),
+          shouldRetry: () => !disposed && state.outgoingRequest?.requestIds.at(-1) === requestId,
+        }),
       )
       .mapErr(e => {
         // Priority errors (ExpiryTooLow / AccountFull) are handled in submitWithRetry (retried
@@ -502,13 +471,12 @@ export function createSession({
     for (const s of ownStatements) {
       if (s.expiry !== undefined && s.expiry > maxExpiry) maxExpiry = s.expiry;
     }
-    // Never regress the counter. The query is a snapshot taken when init() began; a statement
-    // submitted while init was in flight (e.g. an auto-ACK for a peer request that arrived during
-    // the query) has already advanced both state.expiry and the on-chain channel past that
-    // snapshot. Overwriting unconditionally would drop the counter below the on-chain priority,
-    // making the next submit collide at an equal expiry.
-    const seeded = nextExpiry(maxExpiry);
-    if (seeded > state.expiry) state.expiry = seeded;
+    // Adopt the snapshot's maximum as the allocator floor. raiseFloor is monotonic — the floor
+    // never regresses — so a statement submitted while init was in flight (e.g. an auto-ACK for a
+    // peer request that arrived during the query) keeps the counter ahead of this snapshot, the
+    // same guarantee the old conditional seeding gave. The next submit then draws strictly above
+    // both the seen on-chain maximum and the wall clock, so it cannot collide at an equal expiry.
+    allocator.raiseFloor(maxExpiry);
 
     for (const s of [...ownStatements, ...peerStatements]) {
       if (s.data) state.seenStatements.add(toHex(s.data));
@@ -624,9 +592,13 @@ export function createSession({
       return (
         submitWithRetry(
           () => submitStatementData(createResponseChannel(outgoingSessionId), outgoingSessionId, encoded.value),
-          MAX_SUBMIT_RETRIES,
-          // Stop retrying once a newer response supersedes this one (shared response channel) or disposed.
-          () => !disposed && lastResponseRequestId === requestId,
+          {
+            attempts: MAX_SUBMIT_RETRIES,
+            priorityAttempts: 'unbounded',
+            delaysMs: RETRY_DELAY_MS,
+            // Stop retrying once a newer response supersedes this one (shared response channel) or disposed.
+            shouldRetry: () => !disposed && lastResponseRequestId === requestId,
+          },
         )
           // Answered: it no longer needs replaying to future subscribers.
           .andTee(() => pruneBufferedRequest(requestId))
@@ -756,16 +728,15 @@ export function createSession({
 
       // Supersede the live batch with an empty one. Use submitStatementData so the
       // empty statement goes out at a STRICTLY higher expiry — the store rejects an
-      // equal-or-lower expiry on the same channel, so reusing state.expiry would
-      // leave the original request live on-chain. Route through submitWithRetry with
+      // equal-or-lower expiry on the same channel, so reusing the last allocated expiry
+      // would leave the original request live on-chain. Route through submitWithRetry with
       // shouldRetry:()=>false so it inherits the priority-error policy — a rejection with a
       // priority error (ExpiryTooLow / AccountFull) means the channel already advanced past us,
       // so the clear already happened → absorb it — without retrying (clearing is a one-shot
       // supersede, not a request that must land).
       return submitWithRetry(
         () => submitStatementData(createRequestChannel(outgoingSessionId), outgoingSessionId, encoded.value),
-        0,
-        () => false,
+        { attempts: 0, priorityAttempts: 'unbounded', delaysMs: RETRY_DELAY_MS, shouldRetry: () => false },
       );
     },
 
