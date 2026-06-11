@@ -131,9 +131,9 @@ export function createPapiStatementStoreAdapter(lazyClient: LazyClient): Stateme
               case 'dataTooLarge':
                 return errAsync(new DataTooLargeError(result.submitted_size, result.available_size));
               case 'channelPriorityTooLow':
-                return errAsync(new ExpiryTooLowError(result.submitted_expiry, result.min_expiry));
+                return errAsync(new ExpiryTooLowError(BigInt(result.submitted_expiry), BigInt(result.min_expiry)));
               case 'accountFull':
-                return errAsync(new AccountFullError(result.submitted_expiry, result.min_expiry));
+                return errAsync(new AccountFullError(BigInt(result.submitted_expiry), BigInt(result.min_expiry)));
               case 'storeFull':
                 return errAsync(new StorageFullError());
               case 'noAllowance':
