@@ -1,9 +1,9 @@
+import { fromHex } from '@novasamatech/scale';
 import type { SignedStatement, Statement } from '@novasamatech/sdk-statement';
 import { getStatementSigner, statementCodec } from '@novasamatech/sdk-statement';
-import { compact } from '@polkadot-api/substrate-bindings';
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, fromPromise, fromThrowable, okAsync } from 'neverthrow';
-import { fromHex } from 'polkadot-api/utils';
+import { compact } from 'scale-ts';
 
 import {
   deriveSlotAccountPublicKey,

@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-papp",
   "type": "module",
-  "version": "0.8.7-2",
+  "version": "0.8.7-3",
   "description": "Polkadot app integration",
   "license": "Apache-2.0",
   "repository": {
@@ -34,10 +34,10 @@
     "@noble/ciphers": "2.2.0",
     "@noble/curves": "2.2.0",
     "@noble/hashes": "2.2.0",
-    "@novasamatech/host-api": "0.8.7-2",
-    "@novasamatech/scale": "0.8.7-2",
-    "@novasamatech/statement-store": "0.8.7-2",
-    "@novasamatech/storage-adapter": "0.8.7-2",
+    "@novasamatech/host-api": "0.8.7-3",
+    "@novasamatech/scale": "0.8.7-3",
+    "@novasamatech/statement-store": "0.8.7-3",
+    "@novasamatech/storage-adapter": "0.8.7-3",
     "@polkadot-api/utils": "^0.4.0",
     "@polkadot-labs/hdkd-helpers": "^0.0.30",
     "nanoevents": "9.1.0",
