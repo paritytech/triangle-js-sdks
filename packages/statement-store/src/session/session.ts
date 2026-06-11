@@ -13,7 +13,7 @@ import { createSessionId } from '../model/session.js';
 import type { LocalSessionAccount, RemoteSessionAccount } from '../model/sessionAccount.js';
 import type { ExpiryAllocator } from '../submit/allocator.js';
 import { createExpiryAllocator } from '../submit/allocator.js';
-import { submitWithRetry } from '../submit/retry.js';
+import { isPriorityTooLow, submitWithRetry } from '../submit/retry.js';
 import { submitStatementOnce } from '../submit/submitStatement.js';
 import type { Callback } from '../types.js';
 
@@ -175,6 +175,9 @@ export function createSession({
 }: SessionParams): Session {
   const outgoingSessionId = createSessionId(sessionKey, localAccount, remoteAccount);
   const incomingSessionId = createSessionId(sessionKey, remoteAccount, localAccount);
+  // Session-constant channel hashes — derived once so retries don't re-hash them per attempt.
+  const requestChannel = createRequestChannel(outgoingSessionId);
+  const responseChannel = createResponseChannel(outgoingSessionId);
 
   // Message bytes must fit within the statement limit minus the fixed wire overhead.
   const maxPayloadSize = Math.max(0, maxRequestSize - STATEMENT_OVERHEAD);
@@ -241,7 +244,7 @@ export function createSession({
   function encodeAndSubmitRequest(requestId: string, messages: Uint8Array[]): void {
     encodeStatementData({ tag: 'request', value: { requestId, data: messages } })
       .asyncAndThen(data =>
-        submitWithRetry(() => submitStatementData(createRequestChannel(outgoingSessionId), outgoingSessionId, data), {
+        submitWithRetry(() => submitStatementData(requestChannel, outgoingSessionId, data), {
           attempts: MAX_SUBMIT_RETRIES,
           priorityAttempts: 'unbounded',
           delaysMs: RETRY_DELAY_MS,
@@ -251,13 +254,11 @@ export function createSession({
         }),
       )
       .mapErr(e => {
-        // Priority errors (ExpiryTooLow / AccountFull) are handled in submitWithRetry (retried
-        // until it lands, swallowed once superseded), so an error reaching here is a different,
-        // genuine failure. If this submission
-        // was already superseded by a newer retransmit (same tokens) it is not the live request's
-        // concern — drop it silently; the newer one carries the waiters. Otherwise the bounded
-        // retries are exhausted on the LIVE submission: the request never landed, so fail its
-        // waiters rather than let them hang.
+        // Priority errors never reach here (see the policy note above), so this is a genuine
+        // failure. If this submission was already superseded by a newer retransmit (same tokens)
+        // it is not the live request's concern — drop it silently; the newer one carries the
+        // waiters. Otherwise the bounded retries are exhausted on the LIVE submission: the
+        // request never landed, so fail its waiters rather than let them hang.
         const outgoing = state.outgoingRequest;
         if (disposed || !outgoing || outgoing.requestIds.at(-1) !== requestId) return;
         console.error('submitRequest failed:', e);
@@ -590,36 +591,28 @@ export function createSession({
       // Responses go on OUR outgoing topic/response-channel (per spec: the responder
       // publishes on SessionId(self, peer)); the requester reads them from its incoming topic.
       return (
-        submitWithRetry(
-          () => submitStatementData(createResponseChannel(outgoingSessionId), outgoingSessionId, encoded.value),
-          {
-            attempts: MAX_SUBMIT_RETRIES,
-            priorityAttempts: 'unbounded',
-            delaysMs: RETRY_DELAY_MS,
-            // Stop retrying once a newer response supersedes this one (shared response channel) or disposed.
-            shouldRetry: () => !disposed && lastResponseRequestId === requestId,
-          },
-        )
-          // Answered: it no longer needs replaying to future subscribers.
-          .andTee(() => pruneBufferedRequest(requestId))
+        submitWithRetry(() => submitStatementData(responseChannel, outgoingSessionId, encoded.value), {
+          attempts: MAX_SUBMIT_RETRIES,
+          priorityAttempts: 'unbounded',
+          delaysMs: RETRY_DELAY_MS,
+          // Stop retrying once a newer response supersedes this one (shared response channel) or disposed.
+          shouldRetry: () => !disposed && lastResponseRequestId === requestId,
+        })
           .orElse(error => {
-            // Priority errors (ExpiryTooLow / AccountFull) are handled in submitWithRetry (swallowed
-            // once a newer response supersedes this one on the shared channel), so an error here is a
-            // different failure. If this is no
-            // longer the latest response (superseded) or the session is disposed, keep the request
-            // marked answered — re-answering would only clobber the newer response — and absorb the
-            // error. NOTE: the shared response channel still only exposes the latest response to the
-            // peer, so reliably ACKing several outstanding requests needs the protocol-level fix
-            // tracked separately.
-            if (disposed || lastResponseRequestId !== requestId) {
-              pruneBufferedRequest(requestId);
-              return okAsync<void, Error>(undefined);
-            }
+            // Priority errors never reach here (see the policy note above), so this is a genuine
+            // failure. If this is no longer the latest response (superseded) or the session is
+            // disposed, keep the request marked answered — re-answering would only clobber the
+            // newer response — and absorb the error. NOTE: the shared response channel still only
+            // exposes the latest response to the peer, so reliably ACKing several outstanding
+            // requests needs the protocol-level fix tracked separately.
+            if (disposed || lastResponseRequestId !== requestId) return okAsync<void, Error>(undefined);
             // The live response genuinely failed after exhausting retries — roll back so a later
             // peer retransmit can still be answered, and surface the error.
             incoming.responded = false;
             return errAsync(error);
           })
+          // Answered (or absorbed as such): it no longer needs replaying to future subscribers.
+          .andTee(() => pruneBufferedRequest(requestId))
       );
     },
 
@@ -729,19 +722,12 @@ export function createSession({
       // Supersede the live batch with an empty one. Use submitStatementData so the
       // empty statement goes out at a STRICTLY higher expiry — the store rejects an
       // equal-or-lower expiry on the same channel, so reusing the last allocated expiry
-      // would leave the original request live on-chain. Route through submitWithRetry with
-      // shouldRetry:()=>false so it inherits the priority-error policy — a rejection with a
-      // priority error (ExpiryTooLow / AccountFull) means the channel already advanced past us,
-      // so the clear already happened → absorb it — without retrying (clearing is a one-shot
-      // supersede, not a request that must land).
-      return submitWithRetry(
-        () => submitStatementData(createRequestChannel(outgoingSessionId), outgoingSessionId, encoded.value),
-        {
-          attempts: 0,
-          priorityAttempts: 'unbounded',
-          delaysMs: RETRY_DELAY_MS, // unreachable: attempts 0 + shouldRetry false — required by the options type
-          shouldRetry: () => false,
-        },
+      // would leave the original request live on-chain. One shot, no retry (clearing is a
+      // supersede, not a request that must land); a priority rejection (ExpiryTooLow /
+      // AccountFull) means the channel already advanced past us, so the clear already
+      // happened → absorb it as success.
+      return submitStatementData(requestChannel, outgoingSessionId, encoded.value).orElse(error =>
+        isPriorityTooLow(error) ? okAsync<void, Error>(undefined) : errAsync(error),
       );
     },
 

@@ -3,7 +3,6 @@
  * We pin the high word to 0xFFFFFFFF (max → effectively non-expiring, matching iOS &
  * Android) and use the low word as a wall-clock-floored monotonic priority, so channel
  * supersession is driven by the priority regardless of how the store compares the field.
- * Returns a value strictly greater than `current` (i.e. `max(current + 1, now-priority)`).
  */
 const NEVER_EXPIRE_HIGH = 0xffffffffn;
 /**
@@ -15,6 +14,7 @@ const NEVER_EXPIRE_HIGH = 0xffffffffn;
  */
 export const PRIORITY_EPOCH_OFFSET = 1_763_164_800n;
 
+/** Returns a value strictly greater than `current` (i.e. `max(current + 1, now-priority)`). */
 function nextExpiry(current: bigint): bigint {
   const nowSecs = BigInt(Math.floor(Date.now() / 1000));
   const priority = nowSecs > PRIORITY_EPOCH_OFFSET ? nowSecs - PRIORITY_EPOCH_OFFSET : 0n;
@@ -26,7 +26,7 @@ function nextExpiry(current: bigint): bigint {
  * Strictly-increasing source of statement expiries for one signing account,
  * with a floor that can be raised to a chain-reported minimum.
  *
- * Layout: u64 = (0xFFFFFFFF << 32) | priority — see `session/priority.ts`.
+ * Layout: u64 = (0xFFFFFFFF << 32) | priority — see the module doc above.
  * Supersession and account-quota eviction compare the whole u64 with
  * strictly-greater semantics, so every writer signing with the SAME account
  * must draw from ONE allocator instance: independent counters produce

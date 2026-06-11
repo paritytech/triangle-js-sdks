@@ -12,11 +12,15 @@ import { isPriorityTooLow, submitWithRetry } from './retry.js';
 export type SubmitStatementParams = {
   statementStore: StatementStoreAdapter;
   prover: StatementProver;
-  /** Shared per-signing-account expiry source — see {@link ExpiryAllocator}. */
+  /**
+   * Shared per-signing-account expiry source
+   **/
   allocator: ExpiryAllocator;
   channel: Uint8Array;
   topics: Uint8Array[];
-  /** Opaque payload — encryption (if any) is the caller's concern. */
+  /**
+   * Opaque payload — encryption (if any) is the caller's concern.
+   **/
   data: Uint8Array;
 };
 

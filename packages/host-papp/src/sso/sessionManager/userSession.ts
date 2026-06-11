@@ -27,7 +27,7 @@ import type { SigningPayloadRequest, SigningPayloadResponseData, SigningRawReque
 // this timeout the queue task fails, freeing the pool for the next request.
 const QUEUE_TASK_TIMEOUT_MS = 180_000;
 // Mobile SSO statements allow 500 KiB total; keep headroom for statement/session overhead.
-const MAX_SSO_REQUEST_SIZE = 500 * 1024;
+const MAX_SSO_REQUEST_SIZE = 498 * 1024;
 
 function withQueueTimeout<T>(resultAsync: ResultAsync<T, Error>, label: string): ResultAsync<T, Error> {
   const timeoutPromise = new Promise<Result<T, Error>>(resolve =>

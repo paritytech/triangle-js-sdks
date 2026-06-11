@@ -951,80 +951,52 @@ describe('session', () => {
       expect(adapter.submitStatement.mock.calls.length).toBeGreaterThan(submitsBefore);
     }, 3000);
 
-    it('absorbs a superseded response rejected as ExpiryTooLow and keeps the request answered', async () => {
-      // Two incoming requests are answered on the SHARED response channel. The response to A is in
-      // flight when the response to B takes over the channel; A then lands at a now-lower expiry and
-      // the store rejects it (ExpiryTooLow). That supersession is expected: B's response owns the
-      // channel, so A's rejection must be absorbed (not surfaced) and A must stay marked answered —
-      // re-answering would only clobber B. (Returning ok here is also what stops respondToRequests
-      // from logging it as a failed response.)
-      const reqA = makeStatement({ tag: 'request', value: { requestId: 'A', data: [] } });
-      const { subscribeStatements, callbacks } = capturingSubscribe();
-      const { submitStatement, pendings } = deferredSubmit();
-      const { session, adapter } = makeSession({ peer: [reqA], subscribeStatements, submitStatement });
-      await delay();
-      session.subscribe(rawCodec, vi.fn()); // activate the store subscription
-      const reqB = makeStatement({ tag: 'request', value: { requestId: 'B', data: [] } });
-      callbacks[0]!({ statements: [reqB], isComplete: true });
-      await delay();
+    it.each([
+      ['ExpiryTooLow', ExpiryTooLowError],
+      ['AccountFull', AccountFullError],
+    ])(
+      'absorbs a superseded response rejected as %s and keeps the request answered',
+      async (_name, PriorityError) => {
+        // Two incoming requests are answered on the SHARED response channel. The response to A is in
+        // flight when the response to B takes over the channel; A then lands at a now-lower expiry and
+        // the store rejects it with a priority error. That supersession is expected: B's response owns
+        // the channel, so A's rejection must be absorbed (not surfaced) and A must stay marked
+        // answered — re-answering would only clobber B. (Returning ok here is also what stops
+        // respondToRequests from logging it as a failed response.)
+        const reqA = makeStatement({ tag: 'request', value: { requestId: 'A', data: [] } });
+        const { subscribeStatements, callbacks } = capturingSubscribe();
+        const { submitStatement, pendings } = deferredSubmit();
+        const { session, adapter } = makeSession({ peer: [reqA], subscribeStatements, submitStatement });
+        await delay();
+        session.subscribe(rawCodec, vi.fn()); // activate the store subscription
+        const reqB = makeStatement({ tag: 'request', value: { requestId: 'B', data: [] } });
+        callbacks[0]!({ statements: [reqB], isComplete: true });
+        await delay();
 
-      const resAPromise = session.submitResponseMessage('A', 'success'); // in flight on the shared channel
-      const resBPromise = session.submitResponseMessage('B', 'success'); // supersedes A
-      await delay(); // both reach submitStatement
+        const resAPromise = session.submitResponseMessage('A', 'success'); // in flight on the shared channel
+        const resBPromise = session.submitResponseMessage('B', 'success'); // supersedes A
+        await delay(); // both reach submitStatement
 
-      expect(pendings).toHaveLength(2);
-      pendings.find(p => p.requestId === 'B')!.settle(ok(undefined)); // B lands, owns the channel
-      pendings.find(p => p.requestId === 'A')!.settle(err(new ExpiryTooLowError(0n, 0n))); // A lands late, rejected
+        expect(pendings).toHaveLength(2);
+        pendings.find(p => p.requestId === 'B')!.settle(ok(undefined)); // B lands, owns the channel
+        pendings.find(p => p.requestId === 'A')!.settle(err(new PriorityError(0n, 0n))); // A lands late, rejected
 
-      const resA = await resAPromise;
-      const resB = await resBPromise;
-      expect(resB.isOk()).toBe(true);
-      expect(resA.isOk()).toBe(true); // superseded rejection absorbed, not surfaced as an error
+        const resA = await resAPromise;
+        const resB = await resBPromise;
+        expect(resB.isOk()).toBe(true);
+        expect(resA.isOk()).toBe(true); // superseded rejection absorbed, not surfaced as an error
 
-      // A stays answered: re-answering it must NOT submit again (which would clobber B's response).
-      const submitsBefore = adapter.submitStatement.mock.calls.length;
-      const reAnswer = await session.submitResponseMessage('A', 'success');
-      await delay();
-      expect(reAnswer.isOk()).toBe(true);
-      expect(adapter.submitStatement.mock.calls.length).toBe(submitsBefore); // deduped → no resubmit
+        // A stays answered: re-answering it must NOT submit again (which would clobber B's response).
+        const submitsBefore = adapter.submitStatement.mock.calls.length;
+        const reAnswer = await session.submitResponseMessage('A', 'success');
+        await delay();
+        expect(reAnswer.isOk()).toBe(true);
+        expect(adapter.submitStatement.mock.calls.length).toBe(submitsBefore); // deduped → no resubmit
 
-      session.dispose();
-    }, 3000);
-
-    it('absorbs a superseded response rejected as AccountFull and keeps the request answered', async () => {
-      // Mirror of the ExpiryTooLow supersession test: once the submission is no longer live, an
-      // AccountFull rejection means we simply lost the channel race — absorb it as success.
-      const reqA = makeStatement({ tag: 'request', value: { requestId: 'A', data: [] } });
-      const { subscribeStatements, callbacks } = capturingSubscribe();
-      const { submitStatement, pendings } = deferredSubmit();
-      const { session, adapter } = makeSession({ peer: [reqA], subscribeStatements, submitStatement });
-      await delay();
-      session.subscribe(rawCodec, vi.fn());
-      const reqB = makeStatement({ tag: 'request', value: { requestId: 'B', data: [] } });
-      callbacks[0]!({ statements: [reqB], isComplete: true });
-      await delay();
-
-      const resAPromise = session.submitResponseMessage('A', 'success');
-      const resBPromise = session.submitResponseMessage('B', 'success');
-      await delay();
-
-      expect(pendings).toHaveLength(2);
-      pendings.find(p => p.requestId === 'B')!.settle(ok(undefined)); // B lands, owns the channel
-      pendings.find(p => p.requestId === 'A')!.settle(err(new AccountFullError(0n, 0n))); // A lands late, rejected
-
-      const resA = await resAPromise;
-      const resB = await resBPromise;
-      expect(resB.isOk()).toBe(true);
-      expect(resA.isOk()).toBe(true); // superseded rejection absorbed, not surfaced as an error
-
-      const submitsBefore = adapter.submitStatement.mock.calls.length;
-      const reAnswer = await session.submitResponseMessage('A', 'success');
-      await delay();
-      expect(reAnswer.isOk()).toBe(true);
-      expect(adapter.submitStatement.mock.calls.length).toBe(submitsBefore); // deduped → no resubmit
-
-      session.dispose();
-    }, 3000);
+        session.dispose();
+      },
+      3000,
+    );
   });
 
   // clearOutgoingStatement aborts the in-flight request: it drops local state, rejects waiters, and
@@ -1233,107 +1205,71 @@ describe('session', () => {
       session.dispose();
     }, 3000);
 
-    it('resyncs its expiry above the chain minimum after an ExpiryTooLow rejection', async () => {
-      // The in-memory expiry counter has drifted behind the channel's real priority (prior run /
-      // other writer / propagation lag). The chain reports the minimum; the retry must clear it.
-      const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n; // well above the wall-clock priority
-      let calls = 0;
-      const submitStatement = vi.fn((stmt: Statement) => {
-        calls++;
-        return calls === 1 ? errAsync(new ExpiryTooLowError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined);
-      });
-      const { session, adapter } = makeSession({ submitStatement });
-      await delay();
+    it.each([
+      ['ExpiryTooLow', ExpiryTooLowError],
+      ['AccountFull', AccountFullError],
+    ])(
+      'resyncs its expiry above the chain minimum after an %s rejection',
+      async (_name, PriorityError) => {
+        // The in-memory expiry counter has drifted behind the chain's real priority floor (prior run /
+        // other writer / propagation lag / account full of higher-priority statements). The chain
+        // reports the minimum; the retry must clear it.
+        const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n; // well above the wall-clock priority
+        let calls = 0;
+        const submitStatement = vi.fn((stmt: Statement) => {
+          calls++;
+          return calls === 1 ? errAsync(new PriorityError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined);
+        });
+        const { session, adapter } = makeSession({ submitStatement });
+        await delay();
 
-      void session.submitRequestMessage(rawCodec, new Uint8Array([1]));
-      await new Promise(resolve => setTimeout(resolve, 100)); // allow the retry (25ms backoff)
+        void session.submitRequestMessage(rawCodec, new Uint8Array([1]));
+        await new Promise(resolve => setTimeout(resolve, 100)); // allow the retry (25ms backoff)
 
-      expect(adapter.submitStatement.mock.calls.length).toBeGreaterThanOrEqual(2);
-      const retried = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
-      expect(retried.expiry ?? 0n).toBeGreaterThan(CHAIN_MIN); // healed past the chain minimum
-      session.dispose();
-    }, 3000);
-
-    it('resyncs its expiry above the chain minimum after an AccountFull rejection', async () => {
-      // accountFull is the account-quota variant of channelPriorityTooLow: the account is full of
-      // higher-priority statements and ours can only land above the reported minimum. Same recovery
-      // as ExpiryTooLow: adopt the minimum, resubmit above it.
-      const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n; // well above the wall-clock priority
-      let calls = 0;
-      const submitStatement = vi.fn((stmt: Statement) => {
-        calls++;
-        return calls === 1 ? errAsync(new AccountFullError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined);
-      });
-      const { session, adapter } = makeSession({ submitStatement });
-      await delay();
-
-      void session.submitRequestMessage(rawCodec, new Uint8Array([1]));
-      await new Promise(resolve => setTimeout(resolve, 100)); // allow the retry (25ms backoff)
-
-      expect(adapter.submitStatement.mock.calls.length).toBeGreaterThanOrEqual(2);
-      const retried = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
-      expect(retried.expiry ?? 0n).toBeGreaterThan(CHAIN_MIN); // healed past the chain minimum
-      session.dispose();
-    }, 3000);
-
-    it('keeps retrying a live ExpiryTooLow past the transient-retry cap until it lands', async () => {
-      // ExpiryTooLow is a sync artifact, not a chain failure: while the submission is still live the
-      // session keeps retrying (resyncing each time) BEYOND MAX_SUBMIT_RETRIES until it lands, and
-      // never surfaces ExpiryTooLow to the caller. (A non-ExpiryTooLow error gives up at the cap —
-      // see the test below.)
-      const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n;
-      let calls = 0;
-      const submitStatement = vi.fn((stmt: Statement) =>
-        ++calls <= 6 ? errAsync(new ExpiryTooLowError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined),
-      );
-      const { session } = makeSession({ submitStatement });
-      await delay();
-
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      try {
-        const submit = await session.submitRequestMessage(rawCodec, new Uint8Array([1]));
-        let waiterRejected = false;
-        void session.waitForResponseMessage(submit._unsafeUnwrap().requestId).mapErr(() => (waiterRejected = true));
-
-        await new Promise(resolve => setTimeout(resolve, 300)); // 6 retries × 25ms backoff + slack
-
-        expect(calls).toBeGreaterThanOrEqual(7); // retried well past the 3-attempt cap, then landed
-        expect(errorSpy).not.toHaveBeenCalledWith('submitRequest failed:', expect.anything());
-        expect(waiterRejected).toBe(false); // ExpiryTooLow never surfaced to the caller
-      } finally {
-        errorSpy.mockRestore();
+        expect(adapter.submitStatement.mock.calls.length).toBeGreaterThanOrEqual(2);
+        const retried = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
+        expect(retried.expiry ?? 0n).toBeGreaterThan(CHAIN_MIN); // healed past the chain minimum
         session.dispose();
-      }
-    }, 3000);
+      },
+      3000,
+    );
 
-    it('keeps retrying a live AccountFull past the transient-retry cap until it lands', async () => {
-      // Like ExpiryTooLow, AccountFull is a priority-sync artifact, not a chain failure: while the
-      // submission is live the session must keep retrying (resyncing each time) BEYOND
-      // MAX_SUBMIT_RETRIES until it lands, and never surface AccountFull to the caller.
-      const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n;
-      let calls = 0;
-      const submitStatement = vi.fn((stmt: Statement) =>
-        ++calls <= 6 ? errAsync(new AccountFullError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined),
-      );
-      const { session } = makeSession({ submitStatement });
-      await delay();
+    it.each([
+      ['ExpiryTooLow', ExpiryTooLowError],
+      ['AccountFull', AccountFullError],
+    ])(
+      'keeps retrying a live %s past the transient-retry cap until it lands',
+      async (_name, PriorityError) => {
+        // Priority errors are sync artifacts, not chain failures: while the submission is still live
+        // the session keeps retrying (resyncing each time) BEYOND MAX_SUBMIT_RETRIES until it lands,
+        // and never surfaces the error to the caller. (A non-priority error gives up at the cap —
+        // see the test below.)
+        const CHAIN_MIN = (0xffff_ffffn << 32n) | 4_000_000_000n;
+        let calls = 0;
+        const submitStatement = vi.fn((stmt: Statement) =>
+          ++calls <= 6 ? errAsync(new PriorityError(stmt.expiry ?? 0n, CHAIN_MIN)) : okAsync(undefined),
+        );
+        const { session } = makeSession({ submitStatement });
+        await delay();
 
-      const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-      try {
-        const submit = await session.submitRequestMessage(rawCodec, new Uint8Array([1]));
-        let waiterRejected = false;
-        void session.waitForResponseMessage(submit._unsafeUnwrap().requestId).mapErr(() => (waiterRejected = true));
+        const errorSpy = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+        try {
+          const submit = await session.submitRequestMessage(rawCodec, new Uint8Array([1]));
+          let waiterRejected = false;
+          void session.waitForResponseMessage(submit._unsafeUnwrap().requestId).mapErr(() => (waiterRejected = true));
 
-        await new Promise(resolve => setTimeout(resolve, 300)); // 6 retries × 25ms backoff + slack
+          await new Promise(resolve => setTimeout(resolve, 300)); // 6 retries × 25ms backoff + slack
 
-        expect(calls).toBeGreaterThanOrEqual(7); // retried well past the 3-attempt cap, then landed
-        expect(errorSpy).not.toHaveBeenCalledWith('submitRequest failed:', expect.anything());
-        expect(waiterRejected).toBe(false); // AccountFull never surfaced to the caller
-      } finally {
-        errorSpy.mockRestore();
-        session.dispose();
-      }
-    }, 3000);
+          expect(calls).toBeGreaterThanOrEqual(7); // retried well past the 3-attempt cap, then landed
+          expect(errorSpy).not.toHaveBeenCalledWith('submitRequest failed:', expect.anything());
+          expect(waiterRejected).toBe(false); // the priority error never surfaced to the caller
+        } finally {
+          errorSpy.mockRestore();
+          session.dispose();
+        }
+      },
+      3000,
+    );
 
     it('rejects the pending waiter once request-submission retries are exhausted', async () => {
       const { session } = makeSession({

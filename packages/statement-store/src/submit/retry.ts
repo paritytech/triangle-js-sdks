@@ -1,4 +1,5 @@
-import { ResultAsync, errAsync, okAsync } from 'neverthrow';
+import type { Result } from 'neverthrow';
+import { ResultAsync, err, ok } from 'neverthrow';
 
 import { AccountFullError, ExpiryTooLowError } from '../adapter/types.js';
 
@@ -42,29 +43,37 @@ export function submitWithRetry(
 ): ResultAsync<void, Error> {
   const { attempts, priorityAttempts, delaysMs, shouldRetry = () => true, onRetry } = options;
 
-  const run = (attemptsLeft: number, priorityLeft: number | 'unbounded', attempt: number): ResultAsync<void, Error> => {
-    // How to settle once we stop retrying: under the 'unbounded' policy a
-    // no-longer-live submission rejected with a priority error simply lost the
-    // channel race to a newer, higher-priority statement — benign, so report success.
-    const settle = (error: Error): ResultAsync<void, Error> =>
-      priorityAttempts === 'unbounded' && !shouldRetry() && isPriorityTooLow(error)
-        ? okAsync<void, Error>(undefined)
-        : errAsync(error);
+  // How to settle once we stop retrying: under the 'unbounded' policy a
+  // no-longer-live submission rejected with a priority error simply lost the
+  // channel race to a newer, higher-priority statement — benign, so report success.
+  const settle = (error: Error): Result<void, Error> =>
+    priorityAttempts === 'unbounded' && !shouldRetry() && isPriorityTooLow(error) ? ok() : err(error);
 
-    return submit().orElse(error => {
+  // Iterative on purpose: a recursive ResultAsync chain holds one pending wrapper
+  // promise per attempt, which grows without bound under 'unbounded' retries.
+  const run = async (): Promise<Result<void, Error>> => {
+    let attemptsLeft = attempts;
+    let priorityLeft = priorityAttempts;
+    for (let attempt = 0; ; attempt++) {
+      const result = await submit();
+      if (result.isOk()) return result;
+
+      const error = result.error;
       const priority = isPriorityTooLow(error);
       const budgetLeft = priority ? priorityLeft : attemptsLeft;
       if (!shouldRetry() || (typeof budgetLeft === 'number' && budgetLeft <= 0)) return settle(error);
 
       const delayMs = delayFor(delaysMs, attempt);
       onRetry?.({ attempt, delayMs, error });
-      const nextAttempts = priority ? attemptsLeft : attemptsLeft - 1;
-      const nextPriority = priority && priorityLeft !== 'unbounded' ? priorityLeft - 1 : priorityLeft;
-      return ResultAsync.fromSafePromise(new Promise<void>(resolve => setTimeout(resolve, delayMs))).andThen(() =>
-        shouldRetry() ? run(nextAttempts, nextPriority, attempt + 1) : settle(error),
-      );
-    });
+      if (priority) {
+        if (priorityLeft !== 'unbounded') priorityLeft -= 1;
+      } else {
+        attemptsLeft -= 1;
+      }
+      await new Promise<void>(resolve => setTimeout(resolve, delayMs));
+      if (!shouldRetry()) return settle(error);
+    }
   };
 
-  return run(attempts, priorityAttempts, 0);
+  return new ResultAsync(run());
 }
