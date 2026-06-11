@@ -1,10 +1,18 @@
 ## 0.8.7 (2026-06-06)
 
+### 🚀 Features
+
+- **statement-store:** sign-and-submit primitives are now exported from the package index: `createExpiryAllocator` (a strictly-increasing expiry/priority source for one signing account, with a floor that adopts chain-reported minimums), `submitStatementOnce` / `signAndSubmitStatement` (allocate an expiry, prove and submit a statement, resyncing the allocator on a priority rejection), and `submitWithRetry` / `isPriorityTooLow` (a retry policy with separate budgets for transient failures and priority rejections). The session consumes the same primitives internally, and `createSession` accepts an optional shared `allocator` so several writers signing with the same account cannot tie on same-second priorities.
+
 ### 🩹 Fixes
 
 - **statement-store:** reworked the session to match the iOS/Android implementations. Concurrent incoming requests are now tracked independently (an older request stays answerable after a newer one arrives), transient submit/query failures are retried with a short backoff, and message batches are sized against the full encoded request payload instead of the raw bytes. Statement expiry is pinned to a non-expiring max with a wall-clock priority so channel supersession is deterministic, and a request id is best-effort recovered from a corrupt payload so the sender can be NACKed. Adds an in-memory adapter for tests.
+- **statement-store:** the statement priority (the expiry's low word) is now counted from the spec's priority epoch (2025-11-15, exported as `PRIORITY_EPOCH_OFFSET`), matching iOS and Android. Previously it was the raw Unix timestamp, which made every TS-written statement outrank mobile-written ones in cross-client priority comparisons.
+- **statement-store:** priority rejections (`ExpiryTooLowError` and `AccountFullError`) no longer surface to session callers: while a submission is live the session resyncs its expiry above the chain-reported minimum and keeps retrying beyond the transient-failure cap; once the submission is superseded on its channel, the rejection is absorbed as success — it merely lost the race to a newer statement, and re-answering would clobber it.
+- **statement-store:** a disposed session now rejects `submitRequestMessage` / `submitResponseMessage` immediately instead of hanging, and no longer re-activates (or submits queued work) when `dispose()` lands while initialization is still in flight.
 - **statement-store / host-papp:** the SSO allowance service now builds its statement-store prover from the mobile slot-account secret (`privateKey || nonce`) via the new `createSlotAccountProver`, instead of treating it as a raw sr25519 secret — proofs now sign and verify against the correct slot-account public key.
 - **host-papp:** the authorising device's encryption public key (`deviceEncPubKey`) from the V2 handshake response is now persisted on `StoredUserSession` and exposed on the session, so the host can ECDH-address the paired device (e.g. for device-sync). It was previously decoded but dropped on persistence, leaving consumers to mis-read the 32-byte SSO shared secret in `remoteAccount.publicKey` as a public key.
+- **host-papp:** the SSO request size limit was raised from 254 KiB to 500 KiB, tracking the mobile statement allowance.
 - bumped `polkadot-api` to 2.1.6, which fixes a double-notification bug.
 
 ### 🏡 Chore
