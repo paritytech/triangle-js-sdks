@@ -47,12 +47,11 @@ export {
 export { createPapiStatementStoreAdapter } from './adapter/rpc.js';
 
 export type { ExpiryAllocator } from './submit/allocator.js';
-export { createExpiryAllocator } from './submit/allocator.js';
+export { PRIORITY_EPOCH_OFFSET, createExpiryAllocator } from './submit/allocator.js';
 export type { SubmitRetryOptions } from './submit/retry.js';
 export { isPriorityTooLow, submitWithRetry } from './submit/retry.js';
 export type { SubmitStatementParams } from './submit/submitStatement.js';
 export { signAndSubmitStatement, submitStatementOnce } from './submit/submitStatement.js';
-export { PRIORITY_EPOCH_OFFSET, nextExpiry } from './session/priority.js';
 
 export {
   createSr25519Derivation,

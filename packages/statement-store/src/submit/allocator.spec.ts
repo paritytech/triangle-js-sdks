@@ -1,8 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { PRIORITY_EPOCH_OFFSET } from '../session/priority.js';
-
-import { createExpiryAllocator } from './allocator.js';
+import { PRIORITY_EPOCH_OFFSET, createExpiryAllocator } from './allocator.js';
 
 const NOW_SECS = 1_790_000_000; // 2026-09-22, safely past the 2025-11-15 priority epoch
 

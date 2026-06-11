@@ -1,7 +1,7 @@
+import { toHex } from '@novasamatech/scale';
 import type { Statement } from '@novasamatech/sdk-statement';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, fromPromise, fromThrowable, ok, okAsync } from 'neverthrow';
-import { toHex } from 'polkadot-api/utils';
 import type { Codec, CodecType } from 'scale-ts';
 import { Struct, str } from 'scale-ts';
 
