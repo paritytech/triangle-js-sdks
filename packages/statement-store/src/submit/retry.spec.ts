@@ -52,6 +52,32 @@ describe('submitWithRetry', () => {
     expect(submit).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
   });
 
+  it('onPriorityError fires for every priority rejection, including the terminal one once the budget is exhausted', async () => {
+    const seen: bigint[] = [];
+    let calls = 0;
+    const submit = vi.fn(() => errAsync<void, Error>(new AccountFullError(0n, BigInt(++calls))));
+
+    const result = await submitWithRetry(submit, {
+      ...FAST,
+      attempts: 0,
+      priorityAttempts: 2,
+      onPriorityError: error => seen.push(error.min),
+    });
+
+    expect(result.isErr()).toBe(true);
+    expect(submit).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
+    expect(seen).toEqual([1n, 2n, 3n]); // adopted the floor on all three, including the terminal rejection
+  });
+
+  it('onPriorityError is not called for non-priority errors', async () => {
+    const onPriorityError = vi.fn();
+    const submit = vi.fn(() => errAsync<void, Error>(new Error('store rejected')));
+
+    await submitWithRetry(submit, { ...FAST, attempts: 2, priorityAttempts: 'unbounded', onPriorityError });
+
+    expect(onPriorityError).not.toHaveBeenCalled();
+  });
+
   it('attempts 0: a non-priority error propagates immediately', async () => {
     const submit = vi.fn(() => errAsync<void, Error>(new Error('store rejected')));
 

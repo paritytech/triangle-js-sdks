@@ -206,18 +206,25 @@ export function createSession({
   let lastResponseRequestId: string | null = null;
 
   // Encrypt, then submit on `channel`/`topicSessionId` at the allocator's next (strictly
-  // increasing) expiry. On a priority rejection submitStatementOnce resyncs the allocator to the
-  // chain-reported minimum before propagating, so the retry — and every later submit — clears it.
+  // increasing) expiry. A priority rejection does NOT resync the allocator here — each caller
+  // raises the floor to the chain-reported minimum (the submitWithRetry `onPriorityError` hooks
+  // below, and the one-shot clear in clearOutgoingStatement), so the retry — and every later
+  // submit — clears it.
   function submitStatementData(
     channel: Uint8Array,
     topicSessionId: SessionId,
     data: Uint8Array,
   ): ResultAsync<void, Error> {
-    return encryption
-      .encrypt(data)
-      .asyncAndThen(encrypted =>
-        submitStatementOnce({ statementStore, prover, allocator, channel, topics: [topicSessionId], data: encrypted }),
-      );
+    return encryption.encrypt(data).asyncAndThen(encrypted =>
+      submitStatementOnce({
+        statementStore,
+        prover,
+        allocator,
+        channel,
+        topics: [topicSessionId],
+        data: encrypted,
+      }),
+    );
   }
 
   // Settle and remove the pending-delivery entries for the given tokens.
@@ -233,8 +240,8 @@ export function createSession({
 
   // Session retry policy (this and every submitWithRetry call below): priority errors
   // (ExpiryTooLow / AccountFull) are retried with `priorityAttempts: 'unbounded'` — they never
-  // consume the transient-failure budget, because submitStatementData has already resynced the
-  // allocator above the chain-reported minimum, so the next attempt submits higher. We keep at it
+  // consume the transient-failure budget, because the `onPriorityError` hook raises the allocator
+  // floor above the chain-reported minimum, so the next attempt submits higher. We keep at it
   // until the statement lands or the submission is superseded; once superseded, a priority
   // rejection is swallowed as success (it merely lost the channel race to a newer, higher-priority
   // statement). The upshot: priority errors never surface to session callers. Other errors keep
@@ -248,6 +255,8 @@ export function createSession({
           attempts: MAX_SUBMIT_RETRIES,
           priorityAttempts: 'unbounded',
           delaysMs: RETRY_DELAY_MS,
+          // Adopt the chain-reported floor so the next attempt submits strictly above it.
+          onPriorityError: error => allocator.raiseFloor(error.min),
           // Only keep retrying while this is still the live submission (not superseded by a
           // newer retransmit, aborted via clearOutgoingStatement, or disposed).
           shouldRetry: () => !disposed && state.outgoingRequest?.requestIds.at(-1) === requestId,
@@ -595,6 +604,8 @@ export function createSession({
           attempts: MAX_SUBMIT_RETRIES,
           priorityAttempts: 'unbounded',
           delaysMs: RETRY_DELAY_MS,
+          // Adopt the chain-reported floor so the next attempt submits strictly above it.
+          onPriorityError: error => allocator.raiseFloor(error.min),
           // Stop retrying once a newer response supersedes this one (shared response channel) or disposed.
           shouldRetry: () => !disposed && lastResponseRequestId === requestId,
         })
@@ -725,10 +736,13 @@ export function createSession({
       // would leave the original request live on-chain. One shot, no retry (clearing is a
       // supersede, not a request that must land); a priority rejection (ExpiryTooLow /
       // AccountFull) means the channel already advanced past us, so the clear already
-      // happened → absorb it as success.
-      return submitStatementData(requestChannel, outgoingSessionId, encoded.value).orElse(error =>
-        isPriorityTooLow(error) ? okAsync<void, Error>(undefined) : errAsync(error),
-      );
+      // happened → absorb it as success. No retry loop here means no onPriorityError hook, so
+      // resync the allocator inline: adopt the chain floor before absorbing, so later submits stay above it.
+      return submitStatementData(requestChannel, outgoingSessionId, encoded.value).orElse(error => {
+        if (!isPriorityTooLow(error)) return errAsync(error);
+        allocator.raiseFloor(error.min);
+        return okAsync<void, Error>(undefined);
+      });
     },
 
     dispose() {

@@ -30,6 +30,14 @@ export type SubmitRetryOptions = {
   shouldRetry?: () => boolean;
   /** Observe each scheduled retry (logging hook). `attempt` is 0-based. */
   onRetry?: (info: { attempt: number; delayMs: number; error: Error }) => void;
+  /**
+   * Invoked on every priority rejection (ExpiryTooLow / AccountFull), before the retry
+   * decision — so it fires even when the priority budget is exhausted or the submission is
+   * no longer live. This is where the caller adopts the chain-reported floor (`error.min`)
+   * into its allocator, so the NEXT attempt — here or via an outer retry/outbox — submits
+   * strictly above it and clears in one step rather than climbing.
+   */
+  onPriorityError?: (error: ExpiryTooLowError | AccountFullError) => void;
 };
 
 function delayFor(delaysMs: number | number[], attempt: number): number {
@@ -41,7 +49,7 @@ export function submitWithRetry(
   submit: () => ResultAsync<void, Error>,
   options: SubmitRetryOptions,
 ): ResultAsync<void, Error> {
-  const { attempts, priorityAttempts, delaysMs, shouldRetry = () => true, onRetry } = options;
+  const { attempts, priorityAttempts, delaysMs, shouldRetry = () => true, onRetry, onPriorityError } = options;
 
   // How to settle once we stop retrying: under the 'unbounded' policy a
   // no-longer-live submission rejected with a priority error simply lost the
@@ -59,13 +67,16 @@ export function submitWithRetry(
       if (result.isOk()) return result;
 
       const error = result.error;
-      const priority = isPriorityTooLow(error);
-      const budgetLeft = priority ? priorityLeft : attemptsLeft;
+      const priorityError = isPriorityTooLow(error) ? error : null;
+      // Adopt the chain-reported floor before deciding whether to retry, so an exhausted or
+      // no-longer-live priority rejection still raises it for any outer retry/outbox.
+      if (priorityError) onPriorityError?.(priorityError);
+      const budgetLeft = priorityError ? priorityLeft : attemptsLeft;
       if (!shouldRetry() || (typeof budgetLeft === 'number' && budgetLeft <= 0)) return settle(error);
 
       const delayMs = delayFor(delaysMs, attempt);
       onRetry?.({ attempt, delayMs, error });
-      if (priority) {
+      if (priorityError) {
         if (priorityLeft !== 'unbounded') priorityLeft -= 1;
       } else {
         attemptsLeft -= 1;

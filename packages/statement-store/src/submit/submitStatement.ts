@@ -49,5 +49,9 @@ export function submitStatementOnce(params: SubmitStatementParams): ResultAsync<
 }
 
 export function signAndSubmitStatement(params: SubmitStatementParams & { retry: SubmitRetryOptions }) {
-  return submitWithRetry(() => submitStatementOnce(params), params.retry);
+  return submitWithRetry(() => submitStatementOnce(params), {
+    ...params.retry,
+    // Adopt the chain-reported floor so the next retry submits strictly above it and clears.
+    onPriorityError: error => params.allocator.raiseFloor(error.min),
+  });
 }
