@@ -54,7 +54,7 @@ export function submitWithRetry(
     return submit().orElse(error => {
       const priority = isPriorityTooLow(error);
       const budgetLeft = priority ? priorityLeft : attemptsLeft;
-      if (!shouldRetry() || budgetLeft === 0) return settle(error);
+      if (!shouldRetry() || (typeof budgetLeft === 'number' && budgetLeft <= 0)) return settle(error);
 
       const delayMs = delayFor(delaysMs, attempt);
       onRetry?.({ attempt, delayMs, error });

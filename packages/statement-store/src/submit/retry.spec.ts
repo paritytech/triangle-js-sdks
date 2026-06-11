@@ -91,6 +91,35 @@ describe('submitWithRetry', () => {
     ]);
   });
 
+  it('a negative budget propagates immediately instead of looping', async () => {
+    const submit = vi.fn(() => errAsync<void, Error>(new Error('store rejected')));
+
+    const result = await submitWithRetry(submit, { ...FAST, attempts: -1, priorityAttempts: 3 });
+
+    expect(result.isErr()).toBe(true);
+    expect(submit).toHaveBeenCalledTimes(1);
+  });
+
+  it('a shouldRetry flip during the backoff settles a priority rejection as success', async () => {
+    let live = true;
+    const submit = vi.fn(() => {
+      queueMicrotask(() => {
+        live = false; // superseded while the backoff sleep is pending
+      });
+      return errAsync<void, Error>(new ExpiryTooLowError(0n, 1n));
+    });
+
+    const result = await submitWithRetry(submit, {
+      ...FAST,
+      attempts: 0,
+      priorityAttempts: 'unbounded',
+      shouldRetry: () => live,
+    });
+
+    expect(result.isOk()).toBe(true); // settled after the delay, no second attempt
+    expect(submit).toHaveBeenCalledTimes(1);
+  });
+
   it('shouldRetry is re-checked before each retry and stops the loop', async () => {
     let live = true;
     const submit = vi.fn(() => {
