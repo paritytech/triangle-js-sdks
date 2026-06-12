@@ -9,7 +9,7 @@ import { DerivationIndex } from './accounts.js';
 
 export const AllocatableResource = Enum({
   StatementStoreAllowance: _void,
-  BulletInAllowance: _void,
+  BulletinAllowance: _void,
   SmartContractAllowance: DerivationIndex,
   AutoSigning: _void,
 });

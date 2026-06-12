@@ -1,14 +1,19 @@
 import { blake2b } from '@noble/hashes/blake2.js';
-import { entropyToMiniSecret } from '@polkadot-labs/hdkd-helpers';
 import {
-  HDKD as sr25519HDKD,
-  getPublicKey as sr25519GetPublicKey,
-  secretFromSeed as sr25519SecretFromSeed,
-  sign as sr25519Sign,
-  verify as sr25519Verify,
-} from '@scure/sr25519';
+  deriveSlotAccountPublicKey as deriveSlotPublicKey,
+  ensureSubstrateSlotSr25519Ready,
+  signSlotAccountSecret as signSlotSecret,
+  verifySlotAccountSignature as verifySlotSignature,
+} from '@novasamatech/substrate-slot-sr25519-wasm';
+import { entropyToMiniSecret } from '@polkadot-labs/hdkd-helpers';
+import { HDKD as sr25519HDKD, secretFromSeed as sr25519SecretFromSeed } from '@scure/sr25519';
 import type { Codec } from 'scale-ts';
 import { Bytes, str, u64 } from 'scale-ts';
+
+import { substrateSr25519PublicKey, substrateSr25519Sign, substrateSr25519Verify } from './substrateSr25519.js';
+
+export { ensureSubstrateSlotSr25519Ready };
+export { ensureSubstrateSr25519Ready } from './substrateSr25519.js';
 
 export function BrandedBytesCodec<T extends Uint8Array>(length?: number) {
   return Bytes(length) as unknown as Codec<T>;
@@ -84,14 +89,31 @@ export function createSr25519Derivation(secret: Uint8Array, derivation: string) 
   }, secret);
 }
 
+/** Ed25519-expanded secret (scure HDKD / `createSr25519Secret`). */
 export function deriveSr25519PublicKey(secret: Uint8Array) {
-  return sr25519GetPublicKey(secret) as Uint8Array;
+  return substrateSr25519PublicKey(secret);
 }
 
 export function signWithSr25519Secret(secret: Uint8Array, message: Uint8Array) {
-  return sr25519Sign(secret, message);
+  return substrateSr25519Sign(secret, message);
 }
 
 export function verifySr25519Signature(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) {
-  return sr25519Verify(message, signature, publicKey);
+  return substrateSr25519Verify(message, signature, publicKey);
+}
+
+/**
+ * Substrate slot secret (`privateKey || nonce`, 64 bytes) from mobile `SlotAccountKey`.
+ * Matches Android `deriveAccountId()` / `Sr25519.getPublicKeyFromSecret`.
+ */
+export function deriveSlotAccountPublicKey(secret: Uint8Array) {
+  return deriveSlotPublicKey(secret);
+}
+
+export function signSlotAccountSecret(secret: Uint8Array, message: Uint8Array) {
+  return signSlotSecret(secret, message);
+}
+
+export function verifySlotAccountSignature(message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) {
+  return verifySlotSignature(message, signature, publicKey);
 }

@@ -128,8 +128,9 @@ describe('startPairingV2', () => {
         identityAccountId: new Uint8Array(32).fill(0xa1),
         rootAccountId: new Uint8Array(32).fill(0xa2),
         identityChatPrivateKey: new Uint8Array(32).fill(0xdd),
-        ssoEncPubKey: new Uint8Array(65).fill(0x07),
+        ssoEncPubKey: new Uint8Array(65).fill(0x06),
         deviceEncPubKey: new Uint8Array(65).fill(0x04),
+        rootEntropySource: new Uint8Array(32).fill(0x07),
       },
     });
     store.emit([buildStatement(device, successBytes)]);

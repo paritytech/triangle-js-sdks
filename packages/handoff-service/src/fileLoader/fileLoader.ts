@@ -105,7 +105,7 @@ export function downloadFile(params: DownloadParams): ResultAsync<Uint8Array, Er
   const encryptionKey = deriveEncryptionKey(claimTicket);
   const encryption = createFileEncryption(encryptionKey);
 
-  const claim = (hash: Uint8Array): ResultAsync<Uint8Array, Error> => {
+  const claim = (hash: Uint8Array) => {
     // Skip ack — claim already evicts the entry server-side, and firing a
     // fire-and-forget ack on the same WSS during chunk loops can stall the
     // next claim's response (observed in practice). Android calls ack

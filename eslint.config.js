@@ -14,7 +14,14 @@ export default defineConfig([
   importX.flatConfigs.recommended,
   importX.flatConfigs.typescript,
 
-  globalIgnores(['**/dist', '**/*.d.ts', '**/.papi']),
+  globalIgnores([
+    '**/dist',
+    '**/wasm/**',
+    '**/*.d.ts',
+    '**/.papi',
+    '**/storybook-static/**',
+    '**/rust/**',
+  ]),
 
   {
     files: ['**/*.{ts,tsx}'],
@@ -38,7 +45,7 @@ export default defineConfig([
       '@nx/enforce-module-boundaries': [
         'error',
         {
-          enforceBuildableLibDependency: true,
+          enforceBuildableLibDependency: false,
           allow: ['^.*/eslint(\\.base)?\\.config\\.[cm]?[jt]s$'],
           depConstraints: [
             {

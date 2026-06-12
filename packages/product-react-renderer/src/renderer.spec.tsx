@@ -47,7 +47,7 @@ describe('createRenderer', () => {
     const renderer = createRenderer({ onRender, subscribeActions });
     await act(async () => {
       renderer.mount(
-        <Text style="headline" color="textPrimary">
+        <Text style="headline.large" color="fg.primary">
           Hello
         </Text>,
       );
@@ -56,8 +56,8 @@ describe('createRenderer', () => {
     expect(onRender).toHaveBeenCalledOnce();
     const node = onRender.mock.calls[0]![0];
     expect(node.tag).toBe('Text');
-    expect(node.value.props.style).toBe('headline');
-    expect(node.value.props.color).toBe('textPrimary');
+    expect(node.value.props.style).toBe('headline.large');
+    expect(node.value.props.color).toBe('fg.primary');
     expect(node.value.children[0]).toEqual({ tag: 'String', value: 'Hello' });
   });
 
@@ -82,7 +82,7 @@ describe('createRenderer', () => {
     await act(async () => {
       renderer.mount(
         <Column padding={16} horizontalAlignment="center">
-          <Text style="bodyM">Label</Text>
+          <Text style="body.medium.regular">Label</Text>
           <Spacer />
         </Column>,
       );

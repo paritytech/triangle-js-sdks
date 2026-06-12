@@ -1,11 +1,18 @@
+import { fromHex } from '@novasamatech/scale';
 import type { SignedStatement, Statement } from '@novasamatech/sdk-statement';
 import { getStatementSigner, statementCodec } from '@novasamatech/sdk-statement';
-import { compact } from '@polkadot-api/substrate-bindings';
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, fromPromise, fromThrowable, okAsync } from 'neverthrow';
-import { fromHex } from 'polkadot-api/utils';
+import { compact } from 'scale-ts';
 
-import { deriveSr25519PublicKey, signWithSr25519Secret, verifySr25519Signature } from '../crypto.js';
+import {
+  deriveSlotAccountPublicKey,
+  deriveSr25519PublicKey,
+  signSlotAccountSecret,
+  signWithSr25519Secret,
+  verifySlotAccountSignature,
+  verifySr25519Signature,
+} from '../crypto.js';
 import { toError } from '../helpers.js';
 
 export type StatementProver = {
@@ -13,11 +20,15 @@ export type StatementProver = {
   verifyMessageProof(statement: Statement): ResultAsync<boolean, Error>;
 };
 
-export function createSr25519Prover(secret: Uint8Array): StatementProver {
-  const signer = getStatementSigner(deriveSr25519PublicKey(secret), 'sr25519', data =>
-    signWithSr25519Secret(secret, data),
-  );
-  const verify = fromThrowable(verifySr25519Signature, toError);
+type Sr25519Scheme = {
+  derivePublicKey: (secret: Uint8Array) => Uint8Array;
+  sign: (secret: Uint8Array, message: Uint8Array) => Uint8Array;
+  verify: (message: Uint8Array, signature: Uint8Array, publicKey: Uint8Array) => boolean;
+};
+
+function createSr25519SchemeProver(secret: Uint8Array, scheme: Sr25519Scheme): StatementProver {
+  const signer = getStatementSigner(scheme.derivePublicKey(secret), 'sr25519', data => scheme.sign(secret, data));
+  const verify = fromThrowable(scheme.verify, toError);
 
   return {
     generateMessageProof(statement) {
@@ -45,4 +56,22 @@ export function createSr25519Prover(secret: Uint8Array): StatementProver {
       }
     },
   };
+}
+
+/** Prover for scure-HDKD / device statement account secrets. */
+export function createSr25519Prover(secret: Uint8Array): StatementProver {
+  return createSr25519SchemeProver(secret, {
+    derivePublicKey: deriveSr25519PublicKey,
+    sign: signWithSr25519Secret,
+    verify: verifySr25519Signature,
+  });
+}
+
+/** Prover for a mobile slot-account secret (`privateKey || nonce`). Call `ensureSubstrateSlotSr25519Ready()` first. */
+export function createSlotAccountProver(secret: Uint8Array): StatementProver {
+  return createSr25519SchemeProver(secret, {
+    derivePublicKey: deriveSlotAccountPublicKey,
+    sign: signSlotAccountSecret,
+    verify: verifySlotAccountSignature,
+  });
 }

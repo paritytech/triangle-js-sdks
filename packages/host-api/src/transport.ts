@@ -2,7 +2,7 @@ import { enumValue, isEnumVariant, resultErr, resultOk, toHex } from '@novasamat
 import { createNanoEvents } from 'nanoevents';
 import type { CodecType } from 'scale-ts';
 
-import { HANDSHAKE_INTERVAL, HANDSHAKE_TIMEOUT, JAM_CODEC_PROTOCOL_ID } from './constants.js';
+import { HANDSHAKE_INTERVAL, HANDSHAKE_TIMEOUT, SCALE_CODEC_PROTOCOL_ID } from './constants.js';
 import { composeAction, createRequestId, delay, promiseWithResolvers } from './helpers.js';
 import type {
   ComposeMessageAction,
@@ -80,7 +80,7 @@ type InternalSubscription = {
 };
 
 export function createTransport(provider: Provider): Transport {
-  let codecVersion = JAM_CODEC_PROTOCOL_ID;
+  let codecVersion = SCALE_CODEC_PROTOCOL_ID;
 
   const handshakeAbortController = new AbortController();
 
@@ -116,7 +116,7 @@ export function createTransport(provider: Provider): Transport {
   }
 
   function throwIfInvalidCodecVersion() {
-    if (codecVersion !== JAM_CODEC_PROTOCOL_ID) {
+    if (codecVersion !== SCALE_CODEC_PROTOCOL_ID) {
       throw new Error(`Unsupported codec version: ${codecVersion}`);
     }
   }
@@ -530,7 +530,7 @@ export function createTransport(provider: Provider): Transport {
           codecVersion = version.value;
 
           switch (version.value) {
-            case JAM_CODEC_PROTOCOL_ID:
+            case SCALE_CODEC_PROTOCOL_ID:
               return enumValue(version.tag, resultOk(undefined));
             default:
               return enumValue(version.tag, resultErr(new HandshakeErr.UnsupportedProtocolVersion(undefined)));

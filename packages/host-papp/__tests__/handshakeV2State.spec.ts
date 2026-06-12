@@ -1,7 +1,8 @@
 import { p256 } from '@noble/curves/nist.js';
+import type { CodecType } from 'scale-ts';
 import { describe, expect, it } from 'vitest';
 
-import type { DecodedHandshakeResponseV2 } from '../src/sso/auth/scale/handshakeV2.js';
+import type { EncryptedHandshakeResponseV2 } from '../src/sso/auth/scale/handshakeV2.js';
 import type { HandshakeState } from '../src/sso/auth/v2/state.js';
 import {
   advance,
@@ -14,6 +15,8 @@ import {
 
 const fixedChatPrivateKey = new Uint8Array(32).fill(0xdd);
 const fixedChatPublicKey = p256.getPublicKey(fixedChatPrivateKey, false);
+const fixedSsoEncPubKey = new Uint8Array(65).fill(0x06);
+const fixedRootEntropySource = new Uint8Array(32).fill(0x07);
 
 const makeSuccess = (overrides: Partial<HandshakeState & { tag: 'Success' }> = {}): HandshakeState => ({
   tag: 'Success',
@@ -22,27 +25,31 @@ const makeSuccess = (overrides: Partial<HandshakeState & { tag: 'Success' }> = {
   identityChatPrivateKey: fixedChatPrivateKey,
   identityChatPublicKey: fixedChatPublicKey,
   deviceEncPubKey: new Uint8Array(65).fill(0x04),
+  ssoEncPubKey: fixedSsoEncPubKey,
+  rootEntropySource: fixedRootEntropySource,
   peerStatementAccountId: null,
   ...overrides,
 });
 
 describe('fromInnerResponse', () => {
   it('maps Pending to Pending state', () => {
-    const r: DecodedHandshakeResponseV2 = {
+    const r: CodecType<typeof EncryptedHandshakeResponseV2> = {
       tag: 'Pending',
       value: { tag: 'AllowanceAllocation', value: undefined },
     };
     expect(fromInnerResponse(r)).toEqual({ tag: 'Pending', reason: 'AllowanceAllocation' });
   });
 
-  it('maps v0.2.1 Success to Success state and derives identityChatPublicKey from priv key', () => {
-    const r: DecodedHandshakeResponseV2 = {
+  it('maps Success with rootEntropySource to Success state and derives identityChatPublicKey from priv key', () => {
+    const r: CodecType<typeof EncryptedHandshakeResponseV2> = {
       tag: 'Success',
       value: {
         identityAccountId: new Uint8Array(32).fill(0xa1),
         rootAccountId: new Uint8Array(32).fill(0xa2),
         identityChatPrivateKey: fixedChatPrivateKey,
+        ssoEncPubKey: fixedSsoEncPubKey,
         deviceEncPubKey: new Uint8Array(65).fill(0x04),
+        rootEntropySource: fixedRootEntropySource,
       },
     };
     const state = fromInnerResponse(r);
@@ -53,26 +60,12 @@ describe('fromInnerResponse', () => {
     expect(state.identityChatPrivateKey).toEqual(fixedChatPrivateKey);
     expect(state.identityChatPublicKey).toEqual(fixedChatPublicKey);
     expect(state.deviceEncPubKey).toEqual(new Uint8Array(65).fill(0x04));
-  });
-
-  it('preserves rootAccountId=null for v0.2 Success payloads', () => {
-    const r: DecodedHandshakeResponseV2 = {
-      tag: 'Success',
-      value: {
-        identityAccountId: new Uint8Array(32).fill(0xa1),
-        rootAccountId: null,
-        identityChatPrivateKey: fixedChatPrivateKey,
-        deviceEncPubKey: new Uint8Array(65).fill(0x04),
-      },
-    };
-    const state = fromInnerResponse(r);
-    expect(state.tag).toBe('Success');
-    if (state.tag !== 'Success') return;
-    expect(state.rootAccountId).toBeNull();
+    expect(state.ssoEncPubKey).toEqual(fixedSsoEncPubKey);
+    expect(state.rootEntropySource).toEqual(fixedRootEntropySource);
   });
 
   it('maps Failed to Failed state with reason string', () => {
-    const r: DecodedHandshakeResponseV2 = { tag: 'Failed', value: 'no slot available' };
+    const r: CodecType<typeof EncryptedHandshakeResponseV2> = { tag: 'Failed', value: 'no slot available' };
     expect(fromInnerResponse(r)).toEqual({ tag: 'Failed', reason: 'no slot available' });
   });
 });

@@ -2,7 +2,7 @@ import { enumValue } from '@novasamatech/scale';
 import { createNanoEvents } from 'nanoevents';
 import { describe, expect, it, vi } from 'vitest';
 
-import { JAM_CODEC_PROTOCOL_ID } from './constants.js';
+import { SCALE_CODEC_PROTOCOL_ID } from './constants.js';
 import { createDefaultLogger } from './logger.js';
 import type { Provider } from './provider.js';
 import { createTransport } from './transport.js';
@@ -28,7 +28,7 @@ function createProviders() {
   };
 }
 
-const samplePayload = () => enumValue('host_handshake_request', enumValue('v1', JAM_CODEC_PROTOCOL_ID));
+const samplePayload = () => enumValue('host_handshake_request', enumValue('v1', SCALE_CODEC_PROTOCOL_ID));
 
 describe('transport', () => {
   describe('subscription', () => {

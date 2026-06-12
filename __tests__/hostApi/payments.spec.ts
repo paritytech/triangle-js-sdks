@@ -37,6 +37,18 @@ describe('Host API: Payments', () => {
 
       expect(received).toEqual([{ available: 100n }]);
     });
+
+    it('should pass the selected purse to handler', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentBalanceSubscribe>>(() => noop);
+      container.handlePaymentBalanceSubscribe(handler);
+
+      payments.subscribeBalance(noop, 7);
+
+      await delay(50);
+
+      expect(handler).toHaveBeenCalledWith({ purse: 7 }, expect.anything(), expect.anything());
+    });
   });
 
   describe('topUp', () => {
@@ -50,11 +62,33 @@ describe('Host API: Payments', () => {
 
     it('should resolve with PrivateKey source', async () => {
       const { container, payments } = setup();
-      const key = new Uint8Array(32).fill(1);
+      const key = new Uint8Array(64).fill(1);
 
       container.handlePaymentTopUp((_params, { ok }) => ok(undefined));
 
       await expect(payments.topUp(50n, { type: 'privateKey', key })).resolves.toBeUndefined();
+    });
+
+    it('should resolve with Coins source', async () => {
+      const { container, payments } = setup();
+      const keys = [new Uint8Array(64).fill(1), new Uint8Array(64).fill(2)];
+
+      container.handlePaymentTopUp((_params, { ok }) => ok(undefined));
+
+      await expect(payments.topUp(75n, { type: 'coins', keys })).resolves.toBeUndefined();
+    });
+
+    it('should pass coin keys to handler', async () => {
+      const { container, payments } = setup();
+      const keys = [new Uint8Array(64).fill(7), new Uint8Array(64).fill(9)];
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
+        ok(undefined),
+      );
+      container.handlePaymentTopUp(handler);
+
+      await payments.topUp(75n, { type: 'coins', keys });
+
+      expect(handler).toHaveBeenCalledWith({ amount: 75n, source: { tag: 'Coins', value: keys } }, expect.anything());
     });
 
     it('should pass amount and source to handler', async () => {
@@ -68,6 +102,21 @@ describe('Host API: Payments', () => {
 
       expect(handler).toHaveBeenCalledWith(
         { amount: 200n, source: { tag: 'ProductAccount', value: 2 } },
+        expect.anything(),
+      );
+    });
+
+    it('should pass the selected purse (into) to handler', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
+        ok(undefined),
+      );
+      container.handlePaymentTopUp(handler);
+
+      await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 }, 5);
+
+      expect(handler).toHaveBeenCalledWith(
+        { into: 5, amount: 200n, source: { tag: 'ProductAccount', value: 2 } },
         expect.anything(),
       );
     });
@@ -90,6 +139,17 @@ describe('Host API: Payments', () => {
       await expect(payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 })).rejects.toBeInstanceOf(
         PaymentTopUpErr.InvalidSource,
       );
+    });
+
+    it('should reject with PartialPayment carrying the credited amount', async () => {
+      const { container, payments } = setup();
+      const keys = [new Uint8Array(64).fill(1), new Uint8Array(64).fill(2)];
+
+      container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.PartialPayment({ credited: 40n })));
+
+      await expect(payments.topUp(75n, { type: 'coins', keys })).rejects.toMatchObject({
+        payload: { credited: 40n },
+      });
     });
   });
 
@@ -115,6 +175,18 @@ describe('Host API: Payments', () => {
       await payments.requestPayment(300n, destination);
 
       expect(handler).toHaveBeenCalledWith({ amount: 300n, destination }, expect.anything());
+    });
+
+    it('should pass the selected purse (from) to handler', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentRequest>>((_params, { ok }) =>
+        ok({ id: 'p-1' }),
+      );
+      container.handlePaymentRequest(handler);
+
+      await payments.requestPayment(300n, destination, 9);
+
+      expect(handler).toHaveBeenCalledWith({ from: 9, amount: 300n, destination }, expect.anything());
     });
 
     it('should reject with Rejected', async () => {

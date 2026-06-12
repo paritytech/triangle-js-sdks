@@ -1,28 +1,171 @@
-## 0.8.0 (2026-05-21)
+## 0.8.7 (2026-06-06)
 
 ### 🚀 Features
 
+- **statement-store:** sign-and-submit primitives are now exported from the package index: `createExpiryAllocator` (a strictly-increasing expiry/priority source for one signing account, with a floor that adopts chain-reported minimums), `submitStatementOnce` / `signAndSubmitStatement` (allocate an expiry, prove and submit a statement, resyncing the allocator on a priority rejection), and `submitWithRetry` / `isPriorityTooLow` (a retry policy with separate budgets for transient failures and priority rejections). The session consumes the same primitives internally, and `createSession` accepts an optional shared `allocator` so several writers signing with the same account cannot tie on same-second priorities.
+
+### 🩹 Fixes
+
+- **statement-store:** reworked the session to match the iOS/Android implementations. Concurrent incoming requests are now tracked independently (an older request stays answerable after a newer one arrives), transient submit/query failures are retried with a short backoff, and message batches are sized against the full encoded request payload instead of the raw bytes. Statement expiry is pinned to a non-expiring max with a wall-clock priority so channel supersession is deterministic, and a request id is best-effort recovered from a corrupt payload so the sender can be NACKed. Adds an in-memory adapter for tests.
+- **statement-store:** the statement priority (the expiry's low word) is now counted from the spec's priority epoch (2025-11-15, exported as `PRIORITY_EPOCH_OFFSET`), matching iOS and Android. Previously it was the raw Unix timestamp, which made every TS-written statement outrank mobile-written ones in cross-client priority comparisons.
+- **statement-store:** priority rejections (`ExpiryTooLowError` and `AccountFullError`) no longer surface to session callers: while a submission is live the session resyncs its expiry above the chain-reported minimum and keeps retrying beyond the transient-failure cap; once the submission is superseded on its channel, the rejection is absorbed as success — it merely lost the race to a newer statement, and re-answering would clobber it.
+- **statement-store:** a disposed session now rejects `submitRequestMessage` / `submitResponseMessage` immediately instead of hanging, and no longer re-activates (or submits queued work) when `dispose()` lands while initialization is still in flight.
+- **statement-store / host-papp:** the SSO allowance service now builds its statement-store prover from the mobile slot-account secret (`privateKey || nonce`) via the new `createSlotAccountProver`, instead of treating it as a raw sr25519 secret — proofs now sign and verify against the correct slot-account public key.
+- **host-papp:** the authorising device's encryption public key (`deviceEncPubKey`) from the V2 handshake response is now persisted on `StoredUserSession` and exposed on the session, so the host can ECDH-address the paired device (e.g. for device-sync). It was previously decoded but dropped on persistence, leaving consumers to mis-read the 32-byte SSO shared secret in `remoteAccount.publicKey` as a public key.
+- **host-papp:** the SSO request size limit was raised from 254 KiB to 500 KiB, tracking the mobile statement allowance.
+- bumped `polkadot-api` to 2.1.6, which fixes a double-notification bug.
+
+### 🏡 Chore
+
+- every published package now ships a `LICENSE` file, and a repo-wide `THIRD_PARTY_NOTICES.md` records dependency licenses.
+- added a `SECURITY.md` policy and hardened `.env` handling in `.gitignore`.
+
+### ❤️ Thank You
+
+- Ilya Kalinin
+- PG Herveou @pgherveou
+- Sergey Zhuravlev @johnthecat
+- Yanaty
+
+## 0.8.6 (2026-06-05)
+
+### 🚀 Features
+
+- **host-container:** product entropy can now be derived from a `rootEntropySource` instead of the raw root account secret (RFC-0007 "Option 1"). New `deriveProductEntropyFromSource` export skips layer 1 of the BLAKE2b scheme and yields byte-identical output, so a host that only receives `rootEntropySource` over the SSO handshake can serve `host_derive_entropy` without ever holding the root secret.
+- **host-papp:** `StoredUserSession` now carries the handshake `rootEntropySource`, ready for the host's entropy-derivation handler.
+
+### 🩹 Fixes
+
+- **host-papp:** the V2 SSO session key is now derived via ECDH from the host's encryption private key and the peer's `ssoEncPubKey`, instead of using the peer's raw device key directly. A missing `ssoEncPubKey` in the handshake response is now rejected with a clear error rather than producing a broken session.
+
+### ⚠️ Breaking Changes
+
+- **host-papp:** stored SSO secrets and sessions moved to new `…V2` storage keys and dropped their legacy-blob fallbacks. Several previously-optional V2 session fields (`identityAccountId`, `identityChatPublicKey`, `ssoEncPubKey`) are now required. Existing persisted sessions are not migrated — a fresh SSO handshake (re-pairing) is required after upgrading.
+
+### ❤️ Thank You
+
+- Torsten Stüber @TorstenStueber
+- Raman Shekhawat
+- Sergey Zhuravlev @johnthecat
+
+## 0.8.5 (2026-06-04)
+
+### 🚀 Features
+
+- **host-papp / statement-store:** the V2 SSO handshake now carries the mobile app's SSO encryption public key (`ssoEncPubKey`), letting the host derive the shared secret for the encrypted SSO session. It is persisted on `StoredUserSession` and passed to the `onAuthSuccess` hook, and is `null` when paired with a pre-v0.2.2 app. See the [SSO session encryption key section](./docs/migration/v0.8.md#sso-session-encryption-key-ssoencpubkey) of the migration guide.
+- **statement-store:** `createSession` takes an explicit `sessionKey` used to derive the session address, so multi-device callers can key a session on the SSO shared secret instead of the peer's public key. See the [`createSession` session key section](./docs/migration/v0.8.md#createsession-session-key) of the migration guide.
+- **host-chat:** image and video attachments can carry a thumbnail, and attachments now include the hop node endpoint so the receiver can check it against its allowlist before connecting.
+
+### 🩹 Fixes
+
+- **host-chat:** WebRTC call-signalling and coinage-payment messages are now decoded with their real payloads instead of being skipped — previously one such message could corrupt the rest of a synced message batch.
+- **handoff-service:** file downloads now sign the correct domain-separated claim payload. Signing the raw hash was rejected by the hop server and surfaced as a misleading "Data not found" error. Adds an `ack` method to the hop client.
+
+### ⚠️ Breaking Changes
+
+- **statement-store:** `createSession` now requires a `sessionKey`. Direct callers must pass one — `remoteAccount.publicKey` preserves the previous behaviour. See the [`createSession` session key section](./docs/migration/v0.8.md#createsession-session-key) of the migration guide.
+- **host-chat:** the attachment and chat-message SCALE codecs changed shape (thumbnail, node endpoint, real call-signalling / coinage payloads). These are wire-level — chat peers must upgrade together. See the [host-chat section](./docs/migration/v0.8.md#host-chat) of the migration guide.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
+## 0.8.4 (2026-06-03)
+
+### 🩹 Fixes
+
+- **host-api:** payment top-up secret keys are now 64-byte sr25519 secret keys. `PaymentTopUpSource.PrivateKey` changed from a 32-byte ed25519 key to a 64-byte sr25519 secret key, and each `Coins` key is likewise 64 bytes (was 32). This corrects the wire codec for the RFC 0021 top-up sources shipped in 0.8.3 — see the [coin top-ups section](./docs/migration/v0.8.md#coin-top-ups) of the migration guide.
+- **host-api:** active subscriptions are torn down when the transport is disposed. A producer that still had a batched emission queued no longer throws `Transport is disposed`, and `_stop` / destroy now stop producers instead of leaving them emitting into a dead transport.
+- **host-api-wrapper:** `getLegacyAccountSigner` now sends the account's SS58 address as the wire `signer` instead of a raw hex public key, so the wallet can match the signing account — mirroring the injected-extension path.
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-api-wrapper:** the byte layout of `PaymentTopUpSource` changed — `PrivateKey` and `Coins` keys are now 64-byte sr25519 secret keys (were 32 bytes in 0.8.3). This is a wire-level change; hosts and products that exchange `privateKey` / `coins` top-ups must upgrade together. The `host-api-wrapper` `TopUpSource` TypeScript shape is unchanged (`Uint8Array` / `Uint8Array[]`) — only the expected key length differs.
+
+### ❤️ Thank You
+
+- decrypto21
+- valentunn @valentunn
+- Vitya Livshits @cuteWarmFrog
+
+## 0.8.3 (2026-06-02)
+
+### 🚀 Features
+
+- **host-api / host-api-wrapper:** `topUp` accepts a new `coins` source (RFC 0021) — `topUp(amount, { type: 'coins', keys })` — to credit a balance directly from raw sr25519 coin secret keys, skipping the on-chain round trip. Existing `productAccount` / `privateKey` sources are unchanged.
+- **host-api:** new `PaymentTopUpErr.PartialPayment` error carrying `{ credited }` — reports how much was credited when only some coins could be claimed.
+
+### ❤️ Thank You
+
+- @valentunn
+
+## 0.8.2 (2026-06-01)
+
+### 🩹 Fixes
+
+- **substrate-slot-sr25519-wasm:** the published build no longer depends on Vite runtime globals.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
+## 0.8.1 (2026-06-01)
+
+### 🩹 Fixes
+
+- **statement-store:** declare `@novasamatech/substrate-slot-sr25519-wasm` as a direct dependency. The slot-account sr25519 helpers shipped in 0.8.0 (`deriveSlotAccountPublicKey`, `signSlotAccountSecret`, `verifySlotAccountSignature`, `ensureSubstrateSlotSr25519Ready`) imported it only transitively, so a clean install could fail to resolve the WASM package. Also bumps `@polkadot-api/substrate-bindings` 0.20.2 → 0.20.3.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
+## 0.8.0 (2026-06-01)
+
+### 🚀 Features
+
+- **host-api / host-api-wrapper:** `host_theme_subscribe` now delivers a structured theme instead of a flat `light` / `dark` enum. The payload is a `Theme` struct — `{ name, variant }`, where `name` is `Custom(string)` or `Default` and `variant` is `Light` / `Dark` — so the host can communicate both the active theme and its light/dark variant. `host-api` exports `Theme`, `ThemeName`, and `ThemeVariant`; the wrapper's `subscribeTheme` callback now receives the struct (read `theme.variant` for the previous light/dark value).
+- **host-api-wrapper:** payment methods take an optional purse selector — `subscribeBalance(cb, purse?)`, `topUp(amount, source, into?)`, `requestPayment(amount, destination, from?)`. Omit it to target the main purse, so existing calls are unaffected. New `PurseId` type exported.
+- **host-chat:** new message variants for the multi-device chat layer — chat-accept now carries the originating message id, and there are new variants for announcing and removing peer devices on the identity-level session, so all of a peer's devices can decrypt without a per-device envelope.
 - **host-papp:** multi-device SSO. SSO pairing now runs the V2 multi-device handshake under the hood, so desktop and web hosts pair with the multi-device iOS/Android Polkadot Mobile builds through the same `createAuth` / `pappAdapter.sso` entry point — `pairingStatus`, `authenticate()`, `abortAuthentication()`, and the `StoredUserSession` returned to consumers are unchanged. The V2 protocol, codecs, and pairing state machine are SDK internals.
 - **host-papp:** the SDK now persists the device identity and pairing-topic dedupe state itself, on the configured `StorageAdapter`, so no extra consumer wiring is needed across launches. Hosts that want a different identity backend (Electron Keychain, native secure storage) can override with an optional `deviceIdentity` factory on `createPappAdapter`.
 - **host-papp:** `StoredUserSession` gains optional V2 fields for the user's identity chat public key and the peer device's statement account, so consumers building device-sync or chat-level features can read peer state straight off the session. A new optional `onAuthSuccess` hook on `createPappAdapter` fires after pairing with `{ session, identityChatPrivateKey }` for consumer-specific post-pairing work (telemetry, custom peer caches, device-sync seeding).
-- **host-chat:** new message variants for the multi-device chat layer — chat-accept now carries the originating message id, and there are new variants for announcing and removing peer devices on the identity-level session, so all of a peer's devices can decrypt without a per-device envelope.
+- **host-papp:** `createPappAdapter` now returns an `allowance` service. `pappAdapter.allowance.getBulletinSigner(sessionId, productId)` and `getStatementStoreProver(sessionId, productId)` hand back a `PolkadotSigner` / statement-store prover backed by a host-managed allowance slot — reusing a cached slot key or requesting one from the paired mobile app — so a product can sign Bulletin transactions and statement-store proofs without nominating a product account. Failures surface as `AllowanceError` (`NoSession | Rejected | NotAvailable | UnexpectedResponse`).
+- **host-papp:** `UserSession` gains an `abortPendingRequests()` method that cancels the in-flight remote-signing request along with anything queued behind it — it drops the per-session request queue (rejecting the pending `signPayload` / `signRaw` tasks) and clears the session's outgoing on-chain batch, freeing the single-slot queue so the next request can proceed instead of waiting out the 180s timeout. See the [abort signing section](./docs/migration/v0.8.md#abort-in-flight-signing-usersessionabortpendingrequests) of the migration guide.
+- **host-papp / host-papp-react-ui:** new `pappAdapter.identity.watchIdentity(accountId)` returns a reactive `Observable<Identity | null>` — it emits any cached identity first, then live on-chain updates. The `useIdentity` hook now subscribes to it, so a profile's name/avatar update live instead of being resolved once.
+- **host-worker-sandbox:** opt-in ES module imports. Pass a `resolveModule` hook to `createSandbox` and worker code can use static `import` / `export` and dynamic `import()`; the host returns each module's source on demand. See the [v0.8 migration guide](./docs/migration/v0.8.md#es-module-imports-in-the-sandbox).
+- **scale:** `Enum(inner, indexes?)` accepts an optional index array to pin each variant's wire index independent of declaration order.
+- **statement-store:** `Session` gains `clearOutgoingBatch()` — it supersedes the in-flight outgoing request batch with an empty statement on the same request channel (reusing the current expiry, which the store accepts since it rejects only a strictly lower expiry), drops local outgoing state, and rejects all pending response waiters — including messages still queued from session initialization, and even if the superseding submission itself fails (the submission error is still surfaced to the caller).
+- **statement-store:** new helpers for substrate slot-account sr25519 signing (`deriveSlotAccountPublicKey`, `signSlotAccountSecret`, `verifySlotAccountSignature`) plus WASM init helpers (`ensureSubstrateSr25519Ready`, `ensureSubstrateSlotSr25519Ready`). New published package `@novasamatech/substrate-slot-sr25519-wasm`. Existing `deriveSr25519PublicKey` / `signWithSr25519Secret` / `verifySr25519Signature` keep the same signatures and outputs.
 
 ### 🩹 Fixes
 
 - **host-papp / host-chat:** consumer-info parsing tolerates both camelCase and snake_case `Resources.Consumers` metadata fields — the V2 multi-device runtime metadata emits camelCase, which previously crashed account-resource resolution.
+- **scale:** `OptionBool` now uses canonical SCALE encoding (`true` → 1, `false` → 2); the previous build had the two swapped.
 
 ### ⚠️ Breaking Changes
 
-The migration is essentially two field renames; the auth surface is otherwise unchanged.
+Multi-device SSO migration is essentially two field renames (the auth surface is otherwise unchanged). The Host API protocol-alignment changes are wire-level — hosts and products must upgrade together. See the [v0.8 migration guide](./docs/migration/v0.8.md).
 
+- **host-api:** the Host API protocol spec and the SDK were reconciled — see the [protocol-alignment section](./docs/migration/v0.8.md#host-api-protocol-alignment) of the migration guide for steps and examples.
+  - removed the deprecated `host_jsonrpc_message_send` / `host_jsonrpc_message_subscribe` methods; use the `remote_chain_*` methods instead. Their method ids are reserved as a gap, so every other method keeps the id it had in v0.7 — the removal doesn't shift the rest of the protocol.
+  - `OptionBool` encoding fix (see Fixes) inverts `true`/`false` relative to older builds — affects signing's `withSignedTransaction` and the custom renderer's `enabled` / `loading`.
+  - payment requests (`host_payment_balance_subscribe`, `host_payment_top_up`, `host_payment_request`) gained an optional purse selector field, changing their wire layout.
+  - renames — `StorageQueryItem.type` → `queryType`, `RemotePermission.WebRTC` → `WebRtc`, `AllocatableResource.BulletInAllowance` → `BulletinAllowance`.
+- **host-api / host-api-wrapper:** the `host_theme_subscribe` payload changed shape (flat `light` / `dark` enum → `{ name, variant }` struct) and the variant casing changed (`light` / `dark` → `Light` / `Dark`). This is a wire-level change — hosts and products must upgrade together. See the [theme subscription section](./docs/migration/v0.8.md#theme-subscription-payload) of the migration guide.
+- **host-api / product-react-renderer:** custom chat renderer design tokens were renamed to the new hierarchical design-system scale — `TypographyStyle` (e.g. `titleXL` → `headline.large`) and `ColorToken` (e.g. `textPrimary` → `fg.primary`). The wire indices are unchanged; only the token identifiers changed. Products that hard-code token strings in a custom renderer must update them — see the [design tokens section](./docs/migration/v0.8.md#custom-renderer-design-tokens).
+- **host-chat:** the chat-accepted message payload changed shape (now carries the originating message id). Older clients on the V1 form will not decode.
 - **host-papp:** `createPappAdapter` no longer accepts `metadata: string` (the V1 metadata URL) — host name / icon / platform now ride inside `hostMetadata` (sent inline with the V2 QR proposal).
 - **host-papp:** `HostMetadata` reshape — was `{ hostVersion?, osType?, osVersion? }`, now `{ hostName?, hostVersion?, hostIcon?, platformType?, platformVersion?, custom? }`. Map `osType → platformType` and `osVersion → platformVersion` when upgrading.
 - **host-papp:** the V1 SSO handshake is gone. Both ends must run the multi-device V2 handshake (Polkadot Mobile builds with multi-device support are V2). Persisted V1 SSO sessions don't migrate and are wiped on first read, so users need to re-pair.
-- **host-chat:** the chat-accepted message payload changed shape (now carries the originating message id). Older clients on the V1 form will not decode.
+- **host-papp:** `IdentityAdapter` gains a required `watchIdentity(accountId)` method. Only affects consumers that supply a custom `adapters.identities`; the default adapter already implements it.
 
 ### ❤️ Thank You
 
 - Ilya Kalinin @kalininilya
+- Sergey Zhuravlev @johnthecat
+- Vitya Livshits @cuteWarmFrog
+- Yanaty
+- Den
 
 ## 0.7.9 (2026-05-15)
 

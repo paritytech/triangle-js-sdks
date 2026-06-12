@@ -1,3 +1,3 @@
-export const JAM_CODEC_PROTOCOL_ID = 1;
+export const SCALE_CODEC_PROTOCOL_ID = 1;
 export const HANDSHAKE_INTERVAL = 50;
 export const HANDSHAKE_TIMEOUT = 10_000;

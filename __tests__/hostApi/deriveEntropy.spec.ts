@@ -1,4 +1,4 @@
-import { deriveProductEntropy } from '@novasamatech/host-container';
+import { deriveProductEntropy, deriveProductEntropyFromSource } from '@novasamatech/host-container';
 
 import { blake2b } from '@noble/hashes/blake2.js';
 import { describe, expect, it } from 'vitest';
@@ -77,5 +77,53 @@ describe('deriveProductEntropy', () => {
     const result = deriveProductEntropy(rootSecret, productId, maxKey);
     expect(result).toBeInstanceOf(Uint8Array);
     expect(result.length).toBe(32);
+  });
+});
+
+describe('deriveProductEntropyFromSource', () => {
+  const rootSecret = new Uint8Array(16).fill(0xab);
+  const rootEntropySource = blake2b256Keyed(rootSecret, textEncoder.encode('product-entropy-derivation'));
+  const productId = 'my-product.dot';
+  const key = new Uint8Array([1, 2, 3]);
+
+  it('should match the last two layers of the RFC-0007 derivation', () => {
+    const perProductEntropy = blake2b256Keyed(rootEntropySource, blake2b256(textEncoder.encode(productId)));
+    const expectedEntropy = blake2b256Keyed(perProductEntropy, key);
+
+    expect(deriveProductEntropyFromSource(rootEntropySource, productId, key)).toEqual(expectedEntropy);
+  });
+
+  it('should produce the same entropy as deriveProductEntropy given the corresponding rootAccountSecret', () => {
+    // The cross-host determinism invariant: a host that only holds `rootEntropySource`
+    // (received over the SSO handshake) derives the same bytes as a wallet that holds
+    // the raw `rootAccountSecret`.
+    for (const id of ['my-product.dot', 'other.product.dot', 'localhost:3000']) {
+      for (const k of [new Uint8Array([0x42]), new Uint8Array(32).fill(0xff)]) {
+        expect(deriveProductEntropyFromSource(rootEntropySource, id, k)).toEqual(
+          deriveProductEntropy(rootSecret, id, k),
+        );
+      }
+    }
+  });
+
+  it('should produce different entropy for different sources, product ids, and keys', () => {
+    const otherSource = blake2b256Keyed(
+      new Uint8Array(16).fill(0xcd),
+      textEncoder.encode('product-entropy-derivation'),
+    );
+    expect(deriveProductEntropyFromSource(rootEntropySource, productId, key)).not.toEqual(
+      deriveProductEntropyFromSource(otherSource, productId, key),
+    );
+    expect(deriveProductEntropyFromSource(rootEntropySource, 'product-a', key)).not.toEqual(
+      deriveProductEntropyFromSource(rootEntropySource, 'product-b', key),
+    );
+    expect(deriveProductEntropyFromSource(rootEntropySource, productId, new Uint8Array([1]))).not.toEqual(
+      deriveProductEntropyFromSource(rootEntropySource, productId, new Uint8Array([2])),
+    );
+  });
+
+  it('should reject an empty key and a key bigger than 32 bytes', () => {
+    expect(() => deriveProductEntropyFromSource(rootEntropySource, productId, new Uint8Array(0))).toThrow();
+    expect(() => deriveProductEntropyFromSource(rootEntropySource, productId, new Uint8Array(33).fill(0x01))).toThrow();
   });
 });

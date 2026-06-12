@@ -53,7 +53,7 @@ export function createHopClient(requestFn: RequestFn): HopClient {
       // entry. Android calls this after every successful claim; failure is
       // non-fatal for the receiver (best-effort cleanup).
       return fromPromise(
-        requestFn<unknown>('hop_ack', [toHexString(hash), encodeSr25519Signature(signature)]).then(() => null),
+        requestFn('hop_ack', [toHexString(hash), encodeSr25519Signature(signature)]).then(() => null),
         toError,
       );
     },

@@ -3,6 +3,7 @@ import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount 
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
 
 import type { EncrSecret, SsSecret } from '../../crypto.js';
+import { createSharedSecret } from '../../crypto.js';
 import { createFlowId, emitHostPappDebugMessage } from '../../debugBus.js';
 import { AbortError } from '../../helpers/abortError.js';
 import { createState, readonly } from '../../helpers/state.js';
@@ -31,13 +32,8 @@ export type AuthComponent = ReturnType<typeof createAuth>;
 export type OnAuthSuccess = (event: {
   session: StoredUserSession;
   identityChatPrivateKey: Uint8Array;
-  /**
-   * `papp_encr_pub` from Mobile SSO spec v0.2.2. `null` when the peer
-   * shipped a pre-v0.2.2 `HandshakeSuccessV2` body (no `sso_encr_pub_key`
-   * field on the wire). The host's SSO session transport stays inactive
-   * while null; chat is unaffected since it uses `identityChatPrivateKey`.
-   */
-  ssoEncPubKey: Uint8Array | null;
+  /** `papp_encr_pub` — PApp's P-256 SSO ECDH public key. */
+  ssoEncPubKey: Uint8Array;
 }) => Promise<void> | void;
 
 type Params = {
@@ -235,26 +231,27 @@ export function createAuth({
     _flowId: string,
   ): ResultAsync<StoredUserSession, Error> {
     const localAccount = createLocalSessionAccount(createAccountId(identity.statementAccountPublicKey));
-    const remoteAccount = createRemoteSessionAccount(
-      createAccountId(success.peerStatementAccountId ?? new Uint8Array(32)),
-      success.deviceEncPubKey,
-    );
-    const session = createStoredUserSession(
-      localAccount,
-      remoteAccount,
-      createAccountId(success.rootAccountId ?? new Uint8Array(32)),
-      {
-        identityAccountId: createAccountId(success.identityAccountId),
-        identityChatPublicKey: success.identityChatPublicKey,
-        ssoEncPubKey: success.ssoEncPubKey ?? undefined,
-      },
-    );
+    if (!success.peerStatementAccountId) {
+      return errAsync(new Error("Can't derive peerStatementAccountId from statement proof signer"));
+    }
+    const sharedSecret = createSharedSecret(identity.encryptionPrivateKey as EncrSecret, success.ssoEncPubKey);
+    const remoteAccount = createRemoteSessionAccount(createAccountId(success.peerStatementAccountId), sharedSecret);
+    const session = createStoredUserSession(localAccount, remoteAccount, createAccountId(success.rootAccountId), {
+      identityAccountId: createAccountId(success.identityAccountId),
+      identityChatPublicKey: success.identityChatPublicKey,
+      ssoEncPubKey: success.ssoEncPubKey,
+      rootEntropySource: success.rootEntropySource,
+      // The peer device's long-lived P-256 encryption key. Persisted (rather
+      // than derived into `remoteAccount.publicKey`, which is the SSO shared
+      // secret consumed by the session manager's `createEncryption`) so the
+      // host's device-sync channel can address the paired device by ECDH.
+      deviceEncPubKey: success.deviceEncPubKey,
+    });
 
     return userSecretRepository
       .write(session.id, {
         ssSecret: identity.statementAccountSecret as SsSecret,
         encrSecret: identity.encryptionPrivateKey as EncrSecret,
-        entropy: new Uint8Array(0),
         identityChatPrivateKey: success.identityChatPrivateKey,
       })
       .andThen(() => ssoSessionRepository.add(session))

@@ -15,51 +15,22 @@
  * before submitting any V2 statements.
  */
 
-import type { DecodedHandshakeResponseV2 } from '../scale/handshakeV2.js';
+import type { CodecType } from 'scale-ts';
+
+import type { EncryptedHandshakeResponseV2, HandshakeSuccessV2 } from '../scale/handshakeV2.js';
 import { deriveIdentityChatPublicKey } from '../scale/handshakeV2.js';
 
 export type HandshakeIdleState = { tag: 'Idle' };
 export type HandshakeSubmittedState = { tag: 'Submitted' };
 export type HandshakePendingState = { tag: 'Pending'; reason: 'AllowanceAllocation' };
-export type HandshakeSuccessState = {
+export type HandshakeSuccessState = CodecType<typeof HandshakeSuccessV2> & {
   tag: 'Success';
-  /** User identity sr25519 accountId (32 bytes). */
-  identityAccountId: Uint8Array;
-  /**
-   * User root sr25519 accountId (32 bytes) — the parent for soft-derivation
-   * of product accounts. Nullable: peers on spec v0.2 (Android
-   * `feature/location-for-handshake`) omit this field. Product-account
-   * derivation degrades gracefully when absent; chat does not use it.
-   */
-  rootAccountId: Uint8Array | null;
-  /**
-   * User identity chat P-256 private key (32 bytes raw scalar) shared by
-   * PApp with this device per the multi-device spec. Sensitive; persist in
-   * OS-keychain-backed secure storage and never forward.
-   */
-  identityChatPrivateKey: Uint8Array;
   /**
    * Derived locally from `identityChatPrivateKey` via P-256 scalar
    * multiplication (uncompressed 65-byte form). Both sides MUST derive
    * identically; downstream session topics depend on it.
    */
   identityChatPublicKey: Uint8Array;
-  /**
-   * Encryption public key of the authorising PApp device (65 bytes,
-   * P-256 uncompressed). Used by the host when addressing chat envelopes
-   * back to the authorising device.
-   */
-  deviceEncPubKey: Uint8Array;
-  /**
-   * `papp_encr_pub` from the Mobile SSO spec (v0.2.2 — 65 bytes, P-256
-   * uncompressed). The host's SSO session transport derives
-   * `shared_secret_session = ECDH(host_encr_secret, ssoEncPubKey)` from
-   * this. Nullable because v0.2 and v0.2.1 peers don't ship it; while
-   * null the host's SSO transport stays inactive (sign/vrf/etc continue
-   * to fail at the boundary) and chat keeps working through
-   * `identityChatPrivateKey`.
-   */
-  ssoEncPubKey: Uint8Array | null;
   /**
    * The pairing-topic statement was signed by PApp's device statement
    * account. `HandshakeSuccessV2` doesn't carry it in the encrypted body, so
@@ -83,12 +54,12 @@ export const idle = (): HandshakeIdleState => ({ tag: 'Idle' });
 export const submitted = (): HandshakeSubmittedState => ({ tag: 'Submitted' });
 
 /**
- * Translate the length-dispatched-decoded `EncryptedHandshakeResponseV2` into
- * the public state. Pure — no I/O. The caller decrypts the outer envelope and
- * runs `decodeEncryptedHandshakeResponseV2` first.
+ * Translate a decoded `EncryptedHandshakeResponseV2` into the public state.
+ * Pure — no I/O. The caller decrypts the outer envelope and decodes the inner
+ * payload via `EncryptedHandshakeResponseV2.dec` first.
  */
 export const fromInnerResponse = (
-  response: DecodedHandshakeResponseV2,
+  response: CodecType<typeof EncryptedHandshakeResponseV2>,
   peerStatementAccountId: Uint8Array | null = null,
 ): HandshakeState => {
   switch (response.tag) {
@@ -104,6 +75,7 @@ export const fromInnerResponse = (
         identityChatPublicKey: deriveIdentityChatPublicKey(response.value.identityChatPrivateKey),
         deviceEncPubKey: response.value.deviceEncPubKey,
         ssoEncPubKey: response.value.ssoEncPubKey,
+        rootEntropySource: response.value.rootEntropySource,
         peerStatementAccountId,
       };
     case 'Failed':

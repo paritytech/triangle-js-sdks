@@ -10,15 +10,24 @@ export type PaymentBalance = {
 
 export type PaymentStatus = { type: 'processing' } | { type: 'completed' } | { type: 'failed'; reason: string };
 
-export type TopUpSource = { type: 'productAccount'; derivationIndex: number } | { type: 'privateKey'; key: Uint8Array };
+export type TopUpSource =
+  | { type: 'productAccount'; derivationIndex: number }
+  | { type: 'privateKey'; key: Uint8Array }
+  | { type: 'coins'; keys: Uint8Array[] };
+
+/** CoinPayment purse identifier (RFC 0017). Omit to target the main purse. */
+export type PurseId = number;
 
 export const createPaymentManager = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
   const version = 'v1' as const;
 
   return {
-    subscribeBalance(callback: (balance: PaymentBalance) => void): Subscription<CodecType<typeof PaymentBalanceErr>> {
-      const subscriber = hostApi.paymentBalanceSubscribe(enumValue(version, undefined), payload => {
+    subscribeBalance(
+      callback: (balance: PaymentBalance) => void,
+      purse?: PurseId,
+    ): Subscription<CodecType<typeof PaymentBalanceErr>> {
+      const subscriber = hostApi.paymentBalanceSubscribe(enumValue(version, { purse }), payload => {
         if (payload.tag === version) {
           callback(payload.value);
         }
@@ -30,23 +39,25 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
       };
     },
 
-    topUp(amount: bigint, source: TopUpSource): Promise<void> {
+    topUp(amount: bigint, source: TopUpSource, into?: PurseId): Promise<void> {
       const sourceCodec =
         source.type === 'productAccount'
           ? {
               tag: 'ProductAccount' as const,
               value: source.derivationIndex,
             }
-          : { tag: 'PrivateKey' as const, value: source.key };
+          : source.type === 'privateKey'
+            ? { tag: 'PrivateKey' as const, value: source.key }
+            : { tag: 'Coins' as const, value: source.keys };
 
       return resultToPromise(
-        unwrapVersionedResult(version, hostApi.paymentTopUp(enumValue(version, { amount, source: sourceCodec }))),
+        unwrapVersionedResult(version, hostApi.paymentTopUp(enumValue(version, { into, amount, source: sourceCodec }))),
       );
     },
 
-    requestPayment(amount: bigint, destination: Uint8Array): Promise<{ id: string }> {
+    requestPayment(amount: bigint, destination: Uint8Array, from?: PurseId): Promise<{ id: string }> {
       return resultToPromise(
-        unwrapVersionedResult(version, hostApi.paymentRequest(enumValue(version, { amount, destination }))),
+        unwrapVersionedResult(version, hostApi.paymentRequest(enumValue(version, { from, amount, destination }))),
       );
     },
 

@@ -11,9 +11,7 @@ import { blake2b } from '@noble/hashes/blake2.js';
  * surfaces the failure as "Data not found" (the server doesn't reveal that
  * the data is present but the signature didn't verify).
  */
-
 const textEncoder = new TextEncoder();
-
 const SUBMIT_CONTEXT = textEncoder.encode('hop-submit-v1:');
 const CLAIM_CONTEXT = textEncoder.encode('hop-claim-v1:');
 const ACK_CONTEXT = textEncoder.encode('hop-ack-v1:');

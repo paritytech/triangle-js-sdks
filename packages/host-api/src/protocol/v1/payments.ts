@@ -1,5 +1,5 @@
 import { Enum, ErrEnum } from '@novasamatech/scale';
-import { Bytes, Result, Struct, _void, str, u128 } from 'scale-ts';
+import { Bytes, Option, Result, Struct, Vector, _void, str, u128, u32 } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
 
@@ -7,13 +7,17 @@ import { DerivationIndex } from './accounts.js';
 
 // common types
 
-export const Ed25519PrivateKey = Bytes(32);
+export const Sr25519SecretKey = Bytes(64);
 
 export const PaymentId = str;
 
+// Optional purse selector (RFC 0017). `undefined` (None) targets MAIN_PURSE.
+export const CoinPaymentPurseId = u32;
+
 export const PaymentTopUpSource = Enum({
   ProductAccount: DerivationIndex,
-  PrivateKey: Ed25519PrivateKey,
+  PrivateKey: Sr25519SecretKey,
+  Coins: Vector(Sr25519SecretKey),
 });
 
 export const PaymentBalance = Struct({
@@ -37,9 +41,15 @@ export const PaymentBalanceErr = ErrEnum('PaymentBalanceErr', {
   Unknown: [GenericErr, 'unknown error'],
 });
 
+// Carries the amount that was credited when only some coins could be claimed.
+export const PartialPaymentErr = Struct({
+  credited: u128,
+});
+
 export const PaymentTopUpErr = ErrEnum('PaymentTopUpErr', {
   InsufficientFunds: [_void, 'insufficient funds'],
   InvalidSource: [_void, 'invalid source'],
+  PartialPayment: [PartialPaymentErr, ({ credited }) => `partial payment: credited ${credited}`],
   Unknown: [GenericErr, 'unknown error'],
 });
 
@@ -56,13 +66,16 @@ export const PaymentStatusErr = ErrEnum('PaymentStatusErr', {
 
 // host_payment_balance_subscribe
 
-export const PaymentBalanceSubscribeV1_start = _void;
+export const PaymentBalanceSubscribeV1_start = Struct({
+  purse: Option(CoinPaymentPurseId),
+});
 export const PaymentBalanceSubscribeV1_receive = PaymentBalance;
 export const PaymentBalanceSubscribeV1_interrupt = PaymentBalanceErr;
 
 // host_payment_top_up
 
 export const PaymentTopUpV1_request = Struct({
+  into: Option(CoinPaymentPurseId),
   amount: u128,
   source: PaymentTopUpSource,
 });
@@ -71,6 +84,7 @@ export const PaymentTopUpV1_response = Result(_void, PaymentTopUpErr);
 // host_payment_request
 
 export const PaymentRequestV1_request = Struct({
+  from: Option(CoinPaymentPurseId),
   amount: u128,
   destination: Bytes(32),
 });

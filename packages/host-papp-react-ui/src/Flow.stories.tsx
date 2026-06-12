@@ -1,9 +1,11 @@
-import type { HostMetadata, SigningPayloadRequest, UserSession } from '@novasamatech/host-papp';
-import { SS_PASEO_STABLE_STAGE_ENDPOINTS, createPappAdapter } from '@novasamatech/host-papp';
+import type { CreateTransactionRequest, HostMetadata, UserSession } from '@novasamatech/host-papp';
+import { createPappAdapter } from '@novasamatech/host-papp';
+import { fromHex, toHex } from '@novasamatech/scale';
 import { createLazyClient } from '@novasamatech/statement-store';
-import { Button } from '@novasamatech/tr-ui';
+import { Button, ScrollArea } from '@novasamatech/tr-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
 import { getWsProvider } from 'polkadot-api/ws';
+import { useState } from 'react';
 
 import { PairingModal } from './flow/PairingModal.js';
 import { PairingPopover } from './flow/PairingPopover.js';
@@ -12,44 +14,53 @@ import { useSessionIdentity } from './hooks/identity.js';
 import { useAuthentication } from './providers/AuthProvider.js';
 import { useSession } from './providers/SessionsProvider.js';
 
-const SignPayloadExample = ({ session }: { session: UserSession | null }) => {
+const SignTransactionExample = ({ session }: { session: UserSession | null }) => {
+  const [pending, setPending] = useState(false);
+  const [log, setLog] = useState<string[]>([]);
+
   if (!session) {
     return null;
   }
 
-  const payload: SigningPayloadRequest = {
-    productAccountId: ['test-product.dot', 0],
-    blockHash:
-      '0x307834313431326534363632336332303064373838616237656631633530376334333439306664613263613762343863313966383665613961343663663963616138',
-    blockNumber: '0x30783030333538626132',
-    era: '0x307832343030',
-    genesisHash:
-      '0x307836376661313737613039376266613138663737656139356162353665396263646665623065356238613430653436323938626239336531366236666335303038',
-    method: '0x0a03006a785be5767a80b718bd64412b2b72153119cd453ad65c2b1d8624efbc64c5360700e40b5402',
-    nonce: '0x30783030303030303030',
-    specVersion: '0x30783030316538343830',
-    tip: '0x30783030303030303030303030303030303030303030303030303030303030303030',
-    transactionVersion: '0x30783030303030303030',
-    signedExtensions: [
-      'CheckNonZeroSender',
-      'CheckSpecVersion',
-      'CheckTxVersion',
-      'CheckGenesis',
-      'CheckMortality',
-      'CheckNonce',
-      'CheckWeight',
-      'ChargeTransactionPayment',
-      'CheckMetadataHash',
-    ],
-    version: 4,
-    assetId: undefined,
-    mode: undefined,
-    metadataHash: undefined,
-    withSignedTransaction: false,
+  const request: CreateTransactionRequest = {
+    payload: {
+      tag: 'v1',
+      value: {
+        signer: ['test-product.dot', 0],
+        genesisHash: fromHex('0xc5af1826b31493f08b7e2a823842f98575b806a784126f28da9608c68665afa5'),
+        // SCALE-encoded Call (module + function + params); arbitrary bytes for the example.
+        callData: new Uint8Array([0x0a, 0x03, 0x00, 0x6a, 0x78, 0x5b, 0xe5]),
+        // Let the implementer infer the extensions for this example.
+        extensions: [],
+        // Extrinsic V4 → must be 0.
+        txExtVersion: 0,
+      },
+    },
+  };
+
+  const sign = () => {
+    setPending(true);
+    session.createTransaction(request).match(
+      response => {
+        setPending(false);
+        setLog(logs => logs.concat(`Response: ${toHex(response)}`));
+      },
+      error => {
+        setPending(false);
+        setLog(logs => logs.concat(`Error: ${error}`));
+      },
+    );
   };
 
   return (
-    <Button onClick={() => session.signPayload(payload).match(console.log, console.error)}>Example sign request</Button>
+    <div className="flex flex-col gap-2">
+      <Button onClick={sign} disabled={pending}>
+        Example create transaction
+      </Button>
+      <ScrollArea>
+        <pre>{log.join('\n')}</pre>
+      </ScrollArea>
+    </div>
   );
 };
 
@@ -65,7 +76,7 @@ const ConnectButton = () => {
           <span>{identity?.fullUsername ?? identity?.liteUsername ?? (pending ? 'Loading...' : 'Unknown user')}</span>
           <Button onClick={() => auth.disconnect(session)}>Disconnect</Button>
         </div>
-        <SignPayloadExample session={session} />
+        <SignTransactionExample session={session} />
       </div>
     );
   }
@@ -87,7 +98,7 @@ const meta: Meta<typeof PappProvider> = {
     adapter: createPappAdapter({
       appId: 'https://test.com',
       adapters: {
-        lazyClient: createLazyClient(getWsProvider(SS_PASEO_STABLE_STAGE_ENDPOINTS)),
+        lazyClient: createLazyClient(getWsProvider('wss://paseo-people-next-system-rpc.polkadot.io')),
       },
       hostMetadata: {
         hostName: 'Storybook',

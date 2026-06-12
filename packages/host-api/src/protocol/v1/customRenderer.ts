@@ -5,20 +5,26 @@ import { Option, Struct, Tuple, Vector, _void, bool, compact, str } from 'scale-
 export const Size = compact;
 export const Dimensions = Tuple(Size, Size, Option(Size), Option(Size));
 
-export const TypographyStyle = Status('titleXL', 'headline', 'bodyM', 'bodyS', 'caption');
+export const TypographyStyle = Status(
+  'headline.large',
+  'title.medium.regular',
+  'body.large.regular',
+  'body.medium.regular',
+  'body.small.regular',
+);
 
 export const ButtonVariant = Status('primary', 'secondary', 'text');
 
 export const ColorToken = Status(
-  'textPrimary',
-  'textSecondary',
-  'textTertiary',
-  'backgroundPrimary',
-  'backgroundSecondary',
-  'backgroundTertiary',
-  'success',
-  'error',
-  'warning',
+  'fg.primary',
+  'fg.secondary',
+  'fg.tertiary',
+  'bg.surface.main',
+  'bg.surface.container',
+  'bg.surface.nested',
+  'fg.success',
+  'fg.error',
+  'fg.warning',
 );
 
 export const ContentAlignment = Status(

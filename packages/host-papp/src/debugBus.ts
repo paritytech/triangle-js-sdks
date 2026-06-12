@@ -22,8 +22,12 @@ let listenerCount = 0;
 
 /** @internal For host-papp emitters. */
 export function emitHostPappDebugMessage(event: HostPappDebugEvent): void {
-  if (listenerCount === 0) return;
-  bus.emit('message', event);
+  try {
+    if (listenerCount === 0) return;
+    bus.emit('message', event);
+  } catch {
+    // do nothing
+  }
 }
 
 /**

@@ -184,6 +184,83 @@ describe('asyncTaskPool', () => {
     expect(result).toEqual([1, 2, 3, 4]);
   });
 
+  describe('abort signal', () => {
+    it('rejects a queued task when the signal aborts, without ever running it', async () => {
+      const pool = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
+      const controller = new AbortController();
+      const queuedSpy = vi.fn(() => okAsync('queued'));
+
+      // Occupy the single slot with a slow task so the next call has to queue.
+      const active = pool.call(() =>
+        fromPromise(
+          delay(50).then(() => 'active'),
+          toError,
+        ),
+      );
+      const queued = pool.call(queuedSpy, { signal: controller.signal });
+
+      controller.abort();
+
+      const queuedResult = await queued;
+      expect(queuedResult.isErr()).toBe(true);
+      expect(queuedSpy).not.toHaveBeenCalled();
+      expect((await active).isOk()).toBe(true);
+    });
+
+    it('rejects the in-flight active task when the signal aborts', async () => {
+      const pool = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
+      const controller = new AbortController();
+
+      const active = pool.call(
+        () =>
+          fromPromise(
+            delay(10_000).then(() => 'done'),
+            toError,
+          ),
+        {
+          signal: controller.signal,
+        },
+      );
+
+      controller.abort();
+
+      expect((await active).isErr()).toBe(true);
+    });
+
+    it('frees the slot for later tasks after an abort', async () => {
+      const pool = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
+      const controller = new AbortController();
+
+      const aborted = pool.call(
+        () =>
+          fromPromise(
+            delay(10_000).then(() => 'never'),
+            toError,
+          ),
+        {
+          signal: controller.signal,
+        },
+      );
+      controller.abort();
+      await aborted;
+
+      const next = await pool.call(() => okAsync('next'));
+      expect(next).toEqual(ok('next'));
+    });
+
+    it('rejects immediately when called with an already-aborted signal', async () => {
+      const pool = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
+      const controller = new AbortController();
+      controller.abort();
+      const spy = vi.fn(() => okAsync('x'));
+
+      const result = await pool.call(spy, { signal: controller.signal });
+
+      expect(result.isErr()).toBe(true);
+      expect(spy).not.toHaveBeenCalled();
+    });
+  });
+
   it('should settle tasks that was created by chain reaction', async () => {
     const pool = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
     const tasks = [

@@ -21,8 +21,10 @@ const DEVICE_STMT_SECRET = new Uint8Array(64).fill(0x55);
 const IDENTITY_CHAT_PRIV = new Uint8Array(32).fill(0xdd);
 const IDENTITY_ACCT = new Uint8Array(32).fill(0xa1);
 const ROOT_ACCT = new Uint8Array(32).fill(0xa2);
-// `papp_encr_pub` from Mobile SSO spec v0.2.2 (HandshakeSuccessV2.sso_encr_pub_key)
-const SSO_ENC_PUB = new Uint8Array(65).fill(0x07);
+const SSO_ENC_PRIV = new Uint8Array(32).fill(0x06);
+const SSO_ENC_PUB = p256.getPublicKey(SSO_ENC_PRIV, false);
+const EXPECTED_SHARED_SECRET = p256.getSharedSecret(DEVICE_ENC_PRIV, SSO_ENC_PUB).slice(1, 33);
+const ROOT_ENTROPY_SOURCE = new Uint8Array(32).fill(0x07);
 const PEER_STMT_ACCT_HEX = '0x' + '44'.repeat(32);
 
 const makeDeviceIdentity = (): DeviceIdentityForPairing => ({
@@ -39,22 +41,11 @@ const stubDeviceIdentityStore = (): DeviceIdentityStore =>
     writeLastProcessedHandshakeStatement: vi.fn(() => okAsync(undefined)),
   }) as unknown as DeviceIdentityStore;
 
-const buildSuccessStatement = (): Statement => {
-  const inner = HandshakeSuccessV2.enc({
-    identityAccountId: IDENTITY_ACCT,
-    rootAccountId: ROOT_ACCT,
-    identityChatPrivateKey: IDENTITY_CHAT_PRIV,
-    ssoEncPubKey: SSO_ENC_PUB,
-    deviceEncPubKey: DEVICE_ENC_PUB,
-  });
-  // The inner body is a length-dispatched Success (226-byte payload, spec v0.2.2).
-  // Wrap it as the discriminated `EncryptedHandshakeResponseV2::Success` for the
-  // envelope.
+const wrapSuccessBody = (inner: Uint8Array): Statement => {
   const successEnvelope = new Uint8Array(inner.length + 1);
-  successEnvelope[0] = 1; // Success discriminant
+  successEnvelope[0] = 1;
   successEnvelope.set(inner, 1);
 
-  // ECDH-encrypt: peer (PApp) uses ephemeral tmpKey + device.encPub
   const tmpPriv = new Uint8Array(32).fill(0x77);
   const tmpPub = p256.getPublicKey(tmpPriv, false);
   const shared = p256.getSharedSecret(tmpPriv, DEVICE_ENC_PUB).slice(1, 33);
@@ -71,6 +62,18 @@ const buildSuccessStatement = (): Statement => {
     proof: { type: 'sr25519', value: { signature: '0x' + '00'.repeat(64), signer: PEER_STMT_ACCT_HEX } },
   } as Statement;
 };
+
+const buildSuccessStatement = (): Statement =>
+  wrapSuccessBody(
+    HandshakeSuccessV2.enc({
+      identityAccountId: IDENTITY_ACCT,
+      rootAccountId: ROOT_ACCT,
+      identityChatPrivateKey: IDENTITY_CHAT_PRIV,
+      ssoEncPubKey: SSO_ENC_PUB,
+      deviceEncPubKey: DEVICE_ENC_PUB,
+      rootEntropySource: ROOT_ENTROPY_SOURCE,
+    }),
+  );
 
 type Deliver = (page: { statements: Statement[]; isComplete: boolean }) => void;
 
@@ -145,10 +148,15 @@ describe('createAuth', () => {
       expect(session).not.toBeNull();
       expect(session!.identityAccountId).toEqual(IDENTITY_ACCT);
       expect(session!.remoteAccount.accountId).toEqual(new Uint8Array(32).fill(0x44));
+      expect(session!.remoteAccount.publicKey).toEqual(EXPECTED_SHARED_SECRET);
+      expect(session!.ssoEncPubKey).toEqual(SSO_ENC_PUB);
+      expect(session!.rootEntropySource).toEqual(ROOT_ENTROPY_SOURCE);
       expect(harness.ssoSessionRepository.add).toHaveBeenCalledOnce();
       expect(harness.userSecretRepository.write).toHaveBeenCalledOnce();
       const secretsCall = (harness.userSecretRepository.write as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(secretsCall?.[1]).toMatchObject({ identityChatPrivateKey: IDENTITY_CHAT_PRIV });
+      expect(secretsCall?.[1]).toMatchObject({
+        identityChatPrivateKey: IDENTITY_CHAT_PRIV,
+      });
     });
 
     it('emits pairingStatus transitions: none -> initial -> pairing(deeplink) -> finished(session)', async () => {
@@ -171,7 +179,7 @@ describe('createAuth', () => {
       expect(finished?.session?.id).toBeTypeOf('string');
     });
 
-    it('runs the onAuthSuccess hook with session + identityChatPrivateKey after internal persistence', async () => {
+    it('runs the onAuthSuccess hook with session + identityChatPrivateKey + ssoEncPubKey after internal persistence', async () => {
       const onAuthSuccess = vi.fn(() => Promise.resolve());
       const harness = buildHarness({ onAuthSuccess });
 
@@ -183,10 +191,13 @@ describe('createAuth', () => {
       expect(result.isOk()).toBe(true);
       expect(onAuthSuccess).toHaveBeenCalledTimes(1);
       const arg = (
-        onAuthSuccess.mock.calls[0] as unknown as [{ session: { id: string }; identityChatPrivateKey: Uint8Array }]
+        onAuthSuccess.mock.calls[0] as unknown as [
+          { session: { id: string }; identityChatPrivateKey: Uint8Array; ssoEncPubKey: Uint8Array | null },
+        ]
       )[0];
       expect(arg.session.id).toBeTypeOf('string');
       expect(arg.identityChatPrivateKey).toEqual(IDENTITY_CHAT_PRIV);
+      expect(arg.ssoEncPubKey).toEqual(SSO_ENC_PUB);
     });
 
     it('fails authenticate when onAuthSuccess throws', async () => {
