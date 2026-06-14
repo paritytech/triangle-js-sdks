@@ -15,6 +15,8 @@ export type { StoredUserSession } from './sso/userSessionRepository.js';
 export type { Identity } from './identity/types.js';
 
 export type {
+  SignRawLegacyRequest,
+  SignRawLegacyResponse,
   SigningPayloadRequest,
   SigningPayloadResponse,
   SigningRawRequest,
@@ -22,6 +24,7 @@ export type {
 } from './sso/sessionManager/scale/signing.js';
 export type { RingVrfAliasRequest, RingVrfAliasResponse } from './sso/sessionManager/scale/ringVrf.js';
 export type {
+  CreateTransactionLegacyRequest,
   CreateTransactionRequest,
   CreateTransactionResponse,
 } from './sso/sessionManager/scale/createTransaction.js';
