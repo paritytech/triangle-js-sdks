@@ -167,6 +167,36 @@ describe('createUserSession debug emits', () => {
       }
     });
 
+    it('signRawLegacy emits host_action_sent with actionKind SignRawLegacyRequest and resolves with the signature', async () => {
+      mocks.request.mockReturnValue(okAsync(undefined));
+      const signature = new Uint8Array([1, 2, 3]);
+      mocks.waitForRequestMessage.mockReturnValue(okAsync({ success: true, value: signature }));
+
+      const session = buildSession();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        const result = await session.signRawLegacy({} as any);
+        expect(result.isOk()).toBe(true);
+        expect(result._unsafeUnwrap()).toBe(signature);
+        expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
+          actionKind: 'SignRawLegacyRequest',
+        });
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('createTransactionLegacy resolves with the signed transaction from a CreateTransactionResponse', async () => {
+      mocks.request.mockReturnValue(okAsync(undefined));
+      const signedTransaction = new Uint8Array([4, 5, 6]);
+      mocks.waitForRequestMessage.mockReturnValue(okAsync({ success: true, value: signedTransaction }));
+
+      const session = buildSession();
+      const result = await session.createTransactionLegacy({} as any);
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toBe(signedTransaction);
+    });
+
     it('getRingVrfAlias emits host_action_sent with actionKind RingVrfAliasRequest', async () => {
       mocks.request.mockReturnValue(okAsync(undefined));
       mocks.waitForRequestMessage.mockReturnValue(okAsync({ success: true, value: new Uint8Array() as any }));

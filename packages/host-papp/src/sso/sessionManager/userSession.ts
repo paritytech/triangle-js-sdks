@@ -15,11 +15,16 @@ import { toError } from '../../helpers/utils.js';
 import type { Callback } from '../../types.js';
 import type { StoredUserSession } from '../userSessionRepository.js';
 
-import type { CreateTransactionRequest } from './scale/createTransaction.js';
+import type { CreateTransactionLegacyRequest, CreateTransactionRequest } from './scale/createTransaction.js';
 import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
 import type { ApAllocationOutcome, ResourceAllocationRequest } from './scale/resourceAllocation.js';
-import type { SigningPayloadRequest, SigningPayloadResponseData, SigningRawRequest } from './scale/signing.js';
+import type {
+  SignRawLegacyRequest,
+  SigningPayloadRequest,
+  SigningPayloadResponseData,
+  SigningRawRequest,
+} from './scale/signing.js';
 
 // Timeout for the inner queue task. Without it the queue wedges forever when
 // the remote signer doesn't respond — e.g. the request
@@ -111,7 +116,9 @@ export type UserSession = StoredUserSession & {
   abortPendingRequests(): ResultAsync<void, Error>;
   signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
   signRaw(payload: SigningRawRequest): ResultAsync<SigningPayloadResponseData, Error>;
+  signRawLegacy(payload: SignRawLegacyRequest): ResultAsync<Uint8Array, Error>;
   createTransaction(payload: CreateTransactionRequest): ResultAsync<Uint8Array, Error>;
+  createTransactionLegacy(payload: CreateTransactionLegacyRequest): ResultAsync<Uint8Array, Error>;
   getRingVrfAlias(
     productAccountId: CodecType<typeof ProductAccountId>,
     productId: string,
@@ -231,6 +238,37 @@ export function createUserSession({
       });
     },
 
+    signRawLegacy(payload) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue('v1', enumValue('SignRawLegacyRequest', payload));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'SignRawLegacyResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.signature;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(message => {
+          if (message.success) {
+            return ok(message.value);
+          } else {
+            return err(new Error(message.value));
+          }
+        });
+
+        return withHostActionTrace(withQueueTimeout(inner, 'signRawLegacy'), messageId, userSession.id);
+      });
+    },
+
     createTransaction(payload) {
       return enqueue(() => {
         const messageId = nanoid();
@@ -258,6 +296,36 @@ export function createUserSession({
         });
 
         return withQueueTimeout(inner, 'createTransaction');
+      });
+    },
+
+    createTransactionLegacy(payload) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue('v1', enumValue('CreateTransactionLegacyRequest', payload));
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'CreateTransactionResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.signedTransaction;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(message => {
+          if (message.success) {
+            return ok(message.value);
+          } else {
+            return err(new Error(message.value));
+          }
+        });
+
+        return withQueueTimeout(inner, 'createTransactionLegacy');
       });
     },
 

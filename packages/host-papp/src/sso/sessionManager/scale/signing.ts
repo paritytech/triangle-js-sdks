@@ -1,4 +1,4 @@
-import { ProductAccountId } from '@novasamatech/host-api';
+import { AccountId, ProductAccountId } from '@novasamatech/host-api';
 import { Enum, Hex, OptionBool } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
 import { Bytes, Option, Result, Struct, Vector, str, u32 } from 'scale-ts';
@@ -30,6 +30,22 @@ export const SigningRawRequestCodec = Struct({
     Bytes: Bytes(),
     Payload: str,
   }),
+});
+
+export type SignRawLegacyRequest = CodecType<typeof SignRawLegacyRequestCodec>;
+export const SignRawLegacyRequestCodec = Struct({
+  account: AccountId,
+  data: Enum({
+    Bytes: Bytes(),
+    Payload: str,
+  }),
+});
+
+export type SignRawLegacyResponse = CodecType<typeof SignRawLegacyResponseCodec>;
+export const SignRawLegacyResponseCodec = Struct({
+  // referencing to RemoteMessage.messageId
+  respondingTo: str,
+  signature: Result(Bytes(), str),
 });
 
 export type SigningRequest = CodecType<typeof SigningRequestCodec>;
