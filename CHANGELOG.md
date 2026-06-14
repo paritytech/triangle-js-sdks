@@ -1,3 +1,13 @@
+## 0.8.8 (2026-06-15)
+
+### 🚀 Features
+
+- **host-papp:** the SSO session now supports legacy sign requests. `UserSession` gains `signRawLegacy` (sign raw `Bytes`/`Payload` for a plain `AccountId`) and `createTransactionLegacy` (build a `LegacyTransaction`).
+
+### ❤️ Thank You
+
+- @valentunn
+
 ## 0.8.7 (2026-06-06)
 
 ### 🚀 Features
