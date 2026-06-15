@@ -795,6 +795,8 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       init();
       const manager = createChainConnectionManager(factory);
       const cleanups: VoidFunction[] = [];
+      // `${genesisHash}:${operationId}` for each broadcast holding a chain ref.
+      const liveBroadcasts = new Set<string>();
 
       // Follow subscription
       cleanups.push(
@@ -1085,12 +1087,23 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
           }
 
           try {
-            const result = await manager.sendRequest(genesisHash, 'transaction_v1_broadcast', [transaction]);
-            return enumValue('v1', resultOk((result as string) ?? null));
+            const operationId = await manager.sendRequest<string | null>(genesisHash, 'transaction_v1_broadcast', [
+              transaction,
+            ]);
+            // `transaction_v1_broadcast` is not one-shot: the node re-broadcasts
+            // only while the connection lives, until a matching
+            // `transaction_v1_stop`. Keep the chain ref acquired above by
+            // recording the live operation; the stop handler releases it.
+            // A null operationId means nothing to stop, so release now.
+            if (operationId) {
+              liveBroadcasts.add(`${genesisHash}:${operationId}`);
+            } else {
+              manager.releaseChain(genesisHash);
+            }
+            return enumValue('v1', resultOk(operationId));
           } catch (e) {
-            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
-          } finally {
             manager.releaseChain(genesisHash);
+            return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
           }
         }),
       );
@@ -1103,18 +1116,21 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
           }
           const { genesisHash, operationId } = message.value;
 
-          const entry = manager.getOrCreateChain(genesisHash);
-          if (!entry) {
-            return enumValue('v1', resultErr(new GenericError({ reason: 'Chain not supported' })));
+          // Only a stop matching a live broadcast releases the ref that broadcast
+          // holds (over its still-open connection). Duplicate or unknown stops
+          // are no-op successes, so refCount can't be driven below what the live
+          // broadcasts justify.
+          if (!liveBroadcasts.delete(`${genesisHash}:${operationId}`)) {
+            return enumValue('v1', resultOk(undefined));
           }
 
           try {
             await manager.sendRequest(genesisHash, 'transaction_v1_stop', [operationId]);
-            manager.releaseChain(genesisHash);
             return enumValue('v1', resultOk(undefined));
           } catch (e) {
-            manager.releaseChain(genesisHash);
             return enumValue('v1', resultErr(new GenericError({ reason: String(e) })));
+          } finally {
+            manager.releaseChain(genesisHash);
           }
         }),
       );
