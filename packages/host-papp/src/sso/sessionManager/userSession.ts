@@ -30,7 +30,7 @@ import type {
 // the remote signer doesn't respond — e.g. the request
 // payload is for an SDK version the mobile app doesn't support yet. After
 // this timeout the queue task fails, freeing the pool for the next request.
-const QUEUE_TASK_TIMEOUT_MS = 180_000;
+const QUEUE_TASK_TIMEOUT_MS = 240_000;
 // Mobile SSO statements allow 500 KiB total; keep headroom for statement/session overhead.
 const MAX_SSO_REQUEST_SIZE = 498 * 1024;
 
@@ -273,6 +273,7 @@ export function createUserSession({
       return enqueue(() => {
         const messageId = nanoid();
         const data = enumValue('v1', enumValue('CreateTransactionRequest', payload));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -295,7 +296,7 @@ export function createUserSession({
           }
         });
 
-        return withQueueTimeout(inner, 'createTransaction');
+        return withHostActionTrace(withQueueTimeout(inner, 'createTransaction'), messageId, userSession.id);
       });
     },
 
@@ -303,6 +304,7 @@ export function createUserSession({
       return enqueue(() => {
         const messageId = nanoid();
         const data = enumValue('v1', enumValue('CreateTransactionLegacyRequest', payload));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -325,7 +327,7 @@ export function createUserSession({
           }
         });
 
-        return withQueueTimeout(inner, 'createTransactionLegacy');
+        return withHostActionTrace(withQueueTimeout(inner, 'createTransactionLegacy'), messageId, userSession.id);
       });
     },
 
@@ -368,6 +370,7 @@ export function createUserSession({
       return enqueue(() => {
         const messageId = nanoid();
         const data = enumValue('v1', enumValue('ResourceAllocationRequest', payload));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
 
         const responseFilter = (message: RemoteMessage) => {
           if (
@@ -386,7 +389,7 @@ export function createUserSession({
           result.success ? ok(result.value) : err(new Error(result.value)),
         );
 
-        return withQueueTimeout(inner, 'requestResourceAllocation');
+        return withHostActionTrace(withQueueTimeout(inner, 'requestResourceAllocation'), messageId, userSession.id);
       });
     },
 
@@ -470,7 +473,7 @@ export function createUserSession({
     abortPendingRequests() {
       // Drop the whole request queue: aborting the shared signal rejects the
       // in-flight task and every request queued behind it, freeing the single
-      // slot immediately instead of waiting out the per-task 180s timeout. Swap
+      // slot immediately instead of waiting out the per-task timeout. Swap
       // in a fresh controller so subsequent requests aren't pre-aborted.
       requestAbort.abort(new Error('Session request aborted'));
       requestAbort = new AbortController();
