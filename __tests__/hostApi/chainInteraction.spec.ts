@@ -686,13 +686,16 @@ describe('Host API: Chain Interaction', () => {
       const { container, hostApi } = setupDirect();
       const stopFn = vi.fn();
 
+      container.handlePermission((_params, { ok }) => ok(true));
       container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
         return onMessage => {
           return {
             send(message) {
-              if (message.method === 'transaction_v1_stop') {
+              if (message.method === 'transaction_v1_broadcast') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'tx_op_1' });
+              } else if (message.method === 'transaction_v1_stop') {
                 stopFn(message.params[0]);
 
                 onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
@@ -707,6 +710,11 @@ describe('Host API: Chain Interaction', () => {
         };
       });
 
+      // A stop pairs with a prior broadcast, which keeps the connection alive.
+      await hostApi.chainTransactionBroadcast(
+        enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
+      );
+
       const result = await hostApi.chainTransactionStop(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, operationId: 'tx_op_1' }),
       );
@@ -720,6 +728,145 @@ describe('Host API: Chain Interaction', () => {
         },
       );
       expect(stopFn).toHaveBeenCalledWith('tx_op_1');
+    });
+
+    it('should keep the chain connection alive after broadcast until stop', async () => {
+      const { container, hostApi } = setupDirect();
+      const disconnectFn = vi.fn();
+
+      container.handlePermission((_params, { ok }) => ok(true));
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
+
+        return onMessage => {
+          return {
+            send(message) {
+              if (message.method === 'transaction_v1_broadcast') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'tx_op_1' });
+              } else {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
+              }
+            },
+            disconnect: disconnectFn,
+          };
+        };
+      });
+
+      const broadcast = await hostApi.chainTransactionBroadcast(
+        enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
+      );
+      broadcast.match(
+        ok => expect(ok.value).toBe('tx_op_1'),
+        () => {
+          throw new Error('Expected success');
+        },
+      );
+
+      // The node keeps re-broadcasting only while the connection lives. Tearing
+      // it down here would abandon the broadcast (the reported bug).
+      expect(disconnectFn).not.toHaveBeenCalled();
+
+      const stop = await hostApi.chainTransactionStop(
+        enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, operationId: 'tx_op_1' }),
+      );
+      stop.match(
+        () => {
+          /* success */
+        },
+        () => {
+          throw new Error('Expected success');
+        },
+      );
+
+      // Once stopped and nothing else holds the chain, it is torn down.
+      expect(disconnectFn).toHaveBeenCalled();
+    });
+
+    it('should treat a duplicate stop as a no-op and tear down only once', async () => {
+      const { container, hostApi } = setupDirect();
+      const disconnectFn = vi.fn();
+      const stopFn = vi.fn();
+
+      container.handlePermission((_params, { ok }) => ok(true));
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
+
+        return onMessage => {
+          return {
+            send(message) {
+              if (message.method === 'transaction_v1_broadcast') {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: 'tx_op_1' });
+              } else if (message.method === 'transaction_v1_stop') {
+                stopFn(message.params[0]);
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
+              } else {
+                onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
+              }
+            },
+            disconnect: disconnectFn,
+          };
+        };
+      });
+
+      await hostApi.chainTransactionBroadcast(
+        enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
+      );
+
+      const first = await hostApi.chainTransactionStop(
+        enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, operationId: 'tx_op_1' }),
+      );
+      const second = await hostApi.chainTransactionStop(
+        enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, operationId: 'tx_op_1' }),
+      );
+
+      for (const result of [first, second]) {
+        result.match(
+          () => {
+            /* both report success */
+          },
+          () => {
+            throw new Error('Expected success');
+          },
+        );
+      }
+
+      // The node-facing stop fires once; the duplicate neither re-sends nor
+      // releases a ref, so teardown happens exactly once.
+      expect(stopFn).toHaveBeenCalledTimes(1);
+      expect(disconnectFn).toHaveBeenCalledTimes(1);
+    });
+
+    it('should tear down the connection when broadcast returns null', async () => {
+      const { container, hostApi } = setupDirect();
+      const disconnectFn = vi.fn();
+
+      container.handlePermission((_params, { ok }) => ok(true));
+      container.handleChainConnection(chain => {
+        if (chain !== WellKnownChain.polkadotRelay) return null;
+
+        return onMessage => {
+          return {
+            send(message) {
+              onMessage({ jsonrpc: '2.0', id: message.id ?? null, result: null });
+            },
+            disconnect: disconnectFn,
+          };
+        };
+      });
+
+      const broadcast = await hostApi.chainTransactionBroadcast(
+        enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
+      );
+      broadcast.match(
+        ok => expect(ok.value).toBe(null),
+        () => {
+          throw new Error('Expected success');
+        },
+      );
+
+      // No operation id means no stop will ever come, so the ref must be
+      // released immediately rather than leaking the connection.
+      expect(disconnectFn).toHaveBeenCalled();
     });
 
     it('should return permission denied when submitPermission returns false', async () => {

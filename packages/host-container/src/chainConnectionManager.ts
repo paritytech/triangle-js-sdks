@@ -219,10 +219,10 @@ export function createChainConnectionManager(
       });
     },
 
-    sendRequest(genesisHash: HexString, method: string, params: unknown[]): Promise<unknown> {
+    sendRequest<T = unknown>(genesisHash: HexString, method: string, params: unknown[]): Promise<T> {
       const entry = chains.get(genesisHash);
       if (!entry) return Promise.reject(new Error(`No connection for chain ${genesisHash}`));
-      return entry.client.request(method, params);
+      return entry.client.request<T>(method, params);
     },
 
     releaseChain(genesisHash: HexString) {
