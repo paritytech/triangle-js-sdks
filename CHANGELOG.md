@@ -1,3 +1,13 @@
+## 0.8.10 (2026-06-16)
+
+### 🩹 Fixes
+
+- **host-chat:** update account service params
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.8.9 (2026-06-15)
 
 ### 🩹 Fixes
