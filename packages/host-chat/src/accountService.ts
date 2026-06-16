@@ -9,11 +9,9 @@ import type { People_lite } from '../.papi/descriptors/dist/index.js';
 
 import { toError } from './helpers.js';
 
-interface NetworkConfig {
-  id: Network;
-  name: string;
-  wsUrl: string;
-  apiUrl: string;
+interface Config {
+  identityEndpoint: string;
+  client: LazyClient;
 }
 
 type AccountStatus = 'ASSIGNED' | 'PENDING';
@@ -22,8 +20,6 @@ type AccountService = {
   search(query: string, status: AccountStatus): ResultAsync<SearchResponse, Error>;
   getConsumerInfo(address: string): ResultAsync<Identity | null, Error>;
 };
-
-type Network = 'paseo-next' | 'paseo-next-v2' | 'preview' | 'stable';
 
 type SearchResponse = {
   candidateAccountId: string;
@@ -56,8 +52,10 @@ export type Identity = {
   credibility: Credibility;
 };
 
-export const createAccountService = (network: Network, lazyClient: LazyClient): AccountService => {
-  const networkConfig = NETWORK_CONFIGS[network];
+export const createAccountService = (config: Config): AccountService => {
+  const identityEndpoint = config.identityEndpoint.endsWith('/')
+    ? config.identityEndpoint
+    : `${config.identityEndpoint}/`;
 
   return {
     search(query, status) {
@@ -68,7 +66,7 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
       });
 
       const request = fromPromise(
-        fetch(`${networkConfig.apiUrl}/usernames?${params}`, {
+        fetch(`${identityEndpoint}usernames?${params}`, {
           method: 'GET',
           headers: { Accept: 'application/json' },
         }),
@@ -88,7 +86,7 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
     getConsumerInfo(address) {
       const textDecoder = new TextDecoder();
       const accountId = AccountId();
-      const client = lazyClient.getClient();
+      const client = config.client.getClient();
       const api = client.getUnsafeApi<People_lite>();
 
       const consumerInfo = fromPromise(api.query.Resources?.Consumers?.getValue(address), toError);
@@ -125,31 +123,4 @@ export const createAccountService = (network: Network, lazyClient: LazyClient): 
       });
     },
   };
-};
-
-const NETWORK_CONFIGS: Record<Network, NetworkConfig> = {
-  stable: {
-    id: 'stable',
-    name: 'PoP Stable',
-    wsUrl: 'wss://pop3-testnet.parity-lab.parity.io/people',
-    apiUrl: 'https://polkadot-app.api.polkadotcommunity.foundation/api/v1',
-  },
-  preview: {
-    id: 'preview',
-    name: 'PoP Preview',
-    wsUrl: 'wss://previewnet.substrate.dev/people',
-    apiUrl: 'https://polkadot-app-stg.parity.io/api/v1',
-  },
-  'paseo-next': {
-    id: 'paseo-next',
-    name: 'Paseo Next',
-    wsUrl: 'wss://paseo-people-next-rpc.polkadot.io',
-    apiUrl: 'https://identity-backend.parity-testnet.parity.io/api/v1',
-  },
-  'paseo-next-v2': {
-    id: 'paseo-next-v2',
-    name: 'Paseo Next V2',
-    wsUrl: 'wss://paseo-people-next-system-rpc.polkadot.io',
-    apiUrl: 'https://identity-backend-next.parity-testnet.parity.io/api/v1',
-  },
 };
