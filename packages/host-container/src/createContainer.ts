@@ -27,7 +27,12 @@ import {
   PaymentStatusErr,
   PaymentTopUpErr,
   PreimageSubmitErr,
+  PushAddRulesErr,
+  PushBroadcastErr,
+  PushListRulesErr,
   PushNotificationError,
+  PushRemoveRulesErr,
+  PushSetRulesErr,
   RemotePermission,
   RequestCredentialsErr,
   ResourceAllocationErr,
@@ -222,6 +227,10 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     method: Method,
     permissionVariant: CodecType<typeof DevicePermission>,
     makeError: () => ErrorResponse<HostApiProtocol[Method]>,
+    // Returned when the user actually denied the device permission. Defaults
+    // to `makeError` (the not-implemented response) for callers whose error
+    // enum has no dedicated PermissionDenied variant.
+    makePermissionDeniedError: () => ErrorResponse<HostApiProtocol[Method]> = makeError,
   ): RequestSlot<Method> {
     const defaultHandler: RequestHandler<Method> = async () =>
       enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
@@ -235,7 +244,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
         permissionResponse.value.success === true &&
         permissionResponse.value.value === true;
       if (!permissionGranted) {
-        return enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+        return enumValue('v1', resultErr(makePermissionDeniedError())) as unknown as Awaited<
+          ReturnType<RequestHandler<Method>>
+        >;
       }
       return current(params);
     });
@@ -405,6 +416,35 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     () => new GenericError({ reason: NOT_IMPLEMENTED }),
   );
 
+  const handlePushAddRulesSlot = makeDevicePermissionGatedRequestSlot(
+    'host_push_add_rules',
+    'Notifications',
+    () => new PushAddRulesErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    () => new PushAddRulesErr.PermissionDenied(),
+  );
+
+  const handlePushRemoveRulesSlot = makeNotImplementedSlot(
+    'host_push_remove_rules',
+    () => new PushRemoveRulesErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
+  const handlePushListRulesSlot = makeNotImplementedSlot(
+    'host_push_list_rules',
+    () => new PushListRulesErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
+  const handlePushSetRulesSlot = makeDevicePermissionGatedRequestSlot(
+    'host_push_set_rules',
+    'Notifications',
+    () => new PushSetRulesErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    () => new PushSetRulesErr.PermissionDenied(),
+  );
+
+  const handlePushBroadcastSlot = makeNotImplementedSlot(
+    'host_push_broadcast',
+    () => new PushBroadcastErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
   const handleNavigateToSlot = makeNotImplementedSlot(
     'host_navigate_to',
     () => new NavigateToErr.Unknown({ reason: NOT_IMPLEMENTED }),
@@ -524,6 +564,46 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       return handleV1Request(
         handlePushNotificationCancelSlot,
         () => new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handlePushAddRules(handler) {
+      return handleV1Request(
+        handlePushAddRulesSlot,
+        () => new PushAddRulesErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handlePushRemoveRules(handler) {
+      return handleV1Request(
+        handlePushRemoveRulesSlot,
+        () => new PushRemoveRulesErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handlePushListRules(handler) {
+      return handleV1Request(
+        handlePushListRulesSlot,
+        () => new PushListRulesErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handlePushSetRules(handler) {
+      return handleV1Request(
+        handlePushSetRulesSlot,
+        () => new PushSetRulesErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handlePushBroadcast(handler) {
+      return handleV1Request(
+        handlePushBroadcastSlot,
+        () => new PushBroadcastErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
     },
