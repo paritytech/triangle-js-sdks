@@ -3,8 +3,10 @@ import {
   CreateProofErr,
   GetUserIdErr,
   LoginErr,
+  ProductProofContext,
   RequestCredentialsErr,
   RingLocation,
+  RingVrfProof,
   SigningErr,
   createTransport,
   toHex,
@@ -41,10 +43,14 @@ const mockLegacyAccount: LegacyAccount = {
 };
 
 const mockRingLocation: CodecType<typeof RingLocation> = {
-  genesisHash: toHex(new Uint8Array(32).fill(0x22)),
-  ringRootHash: toHex(new Uint8Array(32).fill(0x03)),
-  hints: undefined,
+  chainId: toHex(new Uint8Array(32).fill(0x22)),
+  junctions: [
+    { tag: 'PalletInstance', value: 42 },
+    { tag: 'CollectionId', value: new Uint8Array([0xaa, 0xbb]) },
+  ],
 };
+
+const mockContext: CodecType<typeof ProductProofContext> = ['product.dot', new Uint8Array([0])];
 
 describe('Host API: Accounts', () => {
   describe('getUserId', () => {
@@ -146,41 +152,29 @@ describe('Host API: Accounts', () => {
     });
   });
 
-  describe('getProductAccountAlias', () => {
+  describe('getContextualAlias', () => {
     it('should return alias on success', async () => {
       const { container, accountsProvider } = setup();
       const expected = { context: new Uint8Array(32).fill(5), alias: new Uint8Array([1, 2, 3]) };
 
       container.handleAccountGetAlias((_, { ok }) => ok(expected));
 
-      const result = await accountsProvider.getProductAccountAlias('product.dot', 0);
+      const result = await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual(expected);
     });
 
-    it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
+    it('should pass context and ring to handler', async () => {
       const { container, accountsProvider } = setup();
       const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGetAlias>>((_, { ok }) =>
         ok({ context: new Uint8Array(32), alias: new Uint8Array(0) }),
       );
       container.handleAccountGetAlias(handler);
 
-      await accountsProvider.getProductAccountAlias('my-product.dot', 2);
+      await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
-      expect(handler).toBeCalledWith(['my-product.dot', 2], expect.anything());
-    });
-
-    it('should use derivation index 0 by default', async () => {
-      const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGetAlias>>((_, { ok }) =>
-        ok({ context: new Uint8Array(32), alias: new Uint8Array(0) }),
-      );
-      container.handleAccountGetAlias(handler);
-
-      await accountsProvider.getProductAccountAlias('product.dot');
-
-      expect(handler).toBeCalledWith(['product.dot', 0], expect.anything());
+      expect(handler).toBeCalledWith([mockContext, mockRingLocation], expect.anything());
     });
 
     it('should return error on failure', async () => {
@@ -189,7 +183,7 @@ describe('Host API: Accounts', () => {
 
       container.handleAccountGetAlias((_, { err }) => err(error));
 
-      const result = await accountsProvider.getProductAccountAlias('product.dot', 0);
+      const result = await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
@@ -263,44 +257,35 @@ describe('Host API: Accounts', () => {
   });
 
   describe('createRingVRFProof', () => {
+    const mockProof: CodecType<typeof RingVrfProof> = {
+      proof: new Uint8Array([10, 20, 30]),
+      contextualAlias: { context: new Uint8Array(32).fill(5), alias: new Uint8Array([1, 2, 3]) },
+      ringIndex: 7,
+      ringRevision: 3,
+    };
+
     it('should return proof on success', async () => {
       const { container, accountsProvider } = setup();
-      const expectedProof = new Uint8Array([10, 20, 30]);
 
-      container.handleAccountCreateProof((_, { ok }) => ok(expectedProof));
+      container.handleAccountCreateProof((_, { ok }) => ok(mockProof));
 
-      const result = await accountsProvider.createRingVRFProof('product.dot', 0, mockRingLocation, new Uint8Array([1]));
+      const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array([1]));
 
       expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(expectedProof);
+      expect(result._unsafeUnwrap()).toEqual(mockProof);
     });
 
-    it('should pass correct params to handler', async () => {
+    it('should pass context, ring and message to handler', async () => {
       const { container, accountsProvider } = setup();
       const message = new Uint8Array([7, 8, 9]);
       const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
-        ok(new Uint8Array(0)),
+        ok(mockProof),
       );
       container.handleAccountCreateProof(handler);
 
-      await accountsProvider.createRingVRFProof('product.dot', 1, mockRingLocation, message);
+      await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, message);
 
-      expect(handler).toBeCalledWith([['product.dot', 1], mockRingLocation, message], {
-        ok: expect.any(Function),
-        err: expect.any(Function),
-      });
-    });
-
-    it('should use derivation index 0 by default', async () => {
-      const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
-        ok(new Uint8Array(0)),
-      );
-      container.handleAccountCreateProof(handler);
-
-      await accountsProvider.createRingVRFProof('product.dot', 0, mockRingLocation, new Uint8Array(0));
-
-      expect(handler).toBeCalledWith([['product.dot', 0], mockRingLocation, new Uint8Array(0)], {
+      expect(handler).toBeCalledWith([mockContext, mockRingLocation, message], {
         ok: expect.any(Function),
         err: expect.any(Function),
       });
@@ -312,7 +297,19 @@ describe('Host API: Accounts', () => {
 
       container.handleAccountCreateProof((_, { err }) => err(error));
 
-      const result = await accountsProvider.createRingVRFProof('product.dot', 0, mockRingLocation, new Uint8Array(0));
+      const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+
+    it('should return NotMember error when the user is not in the ring', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new CreateProofErr.NotMember();
+
+      container.handleAccountCreateProof((_, { err }) => err(error));
+
+      const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
@@ -324,7 +321,7 @@ describe('Host API: Accounts', () => {
 
       container.handleAccountCreateProof((_, { err }) => err(error));
 
-      const result = await accountsProvider.createRingVRFProof('product.dot', 0, mockRingLocation, new Uint8Array(0));
+      const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);

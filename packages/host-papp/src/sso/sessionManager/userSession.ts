@@ -1,4 +1,4 @@
-import { ContextualAlias, ProductAccountId } from '@novasamatech/host-api';
+import { ContextualAlias, ProductProofContext, RingLocation, RingVrfProof } from '@novasamatech/host-api';
 import { enumValue } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createSession } from '@novasamatech/statement-store';
@@ -120,9 +120,16 @@ export type UserSession = StoredUserSession & {
   createTransaction(payload: CreateTransactionRequest): ResultAsync<Uint8Array, Error>;
   createTransactionLegacy(payload: CreateTransactionLegacyRequest): ResultAsync<Uint8Array, Error>;
   getRingVrfAlias(
-    productAccountId: CodecType<typeof ProductAccountId>,
-    productId: string,
+    callingProductId: string,
+    context: CodecType<typeof ProductProofContext>,
+    ring: CodecType<typeof RingLocation>,
   ): ResultAsync<CodecType<typeof ContextualAlias>, Error>;
+  createRingVrfProof(
+    callingProductId: string,
+    context: CodecType<typeof ProductProofContext>,
+    ring: CodecType<typeof RingLocation>,
+    message: Uint8Array,
+  ): ResultAsync<CodecType<typeof RingVrfProof>, Error>;
   requestResourceAllocation(request: ResourceAllocationRequest): ResultAsync<ApAllocationOutcome[], Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
@@ -331,14 +338,15 @@ export function createUserSession({
       });
     },
 
-    getRingVrfAlias(productAccountId, productId) {
+    getRingVrfAlias(callingProductId, context, ring) {
       return enqueue(() => {
         const messageId = nanoid();
         const data = enumValue(
           'v1',
           enumValue('RingVrfAliasRequest', {
-            productAccountId,
-            productId,
+            callingProductId,
+            context,
+            ring,
           }),
         );
         emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
@@ -350,6 +358,43 @@ export function createUserSession({
             message.data.value.value.respondingTo === messageId
           ) {
             return message.data.value.value.payload;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        return withHostActionTrace(
+          awaitReplyOrAckFailure(request, reply).andThen(result =>
+            result.success ? ok(result.value) : err(new Error(result.value)),
+          ),
+          messageId,
+          userSession.id,
+        );
+      });
+    },
+
+    createRingVrfProof(callingProductId, context, ring, message) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue(
+          'v1',
+          enumValue('RingVrfProofRequest', {
+            callingProductId,
+            context,
+            ring,
+            message,
+          }),
+        );
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+
+        const responseFilter = (incoming: RemoteMessage) => {
+          if (
+            incoming.data.tag === 'v1' &&
+            incoming.data.value.tag === 'RingVrfProofResponse' &&
+            incoming.data.value.value.respondingTo === messageId
+          ) {
+            return incoming.data.value.value.payload;
           }
         };
 

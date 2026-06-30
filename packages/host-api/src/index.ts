@@ -52,8 +52,13 @@ export {
   LoginResult,
   ProductAccount,
   ProductAccountId,
+  ProductId,
+  ProductProofContext,
+  ProductProofContextSuffix,
   RequestCredentialsErr,
   RingLocation,
+  RingLocationJunction,
+  RingVrfProof,
   UserIdentity,
 } from './protocol/v1/accounts.js';
 export {
