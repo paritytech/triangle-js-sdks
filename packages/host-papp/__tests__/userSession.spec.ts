@@ -204,12 +204,33 @@ describe('createUserSession debug emits', () => {
       const session = buildSession();
       const { events, unsubscribe } = captureEvents();
       try {
-        await session.getRingVrfAlias(['product.alpha', new Uint8Array([0])], {
+        await session.getRingVrfAlias('caller.dot', ['product.alpha', new Uint8Array([0])], {
           chainId: '0x22',
           junctions: [{ tag: 'PalletInstance', value: 42 }],
         });
         expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
           actionKind: 'RingVrfAliasRequest',
+        });
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('createRingVrfProof emits host_action_sent with actionKind RingVrfProofRequest', async () => {
+      mocks.request.mockReturnValue(okAsync(undefined));
+      mocks.waitForRequestMessage.mockReturnValue(okAsync({ success: true, value: new Uint8Array() as any }));
+
+      const session = buildSession();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        await session.createRingVrfProof(
+          'caller.dot',
+          ['product.alpha', new Uint8Array([0])],
+          { chainId: '0x22', junctions: [{ tag: 'PalletInstance', value: 42 }] },
+          new Uint8Array([1, 2, 3]),
+        );
+        expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
+          actionKind: 'RingVrfProofRequest',
         });
       } finally {
         unsubscribe();
