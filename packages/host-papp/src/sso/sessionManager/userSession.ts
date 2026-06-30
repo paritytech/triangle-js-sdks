@@ -1,4 +1,4 @@
-import { ContextualAlias, ProductAccountId } from '@novasamatech/host-api';
+import { ContextualAlias, ProductProofContext, RingLocation } from '@novasamatech/host-api';
 import { enumValue } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createSession } from '@novasamatech/statement-store';
@@ -120,8 +120,8 @@ export type UserSession = StoredUserSession & {
   createTransaction(payload: CreateTransactionRequest): ResultAsync<Uint8Array, Error>;
   createTransactionLegacy(payload: CreateTransactionLegacyRequest): ResultAsync<Uint8Array, Error>;
   getRingVrfAlias(
-    productAccountId: CodecType<typeof ProductAccountId>,
-    productId: string,
+    context: CodecType<typeof ProductProofContext>,
+    ring: CodecType<typeof RingLocation>,
   ): ResultAsync<CodecType<typeof ContextualAlias>, Error>;
   requestResourceAllocation(request: ResourceAllocationRequest): ResultAsync<ApAllocationOutcome[], Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
@@ -331,14 +331,14 @@ export function createUserSession({
       });
     },
 
-    getRingVrfAlias(productAccountId, productId) {
+    getRingVrfAlias(context, ring) {
       return enqueue(() => {
         const messageId = nanoid();
         const data = enumValue(
           'v1',
           enumValue('RingVrfAliasRequest', {
-            productAccountId,
-            productId,
+            context,
+            ring,
           }),
         );
         emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);

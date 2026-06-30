@@ -204,7 +204,10 @@ describe('createUserSession debug emits', () => {
       const session = buildSession();
       const { events, unsubscribe } = captureEvents();
       try {
-        await session.getRingVrfAlias(new Uint8Array(32) as any, 'product.alpha');
+        await session.getRingVrfAlias(['product.alpha', new Uint8Array([0])], {
+          chainId: '0x22',
+          junctions: [{ tag: 'PalletInstance', value: 42 }],
+        });
         expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
           actionKind: 'RingVrfAliasRequest',
         });
