@@ -44,9 +44,13 @@ export const createLocalStorage = (transport = sandboxTransport) => {
       return writeBytes(key, textEncoder.encode(value));
     },
     async readJSON(key: string) {
-      return readBytes(key)
-        .then(bytes => textDecoder.decode(bytes))
-        .then(JSON.parse);
+      const bytes = await readBytes(key);
+      // A never-written (or cleared) key reads back as `undefined`, and an empty
+      // value decodes to `''` — neither is valid JSON. Treat both as "absent" and
+      // return `undefined` rather than letting `JSON.parse('')` throw. Genuinely
+      // malformed (non-empty) data still throws, so real corruption stays visible.
+      if (bytes === undefined || bytes.length === 0) return undefined;
+      return JSON.parse(textDecoder.decode(bytes));
     },
     async writeJSON(key: string, value: unknown) {
       return writeBytes(key, textEncoder.encode(JSON.stringify(value)));
