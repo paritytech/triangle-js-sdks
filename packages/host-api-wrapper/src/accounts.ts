@@ -10,6 +10,7 @@ import type {
 } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  GetAliasErr,
   GetUserIdErr,
   LoginErr,
   ProductProofContext,
@@ -101,7 +102,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
             return ok(response.value);
           }
           // @ts-expect-error response.tag is never here
-          return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+          return err(new GetAliasErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
     getLegacyAccounts() {

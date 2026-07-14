@@ -69,6 +69,13 @@ export const CreateProofErr = ErrEnum('CreateProofErr', {
   Unknown: [GenericErr, 'CreateProof: unknown error'],
 });
 
+export const GetAliasErr = ErrEnum('GetAliasErr', {
+  RingNotFound: [_void, 'GetAlias: ring not found'],
+  NotMember: [_void, 'GetAlias: selected member key is not a member of the ring'],
+  Rejected: [_void, 'GetAlias: rejected'],
+  Unknown: [GenericErr, 'GetAlias: unknown error'],
+});
+
 export const GetUserIdErr = ErrEnum('GetUserIdErr', {
   PermissionDenied: [_void, 'GetUserId: permission denied'],
   NotConnected: [_void, 'GetUserId: not connected'],
@@ -96,7 +103,7 @@ export const AccountGetV1_response = Result(ProductAccount, RequestCredentialsEr
 // account_get_alias
 
 export const AccountGetAliasV1_request = Tuple(ProductProofContext, RingLocation);
-export const AccountGetAliasV1_response = Result(ContextualAlias, RequestCredentialsErr);
+export const AccountGetAliasV1_response = Result(ContextualAlias, GetAliasErr);
 
 // account_create_proof
 

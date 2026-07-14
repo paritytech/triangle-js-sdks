@@ -1,6 +1,7 @@
 import type { CodecType } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  GetAliasErr,
   GetUserIdErr,
   LoginErr,
   ProductProofContext,
@@ -179,7 +180,7 @@ describe('Host API: Accounts', () => {
 
     it('should return error on failure', async () => {
       const { container, accountsProvider } = setup();
-      const error = new RequestCredentialsErr.Rejected();
+      const error = new GetAliasErr.Rejected();
 
       container.handleAccountGetAlias((_, { err }) => err(error));
 

@@ -46,6 +46,7 @@ export {
   CreateProofErr,
   DerivationIndex,
   DotNsIdentifier,
+  GetAliasErr,
   GetUserIdErr,
   LegacyAccount,
   LoginErr,

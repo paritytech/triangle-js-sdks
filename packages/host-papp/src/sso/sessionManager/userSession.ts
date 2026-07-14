@@ -366,7 +366,7 @@ export function createUserSession({
 
         return withHostActionTrace(
           awaitReplyOrAckFailure(request, reply).andThen(result =>
-            result.success ? ok(result.value) : err(new Error(result.value)),
+            result.success ? ok(result.value) : err(result.value),
           ),
           messageId,
           userSession.id,
@@ -403,7 +403,7 @@ export function createUserSession({
 
         return withHostActionTrace(
           awaitReplyOrAckFailure(request, reply).andThen(result =>
-            result.success ? ok(result.value) : err(new Error(result.value)),
+            result.success ? ok(result.value) : err(result.value),
           ),
           messageId,
           userSession.id,
