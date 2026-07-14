@@ -1,7 +1,7 @@
-import { Enum, ErrEnum, Status } from '@novasamatech/scale';
+import { Enum, ErrEnum, Hex, Status } from '@novasamatech/scale';
 import { Bytes, Option, Result, Struct, Tuple, Vector, _void, str, u32, u8 } from 'scale-ts';
 
-import { GenericErr, GenesisHash } from '../commonCodecs.js';
+import { GenericErr } from '../commonCodecs.js';
 
 // common types
 
@@ -49,7 +49,8 @@ export const RingLocationJunction = Enum({
 });
 
 export const RingLocation = Struct({
-  chainId: GenesisHash,
+  // TODO make GenesisHash fixed size and replace hardcoded codec with it
+  chainId: Hex(32),
   junctions: Vector(RingLocationJunction),
 });
 
