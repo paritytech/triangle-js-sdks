@@ -241,7 +241,7 @@ container.handleAccountGetAlias(async ([context, ring], { ok, err }) => {
   if (alias) {
     return ok({ context: alias.context, alias: alias.alias });
   }
-  return err(new RequestCredentialsErr.NotConnected());
+  return err(new GetAliasErr.RingNotFound());
 });
 ```
 

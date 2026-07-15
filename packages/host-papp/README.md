@@ -200,6 +200,31 @@ await currentSession.signRaw({
 });
 ```
 
+## Ring VRF proofs and aliases
+
+A `UserSession` can ask the paired device for a privacy-preserving contextual alias, or a
+ring VRF proof, for a product-scoped `context` and a `ring` location. The device
+selects the member key for the ring; `callingProductId` names the product the host is acting
+for. Both take the same `(context, ring)` so the alias in the proof matches `getRingVrfAlias`.
+
+```ts
+const context = ['product.dot', '0x00']; // [productId, suffix] — suffix is a 0x-hex string
+const ring = {
+  chainId: '0x…', // 32-byte chain genesis hash
+  junctions: [{ tag: 'PalletInstance', value: 42 }],
+};
+
+const alias = await currentSession.getRingVrfAlias('caller.dot', context, ring);
+
+const proof = await currentSession.createRingVrfProof('caller.dot', context, ring, new Uint8Array([0x48, 0x69]));
+proof.match(
+  ({ proof, contextualAlias, ringIndex, ringRevision }) =>
+    console.log('proof at ring', ringIndex, 'revision', ringRevision),
+  // failures decode to a structured `RingVrfError` (RingNotFound / NotMember / Rejected / Unknown)
+  error => console.error('proof failed:', error),
+);
+```
+
 ## Identity lookups
 
 `papp.identity` resolves on-chain identity data (lite / full username, credibility, slots)

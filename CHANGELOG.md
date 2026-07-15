@@ -1,3 +1,15 @@
+## 0.8.11 (2026-07-15)
+
+### 🚀 Features
+
+- **host-api:** `host_account_create_proof` and `host_account_get_alias` are redesigned per RFC 0004. A ring is now addressed by a stable `RingLocation` (`{ chainId, junctions }`, with `PalletInstance` / `CollectionId` junctions) instead of the race-prone `ringRootHash`, and the request carries a product-scoped `ProductProofContext` (`[productId, suffix]`) plus an opaque `message` in place of a `ProductAccountId`. `create_proof` now returns a `RingVrfProof` (`{ proof, contextualAlias, ringIndex, ringRevision }`) so a caller gets the alias and the ring index/revision without a second round trip; `get_alias` takes the same `(context, ring)` and returns a `ContextualAlias`. Both gain a `NotMember` error (a new `GetAliasErr`, and `CreateProofErr.NotMember`) so a product can tell "user has not reached full personhood" apart from "ring not found" and route to onboarding.
+- **host-papp:** the SSO `UserSession` gains `getRingVrfAlias` and `createRingVrfProof`, forwarding contextual-alias and ring-VRF-proof requests to the paired device over the encrypted SSO channel. `callingProductId` names the product the host acts for, and both take the same `(context, ring)` so the alias returned in a proof matches `getRingVrfAlias`.
+
+### ❤️ Thank You
+
+- @valentunn
+- Sergey Zhuravlev @johnthecat
+
 ## 0.8.10 (2026-06-16)
 
 ### 🩹 Fixes

@@ -51,7 +51,7 @@ const mockRingLocation: CodecType<typeof RingLocation> = {
   ],
 };
 
-const mockContext: CodecType<typeof ProductProofContext> = ['product.dot', new Uint8Array([0])];
+const mockContext: CodecType<typeof ProductProofContext> = ['product.dot', '0x00'];
 
 describe('Host API: Accounts', () => {
   describe('getUserId', () => {

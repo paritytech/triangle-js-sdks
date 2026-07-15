@@ -13,7 +13,7 @@ export const ProductAccountId = Tuple(DotNsIdentifier, DerivationIndex);
 export const RingVrgAlias = Bytes();
 
 export const ProductId = DotNsIdentifier;
-export const ProductProofContextSuffix = Bytes();
+export const ProductProofContextSuffix = Hex();
 export const ProductProofContext = Tuple(ProductId, ProductProofContextSuffix);
 
 // structs
