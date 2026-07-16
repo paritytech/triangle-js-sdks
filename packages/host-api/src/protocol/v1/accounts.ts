@@ -1,7 +1,7 @@
-import { ErrEnum, Hex, Status } from '@novasamatech/scale';
-import { Bytes, Option, Result, Struct, Tuple, Vector, _void, str, u32 } from 'scale-ts';
+import { Enum, ErrEnum, Hex, Status } from '@novasamatech/scale';
+import { Bytes, Option, Result, Struct, Tuple, Vector, _void, str, u32, u8 } from 'scale-ts';
 
-import { GenericErr, GenesisHash } from '../commonCodecs.js';
+import { GenericErr } from '../commonCodecs.js';
 
 // common types
 
@@ -10,8 +10,11 @@ export const PublicKey = Bytes();
 export const DotNsIdentifier = str;
 export const DerivationIndex = u32;
 export const ProductAccountId = Tuple(DotNsIdentifier, DerivationIndex);
-export const RingVrfProof = Bytes();
 export const RingVrgAlias = Bytes();
+
+export const ProductId = DotNsIdentifier;
+export const ProductProofContextSuffix = Hex();
+export const ProductProofContext = Tuple(ProductId, ProductProofContextSuffix);
 
 // structs
 
@@ -33,14 +36,22 @@ export const ContextualAlias = Struct({
   alias: RingVrgAlias,
 });
 
-export const RingLocationHint = Struct({
-  palletInstance: Option(u32),
+export const RingVrfProof = Struct({
+  proof: Bytes(),
+  contextualAlias: ContextualAlias,
+  ringIndex: u32,
+  ringRevision: u32,
+});
+
+export const RingLocationJunction = Enum({
+  PalletInstance: u8,
+  CollectionId: Bytes(),
 });
 
 export const RingLocation = Struct({
-  genesisHash: GenesisHash,
-  ringRootHash: Hex(),
-  hints: Option(RingLocationHint),
+  // TODO make GenesisHash fixed size and replace hardcoded codec with it
+  chainId: Hex(32),
+  junctions: Vector(RingLocationJunction),
 });
 
 // errors
@@ -54,8 +65,16 @@ export const RequestCredentialsErr = ErrEnum('RequestCredentialsErr', {
 
 export const CreateProofErr = ErrEnum('CreateProofErr', {
   RingNotFound: [_void, 'CreateProof: ring not found'],
+  NotMember: [_void, 'CreateProof: selected member key is not a member of the ring'],
   Rejected: [_void, 'CreateProof: rejected'],
   Unknown: [GenericErr, 'CreateProof: unknown error'],
+});
+
+export const GetAliasErr = ErrEnum('GetAliasErr', {
+  RingNotFound: [_void, 'GetAlias: ring not found'],
+  NotMember: [_void, 'GetAlias: selected member key is not a member of the ring'],
+  Rejected: [_void, 'GetAlias: rejected'],
+  Unknown: [GenericErr, 'GetAlias: unknown error'],
 });
 
 export const GetUserIdErr = ErrEnum('GetUserIdErr', {
@@ -84,12 +103,12 @@ export const AccountGetV1_response = Result(ProductAccount, RequestCredentialsEr
 
 // account_get_alias
 
-export const AccountGetAliasV1_request = ProductAccountId;
-export const AccountGetAliasV1_response = Result(ContextualAlias, RequestCredentialsErr);
+export const AccountGetAliasV1_request = Tuple(ProductProofContext, RingLocation);
+export const AccountGetAliasV1_response = Result(ContextualAlias, GetAliasErr);
 
 // account_create_proof
 
-export const AccountCreateProofV1_request = Tuple(ProductAccountId, RingLocation, Bytes());
+export const AccountCreateProofV1_request = Tuple(ProductProofContext, RingLocation, Bytes());
 export const AccountCreateProofV1_response = Result(RingVrfProof, CreateProofErr);
 
 // get_legacy_accounts

@@ -7,7 +7,12 @@ import {
   CreateTransactionResponseCodec,
 } from './createTransaction.js';
 import { ResourceAllocationRequestCodec, ResourceAllocationResponseCodec } from './resourceAllocation.js';
-import { RingVrfAliasRequestCodec, RingVrfAliasResponseCodec } from './ringVrf.js';
+import {
+  RingVrfAliasRequestCodec,
+  RingVrfAliasResponseCodec,
+  RingVrfProofRequestCodec,
+  RingVrfProofResponseCodec,
+} from './ringVrf.js';
 import {
   SignRawLegacyRequestCodec,
   SignRawLegacyResponseCodec,
@@ -32,6 +37,8 @@ export const RemoteMessageCodec = Struct({
       CreateTransactionLegacyRequest: CreateTransactionLegacyRequestCodec,
       SignRawLegacyRequest: SignRawLegacyRequestCodec,
       SignRawLegacyResponse: SignRawLegacyResponseCodec,
+      RingVrfProofRequest: RingVrfProofRequestCodec,
+      RingVrfProofResponse: RingVrfProofResponseCodec,
     }),
   }),
 });
