@@ -15,6 +15,13 @@ import { NavigateToErr } from './protocol/v1/navigation.js';
 import { PushNotificationError } from './protocol/v1/notification.js';
 import { PaymentRequestErr, PaymentTopUpErr } from './protocol/v1/payments.js';
 import { PreimageSubmitErr } from './protocol/v1/preimage.js';
+import {
+  PushAddRulesErr,
+  PushBroadcastErr,
+  PushListRulesErr,
+  PushRemoveRulesErr,
+  PushSetRulesErr,
+} from './protocol/v1/pushSubscription.js';
 import { ResourceAllocationErr } from './protocol/v1/resourceAllocation.js';
 import { SigningErr } from './protocol/v1/sign.js';
 import { StatementProofErr } from './protocol/v1/statementStore.js';
@@ -113,6 +120,41 @@ export function createHostApi(transport: Transport): HostApi {
       return makeRequest(transport.request('host_push_notification_cancel', payload), reason => ({
         tag: payload.tag,
         value: new GenericError({ reason }),
+      }));
+    },
+
+    pushAddRules(payload) {
+      return makeRequest(transport.request('host_push_add_rules', payload), reason => ({
+        tag: payload.tag,
+        value: new PushAddRulesErr.Unknown({ reason }),
+      }));
+    },
+
+    pushRemoveRules(payload) {
+      return makeRequest(transport.request('host_push_remove_rules', payload), reason => ({
+        tag: payload.tag,
+        value: new PushRemoveRulesErr.Unknown({ reason }),
+      }));
+    },
+
+    pushListRules(payload) {
+      return makeRequest(transport.request('host_push_list_rules', payload), reason => ({
+        tag: payload.tag,
+        value: new PushListRulesErr.Unknown({ reason }),
+      }));
+    },
+
+    pushSetRules(payload) {
+      return makeRequest(transport.request('host_push_set_rules', payload), reason => ({
+        tag: payload.tag,
+        value: new PushSetRulesErr.Unknown({ reason }),
+      }));
+    },
+
+    pushBroadcast(payload) {
+      return makeRequest(transport.request('host_push_broadcast', payload), reason => ({
+        tag: payload.tag,
+        value: new PushBroadcastErr.Unknown({ reason }),
       }));
     },
 

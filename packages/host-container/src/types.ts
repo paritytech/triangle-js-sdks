@@ -98,6 +98,11 @@ export type Container = {
   handlePermission: InferHandler<'v1', HostApiProtocol['remote_permission']>;
   handlePushNotification: InferHandler<'v1', HostApiProtocol['host_push_notification']>;
   handlePushNotificationCancel: InferHandler<'v1', HostApiProtocol['host_push_notification_cancel']>;
+  handlePushAddRules: InferHandler<'v1', HostApiProtocol['host_push_add_rules']>;
+  handlePushRemoveRules: InferHandler<'v1', HostApiProtocol['host_push_remove_rules']>;
+  handlePushListRules: InferHandler<'v1', HostApiProtocol['host_push_list_rules']>;
+  handlePushSetRules: InferHandler<'v1', HostApiProtocol['host_push_set_rules']>;
+  handlePushBroadcast: InferHandler<'v1', HostApiProtocol['host_push_broadcast']>;
   handleNavigateTo: InferHandler<'v1', HostApiProtocol['host_navigate_to']>;
 
   // entropy derivation
