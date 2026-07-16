@@ -37,6 +37,7 @@ import {
   StorageErr,
   createTransport,
   enumValue,
+  hostApiProtocol,
   isEnumVariant,
   resultErr,
   resultOk,
@@ -56,16 +57,22 @@ import type {
 
 const UNSUPPORTED_MESSAGE_FORMAT_ERROR = 'Unsupported message format';
 
+const UNSUPPORTED_VERSION_ERROR = 'Unsupported version';
+
 const NOT_IMPLEMENTED = 'Not implemented';
+
+// Wire tag of the only protocol version this container speaks (`v1`).
+const V1_VERSION_TAG = 0x00;
 
 type RequestSlot<Method extends HostApiMethod> = {
   update(handler: RequestHandler<Method>): VoidFunction;
   call: RequestHandler<Method>;
+  makeCatchAllError(reason: string): ErrorResponse<HostApiProtocol[Method]>;
 };
 
 type SubscriptionSlot<Method extends HostApiMethod> = {
   update(handler: SubscriptionHandler<Method>): VoidFunction;
-  makeDefaultInterrupt(): InterruptPayloadFor<HostApiProtocol[Method]>;
+  makeDefaultInterrupt(reason?: string): InterruptPayloadFor<HostApiProtocol[Method]>;
 };
 
 type ErrorResponse<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
@@ -76,6 +83,62 @@ type InterruptPayloadFor<Call extends VersionedProtocolRequest | VersionedProtoc
 
 type ContainerRequestHandlerGuard<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
   Call extends VersionedProtocolRequest ? ContainerRequestHandler<'v1', Call> : never;
+
+function faultReason(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
+const REQUEST_ID_DECODER = new TextDecoder();
+
+type FrameHeader = {
+  requestId: string;
+  actionIndex: number;
+  payloadOffset: number;
+};
+
+/**
+ * Reads the `[compact length][utf8 requestId][action id u8]` frame header
+ * without touching the (possibly undecodable) payload that follows it.
+ * Returns null when even the header does not parse.
+ */
+function readFrameHeader(frame: Uint8Array): FrameHeader | null {
+  const byte = (index: number) => frame[index] ?? 0;
+  const first = frame[0];
+  if (first === undefined) return null;
+
+  // SCALE compact length prefix of the requestId string. Mode 0b11 encodes
+  // lengths >= 2**30 which can never be a sane request id.
+  let requestIdLength: number;
+  let prefixSize: number;
+  switch (first & 0b11) {
+    case 0b00:
+      requestIdLength = first >>> 2;
+      prefixSize = 1;
+      break;
+    case 0b01:
+      if (frame.length < 2) return null;
+      requestIdLength = (first + byte(1) * 2 ** 8) >>> 2;
+      prefixSize = 2;
+      break;
+    case 0b10:
+      if (frame.length < 4) return null;
+      requestIdLength = (first + byte(1) * 2 ** 8 + byte(2) * 2 ** 16 + byte(3) * 2 ** 24) >>> 2;
+      prefixSize = 4;
+      break;
+    default:
+      return null;
+  }
+
+  const actionOffset = prefixSize + requestIdLength;
+  const actionIndex = frame[actionOffset];
+  if (actionIndex === undefined) return null;
+
+  return {
+    requestId: REQUEST_ID_DECODER.decode(frame.subarray(prefixSize, actionOffset)),
+    actionIndex,
+    payloadOffset: actionOffset + 1,
+  };
+}
 
 function guardVersion<const Enum extends { tag: string; value: unknown }, const Tag extends Enum['tag'], const Err>(
   value: Enum | undefined,
@@ -110,6 +173,89 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   );
   transport.onDestroy(unregisterGlobalDebugSource);
 
+  // Frames whose payload cannot be decoded (unsupported version tag or
+  // malformed bytes) throw inside the transport's `Message.dec` before any
+  // handler runs, so without a fallback the product side would wait forever.
+  // The frame header is still readable, so every served action registers a
+  // responder here that answers the method's catch-all terminal frame
+  // (response error for requests, default interrupt for subscriptions).
+  // Unknown action ids keep the existing drop behavior.
+  type DecodeFaultResponder = {
+    isDecodable(payload: Uint8Array): boolean;
+    respond(requestId: string, reason: string): void;
+  };
+
+  const decodeFaultResponders = new Map<number, DecodeFaultResponder>();
+
+  function registerRequestDecodeFault<const Method extends HostApiMethod>(
+    method: Method,
+    makeError: (reason: string) => ErrorResponse<HostApiProtocol[Method]>,
+  ): VoidFunction {
+    const protocolEntry = hostApiProtocol[method] as unknown as VersionedProtocolRequest;
+    decodeFaultResponders.set(protocolEntry.index, {
+      isDecodable: payload => {
+        try {
+          protocolEntry.request.dec(payload);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      respond: (requestId, reason) =>
+        transport.postMessage(
+          requestId,
+          enumValue(`${method}_response`, enumValue('v1', resultErr(makeError(reason)))) as never,
+        ),
+    });
+    return () => decodeFaultResponders.delete(protocolEntry.index);
+  }
+
+  function registerSubscriptionDecodeFault<const Method extends HostApiMethod>(
+    method: Method,
+    makeDefaultInterrupt: (reason?: string) => InterruptPayloadFor<HostApiProtocol[Method]>,
+  ): VoidFunction {
+    const protocolEntry = hostApiProtocol[method] as unknown as VersionedProtocolSubscription;
+    decodeFaultResponders.set(protocolEntry.index, {
+      isDecodable: payload => {
+        try {
+          protocolEntry.start.dec(payload);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      respond: (requestId, reason) =>
+        transport.postMessage(requestId, enumValue(`${method}_interrupt`, makeDefaultInterrupt(reason)) as never),
+    });
+    return () => decodeFaultResponders.delete(protocolEntry.index);
+  }
+
+  const unsubscribeDecodeFaultGuard = provider.subscribe(frame => {
+    const header = readFrameHeader(frame);
+    if (!header) return;
+
+    const responder = decodeFaultResponders.get(header.actionIndex);
+    if (!responder) return;
+
+    // Copy rather than subarray: scale-ts decoders misread Uint8Array views
+    // that carry a non-zero byteOffset.
+    const payload = frame.slice(header.payloadOffset);
+    // Re-decoding request/start payloads costs one extra decode per served
+    // frame, but it is the only way to know the transport dropped it.
+    if (responder.isDecodable(payload)) return;
+
+    const reason =
+      payload.length > 0 && payload[0] !== V1_VERSION_TAG
+        ? UNSUPPORTED_VERSION_ERROR
+        : UNSUPPORTED_MESSAGE_FORMAT_ERROR;
+    try {
+      responder.respond(header.requestId, reason);
+    } catch (error) {
+      provider.logger.error('Failed to answer undecodable frame', error);
+    }
+  });
+  transport.onDestroy(unsubscribeDecodeFaultGuard);
+
   function init() {
     // init status subscription
     transport.isReady();
@@ -118,6 +264,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   function makeRequestSlot<const Method extends HostApiMethod>(
     method: Method,
     defaultHandler: RequestHandler<Method>,
+    makeCatchAllError: (reason: string) => ErrorResponse<HostApiProtocol[Method]>,
   ): RequestSlot<Method> {
     let current: RequestHandler<Method> = defaultHandler;
     let version = 0;
@@ -133,6 +280,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
         };
       },
       call: (...args) => current(...args),
+      makeCatchAllError,
     };
   }
 
@@ -156,18 +304,19 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
   function makeNotImplementedSlot<const Method extends HostApiMethod>(
     method: Method,
-    makeError: () => ErrorResponse<HostApiProtocol[Method]>,
+    makeError: (reason: string) => ErrorResponse<HostApiProtocol[Method]>,
   ): RequestSlot<Method> {
     // Cast needed: async () returns a fixed v1 error shape that TypeScript can't verify
     // matches the generic Method's response type without evaluating template literal types.
     const handler: RequestHandler<Method> = async () =>
-      enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
-    return makeRequestSlot(method, handler);
+      enumValue('v1', resultErr(makeError(NOT_IMPLEMENTED))) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+    registerRequestDecodeFault(method, makeError);
+    return makeRequestSlot(method, handler, makeError);
   }
 
   function makeInterruptSlot<const Method extends HostApiMethod>(
     method: Method,
-    makeDefaultInterrupt: () => InterruptPayloadFor<HostApiProtocol[Method]>,
+    makeDefaultInterrupt: (reason?: string) => InterruptPayloadFor<HostApiProtocol[Method]>,
   ): SubscriptionSlot<Method> {
     const defaultHandler: SubscriptionHandler<Method> = (_params, _send, interrupt) => {
       // Cast needed: the default handler ignores typed params/send which TypeScript can't verify
@@ -177,6 +326,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
         /* nothing to clean up */
       };
     };
+    registerSubscriptionDecodeFault(method, makeDefaultInterrupt);
     const update = makeSubscriptionSlot(method, defaultHandler);
     return { update, makeDefaultInterrupt };
   }
@@ -184,13 +334,14 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   function makePermissionGatedRequestSlot<const Method extends HostApiMethod>(
     method: Method,
     permissionVariant: CodecType<typeof RemotePermission>['tag'],
-    makeError: () => ErrorResponse<HostApiProtocol[Method]>,
+    makeError: (reason: string) => ErrorResponse<HostApiProtocol[Method]>,
   ): RequestSlot<Method> {
     const defaultHandler: RequestHandler<Method> = async () =>
-      enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+      enumValue('v1', resultErr(makeError(NOT_IMPLEMENTED))) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
     let current = defaultHandler;
     let version = 0;
 
+    registerRequestDecodeFault(method, makeError);
     transport.handleRequest(method, async params => {
       const permissionResponse = await handleRemotePermissionSlot.call(
         enumValue('v1', enumValue(permissionVariant as never, undefined)),
@@ -200,7 +351,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
         permissionResponse.value.success === true &&
         permissionResponse.value.value === true;
       if (!permissionGranted) {
-        return enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+        return enumValue('v1', resultErr(makeError(NOT_IMPLEMENTED))) as unknown as Awaited<
+          ReturnType<RequestHandler<Method>>
+        >;
       }
       return current(params);
     });
@@ -216,19 +369,21 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
         };
       },
       call: (...args) => current(...args),
+      makeCatchAllError: makeError,
     };
   }
 
   function makeDevicePermissionGatedRequestSlot<const Method extends HostApiMethod>(
     method: Method,
     permissionVariant: CodecType<typeof DevicePermission>,
-    makeError: () => ErrorResponse<HostApiProtocol[Method]>,
+    makeError: (reason: string) => ErrorResponse<HostApiProtocol[Method]>,
   ): RequestSlot<Method> {
     const defaultHandler: RequestHandler<Method> = async () =>
-      enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+      enumValue('v1', resultErr(makeError(NOT_IMPLEMENTED))) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
     let current = defaultHandler;
     let version = 0;
 
+    registerRequestDecodeFault(method, makeError);
     transport.handleRequest(method, async params => {
       const permissionResponse = await handleDevicePermissionSlot.call(enumValue('v1', permissionVariant));
       const permissionGranted =
@@ -236,7 +391,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
         permissionResponse.value.success === true &&
         permissionResponse.value.value === true;
       if (!permissionGranted) {
-        return enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+        return enumValue('v1', resultErr(makeError(NOT_IMPLEMENTED))) as unknown as Awaited<
+          ReturnType<RequestHandler<Method>>
+        >;
       }
       return current(params);
     });
@@ -252,6 +409,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
         };
       },
       call: (...args) => current(...args),
+      makeCatchAllError: makeError,
     };
   }
 
@@ -264,11 +422,20 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     const version = 'v1' as const;
     return slot.update(async params => {
       const error = makeError();
-      return guardVersion(params, version, error)
-        .asyncMap(async p => await handler(p as never, { ok: okAsync<any>, err: errAsync<never, any> }))
-        .andThen(r => r.map(v => enumValue(version, resultOk(v))))
-        .orElse(r => ok(enumValue(version, resultErr(r))))
-        .unwrapOr(enumValue(version, resultErr(error))) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+      try {
+        return (await guardVersion(params, version, error)
+          .asyncMap(async p => await handler(p as never, { ok: okAsync<any>, err: errAsync<never, any> }))
+          .andThen(r => r.map(v => enumValue(version, resultOk(v))))
+          .orElse(r => ok(enumValue(version, resultErr(r))))
+          .unwrapOr(enumValue(version, resultErr(error)))) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+      } catch (thrown) {
+        // A throwing or rejecting handler must still answer a terminal frame:
+        // reply with the method's catch-all error instead of leaving the
+        // product side hanging.
+        return enumValue(version, resultErr(slot.makeCatchAllError(faultReason(thrown)))) as unknown as Awaited<
+          ReturnType<RequestHandler<Method>>
+        >;
+      }
     });
   }
 
@@ -280,13 +447,23 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     const version = 'v1' as const;
     const slotHandler = ((params: unknown, send: unknown, interrupt: (v: unknown) => void) => {
       return guardVersion(params as { tag: string; value: unknown }, version, null)
-        .map(p =>
-          handler(
-            p as never,
-            ((payload: unknown) => (send as (v: unknown) => void)(enumValue(version, payload))) as never,
-            ((payload: unknown) => interrupt(enumValue(version, payload))) as never,
-          ),
-        )
+        .map(p => {
+          try {
+            return handler(
+              p as never,
+              ((payload: unknown) => (send as (v: unknown) => void)(enumValue(version, payload))) as never,
+              ((payload: unknown) => interrupt(enumValue(version, payload))) as never,
+            );
+          } catch (thrown) {
+            // A throwing start handler must still answer a terminal frame:
+            // interrupt with the method's default error instead of leaving
+            // the product side hanging.
+            interrupt(slot.makeDefaultInterrupt(faultReason(thrown)));
+            return () => {
+              /* handler failed during start */
+            };
+          }
+        })
         .orTee(() => interrupt(slot.makeDefaultInterrupt()))
         .unwrapOr(() => {
           /* empty */
@@ -298,171 +475,168 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   // account slots
   const handleGetUserIdSlot = makeNotImplementedSlot(
     'host_get_user_id',
-    () => new GetUserIdErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new GetUserIdErr.Unknown({ reason }),
   );
 
   const handleRequestLoginSlot = makeNotImplementedSlot(
     'host_request_login',
-    () => new LoginErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new LoginErr.Unknown({ reason }),
   );
 
   const handleAccountGetSlot = makeNotImplementedSlot(
     'host_account_get',
-    () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new RequestCredentialsErr.Unknown({ reason }),
   );
 
   const handleAccountGetAliasSlot = makeNotImplementedSlot(
     'host_account_get_alias',
-    () => new GetAliasErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new GetAliasErr.Unknown({ reason }),
   );
 
   const handleGetLegacyAccountsSlot = makeNotImplementedSlot(
     'host_get_legacy_accounts',
-    () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new RequestCredentialsErr.Unknown({ reason }),
   );
 
   const handleAccountCreateProofSlot = makeNotImplementedSlot(
     'host_account_create_proof',
-    () => new CreateProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new CreateProofErr.Unknown({ reason }),
   );
 
   // entropy derivation slot
   const handleDeriveEntropySlot = makeNotImplementedSlot(
     'host_derive_entropy',
-    () => new DeriveEntropyErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new DeriveEntropyErr.Unknown({ reason }),
   );
 
   // storage slots
   const handleLocalStorageReadSlot = makeNotImplementedSlot(
     'host_local_storage_read',
-    () => new StorageErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new StorageErr.Unknown({ reason }),
   );
 
   const handleLocalStorageWriteSlot = makeNotImplementedSlot(
     'host_local_storage_write',
-    () => new StorageErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new StorageErr.Unknown({ reason }),
   );
 
   const handleLocalStorageClearSlot = makeNotImplementedSlot(
     'host_local_storage_clear',
-    () => new StorageErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new StorageErr.Unknown({ reason }),
   );
 
   // signing slots
-  const handleSignRawSlot = makeNotImplementedSlot(
-    'host_sign_raw',
-    () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  const handleSignRawSlot = makeNotImplementedSlot('host_sign_raw', reason => new SigningErr.Unknown({ reason }));
 
   const handleSignPayloadSlot = makeNotImplementedSlot(
     'host_sign_payload',
-    () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new SigningErr.Unknown({ reason }),
   );
 
   const handleSignRawWithLegacyAccountSlot = makeNotImplementedSlot(
     'host_sign_raw_with_legacy_account',
-    () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new SigningErr.Unknown({ reason }),
   );
 
   const handleSignPayloadWithLegacyAccountSlot = makeNotImplementedSlot(
     'host_sign_payload_with_legacy_account',
-    () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new SigningErr.Unknown({ reason }),
   );
 
   const handleCreateTransactionSlot = makeNotImplementedSlot(
     'host_create_transaction',
-    () => new CreateTransactionErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new CreateTransactionErr.Unknown({ reason }),
   );
 
   const handleCreateTransactionWithLegacyAccountSlot = makeNotImplementedSlot(
     'host_create_transaction_with_legacy_account',
-    () => new CreateTransactionErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new CreateTransactionErr.Unknown({ reason }),
   );
 
   const handleFeatureSupportedSlot = makeNotImplementedSlot(
     'host_feature_supported',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
+    reason => new GenericError({ reason }),
   );
 
   const handleDevicePermissionSlot = makeNotImplementedSlot(
     'host_device_permission',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
+    reason => new GenericError({ reason }),
   );
 
   const handleRemotePermissionSlot = makeNotImplementedSlot(
     'remote_permission',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
+    reason => new GenericError({ reason }),
   );
 
   const handlePushNotificationSlot = makeDevicePermissionGatedRequestSlot(
     'host_push_notification',
     'Notifications',
-    () => new PushNotificationError.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new PushNotificationError.Unknown({ reason }),
   );
 
   const handlePushNotificationCancelSlot = makeDevicePermissionGatedRequestSlot(
     'host_push_notification_cancel',
     'Notifications',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
+    reason => new GenericError({ reason }),
   );
 
   const handleNavigateToSlot = makeNotImplementedSlot(
     'host_navigate_to',
-    () => new NavigateToErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new NavigateToErr.Unknown({ reason }),
   );
 
   const handleChatCreateRoomSlot = makeNotImplementedSlot(
     'host_chat_create_room',
-    () => new ChatRoomRegistrationErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new ChatRoomRegistrationErr.Unknown({ reason }),
   );
 
   const handleChatBotRegistrationSlot = makeNotImplementedSlot(
     'host_chat_register_bot',
-    () => new ChatBotRegistrationErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new ChatBotRegistrationErr.Unknown({ reason }),
   );
 
   const handleChatPostMessageSlot = makeNotImplementedSlot(
     'host_chat_post_message',
-    () => new ChatMessagePostingErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new ChatMessagePostingErr.Unknown({ reason }),
   );
 
   const handleStatementStoreSubmitSlot = makePermissionGatedRequestSlot(
     'remote_statement_store_submit',
     'StatementSubmit',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
+    reason => new GenericError({ reason }),
   );
 
   const handleStatementStoreCreateProofSlot = makeNotImplementedSlot(
     'remote_statement_store_create_proof',
-    () => new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new StatementProofErr.Unknown({ reason }),
   );
 
   const handleStatementStoreCreateProofAuthorizedSlot = makeNotImplementedSlot(
     'remote_statement_store_create_proof_authorized',
-    () => new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new StatementProofErr.Unknown({ reason }),
   );
 
   const handlePreimageSubmitSlot = makePermissionGatedRequestSlot(
     'remote_preimage_submit',
     'PreimageSubmit',
-    () => new PreimageSubmitErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new PreimageSubmitErr.Unknown({ reason }),
   );
 
   // payment request slots
   const handlePaymentTopUpSlot = makeNotImplementedSlot(
     'host_payment_top_up',
-    () => new PaymentTopUpErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new PaymentTopUpErr.Unknown({ reason }),
   );
 
   const handlePaymentRequestSlot = makeNotImplementedSlot(
     'host_payment_request',
-    () => new PaymentRequestErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new PaymentRequestErr.Unknown({ reason }),
   );
 
   // resource allocation slot
   const handleRequestResourceAllocationSlot = makeNotImplementedSlot(
     'host_request_resource_allocation',
-    () => new ResourceAllocationErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    reason => new ResourceAllocationErr.Unknown({ reason }),
   );
 
   // subscription slots — default interrupts on next microtask so that
@@ -481,11 +655,13 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   const handlePreimageLookupSubscribeSlot = makeInterruptSlot('remote_preimage_lookup_subscribe', () =>
     enumValue('v1', undefined),
   );
-  const handlePaymentBalanceSubscribeSlot = makeInterruptSlot('host_payment_balance_subscribe', () =>
-    enumValue('v1', new PaymentBalanceErr.Unknown({ reason: NOT_IMPLEMENTED })),
+  const handlePaymentBalanceSubscribeSlot = makeInterruptSlot(
+    'host_payment_balance_subscribe',
+    (reason = NOT_IMPLEMENTED) => enumValue('v1', new PaymentBalanceErr.Unknown({ reason })),
   );
-  const handlePaymentStatusSubscribeSlot = makeInterruptSlot('host_payment_status_subscribe', () =>
-    enumValue('v1', new PaymentStatusErr.Unknown({ reason: NOT_IMPLEMENTED })),
+  const handlePaymentStatusSubscribeSlot = makeInterruptSlot(
+    'host_payment_status_subscribe',
+    (reason = NOT_IMPLEMENTED) => enumValue('v1', new PaymentStatusErr.Unknown({ reason })),
   );
 
   return {
@@ -798,6 +974,29 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       const cleanups: VoidFunction[] = [];
       // `${genesisHash}:${operationId}` for each broadcast holding a chain ref.
       const liveBroadcasts = new Set<string>();
+
+      // Undecodable chain frames answer terminal frames through the same
+      // catch-all machinery as the slot-based methods above.
+      const chainFaultMethods = [
+        'remote_chain_head_header',
+        'remote_chain_head_body',
+        'remote_chain_head_storage',
+        'remote_chain_head_call',
+        'remote_chain_head_unpin',
+        'remote_chain_head_continue',
+        'remote_chain_head_stop_operation',
+        'remote_chain_spec_genesis_hash',
+        'remote_chain_spec_chain_name',
+        'remote_chain_spec_properties',
+        'remote_chain_transaction_broadcast',
+        'remote_chain_transaction_stop',
+      ] as const;
+      for (const method of chainFaultMethods) {
+        cleanups.push(registerRequestDecodeFault(method, reason => new GenericError({ reason })));
+      }
+      cleanups.push(
+        registerSubscriptionDecodeFault('remote_chain_head_follow_subscribe', () => enumValue('v1', undefined)),
+      );
 
       // Follow subscription
       cleanups.push(
