@@ -64,6 +64,10 @@ const NOT_IMPLEMENTED = 'Not implemented';
 // Wire tag of the only protocol version this container speaks (`v1`).
 const V1_VERSION_TAG = 0x00;
 
+// Largest leading byte still read as a (higher, unsupported) version tag rather
+// than malformed bytes; version tags are small sequential SCALE discriminants.
+const MAX_KNOWN_VERSION_TAG = 0x0f;
+
 type RequestSlot<Method extends HostApiMethod> = {
   update(handler: RequestHandler<Method>): VoidFunction;
   call: RequestHandler<Method>;
@@ -244,8 +248,11 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     // frame, but it is the only way to know the transport dropped it.
     if (responder.isDecodable(payload)) return;
 
+    // A plausible-but-unsupported leading version tag reads as a version
+    // mismatch; other malformed bytes read as a bad message format.
+    const versionTag = payload[0];
     const reason =
-      payload.length > 0 && payload[0] !== V1_VERSION_TAG
+      versionTag !== undefined && versionTag !== V1_VERSION_TAG && versionTag <= MAX_KNOWN_VERSION_TAG
         ? UNSUPPORTED_VERSION_ERROR
         : UNSUPPORTED_MESSAGE_FORMAT_ERROR;
     try {

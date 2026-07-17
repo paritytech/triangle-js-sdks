@@ -144,6 +144,17 @@ describe('createContainer terminal frames', () => {
       expect(frame.actionIndex).toBe(topUp.index + 1);
       expect(frame.payload).toBe(topUpErrorResponse('Unsupported message format'));
     });
+
+    it('reports a garbage leading byte as malformed, not an unsupported version', async () => {
+      const harness = createHarness();
+
+      // 0xff is not a plausible version tag; it is a malformed payload.
+      harness.inject(buildFrame(topUp.index, Uint8Array.from([0xff, 0xff])));
+
+      const frame = await expectSingleFrame(harness);
+      expect(frame.actionIndex).toBe(topUp.index + 1);
+      expect(frame.payload).toBe(topUpErrorResponse('Unsupported message format'));
+    });
   });
 
   describe('subscription faults', () => {
