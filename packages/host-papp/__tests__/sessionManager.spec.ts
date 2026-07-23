@@ -1,85 +1,70 @@
-import type { StatementStoreAdapter } from '@novasamatech/statement-store';
-import type { StorageAdapter } from '@novasamatech/storage-adapter';
+import { createAccountId, createInMemoryStatementStore } from '@novasamatech/statement-store';
 import { createMemoryAdapter } from '@novasamatech/storage-adapter';
 import { okAsync } from 'neverthrow';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
-
-const mocks = vi.hoisted(() => ({
-  createUserSession: vi.fn(),
-}));
-
-vi.mock('../src/sso/sessionManager/userSession.js', () => ({
-  createUserSession: mocks.createUserSession,
-}));
-
-vi.mock('@novasamatech/statement-store', async importOriginal => {
-  const actual = await importOriginal<typeof import('@novasamatech/statement-store')>();
-  return {
-    ...actual,
-    createEncryption: vi.fn(() => ({ decrypt: vi.fn(), encrypt: vi.fn() })),
-  };
-});
-
-vi.mock('../src/sso/ssoSessionProver.js', () => ({
-  createSsoStatementProver: vi.fn(() => ({})),
-}));
+import { EMPTY } from 'rxjs';
+import { describe, expect, it } from 'vitest';
 
 import { onHostPappDebugMessage } from '../src/debugBus.js';
 import type { HostPappDebugEvent } from '../src/debugTypes.js';
+import { createIdentityRepository } from '../src/identity/impl.js';
+import type { IdentityAdapter } from '../src/identity/types.js';
 import { createAllowanceRepository } from '../src/sso/allowance/repository.js';
 import { createSsoSessionManager } from '../src/sso/sessionManager/impl.js';
-import type { StoredUserSession, UserSessionRepository } from '../src/sso/userSessionRepository.js';
+import { createUserSecretRepository } from '../src/sso/userSecretRepository.js';
+import type { StoredUserSession } from '../src/sso/userSessionRepository.js';
+import { createUserSessionRepository } from '../src/sso/userSessionRepository.js';
 
-type RepoCallback = (sessions: StoredUserSession[]) => void;
-
+// Everything the manager touches is real: repositories over an in-memory
+// storage adapter, and real UserSessions over an in-memory statement store.
+// The only external boundary stubbed is the identity chain adapter (never
+// reached here — no signing/identity lookups happen in these lifecycle tests).
 function buildHarness() {
-  let deliver: RepoCallback | null = null;
+  const storage = createMemoryAdapter();
 
-  const repoSubscribe = vi.fn((cb: RepoCallback) => {
-    deliver = cb;
-    return () => {
-      deliver = null;
-    };
-  });
-
-  const ssoSessionRepository = {
-    subscribe: repoSubscribe,
-    filter: vi.fn(() => okAsync(undefined)),
-    add: vi.fn(() => okAsync(undefined)),
-  } as unknown as UserSessionRepository;
-
-  const userSecretRepository = {
-    clear: vi.fn(() => okAsync(undefined)),
-  } as any;
-  const statementStore = {} as StatementStoreAdapter;
-  const storage = {} as StorageAdapter;
-  const allowanceRepository = createAllowanceRepository('session-manager-test', createMemoryAdapter());
+  const ssoSessionRepository = createUserSessionRepository(storage);
+  const userSecretRepository = createUserSecretRepository('session-manager-test', storage);
+  const allowanceRepository = createAllowanceRepository('session-manager-test', storage);
+  const identityAdapter: IdentityAdapter = {
+    readIdentities: () => okAsync({}),
+    watchIdentity: () => EMPTY,
+  };
+  const identityRepository = createIdentityRepository({ adapter: identityAdapter, storage });
 
   const manager = createSsoSessionManager({
     ssoSessionRepository,
     userSecretRepository,
     allowanceRepository,
-    statementStore,
+    identityRepository,
+    statementStore: createInMemoryStatementStore(),
     storage,
   });
 
   return {
     manager,
-    repoSubscribe,
-    push(sessions: StoredUserSession[]) {
-      if (!deliver) throw new Error('ssoSessionRepository.subscribe was not called');
-      deliver(sessions);
+    // Set the persisted session list to exactly `sessions`; the write notifies
+    // the manager's subscription, mirroring how the auth flow drives it.
+    setSessions(sessions: StoredUserSession[]) {
+      return ssoSessionRepository.mutate(() => sessions);
     },
   };
 }
 
 function makeStoredUserSession(id: string): StoredUserSession {
+  // Seed the key material from the id so distinct sessions derive distinct
+  // SessionIds / channels in the real statement-store session.
+  const seed = id.charCodeAt(id.length - 1);
+  const bytes = (length: number) => new Uint8Array(length).fill(seed);
   return {
     id,
-    localAccount: { accountId: new Uint8Array(32), kind: 'local' } as any,
-    remoteAccount: { accountId: new Uint8Array(32), publicKey: new Uint8Array(32), kind: 'remote' } as any,
-    rootAccountId: new Uint8Array(32) as any,
-  } as StoredUserSession;
+    localAccount: { accountId: createAccountId(bytes(32)), pin: undefined },
+    remoteAccount: { accountId: createAccountId(bytes(32)), publicKey: bytes(32), pin: undefined },
+    rootAccountId: createAccountId(bytes(32)),
+    identityAccountId: createAccountId(bytes(32)),
+    identityChatPublicKey: bytes(65),
+    ssoEncPubKey: bytes(65),
+    rootEntropySource: bytes(32),
+    deviceEncPubKey: bytes(65),
+  };
 }
 
 function captureEvents() {
@@ -88,33 +73,15 @@ function captureEvents() {
   return { events, unsubscribe };
 }
 
-beforeEach(() => {
-  mocks.createUserSession.mockReset().mockImplementation((args: { userSession: StoredUserSession }) => ({
-    id: args.userSession.id,
-    localAccount: args.userSession.localAccount,
-    remoteAccount: args.userSession.remoteAccount,
-    rootAccountId: args.userSession.rootAccountId,
-    subscribe: vi.fn(() => vi.fn()),
-    dispose: vi.fn(),
-    sendDisconnectMessage: vi.fn(() => okAsync(undefined)),
-    signPayload: vi.fn(),
-    signRaw: vi.fn(),
-    createTransaction: vi.fn(),
-    getRingVrfAlias: vi.fn(),
-    requestResourceAllocation: vi.fn(),
-  }));
-});
-
 // Regression coverage: session.opened and session.terminated should fire when
 // the repository subscription adds and removes sessions. If a future refactor
 // drops either emit, the matching assertion below fails.
 describe('createSsoSessionManager debug emits', () => {
-  it('emits session.opened with flowId === sessionId when a new session appears in the repository', () => {
+  it('emits session.opened with flowId === sessionId when a new session appears in the repository', async () => {
     const harness = buildHarness();
     const { events, unsubscribe } = captureEvents();
     try {
-      const session = makeStoredUserSession('session-A');
-      harness.push([session]);
+      await harness.setSessions([makeStoredUserSession('session-A')]);
 
       const opened = events.find(e => e.layer === 'session' && e.event === 'opened');
       expect(opened).toMatchObject({
@@ -126,13 +93,12 @@ describe('createSsoSessionManager debug emits', () => {
     }
   });
 
-  it('emits session.terminated with flowId === sessionId when a session leaves the repository', () => {
+  it('emits session.terminated with flowId === sessionId when a session leaves the repository', async () => {
     const harness = buildHarness();
     const { events, unsubscribe } = captureEvents();
     try {
-      const session = makeStoredUserSession('session-B');
-      harness.push([session]);
-      harness.push([]);
+      await harness.setSessions([makeStoredUserSession('session-B')]);
+      await harness.setSessions([]);
 
       const terminated = events.find(e => e.layer === 'session' && e.event === 'terminated');
       expect(terminated).toMatchObject({
@@ -144,13 +110,13 @@ describe('createSsoSessionManager debug emits', () => {
     }
   });
 
-  it('does not re-emit session.opened for a session that is already active', () => {
+  it('does not re-emit session.opened for a session that is already active', async () => {
     const harness = buildHarness();
     const { events, unsubscribe } = captureEvents();
     try {
       const session = makeStoredUserSession('session-C');
-      harness.push([session]);
-      harness.push([session]);
+      await harness.setSessions([session]);
+      await harness.setSessions([session]);
 
       const opens = events.filter(e => e.layer === 'session' && e.event === 'opened' && e.flowId === 'session-C');
       expect(opens).toHaveLength(1);
@@ -159,14 +125,12 @@ describe('createSsoSessionManager debug emits', () => {
     }
   });
 
-  it('emits opened/terminated for each session in a multi-session transition', () => {
+  it('emits opened/terminated for each session in a multi-session transition', async () => {
     const harness = buildHarness();
     const { events, unsubscribe } = captureEvents();
     try {
-      const a = makeStoredUserSession('session-A');
-      const b = makeStoredUserSession('session-B');
-      harness.push([a, b]);
-      harness.push([b]);
+      await harness.setSessions([makeStoredUserSession('session-A'), makeStoredUserSession('session-B')]);
+      await harness.setSessions([makeStoredUserSession('session-B')]);
 
       const openedIds = events.filter(e => e.layer === 'session' && e.event === 'opened').map(e => e.flowId);
       const terminatedIds = events.filter(e => e.layer === 'session' && e.event === 'terminated').map(e => e.flowId);

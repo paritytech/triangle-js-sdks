@@ -63,8 +63,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getUserId();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(expected);
+      await expect(result).toBeOkWith(expected);
     });
 
     it('should return PermissionDenied error when user denies disclosure', async () => {
@@ -75,8 +74,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getUserId();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
 
     it('should return NotConnected error when user is not logged in', async () => {
@@ -87,8 +85,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getUserId();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
 
     it('should return Unknown error on unexpected failure', async () => {
@@ -99,8 +96,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getUserId();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 
@@ -112,8 +108,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(mockProductAccount);
+      await expect(result).toBeOkWith(mockProductAccount);
     });
 
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
@@ -125,7 +120,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getProductAccount('my-product.dot', 3);
 
-      expect(handler).toBeCalledWith(['my-product.dot', 3], expect.anything());
+      expect(handler).toHaveBeenCalledWith(['my-product.dot', 3], expect.anything());
     });
 
     it('should use derivation index 0 by default', async () => {
@@ -137,7 +132,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getProductAccount('product.dot');
 
-      expect(handler).toBeCalledWith(['product.dot', 0], expect.anything());
+      expect(handler).toHaveBeenCalledWith(['product.dot', 0], expect.anything());
     });
 
     it('should return error on failure', async () => {
@@ -148,8 +143,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 
@@ -162,8 +156,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(expected);
+      await expect(result).toBeOkWith(expected);
     });
 
     it('should pass context and ring to handler', async () => {
@@ -175,7 +168,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
-      expect(handler).toBeCalledWith([mockContext, mockRingLocation], expect.anything());
+      expect(handler).toHaveBeenCalledWith([mockContext, mockRingLocation], expect.anything());
     });
 
     it('should return error on failure', async () => {
@@ -186,8 +179,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 
@@ -203,8 +195,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getLegacyAccounts();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(accounts);
+      await expect(result).toBeOkWith(accounts);
     });
 
     it('should return empty list when no accounts', async () => {
@@ -214,8 +205,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getLegacyAccounts();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual([]);
+      await expect(result).toBeOkWith([]);
     });
 
     it('should return error on failure', async () => {
@@ -226,8 +216,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getLegacyAccounts();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 
@@ -272,8 +261,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array([1]));
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(mockProof);
+      await expect(result).toBeOkWith(mockProof);
     });
 
     it('should pass context, ring and message to handler', async () => {
@@ -286,7 +274,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, message);
 
-      expect(handler).toBeCalledWith([mockContext, mockRingLocation, message], {
+      expect(handler).toHaveBeenCalledWith([mockContext, mockRingLocation, message], {
         ok: expect.any(Function),
         err: expect.any(Function),
       });
@@ -300,8 +288,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
 
     it('should return NotMember error when the user is not in the ring', async () => {
@@ -312,8 +299,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
 
     it('should return error when rejected', async () => {
@@ -324,8 +310,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 
@@ -416,8 +401,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.requestLogin();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe('success');
+      await expect(result).toBeOkWith('success');
     });
 
     it('should return alreadyConnected when user is already logged in', async () => {
@@ -427,8 +411,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.requestLogin('some reason');
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe('alreadyConnected');
+      await expect(result).toBeOkWith('alreadyConnected');
     });
 
     it('should return rejected when user dismisses login UI', async () => {
@@ -438,8 +421,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.requestLogin();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe('rejected');
+      await expect(result).toBeOkWith('rejected');
     });
 
     it('should pass reason string to handler', async () => {
@@ -449,7 +431,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.requestLogin('Sign in to vote');
 
-      expect(handler).toBeCalledWith('Sign in to vote', expect.anything());
+      expect(handler).toHaveBeenCalledWith('Sign in to vote', expect.anything());
     });
 
     it('should pass undefined reason when no reason given', async () => {
@@ -459,7 +441,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.requestLogin();
 
-      expect(handler).toBeCalledWith(undefined, expect.anything());
+      expect(handler).toHaveBeenCalledWith(undefined, expect.anything());
     });
 
     it('should return error on unknown failure', async () => {
@@ -470,8 +452,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.requestLogin();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 

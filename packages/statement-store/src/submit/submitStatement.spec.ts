@@ -55,7 +55,7 @@ describe('submitStatementOnce', () => {
 
     const result = await submitStatementOnce(baseParams(adapter));
 
-    expect(result.isOk()).toBe(true);
+    await expect(result).toBeOk();
     expect(submitted).toHaveLength(1);
     expect((submitted[0]!.expiry ?? 0n) >> 32n).toBe(0xffff_ffffn);
   });
@@ -68,8 +68,8 @@ describe('submitStatementOnce', () => {
     const first = await submitStatementOnce(params);
     const second = await submitStatementOnce(params);
 
-    expect(first.isErr()).toBe(true);
-    expect(second.isOk()).toBe(true);
+    await expect(first).toBeErr();
+    await expect(second).toBeOk();
     expect(submitted[1]!.expiry ?? 0n).toBeGreaterThan(chainMin); // adopted min, not wall clock
   });
 });
@@ -95,7 +95,7 @@ describe('signAndSubmitStatement', () => {
     await vi.advanceTimersByTimeAsync(600); // cover the 500ms first backoff
     const result = await promise;
 
-    expect(result.isOk()).toBe(true);
+    await expect(result).toBeOk();
     expect(submitted).toHaveLength(2);
     expect(submitted[1]!.expiry ?? 0n).toBeGreaterThan(chainMin);
   });
@@ -117,7 +117,7 @@ describe('signAndSubmitStatement', () => {
     await vi.advanceTimersByTimeAsync(50);
     const result = await promise;
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
     expect(result._unsafeUnwrapErr()).toBeInstanceOf(AccountFullError);
     expect(submitted).toHaveLength(4); // 1 initial + 3 priority retries
   });

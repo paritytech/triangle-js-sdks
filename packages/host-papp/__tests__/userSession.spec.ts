@@ -1,8 +1,19 @@
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
+import { createAccountId } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
+import { createMemoryAdapter } from '@novasamatech/storage-adapter';
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
+import { toHex } from 'polkadot-api/utils';
+import { EMPTY } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
+// The statement-store session is the transport this wrapper sits on. It's the
+// one seam doubled here, because these are unit tests of the wrapper's queue /
+// ACK / ordering / dedup logic, which need to drive the transport into states a
+// real session over the in-memory store can't produce — ACK errors, a reply
+// that never arrives, a request that never ACKs, mid-flight abort. Everything
+// else is real: the wrapper itself, real message ids (nanoid), and real
+// storage / allowance / identity repositories over an in-memory adapter.
 const mocks = vi.hoisted(() => ({
   request: vi.fn(),
   waitForRequestMessage: vi.fn(),
@@ -11,12 +22,7 @@ const mocks = vi.hoisted(() => ({
   respondToRequests: vi.fn(),
   sessionDispose: vi.fn(),
   clearOutgoingStatement: vi.fn(),
-  fieldListRead: vi.fn(),
-  fieldListMutate: vi.fn(),
-  nanoid: vi.fn(),
 }));
-
-vi.mock('nanoid', () => ({ nanoid: mocks.nanoid }));
 
 vi.mock('@novasamatech/statement-store', async importOriginal => {
   const actual = await importOriginal<typeof import('@novasamatech/statement-store')>();
@@ -34,24 +40,26 @@ vi.mock('@novasamatech/statement-store', async importOriginal => {
   };
 });
 
-vi.mock('@novasamatech/storage-adapter', async importOriginal => {
-  const actual = await importOriginal<typeof import('@novasamatech/storage-adapter')>();
-  return {
-    ...actual,
-    fieldListView: vi.fn(() => ({
-      read: mocks.fieldListRead,
-      mutate: mocks.fieldListMutate,
-    })),
-  };
-});
-
 import { onHostPappDebugMessage } from '../src/debugBus.js';
 import type { HostPappDebugEvent } from '../src/debugTypes.js';
+import { createIdentityRepository } from '../src/identity/impl.js';
+import type { Identity, IdentityAdapter, IdentityRepository } from '../src/identity/types.js';
+import type { AllowanceRepository } from '../src/sso/allowance/index.js';
+import { createAllowanceRepository } from '../src/sso/allowance/index.js';
 import { createUserSession } from '../src/sso/sessionManager/userSession.js';
 import type { StoredUserSession } from '../src/sso/userSessionRepository.js';
 
 const SESSION_ID = 'user-session-1';
-const MSG_ID = 'msg-fixed';
+const IDENTITY_ACCOUNT_ID = new Uint8Array(32).fill(7);
+// Storage key the wrapper uses for its processed-message dedup set (see userSession.ts).
+const PROCESSED_KEY = `sso_processed_${SESSION_ID}`;
+
+// An identity chain adapter with nothing on it: the repository wrapping it is
+// real, so lookups just resolve to null.
+const inertIdentityAdapter: IdentityAdapter = {
+  readIdentities: () => okAsync({}),
+  watchIdentity: () => EMPTY,
+};
 
 function captureEvents() {
   const events: HostPappDebugEvent[] = [];
@@ -62,24 +70,44 @@ function captureEvents() {
 function makeStoredUserSession(): StoredUserSession {
   return {
     id: SESSION_ID,
-    localAccount: { accountId: new Uint8Array(32), kind: 'local' } as any,
-    remoteAccount: { accountId: new Uint8Array(32), publicKey: new Uint8Array(32), kind: 'remote' } as any,
-    rootAccountId: new Uint8Array(32) as any,
-  } as StoredUserSession;
+    localAccount: { accountId: createAccountId(new Uint8Array(32)), kind: 'local' } as any,
+    remoteAccount: {
+      accountId: createAccountId(new Uint8Array(32)),
+      publicKey: new Uint8Array(32),
+      pin: undefined,
+    },
+    rootAccountId: createAccountId(new Uint8Array(32)),
+    identityAccountId: createAccountId(IDENTITY_ACCOUNT_ID),
+    identityChatPublicKey: new Uint8Array(65),
+    ssoEncPubKey: new Uint8Array(65),
+    rootEntropySource: new Uint8Array(32),
+    deviceEncPubKey: new Uint8Array(65),
+  };
 }
 
-function buildSession() {
+function buildSession({
+  allowanceRepository,
+  identityRepository,
+  storage = createMemoryAdapter(),
+}: {
+  allowanceRepository?: AllowanceRepository;
+  identityRepository?: IdentityRepository;
+  storage?: StorageAdapter;
+} = {}) {
   return createUserSession({
     userSession: makeStoredUserSession(),
+    // Transport + crypto are the statement-store session's concern, which is
+    // mocked here (see top of file); these are inert placeholders.
     statementStore: {} as StatementStoreAdapter,
     encryption: {} as Encryption,
-    storage: {} as StorageAdapter,
     prover: {} as StatementProver,
+    storage,
+    allowanceRepository: allowanceRepository ?? createAllowanceRepository('salt', createMemoryAdapter()),
+    identityRepository: identityRepository ?? createIdentityRepository({ adapter: inertIdentityAdapter, storage }),
   });
 }
 
 beforeEach(() => {
-  mocks.nanoid.mockReset().mockReturnValue(MSG_ID);
   mocks.request.mockReset();
   mocks.waitForRequestMessage.mockReset();
   mocks.submitRequestMessage.mockReset().mockReturnValue(okAsync(undefined));
@@ -87,8 +115,68 @@ beforeEach(() => {
   mocks.respondToRequests.mockReset().mockReturnValue(vi.fn());
   mocks.sessionDispose.mockReset();
   mocks.clearOutgoingStatement.mockReset().mockReturnValue(okAsync(undefined));
-  mocks.fieldListRead.mockReset().mockReturnValue(okAsync([]));
-  mocks.fieldListMutate.mockReset().mockReturnValue(okAsync(undefined));
+});
+
+describe('createUserSession readAllowance', () => {
+  it('reads the slot key stored under the session id', async () => {
+    const allowanceRepository = createAllowanceRepository('salt', createMemoryAdapter());
+    const session = buildSession({ allowanceRepository });
+    const key = new Uint8Array([1, 2, 3]);
+
+    await allowanceRepository.write(session.id, 'product.dot', 'statementStore', key);
+
+    await expect(session.readAllowance('product.dot', 'statementStore')).toBeOkWith(key);
+  });
+
+  it('returns null when nothing is stored', async () => {
+    const session = buildSession();
+    await expect(session.readAllowance('product.dot', 'bulletin')).toBeOkWith(null);
+  });
+
+  it('discriminates by productId and resource', async () => {
+    const allowanceRepository = createAllowanceRepository('salt', createMemoryAdapter());
+    const session = buildSession({ allowanceRepository });
+    const keyA = new Uint8Array([1, 1, 1]);
+    const keyB = new Uint8Array([2, 2, 2]);
+
+    await allowanceRepository.write(session.id, 'product.a', 'statementStore', keyA);
+    await allowanceRepository.write(session.id, 'product.b', 'statementStore', keyB);
+
+    await expect(session.readAllowance('product.a', 'statementStore')).toBeOkWith(keyA);
+    await expect(session.readAllowance('product.b', 'statementStore')).toBeOkWith(keyB);
+    // same product, other resource is a distinct slot
+    await expect(session.readAllowance('product.a', 'bulletin')).toBeOkWith(null);
+  });
+});
+
+describe('createUserSession getIdentity', () => {
+  const identity: Identity = {
+    accountId: toHex(IDENTITY_ACCOUNT_ID),
+    fullUsername: null,
+    liteUsername: 'alice',
+    credibility: { type: 'Lite' },
+  };
+
+  it('looks up the session identity account (hex) and forwards the result', async () => {
+    // Adapter answers only for the exact hex of the session's identity account,
+    // so a passing lookup proves the wrapper queries the right account.
+    const identityRepository = createIdentityRepository({
+      adapter: {
+        readIdentities: accounts =>
+          okAsync(Object.fromEntries(accounts.map(a => [a, a === toHex(IDENTITY_ACCOUNT_ID) ? identity : null]))),
+        watchIdentity: () => EMPTY,
+      },
+      storage: createMemoryAdapter(),
+    });
+    const session = buildSession({ identityRepository });
+
+    await expect(session.getIdentity()).toBeOkWith(identity);
+  });
+
+  it('propagates a null identity', async () => {
+    const session = buildSession();
+    await expect(session.getIdentity()).toBeOkWith(null);
+  });
 });
 
 // Regression coverage: every debug emit site in userSession.ts should fire
@@ -105,20 +193,20 @@ describe('createUserSession debug emits', () => {
       const session = buildSession();
       const { events, unsubscribe } = captureEvents();
       try {
-        const result = await session.signPayload({} as any);
-        expect(result.isOk()).toBe(true);
+        await expect(session.signPayload({} as any)).toBeOk();
 
-        const hostEvents = events
+        const hostEventNames = events
           .filter(e => e.layer === 'session' && e.event.startsWith('host_action'))
-          .map(e => ({ event: e.event, flowId: e.flowId }));
-        expect(hostEvents).toEqual([
-          { event: 'host_action_sent', flowId: MSG_ID },
-          { event: 'host_action_response_received', flowId: MSG_ID },
-        ]);
+          .map(e => e.event);
+        expect(hostEventNames).toEqual(['host_action_sent', 'host_action_response_received']);
+        // Both events carry the one message id the wrapper generated for this call.
         const sent = events.find(e => e.event === 'host_action_sent');
+        const received = events.find(e => e.event === 'host_action_response_received');
+        expect(sent).toBeDefined();
+        expect(received?.flowId).toBe(sent?.flowId);
         expect(sent?.payload).toMatchObject({
           sessionId: SESSION_ID,
-          messageId: MSG_ID,
+          messageId: sent?.flowId,
           actionKind: 'SignRequest:Payload',
         });
       } finally {
@@ -134,15 +222,14 @@ describe('createUserSession debug emits', () => {
       const session = buildSession();
       const { events, unsubscribe } = captureEvents();
       try {
-        const result = await session.signPayload({} as any);
-        expect(result.isErr()).toBe(true);
+        await expect(session.signPayload({} as any)).toBeErr();
 
         const sent = events.find(e => e.event === 'host_action_sent');
         const failed = events.find(e => e.event === 'host_action_failed');
         expect(sent).toBeDefined();
         expect(failed).toMatchObject({
-          flowId: MSG_ID,
-          payload: { sessionId: SESSION_ID, messageId: MSG_ID, reason: 'peer rejected' },
+          flowId: sent?.flowId,
+          payload: { sessionId: SESSION_ID, messageId: sent?.flowId, reason: 'peer rejected' },
         });
       } finally {
         unsubscribe();
@@ -175,9 +262,7 @@ describe('createUserSession debug emits', () => {
       const session = buildSession();
       const { events, unsubscribe } = captureEvents();
       try {
-        const result = await session.signRawLegacy({} as any);
-        expect(result.isOk()).toBe(true);
-        expect(result._unsafeUnwrap()).toBe(signature);
+        await expect(session.signRawLegacy({} as any)).toBeOkWith(signature);
         expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
           actionKind: 'SignRawLegacyRequest',
         });
@@ -192,9 +277,7 @@ describe('createUserSession debug emits', () => {
       mocks.waitForRequestMessage.mockReturnValue(okAsync({ success: true, value: signedTransaction }));
 
       const session = buildSession();
-      const result = await session.createTransactionLegacy({} as any);
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe(signedTransaction);
+      await expect(session.createTransactionLegacy({} as any)).toBeOkWith(signedTransaction);
     });
 
     it('getRingVrfAlias emits host_action_sent with actionKind RingVrfAliasRequest', async () => {
@@ -317,9 +400,10 @@ describe('createUserSession debug emits', () => {
 
     it('re-ACKs an already-processed request with success without re-running the callback', async () => {
       const getHandler = captureResponder();
-      mocks.fieldListRead.mockReturnValue(okAsync(['peer-msg-dup']));
+      const storage = createMemoryAdapter();
+      await storage.write(PROCESSED_KEY, JSON.stringify(['peer-msg-dup']));
 
-      const session = buildSession();
+      const session = buildSession({ storage });
       const { events, unsubscribe } = captureEvents();
       try {
         const callback = vi.fn(() => okAsync(true));
@@ -393,9 +477,10 @@ describe('createUserSession debug emits', () => {
 
     it('does not emit anything for messages that were already processed in a previous run', async () => {
       const getHandler = captureResponder();
-      mocks.fieldListRead.mockReturnValue(okAsync(['peer-msg-3']));
+      const storage = createMemoryAdapter();
+      await storage.write(PROCESSED_KEY, JSON.stringify(['peer-msg-3']));
 
-      const session = buildSession();
+      const session = buildSession({ storage });
       const { events, unsubscribe } = captureEvents();
       try {
         const callback = vi.fn(() => okAsync(true));
@@ -426,8 +511,7 @@ describe('createUserSession request/reply ordering', () => {
     );
 
     const session = buildSession();
-    const result = await session.signPayload({} as any);
-    expect(result.isOk()).toBe(true);
+    await expect(session.signPayload({} as any)).toBeOk();
   }, 2000);
 
   it('fails fast when the request ACK errors even if no reply ever arrives', async () => {
@@ -435,8 +519,7 @@ describe('createUserSession request/reply ordering', () => {
     mocks.waitForRequestMessage.mockReturnValue(ResultAsync.fromSafePromise(new Promise(() => undefined))); // reply never
 
     const session = buildSession();
-    const result = await session.signPayload({} as any);
-    expect(result.isErr()).toBe(true);
+    await expect(session.signPayload({} as any)).toBeErr();
   }, 2000);
 });
 
@@ -444,23 +527,19 @@ describe('createUserSession abortPendingRequests', () => {
   it('delegates to the session clearOutgoingStatement and resolves ok', async () => {
     const session = buildSession();
 
-    const result = await session.abortPendingRequests();
+    await expect(session.abortPendingRequests()).toBeOk();
 
     expect(mocks.clearOutgoingStatement).toHaveBeenCalledTimes(1);
-    expect(result.isOk()).toBe(true);
   });
 
   it('propagates a clearOutgoingStatement failure', async () => {
     mocks.clearOutgoingStatement.mockReturnValue(errAsync(new Error('boom')));
     const session = buildSession();
 
-    const result = await session.abortPendingRequests();
-
-    expect(result.isErr()).toBe(true);
+    await expect(session.abortPendingRequests()).toBeErr();
   });
 
   it('rejects the in-flight and queued signing requests, freeing the queue', async () => {
-    mocks.nanoid.mockReturnValueOnce('in-flight').mockReturnValueOnce('queued');
     mocks.request.mockReturnValue(okAsync(undefined));
     // Never resolves on its own — the request stays in flight until aborted.
     mocks.waitForRequestMessage.mockReturnValue(ResultAsync.fromSafePromise(new Promise(() => undefined)));
@@ -472,8 +551,8 @@ describe('createUserSession abortPendingRequests', () => {
     await session.abortPendingRequests();
 
     const [inFlightResult, queuedResult] = await Promise.all([inFlight, queued]);
-    expect(inFlightResult.isErr()).toBe(true);
-    expect(queuedResult.isErr()).toBe(true);
+    await expect(inFlightResult).toBeErr();
+    await expect(queuedResult).toBeErr();
     expect(mocks.clearOutgoingStatement).toHaveBeenCalledTimes(1);
   });
 
@@ -489,10 +568,9 @@ describe('createUserSession abortPendingRequests', () => {
     const session = buildSession();
     const aborted = session.signPayload({} as any);
     await session.abortPendingRequests();
-    expect((await aborted).isErr()).toBe(true);
+    await expect(aborted).toBeErr();
     resolveFirst?.(); // settle the orphaned inner waiter so it doesn't dangle
 
-    const result = await session.signPayload({} as any);
-    expect(result.isOk()).toBe(true);
+    await expect(session.signPayload({} as any)).toBeOk();
   });
 });

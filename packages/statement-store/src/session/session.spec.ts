@@ -336,7 +336,7 @@ describe('session', () => {
       await delay();
 
       const result = await session.submitResponseMessage(requestId, 'success');
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
     });
 
     it('treats an incoming request as already answered when our response is present (no resubmit)', async () => {
@@ -350,7 +350,7 @@ describe('session', () => {
 
       const submitsBefore = adapter.submitStatement.mock.calls.length;
       const result = await session.submitResponseMessage(requestId, 'success');
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
       expect(adapter.submitStatement.mock.calls.length).toBe(submitsBefore); // no new submit
     });
 
@@ -468,8 +468,7 @@ describe('session', () => {
       await delay();
 
       const result = await responsePromise;
-      expect(result.isOk()).toBe(true);
-      expect(result.unwrapOr({ responseCode: 'unknown' as const }).responseCode).toBe('success');
+      await expect(result).toBeOkWith(expect.objectContaining({ responseCode: 'success' }));
     });
 
     it('does not resend a message that is already in flight (dedup)', async () => {
@@ -512,8 +511,8 @@ describe('session', () => {
       });
       await delay();
 
-      expect((await w1).isOk()).toBe(true);
-      expect((await w2).isOk()).toBe(true);
+      await expect(w1).toBeOk();
+      await expect(w2).toBeOk();
     });
 
     it('preserves FIFO order: a later fitting message does not overtake queued ones', async () => {
@@ -543,7 +542,7 @@ describe('session', () => {
       adapter.submitStatement.mockClear();
 
       const result = await session.submitRequestMessage(rawCodec, new Uint8Array([1, 2, 3, 4]));
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
       expect(adapter.submitStatement).not.toHaveBeenCalled();
     });
   });
@@ -670,7 +669,7 @@ describe('session', () => {
       await delay(); // init buffers the peer request
 
       const result = await session.waitForRequestMessage(rawCodec, () => 'matched' as const);
-      expect(result._unsafeUnwrap()).toBe('matched');
+      await expect(result).toBeOkWith('matched');
     }, 2000);
 
     it('opens a single subscription on the incoming topic', () => {
@@ -759,7 +758,7 @@ describe('session', () => {
       await delay();
 
       const result = await session.submitResponseMessage('wrong-id', 'success');
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
     });
 
     it('NACKs an undecodable incoming request with decodingFailed', async () => {
@@ -831,7 +830,7 @@ describe('session', () => {
 
       // The legitimate response still goes through.
       const res = await session.submitResponseMessage(reqId, 'success');
-      expect(res.isOk()).toBe(true);
+      await expect(res).toBeOk();
       const decoded = StatementData.dec(lastSubmitted(adapter).data!);
       expect(decoded.tag === 'response' && decoded.value.responseCode).toBe('success');
     });
@@ -863,7 +862,7 @@ describe('session', () => {
       await settle();
 
       const ack = await peer.request(RemoteMsg, requestMsg('p1'));
-      expect(ack.isOk()).toBe(true);
+      await expect(ack).toBeOk();
 
       host.dispose();
       peer.dispose();
@@ -878,7 +877,7 @@ describe('session', () => {
       await settle();
 
       const ack = await peer.request(RemoteMsg, requestMsg('p1'));
-      expect(ack.isErr()).toBe(true);
+      await expect(ack).toBeErr();
       expect(ack._unsafeUnwrapErr()).toBeInstanceOf(DecodingError);
 
       host.dispose();
@@ -894,7 +893,7 @@ describe('session', () => {
       await settle();
 
       const ack = await peer.request(RemoteMsg, requestMsg('p1'));
-      expect(ack.isErr()).toBe(true);
+      await expect(ack).toBeErr();
       expect(ack._unsafeUnwrapErr()).toBeInstanceOf(UnknownError);
 
       host.dispose();
@@ -931,8 +930,8 @@ describe('session', () => {
 
       const resA = await session.submitResponseMessage('A', 'success');
       const resB = await session.submitResponseMessage('B', 'success');
-      expect(resA.isOk()).toBe(true);
-      expect(resB.isOk()).toBe(true);
+      await expect(resA).toBeOk();
+      await expect(resB).toBeOk();
     });
 
     it('remains answerable after response submission retries are exhausted', async () => {
@@ -942,12 +941,12 @@ describe('session', () => {
 
       adapter.submitStatement.mockReturnValue(errAsync(new Error('store rejected')));
       const first = await session.submitResponseMessage('rid', 'success'); // all retries fail → err + rollback
-      expect(first.isErr()).toBe(true);
+      await expect(first).toBeErr();
 
       adapter.submitStatement.mockReturnValue(okAsync(undefined)); // store recovers
       const submitsBefore = adapter.submitStatement.mock.calls.length;
       const second = await session.submitResponseMessage('rid', 'success'); // retryable → submits and succeeds
-      expect(second.isOk()).toBe(true);
+      await expect(second).toBeOk();
       expect(adapter.submitStatement.mock.calls.length).toBeGreaterThan(submitsBefore);
     }, 3000);
 
@@ -983,14 +982,14 @@ describe('session', () => {
 
         const resA = await resAPromise;
         const resB = await resBPromise;
-        expect(resB.isOk()).toBe(true);
-        expect(resA.isOk()).toBe(true); // superseded rejection absorbed, not surfaced as an error
+        await expect(resB).toBeOk();
+        await expect(resA).toBeOk(); // superseded rejection absorbed, not surfaced as an error
 
         // A stays answered: re-answering it must NOT submit again (which would clobber B's response).
         const submitsBefore = adapter.submitStatement.mock.calls.length;
         const reAnswer = await session.submitResponseMessage('A', 'success');
         await delay();
-        expect(reAnswer.isOk()).toBe(true);
+        await expect(reAnswer).toBeOk();
         expect(adapter.submitStatement.mock.calls.length).toBe(submitsBefore); // deduped → no resubmit
 
         session.dispose();
@@ -1009,7 +1008,7 @@ describe('session', () => {
 
       const result = await session.clearOutgoingStatement();
 
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
       expect(adapter.submitStatement.mock.calls.length).toBe(before);
     });
 
@@ -1030,7 +1029,7 @@ describe('session', () => {
       await delay();
 
       const cleared = await session.clearOutgoingStatement();
-      expect(cleared.isOk()).toBe(true); // ExpiryTooLow suppressed
+      await expect(cleared).toBeOk(); // ExpiryTooLow suppressed
       session.dispose();
     }, 3000);
 
@@ -1047,7 +1046,7 @@ describe('session', () => {
       if (liveDecoded.tag === 'request') expect(liveDecoded.value.data.length).toBe(1);
 
       const result = await session.clearOutgoingStatement();
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
 
       const clearCall = adapter.submitStatement.mock.calls.at(-1)?.[0] as Statement;
       const clearDecoded = StatementData.dec(clearCall.data!);
@@ -1075,7 +1074,7 @@ describe('session', () => {
       await settle();
 
       const result = await session.clearOutgoingStatement();
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
       await settle();
 
       const requests = store
@@ -1093,14 +1092,14 @@ describe('session', () => {
       await delay();
 
       const submit = await session.submitRequestMessage(rawCodec, new Uint8Array([9]));
-      expect(submit.isOk()).toBe(true);
+      await expect(submit).toBeOk();
       const requestId = submit._unsafeUnwrap().requestId;
       const waiter = session.waitForResponseMessage(requestId);
 
       await session.clearOutgoingStatement();
 
       const waited = await waiter;
-      expect(waited.isErr()).toBe(true);
+      await expect(waited).toBeErr();
     });
 
     it('clears local state and rejects waiters even when the supersede submission fails', async () => {
@@ -1113,11 +1112,11 @@ describe('session', () => {
 
       adapter.submitStatement.mockReturnValueOnce(errAsync(new Error('store rejected')));
       const result = await session.clearOutgoingStatement();
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
 
       // The pending waiter is rejected despite the failed submission.
       const waited = await waiter;
-      expect(waited.isErr()).toBe(true);
+      await expect(waited).toBeErr();
 
       // State is cleared: the next message starts a brand-new batch (data length 1, not 2).
       adapter.submitStatement.mockReturnValue(okAsync(undefined));
@@ -1142,11 +1141,11 @@ describe('session', () => {
       const submitsBefore = adapter.submitStatement.mock.calls.length;
 
       const result = await session.clearOutgoingStatement();
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
 
       // The queued waiter is rejected rather than left to be submitted after init.
       const waited = await waiter;
-      expect(waited.isErr()).toBe(true);
+      await expect(waited).toBeErr();
       // No empty batch is submitted since there was no live on-chain request yet.
       expect(adapter.submitStatement.mock.calls.length).toBe(submitsBefore);
     });
@@ -1281,7 +1280,7 @@ describe('session', () => {
       const requestId = submit._unsafeUnwrap().requestId;
 
       const waited = await session.waitForResponseMessage(requestId);
-      expect(waited.isErr()).toBe(true);
+      await expect(waited).toBeErr();
     }, 2000);
 
     it('absorbs a superseded older submission rejected as ExpiryTooLow without surfacing an error', async () => {
@@ -1333,7 +1332,7 @@ describe('session', () => {
       session.dispose();
 
       const result = await waiter;
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
     }, 2000);
 
     it('cancels a pending init retry (no further queries)', async () => {
@@ -1354,7 +1353,7 @@ describe('session', () => {
       session.dispose();
 
       const result = await session.submitRequestMessage(rawCodec, new Uint8Array([1]));
-      expect(result.isErr()).toBe(true); // surfaced immediately, not a token left pending forever
+      await expect(result).toBeErr(); // surfaced immediately, not a token left pending forever
       expect(adapter.submitStatement).not.toHaveBeenCalled();
     });
 
@@ -1364,7 +1363,7 @@ describe('session', () => {
       session.dispose();
 
       const result = await session.submitResponseMessage('any-id', 'success');
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
     });
 
     it('does not re-activate when disposed while init is in flight', async () => {
@@ -1376,7 +1375,7 @@ describe('session', () => {
       const { session, adapter } = makeSession({ queryStatements });
 
       const queued = await session.submitRequestMessage(rawCodec, new Uint8Array([1])); // queued during init
-      expect(queued.isOk()).toBe(true);
+      await expect(queued).toBeOk();
 
       session.dispose(); // dispose mid-init
       resolveQueries([]); // init resumes — must bail before draining the queue / activating
@@ -1384,7 +1383,7 @@ describe('session', () => {
 
       expect(adapter.submitStatement).not.toHaveBeenCalled(); // no resurrection-driven submit
       const after = await session.submitRequestMessage(rawCodec, new Uint8Array([2]));
-      expect(after.isErr()).toBe(true); // session stays disposed
+      await expect(after).toBeErr(); // session stays disposed
     }, 3000);
   });
 
@@ -1417,7 +1416,7 @@ describe('session', () => {
         await store.submitStatement(makeSignedStatement(hex(0xaa), 10n, hex(0x01), new Uint8Array([1])));
         const higher = await store.submitStatement(makeSignedStatement(hex(0xaa), 11n, hex(0x01), new Uint8Array([2])));
 
-        expect(higher.isOk()).toBe(true);
+        await expect(higher).toBeOk();
         expect(store.currentStatements()).toHaveLength(1);
         expect(store.currentStatements()[0]?.expiry).toBe(11n);
       });
@@ -1429,9 +1428,9 @@ describe('session', () => {
         const equal = await store.submitStatement(makeSignedStatement(hex(0xaa), 10n, hex(0x01), new Uint8Array([9])));
         const lower = await store.submitStatement(makeSignedStatement(hex(0xaa), 5n, hex(0x01), new Uint8Array([9])));
 
-        expect(equal.isErr()).toBe(true);
+        await expect(equal).toBeErr();
         expect(equal._unsafeUnwrapErr()).toBeInstanceOf(ExpiryTooLowError);
-        expect(lower.isErr()).toBe(true);
+        await expect(lower).toBeErr();
         // The original statement is untouched.
         expect(store.currentStatements()[0]?.data).toEqual(new Uint8Array([1]));
       });
@@ -1442,7 +1441,7 @@ describe('session', () => {
         await store.submitStatement(stmt);
         const again = await store.submitStatement(stmt);
 
-        expect(again.isOk()).toBe(true);
+        await expect(again).toBeOk();
         expect(store.currentStatements()).toHaveLength(1);
       });
 
@@ -1499,9 +1498,9 @@ describe('session', () => {
         );
         await settle();
 
-        expect((await hostAck).isOk()).toBe(true); // mobile ACKed the host request
-        expect((await mobileReplyAck).isOk()).toBe(true); // host ACKed the mobile reply
-        expect((await hostReply)._unsafeUnwrap()).toBe('signature'); // host received the reply
+        await expect(hostAck).toBeOk(); // mobile ACKed the host request
+        await expect(mobileReplyAck).toBeOk(); // host ACKed the mobile reply
+        await expect(hostReply).toBeOkWith('signature'); // host received the reply
 
         host.dispose();
         mobile.dispose();
@@ -1534,7 +1533,7 @@ describe('session', () => {
         mobile.respondToRequests(RemoteMsg, () => 'success');
         await settle();
 
-        expect((await hostAck).isOk()).toBe(true);
+        await expect(hostAck).toBeOk();
 
         host.dispose();
         mobile.dispose();
@@ -1565,7 +1564,7 @@ describe('session', () => {
         await settle();
 
         // The reply is delivered…
-        expect((await hostReply)._unsafeUnwrap()).toBe('signature');
+        await expect(hostReply).toBeOkWith('signature');
         // …while the transport ACK is still outstanding (mobile never sent it).
         const ackState = await Promise.race([
           Promise.resolve(hostAck).then(() => 'resolved'),

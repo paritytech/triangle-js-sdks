@@ -30,7 +30,7 @@ describe('Host API: LocalStorage', () => {
 
       const result = await localStorage.readBytes(key);
 
-      expect(handler).toBeCalledWith(key, { ok: expect.any(Function), err: expect.any(Function) });
+      expect(handler).toHaveBeenCalledWith(key, { ok: expect.any(Function), err: expect.any(Function) });
       expect(result).toEqual(expectedValue);
     });
 
@@ -56,7 +56,7 @@ describe('Host API: LocalStorage', () => {
 
       await localStorage.writeBytes(key, value);
 
-      expect(handler).toBeCalledWith([key, value], { ok: expect.any(Function), err: expect.any(Function) });
+      expect(handler).toHaveBeenCalledWith([key, value], { ok: expect.any(Function), err: expect.any(Function) });
     });
 
     it('should handle write error when storage is full', async () => {
@@ -81,7 +81,7 @@ describe('Host API: LocalStorage', () => {
 
       await localStorage.clear(key);
 
-      expect(handler).toBeCalledWith(key, { ok: expect.any(Function), err: expect.any(Function) });
+      expect(handler).toHaveBeenCalledWith(key, { ok: expect.any(Function), err: expect.any(Function) });
     });
 
     it('should handle clear error', async () => {
@@ -122,7 +122,10 @@ describe('Host API: LocalStorage', () => {
 
       await localStorage.writeString(key, value);
 
-      expect(handler).toBeCalledWith([key, expectedBytes], { ok: expect.any(Function), err: expect.any(Function) });
+      expect(handler).toHaveBeenCalledWith([key, expectedBytes], {
+        ok: expect.any(Function),
+        err: expect.any(Function),
+      });
     });
   });
 
@@ -182,7 +185,10 @@ describe('Host API: LocalStorage', () => {
 
       await localStorage.writeJSON(key, value);
 
-      expect(handler).toBeCalledWith([key, expectedBytes], { ok: expect.any(Function), err: expect.any(Function) });
+      expect(handler).toHaveBeenCalledWith([key, expectedBytes], {
+        ok: expect.any(Function),
+        err: expect.any(Function),
+      });
     });
 
     it('should handle arrays', async () => {
@@ -196,7 +202,10 @@ describe('Host API: LocalStorage', () => {
 
       await localStorage.writeJSON(key, value);
 
-      expect(handler).toBeCalledWith([key, expectedBytes], { ok: expect.any(Function), err: expect.any(Function) });
+      expect(handler).toHaveBeenCalledWith([key, expectedBytes], {
+        ok: expect.any(Function),
+        err: expect.any(Function),
+      });
     });
   });
 });

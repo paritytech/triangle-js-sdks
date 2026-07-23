@@ -24,7 +24,7 @@ describe('submitWithRetry', () => {
 
     const result = await submitWithRetry(submit, { ...FAST, attempts: 3, priorityAttempts: 'unbounded' });
 
-    expect(result.isOk()).toBe(true);
+    await expect(result).toBeOk();
     expect(calls).toBe(7);
   });
 
@@ -38,7 +38,7 @@ describe('submitWithRetry', () => {
       shouldRetry: () => false,
     });
 
-    expect(result.isOk()).toBe(true); // lost the channel race — benign
+    await expect(result).toBeOk(); // lost the channel race — benign
     expect(submit).toHaveBeenCalledTimes(1);
   });
 
@@ -47,7 +47,7 @@ describe('submitWithRetry', () => {
 
     const result = await submitWithRetry(submit, { ...FAST, attempts: 0, priorityAttempts: 3 });
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
     expect(result._unsafeUnwrapErr()).toBeInstanceOf(AccountFullError);
     expect(submit).toHaveBeenCalledTimes(4); // 1 initial + 3 retries
   });
@@ -64,7 +64,7 @@ describe('submitWithRetry', () => {
       onPriorityError: error => seen.push(error.min),
     });
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
     expect(submit).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
     expect(seen).toEqual([1n, 2n, 3n]); // adopted the floor on all three, including the terminal rejection
   });
@@ -83,7 +83,7 @@ describe('submitWithRetry', () => {
 
     const result = await submitWithRetry(submit, { ...FAST, attempts: 0, priorityAttempts: 3 });
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
     expect(submit).toHaveBeenCalledTimes(1);
   });
 
@@ -92,7 +92,7 @@ describe('submitWithRetry', () => {
 
     const result = await submitWithRetry(submit, { ...FAST, attempts: 2, priorityAttempts: 'unbounded' });
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
     expect(submit).toHaveBeenCalledTimes(3); // 1 initial + 2 retries
   });
 
@@ -110,7 +110,7 @@ describe('submitWithRetry', () => {
       onRetry: ({ attempt, delayMs }) => seen.push({ attempt, delayMs }),
     });
 
-    expect(result.isOk()).toBe(true);
+    await expect(result).toBeOk();
     expect(seen).toEqual([
       { attempt: 0, delayMs: 1 },
       { attempt: 1, delayMs: 2 },
@@ -122,7 +122,7 @@ describe('submitWithRetry', () => {
 
     const result = await submitWithRetry(submit, { ...FAST, attempts: -1, priorityAttempts: 3 });
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
     expect(submit).toHaveBeenCalledTimes(1);
   });
 
@@ -142,7 +142,7 @@ describe('submitWithRetry', () => {
       shouldRetry: () => live,
     });
 
-    expect(result.isOk()).toBe(true); // settled after the delay, no second attempt
+    await expect(result).toBeOk(); // settled after the delay, no second attempt
     expect(submit).toHaveBeenCalledTimes(1);
   });
 
@@ -160,7 +160,7 @@ describe('submitWithRetry', () => {
       shouldRetry: () => live,
     });
 
-    expect(result.isErr()).toBe(true); // non-priority + not live → propagate, no settle
+    await expect(result).toBeErr(); // non-priority + not live → propagate, no settle
     expect(submit).toHaveBeenCalledTimes(1);
   });
 });

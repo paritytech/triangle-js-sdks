@@ -35,10 +35,6 @@ const papp = createPappAdapter({
   // otherwise existing pairings will be lost.
   appId: 'my-host-app',
 
-  // URL to a JSON document describing the host: { name: string, icon: string }.
-  // The icon should be a rasterized image at least 256x256 px.
-  metadata: 'https://my-host-app.example/papp-metadata.json',
-
   // Optional environment metadata shown on the wallet's confirmation screen.
   hostMetadata: {
     hostVersion: '1.4.0',
@@ -48,14 +44,15 @@ const papp = createPappAdapter({
 });
 ```
 
-`createPappAdapter` returns four sub-modules:
+`createPappAdapter` returns five sub-modules:
 
-| Module          | Purpose                                                                |
-| --------------- | ---------------------------------------------------------------------- |
-| `papp.sso`      | Authentication / pairing flow with a remote wallet.                    |
-| `papp.sessions` | List of paired user sessions and per-session messaging (sign, etc.).   |
-| `papp.secrets`  | Local secret storage for the derived guest accounts.                   |
-| `papp.identity` | On-chain identity lookups for arbitrary account ids.                   |
+| Module           | Purpose                                                              |
+| ---------------- | ------------------------------------------------------------------- |
+| `papp.sso`       | Authentication / pairing flow with a remote wallet.                 |
+| `papp.sessions`  | List of paired user sessions and per-session messaging (sign, etc.).|
+| `papp.secrets`   | Local secret storage for the derived guest accounts.                |
+| `papp.identity`  | On-chain identity lookups for arbitrary account ids.                |
+| `papp.allowance` | Resource allowances (bulletin / statement-store signers) per product.|
 
 Custom adapters (statement store, identity RPC, storage, lazy chain client) can be supplied
 via the `adapters` option for testing or non-browser environments.
@@ -246,6 +243,13 @@ const lookup = async (accountId: string) => {
 await papp.identity.getIdentities([accountIdA, accountIdB]);
 ```
 
+A paired `UserSession` also exposes `getIdentity()` as a shortcut that looks up the identity
+of its own user identity account — no account id to pass:
+
+```ts
+const identity = await session.getIdentity(); // Result<Identity | null, Error>
+```
+
 ## V2 SSO handshake
 
 V2 is a redesign of the SSO pairing flow that supports the same user identity across
@@ -258,38 +262,15 @@ identity, so contacts, chats, and roster events are shared between them.
 V2 is **not interoperable with V1**: a V1-only peer can't decode a V2 proposal QR and vice
 versa. Hosts that want to support both should branch on which protocol the peer advertises.
 
-### Shape of the flow
+### The flow
 
-```
-host                                          peer (authorising device)
-────────────────────────────────────────────────────────────────────────
-buildPairingDeeplink(device, metadata)
-  →  polkadotapp://pair?handshake=<hex>
-                                              scan QR, decode proposal
-                                              compute pairing topic from
-                                              the host's pubkeys
-                                              ECDH-encrypt + post:
-                                                Pending(AllowanceAllocation)
-                                                Success { encryptionKey,
-                                                          accountId,
-                                                          identitySignature }
-                                                Failed(reason)
-service.subscribeStatements(topic) +
-  poll the topic every 2s
-  ↓
-decode VersionedHandshakeResponse::V2
-  → ECDH-decrypt envelope with the
-    device encryption private key
-  → SCALE-decode inner payload
-  → state machine: Submitted → Pending →
-    Success | Failed
-  → on Success persist user identity
-```
-
-The user identity carried in `Success` is the chat encryption pubkey + the user's identity
-sr25519 accountId. The host verifies the 64-byte sr25519 `identitySignature` against the
-canonical 97 bytes `statementAccountId || encryptionPublicKey`
-(see `IDENTITY_SIGNATURE_PAYLOAD_BYTES`).
+1. The host builds a pairing deeplink from its device keypair and shows it as a QR code.
+2. The authorising device scans it and posts its response to the Statement Store: first a
+   `Pending` acknowledgement, then either `Success` — carrying the user's identity keys,
+   signed to authorise this device — or `Failed`.
+3. The host polls the pairing topic, decrypts and verifies each response, and drives a
+   `Submitted → Pending → Success | Failed` state machine. On `Success` it persists the
+   user identity.
 
 ### Building and rendering the QR
 
@@ -318,7 +299,7 @@ renderQrCode(deeplink); // 'polkadotapp://pair?handshake=<hex>'
 import { startPairingV2 } from '@novasamatech/host-papp';
 
 const pairing = startPairingV2({
-  statementStore: papp.adapters.statementStore, // any StatementStoreAdapter
+  statementStore, // any StatementStoreAdapter
   deviceIdentity: {
     statementAccountPublicKey: device.statementAccountPublicKey,
     encryptionPublicKey: device.encryptionPublicKey,
@@ -380,33 +361,14 @@ The service skips any incoming statement whose bytes match `initialProcessedData
 re-encrypts every Success with a fresh ephemeral key + AES-GCM nonce, so a genuine re-pair
 always produces different bytes and passes the dedupe.
 
-### Pairing topic / channel
+## Reading allowances
 
-If the host needs to derive the pairing topic or channel itself (for example to subscribe
-in-line, or to verify a statement source):
+Each `UserSession` can read its own persisted allowance slot-account key for a given
+product and resource. The session id is implicit — you only pass the product and resource:
 
 ```ts
-import { computePairingTopic, computePairingChannel } from '@novasamatech/host-papp';
+const session = papp.sessions.sessions.read().at(0);
 
-const topic   = computePairingTopic(statementAccountId, encryptionPublicKey);
-const channel = computePairingChannel(statementAccountId, encryptionPublicKey);
-//   topic   = blake2b256_keyed(encryptionPublicKey || "topic",   key=statementAccountId)
-//   channel = blake2b256_keyed(encryptionPublicKey || "channel", key=statementAccountId)
+// resource: 'bulletin' | 'statementStore'
+const key = await session.readAllowance(productId, 'statementStore'); // Result<Uint8Array | null, Error>
 ```
-
-### Codec exports
-
-The SCALE codecs are exported as plain `Codec<T>` values for callers that need to
-encode/decode statements outside the orchestrator:
-
-| Export                            | Description                                                                                  |
-| --------------------------------- | -------------------------------------------------------------------------------------------- |
-| `VersionedHandshakeProposal`      | Outer enum; V2 at SCALE discriminant 1, with `_v1Reserved` at 0.                             |
-| `HandshakeProposalV2`             | `{ device, metadata }` — what the QR encodes.                                                |
-| `Device`                          | `{ statementAccountId(32), encryptionPublicKey(65) }`.                                        |
-| `MetadataKey`, `MetadataEntry`    | Metadata enum + `(MetadataKey, str)` tuple.                                                   |
-| `VersionedHandshakeResponse`      | Outer enum for the answer; `V1` legacy + `V2`.                                                |
-| `HandshakeResponseV2`             | `{ encrypted, tmpKey(65) }` — the ECDH-wrapped envelope.                                      |
-| `EncryptedHandshakeResponseV2`    | Inner payload after envelope decrypt: `Pending` (1 byte), `Success` (161 bytes), `Failed`.    |
-| `HandshakeSuccessV2`              | `{ encryptionKey(65), accountId(32), identitySignature(64) }`.                                |
-| `IDENTITY_SIGNATURE_PAYLOAD_BYTES`| `97` — the bytes the user identity sr25519 signs over.                                       |

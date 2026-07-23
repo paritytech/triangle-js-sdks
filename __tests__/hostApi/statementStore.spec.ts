@@ -104,7 +104,10 @@ describe('Host API: StatementStore', () => {
 
     const result = await statementStore.createProof(accountId, statement);
 
-    expect(handler).toBeCalledWith([accountId, statement], { ok: expect.any(Function), err: expect.any(Function) });
+    expect(handler).toHaveBeenCalledWith([accountId, statement], {
+      ok: expect.any(Function),
+      err: expect.any(Function),
+    });
     expect(result).toEqual(expectedProof);
   });
 
@@ -123,7 +126,7 @@ describe('Host API: StatementStore', () => {
 
     await statementStore.submit(signedStatement);
 
-    expect(handler).toBeCalledWith(signedStatement, { ok: expect.any(Function), err: expect.any(Function) });
+    expect(handler).toHaveBeenCalledWith(signedStatement, { ok: expect.any(Function), err: expect.any(Function) });
     expect(permissionHandler).toHaveBeenCalledOnce();
     const [receivedParams] = permissionHandler.mock.calls[0]!;
     expect(receivedParams).toEqual({ tag: 'StatementSubmit', value: undefined });

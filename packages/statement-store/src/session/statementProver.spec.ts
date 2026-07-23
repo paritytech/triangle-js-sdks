@@ -47,7 +47,7 @@ describe('statementProver', () => {
       expect(proofSigner(signed)).toBe(toHex(deriveSr25519PublicKey(secret)));
 
       const verified = await prover.verifyMessageProof(signed);
-      expect(verified._unsafeUnwrap()).toBe(true);
+      await expect(verified).toBeOkWith(true);
     });
   });
 
@@ -63,7 +63,7 @@ describe('statementProver', () => {
       expect(proofSigner(signed)).toBe(toHex(deriveSlotAccountPublicKey(slotSecret)));
 
       const verified = await prover.verifyMessageProof(signed);
-      expect(verified._unsafeUnwrap()).toBe(true);
+      await expect(verified).toBeOkWith(true);
     });
 
     it('signs under a different public key than the scure prover would for the same secret', () => {
@@ -81,7 +81,7 @@ describe('statementProver', () => {
       const tampered: SignedStatement = { ...signed, data: new Uint8Array([9, 9, 9]) };
       const verified = await prover.verifyMessageProof(tampered);
 
-      expect(verified._unsafeUnwrap()).toBe(false);
+      await expect(verified).toBeOkWith(false);
     });
   });
 
@@ -91,7 +91,7 @@ describe('statementProver', () => {
 
       const verified = await prover.verifyMessageProof(makeStatement(new Uint8Array([1])));
 
-      expect(verified.isErr()).toBe(true);
+      await expect(verified).toBeErr();
     });
   });
 });
