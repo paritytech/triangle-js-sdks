@@ -197,6 +197,34 @@ await currentSession.signRaw({
 });
 ```
 
+`signVrf` asks the wallet for an sr25519 (schnorrkel) VRF signature from a product account
+(RFC-0023). The transcript travels as a recipe — a root domain-separation label plus an
+ordered list of `(label, value)` items — which the wallet replays verbatim into a Merlin
+transcript and signs. Callers that need a `signer` item must supply their own public key;
+the host never injects it.
+
+```ts
+const encoder = new TextEncoder();
+
+const vrf = await currentSession.signVrf({
+  productAccountId: ['product.dot', 0],
+  productId: 'product.dot',
+  transcriptLabel: encoder.encode('pop:airdrop'),
+  items: [
+    { label: encoder.encode('domain'), value: domainBytes },
+    { label: encoder.encode('signer'), value: accountPublicKey },
+  ],
+});
+
+vrf.match(
+  ({ preOutput, proof }) => submitLotteryTicket(preOutput, proof),
+  error => console.error('VRF signing failed:', error),
+);
+```
+
+This is the non-`AutoSigning` path only: when `AutoSigning` covers the account the host
+signs locally and never round-trips to the wallet.
+
 ## Ring VRF proofs and aliases
 
 A `UserSession` can ask the paired device for a privacy-preserving contextual alias, or a

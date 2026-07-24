@@ -7,6 +7,7 @@ import type {
   ProductAccountTransaction,
   Subscription,
   Transport,
+  VrfTranscriptItem as VrfTranscriptItemCodec,
 } from '@novasamatech/host-api';
 import {
   CreateProofErr,
@@ -16,6 +17,7 @@ import {
   ProductProofContext,
   RequestCredentialsErr,
   RingLocation,
+  SignVrfErr,
   SigningPayload,
   SigningPayloadWithoutAccount,
   SigningRawPayload,
@@ -46,6 +48,9 @@ export type ProductAccount = {
 export type LegacyAccount = CodecType<typeof LegacyAccountCodec>;
 
 export type AccountConnectionStatus = CodecType<typeof AccountConnectionStatusCodec>;
+
+/** One `transcript.append_message(label, value)` call replayed by the host (RFC-0023). */
+export type VrfTranscriptItem = CodecType<typeof VrfTranscriptItemCodec>;
 
 const UNSUPPORTED_VERSION_ERROR = 'Unsupported message version';
 
@@ -131,6 +136,27 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           }
           // @ts-expect-error response.tag is never here
           return err(new CreateProofErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
+    },
+
+    /**
+     * Produces an sr25519 (schnorrkel) VRF signature from a product account (RFC-0023).
+     *
+     * The host replays `transcriptLabel` and `items` into a Merlin transcript verbatim —
+     * `Transcript::new(transcriptLabel)` then one `append_message(label, value)` per item,
+     * in order — and signs it. Callers that need a `signer` item must pass their own public
+     * key (from `getProductAccount`); the host never injects it.
+     */
+    signVrf(dotNsIdentifier: string, derivationIndex: number, transcriptLabel: Uint8Array, items: VrfTranscriptItem[]) {
+      return hostApi
+        .accountSignVrf(enumValue('v1', { account: [dotNsIdentifier, derivationIndex], transcriptLabel, items }))
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new SignVrfErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
 

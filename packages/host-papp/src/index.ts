@@ -30,6 +30,7 @@ export type {
   RingVrfProofRequest,
   RingVrfProofResponse,
 } from './sso/sessionManager/scale/ringVrf.js';
+export type { SignVrfErr, SignVrfRequest, SignVrfResponse } from './sso/sessionManager/scale/signVrf.js';
 export type {
   CreateTransactionLegacyRequest,
   CreateTransactionRequest,

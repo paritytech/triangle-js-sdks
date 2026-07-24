@@ -2,12 +2,14 @@
 
 ### 🚀 Features
 
-- **host-papp:** the SSO `UserSession` gains `readAllowance(productId, resource)`, returning the session's persisted allowance slot-account key (`Uint8Array | null`) for a product and resource (`'bulletin' | 'statementStore'`). The session id is implicit — only the product and resource are passed. `AllowanceResourceKind` is now exported from the package root.
-- **host-papp:** the SSO `UserSession` gains `getIdentity()`, resolving the on-chain identity (`Identity | null`) of the session's own user identity account — no account id to pass.
+- **host-api / host-container / host-api-wrapper:** sr25519 VRF signing over a product account (RFC-0023). `accountSignVrf` / `accounts.signVrf` / `handleAccountSignVrf` take a transcript recipe (root label + ordered `(label, value)` items) and return `{ preOutput, proof }`. Authorization mirrors `sign_raw`.
+- **host-papp:** `UserSession.signVrf` forwards the VRF request to the paired Account Holder for the non-`AutoSigning` path; fails with `SignVrfErr` (`Rejected` / `Unknown`).
+- **host-papp:** `UserSession.readAllowance(productId, resource)` returns the session's allowance slot-account key (`Uint8Array | null`); `AllowanceResourceKind` now exported.
+- **host-papp:** `UserSession.getIdentity()` returns the session user's on-chain identity (`Identity | null`).
 
 ### 🩹 Fixes
 
-- **host-papp:** the SSO ring-VRF alias/proof responses now decode their failure payloads with host-api's canonical `GetAliasErr` / `CreateProofErr` enums (RFC 0004) instead of the local `RingVrfError`, keeping the SSO channel's error set in sync with the host-api protocol.
+- **host-papp:** SSO ring-VRF alias/proof failures now decode with host-api's `GetAliasErr` / `CreateProofErr` instead of the local `RingVrfError`.
 
 ### ❤️ Thank You
 
