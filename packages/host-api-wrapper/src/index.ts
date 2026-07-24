@@ -37,6 +37,7 @@ export type {
   LegacyAccount,
   ProductAccount,
   ProofContext,
+  VrfTranscriptItem,
 } from './accounts.js';
 export { accounts, createAccountsProvider } from './accounts.js';
 

@@ -1,4 +1,4 @@
-import { ContextualAlias, ProductProofContext, RingLocation, RingVrfProof } from '@novasamatech/host-api';
+import { ContextualAlias, ProductProofContext, RingLocation, RingVrfProof, VrfSignature } from '@novasamatech/host-api';
 import { enumValue } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createSession } from '@novasamatech/statement-store';
@@ -7,18 +7,22 @@ import { fieldListView } from '@novasamatech/storage-adapter';
 import { nanoid } from 'nanoid';
 import type { Result } from 'neverthrow';
 import { ResultAsync, err, ok, okAsync } from 'neverthrow';
+import { toHex } from 'polkadot-api/utils';
 import type { CodecType } from 'scale-ts';
 
 import { emitHostPappDebugMessage } from '../../debugBus.js';
 import { createAsyncTaskPool } from '../../helpers/createAsyncTaskPool.js';
 import { toError } from '../../helpers/utils.js';
+import type { Identity, IdentityRepository } from '../../identity/types.js';
 import type { Callback } from '../../types.js';
+import type { AllowanceRepository, AllowanceResourceKind } from '../allowance/index.js';
 import type { StoredUserSession } from '../userSessionRepository.js';
 
 import type { CreateTransactionLegacyRequest, CreateTransactionRequest } from './scale/createTransaction.js';
 import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
 import type { ApAllocationOutcome, ResourceAllocationRequest } from './scale/resourceAllocation.js';
+import type { SignVrfRequest } from './scale/signVrf.js';
 import type {
   SignRawLegacyRequest,
   SigningPayloadRequest,
@@ -112,6 +116,10 @@ function withHostActionTrace<T>(
 }
 
 export type UserSession = StoredUserSession & {
+  /** Read this session's persisted allowance slot-account key for a product/resource. */
+  readAllowance(productId: string, resource: AllowanceResourceKind): ResultAsync<Uint8Array | null, Error>;
+  /** Look up the on-chain identity of this session's user identity account. */
+  getIdentity(): ResultAsync<Identity | null, Error>;
   sendDisconnectMessage(): ResultAsync<void, Error>;
   abortPendingRequests(): ResultAsync<void, Error>;
   signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
@@ -137,6 +145,7 @@ export type UserSession = StoredUserSession & {
    * public keys are then soft-derived locally from the returned subtree key.
    */
   getProductSubtree(productId: string): ResultAsync<Uint8Array, Error>;
+  signVrf(payload: SignVrfRequest): ResultAsync<CodecType<typeof VrfSignature>, Error>;
   requestResourceAllocation(request: ResourceAllocationRequest): ResultAsync<ApAllocationOutcome[], Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
@@ -148,12 +157,16 @@ export function createUserSession({
   encryption,
   storage,
   prover,
+  allowanceRepository,
+  identityRepository,
 }: {
   userSession: StoredUserSession;
   statementStore: StatementStoreAdapter;
   encryption: Encryption;
   storage: StorageAdapter;
   prover: StatementProver;
+  allowanceRepository: AllowanceRepository;
+  identityRepository: IdentityRepository;
 }): UserSession {
   const requestQueue = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
   // Shared abort handle for everything currently on the request queue.
@@ -188,6 +201,14 @@ export function createUserSession({
 
   return {
     ...userSession,
+
+    readAllowance(productId, resource) {
+      return allowanceRepository.read(userSession.id, productId, resource);
+    },
+
+    getIdentity() {
+      return identityRepository.getIdentity(toHex(userSession.identityAccountId));
+    },
 
     signPayload(payload) {
       return enqueue(() => {
@@ -442,6 +463,33 @@ export function createUserSession({
         );
 
         return withHostActionTrace(withQueueTimeout(inner, 'getProductSubtree'), messageId, userSession.id);
+      });
+    },
+
+    signVrf(payload) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue('v1', enumValue('SignVrfRequest', payload));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'SignVrfResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(result =>
+          result.success ? ok(result.value) : err(result.value),
+        );
+
+        return withHostActionTrace(withQueueTimeout(inner, 'signVrf'), messageId, userSession.id);
       });
     },
 

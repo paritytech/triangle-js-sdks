@@ -10,6 +10,8 @@ export type { DeviceIdentityForPairing } from './sso/auth/v2/service.js';
 export type { AllowanceErrorReason, AllowanceService } from './sso/allowance/index.js';
 export { AllowanceError } from './sso/allowance/index.js';
 
+export type { AllowanceResourceKind } from './sso/allowance/index.js';
+
 export type { UserSession } from './sso/sessionManager/userSession.js';
 export type { StoredUserSession } from './sso/userSessionRepository.js';
 export type { Identity } from './identity/types.js';
@@ -28,6 +30,7 @@ export type {
   RingVrfProofRequest,
   RingVrfProofResponse,
 } from './sso/sessionManager/scale/ringVrf.js';
+export type { SignVrfErr, SignVrfRequest, SignVrfResponse } from './sso/sessionManager/scale/signVrf.js';
 export type {
   CreateTransactionLegacyRequest,
   CreateTransactionRequest,

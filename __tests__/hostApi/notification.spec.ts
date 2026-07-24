@@ -39,7 +39,7 @@ describe('Host API: PushNotification', () => {
       },
     );
 
-    expect(handler).toBeCalledWith(payload, { ok: expect.any(Function), err: expect.any(Function) });
+    expect(handler).toHaveBeenCalledWith(payload, { ok: expect.any(Function), err: expect.any(Function) });
     expect(devicePermissionHandler).toHaveBeenCalledOnce();
     const [receivedPermissionParams] = devicePermissionHandler.mock.calls[0]!;
     expect(receivedPermissionParams).toBe('Notifications');
@@ -55,8 +55,8 @@ describe('Host API: PushNotification', () => {
 
     const result = await hostApi.pushNotification(enumValue('v1', payload));
 
-    expect(result.isOk()).toBe(true);
-    expect(handler).toBeCalledWith(payload, { ok: expect.any(Function), err: expect.any(Function) });
+    await expect(result).toBeOk();
+    expect(handler).toHaveBeenCalledWith(payload, { ok: expect.any(Function), err: expect.any(Function) });
   });
 
   it('should deliver a scheduled notification carrying scheduledAt as a u64', async () => {
@@ -70,8 +70,8 @@ describe('Host API: PushNotification', () => {
 
     const result = await hostApi.pushNotification(enumValue('v1', payload));
 
-    expect(result.isOk()).toBe(true);
-    expect(handler).toBeCalledWith(payload, { ok: expect.any(Function), err: expect.any(Function) });
+    await expect(result).toBeOk();
+    expect(handler).toHaveBeenCalledWith(payload, { ok: expect.any(Function), err: expect.any(Function) });
   });
 
   it('should propagate ScheduleLimitReached', async () => {
@@ -126,7 +126,7 @@ describe('Host API: PushNotification', () => {
 
     const result = await hostApi.pushNotification(enumValue('v1', payload));
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
     result.match(
       () => {
         throw new Error('Expected failure');
@@ -149,7 +149,7 @@ describe('Host API: PushNotification', () => {
 
     const result = await hostApi.pushNotification(enumValue('v1', payload));
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
     expect(handler).not.toHaveBeenCalled();
   });
 });
@@ -166,8 +166,8 @@ describe('Host API: PushNotificationCancel', () => {
 
     const result = await hostApi.pushNotificationCancel(enumValue('v1', 42));
 
-    expect(result.isOk()).toBe(true);
-    expect(handler).toBeCalledWith(42, { ok: expect.any(Function), err: expect.any(Function) });
+    await expect(result).toBeOk();
+    expect(handler).toHaveBeenCalledWith(42, { ok: expect.any(Function), err: expect.any(Function) });
   });
 
   it('should propagate GenericError when the host returns one', async () => {
@@ -201,7 +201,7 @@ describe('Host API: PushNotificationCancel', () => {
 
     const result = await hostApi.pushNotificationCancel(enumValue('v1', 5));
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
     expect(handler).not.toHaveBeenCalled();
   });
 });

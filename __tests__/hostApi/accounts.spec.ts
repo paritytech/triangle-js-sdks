@@ -8,8 +8,10 @@ import {
   RequestCredentialsErr,
   RingLocation,
   RingVrfProof,
+  SignVrfErr,
   SigningErr,
   createTransport,
+  hostApiProtocol,
   toHex,
 } from '@novasamatech/host-api';
 import type {
@@ -17,6 +19,7 @@ import type {
   LegacyAccount,
   ProductAccount,
   ProofContext,
+  VrfTranscriptItem,
 } from '@novasamatech/host-api-wrapper';
 import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
@@ -72,8 +75,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getUserId();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(expected);
+      await expect(result).toBeOkWith(expected);
     });
 
     it('should return PermissionDenied error when user denies disclosure', async () => {
@@ -84,8 +86,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getUserId();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
 
     it('should return NotConnected error when user is not logged in', async () => {
@@ -96,8 +97,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getUserId();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
 
     it('should return Unknown error on unexpected failure', async () => {
@@ -108,8 +108,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getUserId();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 
@@ -121,8 +120,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(mockProductAccount);
+      await expect(result).toBeOkWith(mockProductAccount);
     });
 
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
@@ -134,7 +132,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getProductAccount('my-product.dot', 3);
 
-      expect(handler).toBeCalledWith(['my-product.dot', { tag: 'Left', value: 3 }], expect.anything());
+      expect(handler).toHaveBeenCalledWith(['my-product.dot', { tag: 'Left', value: 3 }], expect.anything());
     });
 
     it('should use derivation index 0 by default', async () => {
@@ -146,7 +144,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getProductAccount('product.dot');
 
-      expect(handler).toBeCalledWith(['product.dot', { tag: 'Left', value: 0 }], expect.anything());
+      expect(handler).toHaveBeenCalledWith(['product.dot', { tag: 'Left', value: 0 }], expect.anything());
     });
 
     it('should pass a raw 32-byte derivation index through unchanged', async () => {
@@ -159,7 +157,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getProductAccount('product.dot', rawIndex);
 
-      expect(handler).toBeCalledWith(['product.dot', { tag: 'Right', value: rawIndex }], expect.anything());
+      expect(handler).toHaveBeenCalledWith(['product.dot', { tag: 'Right', value: rawIndex }], expect.anything());
       expect(result._unsafeUnwrap().derivationIndex).toEqual(rawIndex);
     });
 
@@ -177,8 +175,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 
@@ -191,8 +188,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(expected);
+      await expect(result).toBeOkWith(expected);
     });
 
     it('should pass context and ring to handler', async () => {
@@ -204,7 +200,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
-      expect(handler).toBeCalledWith([mockWireContext, mockRingLocation], expect.anything());
+      expect(handler).toHaveBeenCalledWith([mockWireContext, mockRingLocation], expect.anything());
     });
 
     it('should return error on failure', async () => {
@@ -215,8 +211,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 
@@ -232,8 +227,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getLegacyAccounts();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(accounts);
+      await expect(result).toBeOkWith(accounts);
     });
 
     it('should return empty list when no accounts', async () => {
@@ -243,8 +237,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getLegacyAccounts();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual([]);
+      await expect(result).toBeOkWith([]);
     });
 
     it('should return error on failure', async () => {
@@ -255,8 +248,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.getLegacyAccounts();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 
@@ -301,8 +293,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array([1]));
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toEqual(mockProof);
+      await expect(result).toBeOkWith(mockProof);
     });
 
     it('should pass context, ring and message to handler', async () => {
@@ -315,7 +306,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, message);
 
-      expect(handler).toBeCalledWith([mockWireContext, mockRingLocation, message], {
+      expect(handler).toHaveBeenCalledWith([mockWireContext, mockRingLocation, message], {
         ok: expect.any(Function),
         err: expect.any(Function),
       });
@@ -329,8 +320,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
 
     it('should return NotMember error when the user is not in the ring', async () => {
@@ -341,8 +331,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
 
     it('should return error when rejected', async () => {
@@ -352,6 +341,93 @@ describe('Host API: Accounts', () => {
       container.handleAccountCreateProof((_, { err }) => err(error));
 
       const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
+
+      await expect(result).toBeErrWith(error);
+    });
+  });
+
+  describe('signVrf', () => {
+    it('is pinned to the wire index the truapi spec assigns it', () => {
+      // RFC-0023 specifies `#[wire(request_id = 164)]`. The index is allocated
+      // positionally in `hostApiProtocol`, so a table reorder would silently
+      // move it and break compatibility with non-JS hosts.
+      expect(hostApiProtocol.host_account_sign_vrf.index).toBe(164);
+    });
+
+    const mockTranscriptLabel = new TextEncoder().encode('pop:airdrop');
+    const mockItems: VrfTranscriptItem[] = [
+      { label: new TextEncoder().encode('domain'), value: new Uint8Array([1, 2, 3]) },
+      { label: new TextEncoder().encode('signer'), value: mockPublicKey },
+    ];
+    const mockVrfSignature = {
+      preOutput: new Uint8Array(32).fill(0xaa),
+      proof: new Uint8Array(64).fill(0xbb),
+    };
+
+    it('should return the vrf signature on success', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleAccountSignVrf((_, { ok }) => ok(mockVrfSignature));
+
+      const result = await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, mockItems);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual(mockVrfSignature);
+    });
+
+    it('should pass the transcript recipe through unchanged', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountSignVrf>>((_, { ok }) =>
+        ok(mockVrfSignature),
+      );
+      container.handleAccountSignVrf(handler);
+
+      await accountsProvider.signVrf('product.dot', 1, mockTranscriptLabel, mockItems);
+
+      expect(handler).toHaveBeenCalledWith(
+        {
+          account: ['product.dot', { tag: 'Left', value: 1 }],
+          transcriptLabel: mockTranscriptLabel,
+          items: mockItems,
+        },
+        { ok: expect.any(Function), err: expect.any(Function) },
+      );
+    });
+
+    it('should support an empty item list', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountSignVrf>>((_, { ok }) =>
+        ok(mockVrfSignature),
+      );
+      container.handleAccountSignVrf(handler);
+
+      await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, []);
+
+      expect(handler).toHaveBeenCalledWith(
+        { account: ['product.dot', { tag: 'Left', value: 0 }], transcriptLabel: mockTranscriptLabel, items: [] },
+        { ok: expect.any(Function), err: expect.any(Function) },
+      );
+    });
+
+    it('should return error when not connected', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new SignVrfErr.NotConnected();
+
+      container.handleAccountSignVrf((_, { err }) => err(error));
+
+      const result = await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, mockItems);
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+
+    it('should return error when rejected', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new SignVrfErr.Rejected();
+
+      container.handleAccountSignVrf((_, { err }) => err(error));
+
+      const result = await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, mockItems);
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);
@@ -445,8 +521,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.requestLogin();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe('success');
+      await expect(result).toBeOkWith('success');
     });
 
     it('should return alreadyConnected when user is already logged in', async () => {
@@ -456,8 +531,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.requestLogin('some reason');
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe('alreadyConnected');
+      await expect(result).toBeOkWith('alreadyConnected');
     });
 
     it('should return rejected when user dismisses login UI', async () => {
@@ -467,8 +541,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.requestLogin();
 
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBe('rejected');
+      await expect(result).toBeOkWith('rejected');
     });
 
     it('should pass reason string to handler', async () => {
@@ -478,7 +551,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.requestLogin('Sign in to vote');
 
-      expect(handler).toBeCalledWith('Sign in to vote', expect.anything());
+      expect(handler).toHaveBeenCalledWith('Sign in to vote', expect.anything());
     });
 
     it('should pass undefined reason when no reason given', async () => {
@@ -488,7 +561,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.requestLogin();
 
-      expect(handler).toBeCalledWith(undefined, expect.anything());
+      expect(handler).toHaveBeenCalledWith(undefined, expect.anything());
     });
 
     it('should return error on unknown failure', async () => {
@@ -499,8 +572,7 @@ describe('Host API: Accounts', () => {
 
       const result = await accountsProvider.requestLogin();
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr()).toEqual(error);
+      await expect(result).toBeErrWith(error);
     });
   });
 

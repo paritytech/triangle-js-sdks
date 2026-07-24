@@ -273,6 +273,34 @@ container.handleAccountCreateProof(async ([context, ring, message], { ok, err })
 });
 ```
 
+### handleAccountSignVrf
+
+Produces an sr25519 (schnorrkel) VRF signature over a transcript the product supplies as a
+recipe (RFC-0023). Replay it verbatim — no interpretation of labels or values — so one
+method serves any consuming runtime. Authorize it exactly like `handleSignRaw`: reject with
+`NotConnected` when there is no session (never auto-prompt login), sign locally when
+`AutoSigning` covers the account, otherwise ask the user and return `Rejected` on decline.
+Bound `items.length` and the total transcript size against a hostile caller.
+
+```ts
+container.handleAccountSignVrf(async ({ account, transcriptLabel, items }, { ok, err }) => {
+  if (!isConnected()) {
+    return err(new SignVrfErr.NotConnected());
+  }
+  if (!(await confirmVrfSigning(account))) {
+    return err(new SignVrfErr.Rejected());
+  }
+
+  const transcript = newTranscript(transcriptLabel);
+  for (const item of items) {
+    transcript.appendMessage(item.label, item.value);
+  }
+  const { preOutput, proof } = await vrfSign(account, transcript);
+
+  return ok({ preOutput, proof });
+});
+```
+
 ### handleGetLegacyAccounts
 
 ```ts

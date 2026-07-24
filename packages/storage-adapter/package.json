@@ -25,7 +25,7 @@
     "README.md"
   ],
   "dependencies": {
-    "nanoevents": "^9.1.0",
+    "nanoevents": "10.0.0",
     "neverthrow": "^8.2.0"
   },
   "publishConfig": {

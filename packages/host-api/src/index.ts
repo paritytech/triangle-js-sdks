@@ -63,7 +63,10 @@ export {
   RingLocation,
   RingLocationJunction,
   RingVrfProof,
+  SignVrfErr,
   UserIdentity,
+  VrfSignature,
+  VrfTranscriptItem,
 } from './protocol/v1/accounts.js';
 export {
   ChatActionPayload,

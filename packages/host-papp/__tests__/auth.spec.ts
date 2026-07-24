@@ -143,7 +143,7 @@ describe('createAuth', () => {
       harness.deliver([buildSuccessStatement()]);
 
       const result = await promise;
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
       const session = result._unsafeUnwrap();
       expect(session).not.toBeNull();
       expect(session!.identityAccountId).toEqual(IDENTITY_ACCT);
@@ -188,7 +188,7 @@ describe('createAuth', () => {
       harness.deliver([buildSuccessStatement()]);
       const result = await promise;
 
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
       expect(onAuthSuccess).toHaveBeenCalledTimes(1);
       const arg = (
         onAuthSuccess.mock.calls[0] as unknown as [
@@ -209,7 +209,7 @@ describe('createAuth', () => {
       harness.deliver([buildSuccessStatement()]);
 
       const result = await promise;
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
       expect(result._unsafeUnwrapErr().message).toBe('hook boom');
       expect(harness.auth.pairingStatus.read()).toEqual({ step: 'pairingError', message: 'hook boom' });
     });
@@ -241,7 +241,7 @@ describe('createAuth', () => {
       harness.deliver([failedStatement]);
 
       const result = await promise;
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
       expect(harness.auth.pairingStatus.read()).toEqual({ step: 'pairingError', message: 'declined' });
     });
   });
@@ -254,8 +254,7 @@ describe('createAuth', () => {
       harness.auth.abortAuthentication();
 
       const result = await promise;
-      expect(result.isOk()).toBe(true);
-      expect(result._unsafeUnwrap()).toBeNull();
+      await expect(result).toBeOkWith(null);
       expect(harness.auth.pairingStatus.read()).toEqual({ step: 'none' });
     });
 
@@ -338,7 +337,7 @@ describe('createAuth', () => {
         await harness.waitForSubscription();
         harness.deliver([buildSuccessStatement()]);
         const result = await promise;
-        expect(result.isOk()).toBe(true);
+        await expect(result).toBeOk();
 
         const ssoSequence = events.filter(e => e.layer === 'sso').map(e => e.event);
         expect(ssoSequence).toEqual([
@@ -362,8 +361,7 @@ describe('createAuth', () => {
         harness.auth.abortAuthentication();
         const result = await promise;
 
-        expect(result.isOk()).toBe(true);
-        expect(result._unsafeUnwrap()).toBeNull();
+        await expect(result).toBeOkWith(null);
         expect(events.some(e => e.layer === 'sso' && e.event === 'pairing_failed')).toBe(false);
       } finally {
         unsubscribe();

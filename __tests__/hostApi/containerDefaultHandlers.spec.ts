@@ -24,7 +24,7 @@ describe('Container default handlers', () => {
 
       const result = await accountsProvider.requestLogin();
 
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
       const error = result._unsafeUnwrapErr();
       expect(error).toBeInstanceOf(LoginErr.Unknown);
       expect(error.payload?.reason).toBe('Not implemented');
@@ -36,7 +36,7 @@ describe('Container default handlers', () => {
 
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
       const error = result._unsafeUnwrapErr();
       expect(error).toBeInstanceOf(RequestCredentialsErr.Unknown);
       expect(error.payload?.reason).toBe('Not implemented');
@@ -74,14 +74,14 @@ describe('Container default handlers', () => {
 
       // Verify user handler works
       const okResult = await accountsProvider.getProductAccount('product.dot', 0);
-      expect(okResult.isOk()).toBe(true);
+      await expect(okResult).toBeOk();
 
       // Call cleanup — should restore default
       cleanup();
 
       // Verify default is back
       const errResult = await accountsProvider.getProductAccount('product.dot', 0);
-      expect(errResult.isErr()).toBe(true);
+      await expect(errResult).toBeErr();
       expect(errResult._unsafeUnwrapErr()).toBeInstanceOf(RequestCredentialsErr.Unknown);
     });
   });

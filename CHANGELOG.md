@@ -1,3 +1,20 @@
+## 0.8.12 (2026-07-23)
+
+### 🚀 Features
+
+- **host-api / host-container / host-api-wrapper:** sr25519 VRF signing over a product account (RFC-0023). `accountSignVrf` / `accounts.signVrf` / `handleAccountSignVrf` take a transcript recipe (root label + ordered `(label, value)` items) and return `{ preOutput, proof }`. Authorization mirrors `sign_raw`.
+- **host-papp:** `UserSession.signVrf` forwards the VRF request to the paired Account Holder for the non-`AutoSigning` path; fails with `SignVrfErr` (`Rejected` / `Unknown`).
+- **host-papp:** `UserSession.readAllowance(productId, resource)` returns the session's allowance slot-account key (`Uint8Array | null`); `AllowanceResourceKind` now exported.
+- **host-papp:** `UserSession.getIdentity()` returns the session user's on-chain identity (`Identity | null`).
+
+### 🩹 Fixes
+
+- **host-papp:** SSO ring-VRF alias/proof failures now decode with host-api's `GetAliasErr` / `CreateProofErr` instead of the local `RingVrfError`.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.8.11 (2026-07-15)
 
 ### 🚀 Features

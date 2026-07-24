@@ -38,7 +38,7 @@ describe('Host API: Chat', () => {
 
       await chat.registerRoom(registrationInfo);
 
-      expect(handler).toBeCalledWith(registrationInfo, { ok: expect.any(Function), err: expect.any(Function) });
+      expect(handler).toHaveBeenCalledWith(registrationInfo, { ok: expect.any(Function), err: expect.any(Function) });
     });
 
     it('should handle registration error', async () => {
@@ -64,7 +64,7 @@ describe('Host API: Chat', () => {
 
       await chat.registerBot(registrationInfo);
 
-      expect(handler).toBeCalledWith(registrationInfo, { ok: expect.any(Function), err: expect.any(Function) });
+      expect(handler).toHaveBeenCalledWith(registrationInfo, { ok: expect.any(Function), err: expect.any(Function) });
     });
 
     it('should handle registration error', async () => {
@@ -92,7 +92,7 @@ describe('Host API: Chat', () => {
       await chat.registerRoom(registrationInfo);
       const result = await chat.sendMessage('test', message);
 
-      expect(handler).toBeCalledWith(
+      expect(handler).toHaveBeenCalledWith(
         { roomId: registrationInfo.roomId, payload: message },
         { ok: expect.any(Function), err: expect.any(Function) },
       );
@@ -194,7 +194,7 @@ describe('Host API: Chat', () => {
     await chat.registerRoom(registrationInfo);
     await chat.sendMessage('test', message);
 
-    expect(handler).toBeCalledWith({
+    expect(handler).toHaveBeenCalledWith({
       roomId: registrationInfo.roomId,
       peer: 'test',
       payload: enumValue('MessagePosted', message),

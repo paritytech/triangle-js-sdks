@@ -1,7 +1,7 @@
 import { setTimeout } from 'node:timers/promises';
 
 import type { ResultAsync } from 'neverthrow';
-import { err, fromPromise, ok, okAsync } from 'neverthrow';
+import { fromPromise, okAsync } from 'neverthrow';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createAsyncTaskPool } from './createAsyncTaskPool.js';
@@ -19,7 +19,7 @@ describe('asyncTaskPool', () => {
       ),
     );
 
-    expect(result).toEqual(ok('test'));
+    await expect(result).toBeOkWith('test');
   });
 
   it('should handle sync errors', async () => {
@@ -29,7 +29,7 @@ describe('asyncTaskPool', () => {
       throw error;
     });
 
-    expect(result).toEqual(err(error));
+    await expect(result).toBeErrWith(error);
   });
 
   it('should handle async errors', async () => {
@@ -37,7 +37,7 @@ describe('asyncTaskPool', () => {
     const error = new Error('test');
     const result = await pool.call(() => fromPromise(Promise.reject(error), toError));
 
-    return expect(result).toEqual(err(error));
+    await expect(result).toBeErrWith(error);
   });
 
   it('should handle queue', async () => {
@@ -97,7 +97,7 @@ describe('asyncTaskPool', () => {
       throw new Error();
     });
 
-    expect(result).toEqual(ok('test'));
+    await expect(result).toBeOkWith('test');
   });
 
   it('should throw on retry limit exceeding', async () => {
@@ -114,7 +114,7 @@ describe('asyncTaskPool', () => {
     });
 
     expect(spy).toBeCalledTimes(1);
-    expect(result).toEqual(err(new Error()));
+    await expect(result).toBeErrWith(new Error());
   });
 
   it('should correctly calculate retry delay', async () => {
@@ -202,9 +202,9 @@ describe('asyncTaskPool', () => {
       controller.abort();
 
       const queuedResult = await queued;
-      expect(queuedResult.isErr()).toBe(true);
+      await expect(queuedResult).toBeErr();
       expect(queuedSpy).not.toHaveBeenCalled();
-      expect((await active).isOk()).toBe(true);
+      await expect(await active).toBeOk();
     });
 
     it('rejects the in-flight active task when the signal aborts', async () => {
@@ -224,7 +224,7 @@ describe('asyncTaskPool', () => {
 
       controller.abort();
 
-      expect((await active).isErr()).toBe(true);
+      await expect(await active).toBeErr();
     });
 
     it('frees the slot for later tasks after an abort', async () => {
@@ -245,7 +245,7 @@ describe('asyncTaskPool', () => {
       await aborted;
 
       const next = await pool.call(() => okAsync('next'));
-      expect(next).toEqual(ok('next'));
+      await expect(next).toBeOkWith('next');
     });
 
     it('rejects immediately when called with an already-aborted signal', async () => {
@@ -256,7 +256,7 @@ describe('asyncTaskPool', () => {
 
       const result = await pool.call(spy, { signal: controller.signal });
 
-      expect(result.isErr()).toBe(true);
+      await expect(result).toBeErr();
       expect(spy).not.toHaveBeenCalled();
     });
   });

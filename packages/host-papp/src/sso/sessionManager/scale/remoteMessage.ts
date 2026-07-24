@@ -1,5 +1,6 @@
+import { Enum } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Enum, Struct, _void, str } from 'scale-ts';
+import { Struct, _void, str } from 'scale-ts';
 
 import {
   CreateTransactionLegacyRequestCodec,
@@ -14,6 +15,7 @@ import {
   RingVrfProofRequestCodec,
   RingVrfProofResponseCodec,
 } from './ringVrf.js';
+import { SignVrfRequestCodec, SignVrfResponseCodec } from './signVrf.js';
 import {
   SignRawLegacyRequestCodec,
   SignRawLegacyResponseCodec,
@@ -25,6 +27,8 @@ export type RemoteMessage = CodecType<typeof RemoteMessageCodec>;
 export const RemoteMessageCodec = Struct({
   messageId: str,
   data: Enum({
+    // Declaration order is the SCALE wire order and must stay in lockstep with the
+    // truapi `host_logic::sso::messages::v1::RemoteMessage` enum. Append only.
     v1: Enum({
       Disconnected: _void,
       SignRequest: SigningRequestCodec,
@@ -40,6 +44,8 @@ export const RemoteMessageCodec = Struct({
       SignRawLegacyResponse: SignRawLegacyResponseCodec,
       RingVrfProofRequest: RingVrfProofRequestCodec,
       RingVrfProofResponse: RingVrfProofResponseCodec,
+      SignVrfRequest: SignVrfRequestCodec,
+      SignVrfResponse: SignVrfResponseCodec,
       // RFC-0022 additions — appended so existing variant indexes stay stable.
       ProductSubtreeRequest: ProductSubtreeRequestCodec,
       ProductSubtreeResponse: ProductSubtreeResponseCodec,

@@ -288,6 +288,26 @@ if (proofResult.isOk()) {
   console.log('Proof:', proof, 'at ring index', ringIndex, 'revision', ringRevision);
 }
 
+// sr25519 VRF signature over a product account (RFC-0023). The transcript is a
+// recipe — a root label plus ordered `(label, value)` items — that the host
+// replays verbatim (`Transcript::new(label)` then one `append_message` per item)
+// and signs. It never injects a `signer` item; pass the account's public key
+// yourself if the transcript needs one.
+import type { VrfTranscriptItem } from '@novasamatech/host-api-wrapper';
+
+const transcriptLabel = new TextEncoder().encode('my-product-lottery');
+const items: VrfTranscriptItem[] = [{ label: new TextEncoder().encode('round'), value: new Uint8Array([7]) }];
+
+const vrfResult = await accounts.signVrf('product.dot', 0, transcriptLabel, items);
+
+if (vrfResult.isOk()) {
+  const { preOutput, proof } = vrfResult.value; // 32-byte VRFPreOut, 64-byte VRFProof
+  console.log('VRF pre-output:', preOutput, 'proof:', proof);
+} else {
+  // err.tag: 'NotConnected' | 'Rejected' | 'Unknown'
+  console.error('signVrf failed:', vrfResult.error.tag);
+}
+
 // Get legacy accounts (external wallets)
 const legacyAccountsResult = await accounts.getLegacyAccounts();
 
