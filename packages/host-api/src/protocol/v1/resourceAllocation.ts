@@ -3,15 +3,15 @@ import { Result, Vector, _void } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
 
-import { AccountIndex } from './accounts.js';
+import { DerivationIndex } from './accounts.js';
 
 // resources requested by a product
 
 export const AllocatableResource = Enum({
   StatementStoreAllowance: _void,
   BulletinAllowance: _void,
-  // Plain `u32` index — allowance accounts are not product-subtree selectors.
-  SmartContractAllowance: AccountIndex,
+  // Account the allowance is granted for, addressed by the RFC-0022 selector.
+  SmartContractAllowance: DerivationIndex,
   AutoSigning: _void,
 });
 

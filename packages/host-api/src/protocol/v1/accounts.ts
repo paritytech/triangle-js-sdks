@@ -11,13 +11,6 @@ export const PublicKey = Bytes();
 export const DotNsIdentifier = str;
 
 /**
- * Plain account index — the primary selector form (RFC 0022). Used on its own
- * where the wire type is a bare `u32` (payments top-up source, smart-contract
- * allowance) and as the `Left` variant of {@link DerivationIndex}.
- */
-export const AccountIndex = u32;
-
-/**
  * Raw 32-byte derivation index — the escape hatch for byte-valued selectors.
  * Used directly as the soft-junction chain code of `//product//{productId}/{index}`.
  */
@@ -32,7 +25,7 @@ export const RawDerivationIndex = Bytes(32);
  * `Right(bytes)` through unchanged.
  */
 export const DerivationIndex = Enum({
-  Left: AccountIndex,
+  Left: u32,
   Right: RawDerivationIndex,
 });
 

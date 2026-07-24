@@ -3,7 +3,7 @@ import { Bytes, Option, Result, Struct, Vector, _void, str, u128, u32 } from 'sc
 
 import { GenericErr } from '../commonCodecs.js';
 
-import { AccountIndex } from './accounts.js';
+import { DerivationIndex } from './accounts.js';
 
 // common types
 
@@ -15,8 +15,8 @@ export const PaymentId = str;
 export const CoinPaymentPurseId = u32;
 
 export const PaymentTopUpSource = Enum({
-  // Plain `u32` index — the top-up source is not a full account selector.
-  ProductAccount: AccountIndex,
+  // Account of the calling product, addressed by the RFC-0022 selector.
+  ProductAccount: DerivationIndex,
   PrivateKey: Sr25519SecretKey,
   Coins: Vector(Sr25519SecretKey),
 });

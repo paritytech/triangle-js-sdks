@@ -1,4 +1,4 @@
-import { AccountIndex, DotNsIdentifier } from '@novasamatech/host-api';
+import { DerivationIndex, DotNsIdentifier } from '@novasamatech/host-api';
 import { Status } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
 import { Bytes, Enum, Result, Struct, Vector, _void, str } from 'scale-ts';
@@ -8,9 +8,8 @@ export type ApAllocatableResource = CodecType<typeof ApAllocatableResourceCodec>
 export const ApAllocatableResourceCodec = Enum({
   StatementStoreAllowance: _void,
   BulletInAllowance: _void,
-  // Plain `u32` index — allowance accounts (`//allowance//{system}//{productId}`)
-  // are not product-subtree selectors and are unchanged by RFC-0022.
-  SmartContractAllowance: AccountIndex,
+  // Account the allowance is granted for, addressed by the RFC-0022 selector.
+  SmartContractAllowance: DerivationIndex,
   AutoSigning: _void,
 });
 

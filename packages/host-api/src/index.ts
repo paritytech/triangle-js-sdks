@@ -44,7 +44,6 @@ export { RAW_DERIVATION_INDEX_LENGTH, accountSelectorOf, derivationIndexOf } fro
 export {
   AccountConnectionStatus,
   AccountId,
-  AccountIndex,
   ContextualAlias,
   CreateProofErr,
   DerivationIndex,

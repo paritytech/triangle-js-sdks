@@ -474,8 +474,8 @@ Called when a product requests a balance top-up from a product-controlled source
 ```ts
 container.handlePaymentTopUp(async ({ amount, source }, { ok, err }) => {
   if (source.tag === 'ProductAccount') {
-    // Plain `u32` index of an account of the calling product.
-    await transferFromProductAccount(source.value, amount);
+    // Account of the calling product, addressed by the RFC-0022 selector.
+    await transferFromProductAccount(derivationIndexBytes(source.value), amount);
     return ok(undefined);
   }
   if (source.tag === 'PrivateKey') {
@@ -562,8 +562,9 @@ const unsubscribe = container.subscribeProductConnectionStatus((status) => {
 
 Product accounts live at `//product//{productId}/{index}` (RFC 0022): two hard
 junctions and a soft one whose chain code is a **32-byte** derivation index. The
-wire selector (`ProductAccountId`'s index and `ProductProofContext`'s suffix)
-carries either a plain `u32` or those 32 bytes directly; these helpers expand it.
+wire selector — `ProductAccountId`'s index, `ProductProofContext`'s suffix, the
+`ProductAccount` top-up source and `SmartContractAllowance` — carries either a
+plain `u32` or those 32 bytes directly; these helpers expand it.
 
 ```ts
 import { INDEX_MAGIC, derivationIndexBytes, indexBytes } from '@novasamatech/host-container';

@@ -442,8 +442,8 @@ const balanceSub = payments.subscribeBalance(balance => {
 balanceSub.onInterrupt(() => console.log('Balance access denied or lost'));
 
 // Top up the user's balance from one of the calling product's accounts.
-// `derivationIndex` is a plain `u32` index here — not the account selector used
-// by `accounts.getProductAccount`.
+// `derivationIndex` is the same selector as `accounts.getProductAccount` takes:
+// a plain index or a raw 32-byte index (RFC 0022).
 await payments.topUp(1_000_000n, {
   type: 'productAccount',
   derivationIndex: 0,
