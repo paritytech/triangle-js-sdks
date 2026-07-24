@@ -1,5 +1,10 @@
 ## 0.8.10 (2026-06-16)
 
+### 🚀 Features
+
+- **host-api / host-container / host-api-wrapper:** products can now request an sr25519 (schnorrkel) VRF signature from a product account (RFC-0023). The transcript is supplied as a recipe — a root domain-separation label plus an ordered list of `(label, value)` items — which the host replays verbatim into a Merlin transcript and signs, returning the `VRFPreOut` / `VRFProof` pair. Being a pure replayer, one method serves any consuming runtime (the motivating case is the People Chain airdrop lottery ticket for participants who are not yet people-set members; members keep using the bandersnatch ring-VRF `createRingVRFProof`). Exposed as `accountSignVrf` on host-api, `accounts.signVrf` on the wrapper, and `handleAccountSignVrf` on the container. Authorization mirrors `sign_raw`: `NotConnected` without a session, a silent local sign when `AutoSigning` covers the account, otherwise a per-call user confirmation (`Rejected` on decline).
+- **host-papp:** the SSO session gained the accounts-protocol companion for the non-`AutoSigning` path. `UserSession.signVrf` forwards the transcript recipe to the paired Account Holder, which derives the account, presents the confirmation and signs; failures come back as a structured `SignVrfErr` (`Rejected` / `Unknown`).
+
 ### 🩹 Fixes
 
 - **host-chat:** update account service params
@@ -7,6 +12,7 @@
 ### ❤️ Thank You
 
 - Sergey Zhuravlev @johnthecat
+- valentunn @valentunn
 
 ## 0.8.9 (2026-06-15)
 

@@ -43,6 +43,18 @@ export const RingLocation = Struct({
   hints: Option(RingLocationHint),
 });
 
+/** One `transcript.append_message(label, value)` call replayed by the host. */
+export const VrfTranscriptItem = Struct({
+  label: Bytes(),
+  value: Bytes(),
+});
+
+/** schnorrkel VRF output: a 32-byte `VRFPreOut` and a 64-byte `VRFProof`. */
+export const VrfSignature = Struct({
+  preOutput: Bytes(32),
+  proof: Bytes(64),
+});
+
 // errors
 
 export const RequestCredentialsErr = ErrEnum('RequestCredentialsErr', {
@@ -62,6 +74,12 @@ export const GetUserIdErr = ErrEnum('GetUserIdErr', {
   PermissionDenied: [_void, 'GetUserId: permission denied'],
   NotConnected: [_void, 'GetUserId: not connected'],
   Unknown: [GenericErr, 'GetUserId: unknown error'],
+});
+
+export const SignVrfErr = ErrEnum('SignVrfErr', {
+  NotConnected: [_void, 'SignVrf: not connected'],
+  Rejected: [_void, 'SignVrf: rejected'],
+  Unknown: [GenericErr, 'SignVrf: unknown error'],
 });
 
 // account connection status
@@ -91,6 +109,20 @@ export const AccountGetAliasV1_response = Result(ContextualAlias, RequestCredent
 
 export const AccountCreateProofV1_request = Tuple(ProductAccountId, RingLocation, Bytes());
 export const AccountCreateProofV1_response = Result(RingVrfProof, CreateProofErr);
+
+// account_sign_vrf
+
+/**
+ * The host replays the transcript verbatim — `Transcript::new(transcriptLabel)`
+ * followed by `append_message(item.label, item.value)` per item, in order — and
+ * performs no interpretation of labels or values (RFC-0023).
+ */
+export const AccountSignVrfV1_request = Struct({
+  account: ProductAccountId,
+  transcriptLabel: Bytes(),
+  items: Vector(VrfTranscriptItem),
+});
+export const AccountSignVrfV1_response = Result(VrfSignature, SignVrfErr);
 
 // get_legacy_accounts
 

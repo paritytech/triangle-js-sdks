@@ -31,6 +31,7 @@ import {
   RemotePermission,
   RequestCredentialsErr,
   ResourceAllocationErr,
+  SignVrfErr,
   SigningErr,
   StatementProofErr,
   StorageErr,
@@ -325,6 +326,11 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     () => new CreateProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
+  const handleAccountSignVrfSlot = makeNotImplementedSlot(
+    'host_account_sign_vrf',
+    () => new SignVrfErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
   // entropy derivation slot
   const handleDeriveEntropySlot = makeNotImplementedSlot(
     'host_derive_entropy',
@@ -612,6 +618,14 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       return handleV1Request(
         handleAccountCreateProofSlot,
         () => new CreateProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handleAccountSignVrf(handler) {
+      return handleV1Request(
+        handleAccountSignVrfSlot,
+        () => new SignVrfErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
     },

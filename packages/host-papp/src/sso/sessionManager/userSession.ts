@@ -1,4 +1,4 @@
-import { ContextualAlias, ProductAccountId } from '@novasamatech/host-api';
+import { ContextualAlias, ProductAccountId, VrfSignature } from '@novasamatech/host-api';
 import { enumValue } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createSession } from '@novasamatech/statement-store';
@@ -19,6 +19,7 @@ import type { CreateTransactionLegacyRequest, CreateTransactionRequest } from '.
 import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
 import type { ApAllocationOutcome, ResourceAllocationRequest } from './scale/resourceAllocation.js';
+import type { SignVrfErr, SignVrfRequest } from './scale/signVrf.js';
 import type {
   SignRawLegacyRequest,
   SigningPayloadRequest,
@@ -75,6 +76,14 @@ function actionKindFromMessageData(data: CodecType<typeof RemoteMessageCodec>['d
   return inner.tag;
 }
 
+/**
+ * `SignVrfErr` is a structured enum rather than the bare `str` the other SSO
+ * responses carry, so flatten it into the `Error` message the caller expects.
+ */
+function signVrfErrMessage(error: SignVrfErr): string {
+  return error.tag === 'Unknown' ? `signVrf: ${error.value.reason}` : 'signVrf: rejected';
+}
+
 function emitHostAction(messageId: string, actionKind: string, sessionId: string): void {
   emitHostPappDebugMessage({
     layer: 'session',
@@ -123,6 +132,7 @@ export type UserSession = StoredUserSession & {
     productAccountId: CodecType<typeof ProductAccountId>,
     productId: string,
   ): ResultAsync<CodecType<typeof ContextualAlias>, Error>;
+  signVrf(payload: SignVrfRequest): ResultAsync<CodecType<typeof VrfSignature>, Error>;
   requestResourceAllocation(request: ResourceAllocationRequest): ResultAsync<ApAllocationOutcome[], Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
@@ -363,6 +373,33 @@ export function createUserSession({
           messageId,
           userSession.id,
         );
+      });
+    },
+
+    signVrf(payload) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue('v1', enumValue('SignVrfRequest', payload));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'SignVrfResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(result =>
+          result.success ? ok(result.value) : err(new Error(signVrfErrMessage(result.value))),
+        );
+
+        return withHostActionTrace(withQueueTimeout(inner, 'signVrf'), messageId, userSession.id);
       });
     },
 

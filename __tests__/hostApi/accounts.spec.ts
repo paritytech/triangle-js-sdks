@@ -5,11 +5,18 @@ import {
   LoginErr,
   RequestCredentialsErr,
   RingLocation,
+  SignVrfErr,
   SigningErr,
   createTransport,
+  hostApiProtocol,
   toHex,
 } from '@novasamatech/host-api';
-import type { AccountConnectionStatus, LegacyAccount, ProductAccount } from '@novasamatech/host-api-wrapper';
+import type {
+  AccountConnectionStatus,
+  LegacyAccount,
+  ProductAccount,
+  VrfTranscriptItem,
+} from '@novasamatech/host-api-wrapper';
 import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
@@ -325,6 +332,94 @@ describe('Host API: Accounts', () => {
       container.handleAccountCreateProof((_, { err }) => err(error));
 
       const result = await accountsProvider.createRingVRFProof('product.dot', 0, mockRingLocation, new Uint8Array(0));
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+  });
+
+  describe('signVrf', () => {
+    it('is pinned to the wire index the truapi spec assigns it', () => {
+      // RFC-0023 specifies `#[wire(request_id = 164)]`. The index is allocated
+      // positionally in `hostApiProtocol`, so a table reorder would silently
+      // move it and break compatibility with non-JS hosts.
+      expect(hostApiProtocol.host_account_sign_vrf.index).toBe(164);
+    });
+
+    const mockTranscriptLabel = new TextEncoder().encode('pop:airdrop');
+    const mockItems: VrfTranscriptItem[] = [
+      { label: new TextEncoder().encode('domain'), value: new Uint8Array([1, 2, 3]) },
+      { label: new TextEncoder().encode('signer'), value: mockPublicKey },
+    ];
+    const mockVrfSignature = {
+      preOutput: new Uint8Array(32).fill(0xaa),
+      proof: new Uint8Array(64).fill(0xbb),
+    };
+
+    it('should return the vrf signature on success', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleAccountSignVrf((_, { ok }) => ok(mockVrfSignature));
+
+      const result = await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, mockItems);
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual(mockVrfSignature);
+    });
+
+    it('should pass the transcript recipe through unchanged', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountSignVrf>>((_, { ok }) =>
+        ok(mockVrfSignature),
+      );
+      container.handleAccountSignVrf(handler);
+
+      await accountsProvider.signVrf('product.dot', 1, mockTranscriptLabel, mockItems);
+
+      expect(handler).toBeCalledWith(
+        {
+          account: ['product.dot', 1],
+          transcriptLabel: mockTranscriptLabel,
+          items: mockItems,
+        },
+        { ok: expect.any(Function), err: expect.any(Function) },
+      );
+    });
+
+    it('should support an empty item list', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountSignVrf>>((_, { ok }) =>
+        ok(mockVrfSignature),
+      );
+      container.handleAccountSignVrf(handler);
+
+      await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, []);
+
+      expect(handler).toBeCalledWith(
+        { account: ['product.dot', 0], transcriptLabel: mockTranscriptLabel, items: [] },
+        { ok: expect.any(Function), err: expect.any(Function) },
+      );
+    });
+
+    it('should return error when not connected', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new SignVrfErr.NotConnected();
+
+      container.handleAccountSignVrf((_, { err }) => err(error));
+
+      const result = await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, mockItems);
+
+      expect(result.isErr()).toBe(true);
+      expect(result._unsafeUnwrapErr()).toEqual(error);
+    });
+
+    it('should return error when rejected', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new SignVrfErr.Rejected();
+
+      container.handleAccountSignVrf((_, { err }) => err(error));
+
+      const result = await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, mockItems);
 
       expect(result.isErr()).toBe(true);
       expect(result._unsafeUnwrapErr()).toEqual(error);

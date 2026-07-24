@@ -122,6 +122,7 @@ export type Container = {
   handleAccountGet: InferHandler<'v1', HostApiProtocol['host_account_get']>;
   handleAccountGetAlias: InferHandler<'v1', HostApiProtocol['host_account_get_alias']>;
   handleAccountCreateProof: InferHandler<'v1', HostApiProtocol['host_account_create_proof']>;
+  handleAccountSignVrf: InferHandler<'v1', HostApiProtocol['host_account_sign_vrf']>;
   handleGetLegacyAccounts: InferHandler<'v1', HostApiProtocol['host_get_legacy_accounts']>;
 
   // signing
