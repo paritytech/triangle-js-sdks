@@ -140,6 +140,25 @@ describe('Host API: LocalStorage', () => {
       expect(result).toEqual(expectedObject);
     });
 
+    it('should return undefined for a missing key', async () => {
+      const { container, localStorage } = setup();
+      const key = 'never-written';
+
+      // Host returns `undefined` for a key that was never written.
+      container.handleLocalStorageRead((_, { ok }) => ok(undefined));
+
+      await expect(localStorage.readJSON(key)).resolves.toBeUndefined();
+    });
+
+    it('should return undefined for an empty stored value', async () => {
+      const { container, localStorage } = setup();
+      const key = 'test-key';
+
+      container.handleLocalStorageRead((_, { ok }) => ok(new Uint8Array()));
+
+      await expect(localStorage.readJSON(key)).resolves.toBeUndefined();
+    });
+
     it('should handle invalid JSON', async () => {
       const { container, localStorage } = setup();
       const key = 'test-key';

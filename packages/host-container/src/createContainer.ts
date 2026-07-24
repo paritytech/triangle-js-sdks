@@ -19,6 +19,7 @@ import {
   DeriveEntropyErr,
   DevicePermission,
   GenericError,
+  GetAliasErr,
   GetUserIdErr,
   LoginErr,
   NavigateToErr,
@@ -313,7 +314,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
   const handleAccountGetAliasSlot = makeNotImplementedSlot(
     'host_account_get_alias',
-    () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    () => new GetAliasErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
   const handleGetLegacyAccountsSlot = makeNotImplementedSlot(
@@ -609,7 +610,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     handleAccountGetAlias(handler) {
       return handleV1Request(
         handleAccountGetAliasSlot,
-        () => new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        () => new GetAliasErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
     },

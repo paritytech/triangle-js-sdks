@@ -44,9 +44,9 @@ export const createLocalStorage = (transport = sandboxTransport) => {
       return writeBytes(key, textEncoder.encode(value));
     },
     async readJSON(key: string) {
-      return readBytes(key)
-        .then(bytes => textDecoder.decode(bytes))
-        .then(JSON.parse);
+      const bytes = await readBytes(key);
+      if (bytes === undefined || bytes.length === 0) return undefined;
+      return JSON.parse(textDecoder.decode(bytes));
     },
     async writeJSON(key: string, value: unknown) {
       return writeBytes(key, textEncoder.encode(JSON.stringify(value)));

@@ -236,25 +236,28 @@ container.handleAccountGet(async ([dotnsId, derivationIndex], { ok, err }) => {
 ### handleAccountGetAlias
 
 ```ts
-container.handleAccountGetAlias(async ([dotnsId, derivationIndex], { ok, err }) => {
-  const alias = await getAccountAlias(dotnsId, derivationIndex);
+container.handleAccountGetAlias(async ([context, ring], { ok, err }) => {
+  const alias = await getContextualAlias(context, ring);
   if (alias) {
     return ok({ context: alias.context, alias: alias.alias });
   }
-  return err(new RequestCredentialsErr.NotConnected());
+  return err(new GetAliasErr.RingNotFound());
 });
 ```
 
 ### handleAccountCreateProof
 
 ```ts
-container.handleAccountCreateProof(async ([[dotnsId, derivationIndex], ringLocation, message], { ok, err }) => {
-  try {
-    const proof = await createRingProof(dotnsId, derivationIndex, ringLocation, message);
-    return ok(proof);
-  } catch (e) {
-    return err({ tag: 'RingNotFound' });
+container.handleAccountCreateProof(async ([context, ring, message], { ok, err }) => {
+  const selected = await selectMemberKey(ring);
+  if (!selected) {
+    return err(new CreateProofErr.RingNotFound());
   }
+  if (!selected.isMemberOfRing) {
+    return err(new CreateProofErr.NotMember());
+  }
+  const { proof, contextualAlias, ringIndex, ringRevision } = await createRingProof(selected, context, ring, message);
+  return ok({ proof, contextualAlias, ringIndex, ringRevision });
 });
 ```
 

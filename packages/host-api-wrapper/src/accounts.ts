@@ -11,8 +11,10 @@ import type {
 } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  GetAliasErr,
   GetUserIdErr,
   LoginErr,
+  ProductProofContext,
   RequestCredentialsErr,
   RingLocation,
   SignVrfErr,
@@ -96,16 +98,16 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
-    getProductAccountAlias(dotNsIdentifier: string, derivationIndex = 0) {
+    getContextualAlias(context: CodecType<typeof ProductProofContext>, ring: CodecType<typeof RingLocation>) {
       return hostApi
-        .accountGetAlias(enumValue('v1', [dotNsIdentifier, derivationIndex]))
+        .accountGetAlias(enumValue('v1', [context, ring]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
             return ok(response.value);
           }
           // @ts-expect-error response.tag is never here
-          return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+          return err(new GetAliasErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
     getLegacyAccounts() {
@@ -121,13 +123,12 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         });
     },
     createRingVRFProof(
-      dotNsIdentifier: string,
-      derivationIndex = 0,
-      location: CodecType<typeof RingLocation>,
+      context: CodecType<typeof ProductProofContext>,
+      ring: CodecType<typeof RingLocation>,
       message: Uint8Array,
     ) {
       return hostApi
-        .accountCreateProof(enumValue('v1', [[dotNsIdentifier, derivationIndex], location, message]))
+        .accountCreateProof(enumValue('v1', [context, ring, message]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {

@@ -250,11 +250,28 @@ if (accountResult.isOk()) {
   console.log('Public key:', account.publicKey);
 }
 
-// Get account alias
-const aliasResult = await accounts.getProductAccountAlias('product.dot', 0);
+// Ring VRF: a contextual alias and a proof are addressed by a product-scoped
+// `context` (`[productId, suffix]`) and a `ring` location on a chain (RFC 0004).
+const context: [string, string] = ['product.dot', '0x00']; // [productId, 0x-hex suffix]
+const ring = {
+  chainId: '0x…', // 32-byte chain genesis hash
+  junctions: [{ tag: 'PalletInstance', value: 42 }],
+};
+
+// Get the contextual alias for that (context, ring).
+const aliasResult = await accounts.getContextualAlias(context, ring);
 
 if (aliasResult.isOk()) {
-  console.log('Alias:', aliasResult.value);
+  const { context: contextBytes, alias } = aliasResult.value;
+  console.log('Alias:', alias);
+}
+
+// Create a ring VRF proof binding `message`; the host selects the member key.
+const proofResult = await accounts.createRingVRFProof(context, ring, new Uint8Array([0x48, 0x69]));
+
+if (proofResult.isOk()) {
+  const { proof, contextualAlias, ringIndex, ringRevision } = proofResult.value;
+  console.log('Proof:', proof, 'at ring index', ringIndex, 'revision', ringRevision);
 }
 
 // Get legacy accounts (external wallets)

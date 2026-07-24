@@ -5,7 +5,14 @@ import type { Codec, CodecType } from 'scale-ts';
 import { extractErrorMessage } from './helpers.js';
 import { GenericError } from './protocol/commonCodecs.js';
 import type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './protocol/impl.js';
-import { CreateProofErr, GetUserIdErr, LoginErr, RequestCredentialsErr, SignVrfErr } from './protocol/v1/accounts.js';
+import {
+  CreateProofErr,
+  GetAliasErr,
+  GetUserIdErr,
+  LoginErr,
+  RequestCredentialsErr,
+  SignVrfErr,
+} from './protocol/v1/accounts.js';
 import { ChatBotRegistrationErr, ChatMessagePostingErr, ChatRoomRegistrationErr } from './protocol/v1/chat.js';
 import { CreateTransactionErr } from './protocol/v1/createTransaction.js';
 import { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
@@ -179,7 +186,7 @@ export function createHostApi(transport: Transport): HostApi {
     accountGetAlias(payload) {
       return makeRequest(transport.request('host_account_get_alias', payload), reason => ({
         tag: payload.tag,
-        value: new RequestCredentialsErr.Unknown({ reason }),
+        value: new GetAliasErr.Unknown({ reason }),
       }));
     },
 
