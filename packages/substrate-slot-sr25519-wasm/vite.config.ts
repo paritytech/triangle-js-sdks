@@ -1,6 +1,5 @@
 import { defineConfig } from 'vite';
 import { default as dts } from 'vite-plugin-dts';
-import { externalizeDeps } from 'vite-plugin-externalize-deps';
 
 export default defineConfig({
   build: {
@@ -13,5 +12,5 @@ export default defineConfig({
       fileName: () => 'index.js',
     },
   },
-  plugins: [externalizeDeps(), dts({ include: ['src'], exclude: ['**/*.spec.ts'] })],
+  plugins: [dts({ include: ['src'], exclude: ['**/*.spec.ts'] })],
 });
