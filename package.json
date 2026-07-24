@@ -11,6 +11,7 @@
     "release": "nx release",
     "build": "nx run-many -t build",
     "build:watch": "nx watch --all -- nx run \\$NX_PROJECT_NAME:build",
+    "pack:local": "node scripts/pack-local.mjs",
     "typecheck": "nx run-many -t typecheck",
     "lint": "nx run-many -t lint && eslint ./__tests__ --quiet",
     "lint:fix": "nx run-many -t lint --fix && eslint ./__tests__ --fix --quiet",
