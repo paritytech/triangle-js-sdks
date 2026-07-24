@@ -147,7 +147,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
      * in order — and signs it. Callers that need a `signer` item must pass their own public
      * key (from `getProductAccount`); the host never injects it.
      */
-    signVrf(dotNsIdentifier: string, derivationIndex = 0, transcriptLabel: Uint8Array, items: VrfTranscriptItem[]) {
+    signVrf(dotNsIdentifier: string, derivationIndex: number, transcriptLabel: Uint8Array, items: VrfTranscriptItem[]) {
       return hostApi
         .accountSignVrf(enumValue('v1', { account: [dotNsIdentifier, derivationIndex], transcriptLabel, items }))
         .mapErr(e => e.value)
