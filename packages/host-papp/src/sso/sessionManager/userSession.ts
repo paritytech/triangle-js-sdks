@@ -7,12 +7,15 @@ import { fieldListView } from '@novasamatech/storage-adapter';
 import { nanoid } from 'nanoid';
 import type { Result } from 'neverthrow';
 import { ResultAsync, err, ok, okAsync } from 'neverthrow';
+import { toHex } from 'polkadot-api/utils';
 import type { CodecType } from 'scale-ts';
 
 import { emitHostPappDebugMessage } from '../../debugBus.js';
 import { createAsyncTaskPool } from '../../helpers/createAsyncTaskPool.js';
 import { toError } from '../../helpers/utils.js';
+import type { Identity, IdentityRepository } from '../../identity/types.js';
 import type { Callback } from '../../types.js';
+import type { AllowanceRepository, AllowanceResourceKind } from '../allowance/index.js';
 import type { StoredUserSession } from '../userSessionRepository.js';
 
 import type { CreateTransactionLegacyRequest, CreateTransactionRequest } from './scale/createTransaction.js';
@@ -121,6 +124,10 @@ function withHostActionTrace<T>(
 }
 
 export type UserSession = StoredUserSession & {
+  /** Read this session's persisted allowance slot-account key for a product/resource. */
+  readAllowance(productId: string, resource: AllowanceResourceKind): ResultAsync<Uint8Array | null, Error>;
+  /** Look up the on-chain identity of this session's user identity account. */
+  getIdentity(): ResultAsync<Identity | null, Error>;
   sendDisconnectMessage(): ResultAsync<void, Error>;
   abortPendingRequests(): ResultAsync<void, Error>;
   signPayload(payload: SigningPayloadRequest): ResultAsync<SigningPayloadResponseData, Error>;
@@ -151,12 +158,16 @@ export function createUserSession({
   encryption,
   storage,
   prover,
+  allowanceRepository,
+  identityRepository,
 }: {
   userSession: StoredUserSession;
   statementStore: StatementStoreAdapter;
   encryption: Encryption;
   storage: StorageAdapter;
   prover: StatementProver;
+  allowanceRepository: AllowanceRepository;
+  identityRepository: IdentityRepository;
 }): UserSession {
   const requestQueue = createAsyncTaskPool({ poolSize: 1, retryCount: 0, retryDelay: 0 });
   // Shared abort handle for everything currently on the request queue.
@@ -191,6 +202,14 @@ export function createUserSession({
 
   return {
     ...userSession,
+
+    readAllowance(productId, resource) {
+      return allowanceRepository.read(userSession.id, productId, resource);
+    },
+
+    getIdentity() {
+      return identityRepository.getIdentity(toHex(userSession.identityAccountId));
+    },
 
     signPayload(payload) {
       return enqueue(() => {

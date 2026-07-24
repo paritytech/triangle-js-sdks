@@ -31,7 +31,7 @@ describe('Host API: Preimage', () => {
 
     await preimageManager.submit(preimageData);
 
-    expect(handler).toBeCalledWith(preimageData, { ok: expect.any(Function), err: expect.any(Function) });
+    expect(handler).toHaveBeenCalledWith(preimageData, { ok: expect.any(Function), err: expect.any(Function) });
     expect(permissionHandler).toHaveBeenCalledOnce();
     const [receivedParams] = permissionHandler.mock.calls[0]!;
     expect(receivedParams).toEqual({ tag: 'PreimageSubmit', value: undefined });

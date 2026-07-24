@@ -55,7 +55,7 @@ describe('file loader', () => {
     const data = new TextEncoder().encode('hello world');
 
     const uploadResult = await uploadFile({ data, hopClient: client });
-    expect(uploadResult.isOk()).toBe(true);
+    await expect(uploadResult).toBeOk();
 
     const { identifier, claimTicket } = uploadResult._unsafeUnwrap();
     expect(identifier.length).toBe(32);
@@ -67,8 +67,7 @@ describe('file loader', () => {
       hopClient: client,
     });
 
-    expect(downloadResult.isOk()).toBe(true);
-    expect(downloadResult._unsafeUnwrap()).toEqual(data);
+    await expect(downloadResult).toBeOkWith(data);
   });
 
   it('uploads and downloads a multi-chunk file', async () => {
@@ -80,7 +79,7 @@ describe('file loader', () => {
       hopClient: client,
       chunkSize: 2_000,
     });
-    expect(uploadResult.isOk()).toBe(true);
+    await expect(uploadResult).toBeOk();
 
     const { identifier, claimTicket } = uploadResult._unsafeUnwrap();
 
@@ -90,8 +89,7 @@ describe('file loader', () => {
       hopClient: client,
     });
 
-    expect(downloadResult.isOk()).toBe(true);
-    expect(downloadResult._unsafeUnwrap()).toEqual(data);
+    await expect(downloadResult).toBeOkWith(data);
   });
 
   it('reports upload progress', async () => {
@@ -143,7 +141,7 @@ describe('file loader', () => {
     const data = new Uint8Array(0);
 
     const uploadResult = await uploadFile({ data, hopClient: client });
-    expect(uploadResult.isOk()).toBe(true);
+    await expect(uploadResult).toBeOk();
 
     const { identifier, claimTicket } = uploadResult._unsafeUnwrap();
     const downloadResult = await downloadFile({
@@ -152,7 +150,6 @@ describe('file loader', () => {
       hopClient: client,
     });
 
-    expect(downloadResult.isOk()).toBe(true);
-    expect(downloadResult._unsafeUnwrap()).toEqual(data);
+    await expect(downloadResult).toBeOkWith(data);
   });
 });

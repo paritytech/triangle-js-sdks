@@ -67,15 +67,14 @@ describe('createAllowanceService', () => {
 
       const result = await service.getBulletinSigner('session-1', 'product.dot');
 
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
       expect(session.requestResourceAllocation).toHaveBeenCalledWith({
         callingProductId: 'product.dot',
         resources: [{ tag: 'BulletInAllowance', value: undefined }],
         onExisting: 'Ignore',
       });
 
-      const cached = await repository.read('session-1', 'product.dot', 'bulletin');
-      expect(cached._unsafeUnwrap()).toEqual(FAKE_SECRET);
+      await expect(repository.read('session-1', 'product.dot', 'bulletin')).toBeOkWith(FAKE_SECRET);
     });
 
     it('uses cached key on cache hit without calling the session', async () => {
@@ -86,7 +85,7 @@ describe('createAllowanceService', () => {
 
       const result = await service.getBulletinSigner('session-1', 'product.dot');
 
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
       expect(session.requestResourceAllocation).not.toHaveBeenCalled();
     });
 
@@ -98,8 +97,7 @@ describe('createAllowanceService', () => {
 
       const result = await service.getBulletinSigner('session-1', 'product.dot');
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().reason).toBe('Rejected');
+      await expect(result).toBeErrWith(expect.objectContaining({ reason: 'Rejected' }));
     });
 
     it('returns NotAvailable error when mobile reports unavailable', async () => {
@@ -112,8 +110,7 @@ describe('createAllowanceService', () => {
 
       const result = await service.getBulletinSigner('session-1', 'product.dot');
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().reason).toBe('NotAvailable');
+      await expect(result).toBeErrWith(expect.objectContaining({ reason: 'NotAvailable' }));
     });
 
     it('returns NoSession when sessionId does not match an active session', async () => {
@@ -123,8 +120,7 @@ describe('createAllowanceService', () => {
 
       const result = await service.getBulletinSigner('unknown-session', 'product.dot');
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().reason).toBe('NoSession');
+      await expect(result).toBeErrWith(expect.objectContaining({ reason: 'NoSession' }));
     });
 
     it('returns UnexpectedResponse when mobile returns the wrong resource tag', async () => {
@@ -142,8 +138,7 @@ describe('createAllowanceService', () => {
 
       const result = await service.getBulletinSigner('session-1', 'product.dot');
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().reason).toBe('UnexpectedResponse');
+      await expect(result).toBeErrWith(expect.objectContaining({ reason: 'UnexpectedResponse' }));
     });
 
     it('propagates session.requestResourceAllocation errors', async () => {
@@ -154,8 +149,7 @@ describe('createAllowanceService', () => {
 
       const result = await service.getBulletinSigner('session-1', 'product.dot');
 
-      expect(result.isErr()).toBe(true);
-      expect(result._unsafeUnwrapErr().reason).toBe('UnexpectedResponse');
+      await expect(result).toBeErrWith(expect.objectContaining({ reason: 'UnexpectedResponse' }));
     });
   });
 
@@ -180,7 +174,7 @@ describe('createAllowanceService', () => {
 
       const proverResult = await service.getStatementStoreProver('session-1', 'product.dot');
 
-      expect(proverResult.isOk()).toBe(true);
+      await expect(proverResult).toBeOk();
 
       const prover = proverResult._unsafeUnwrap();
       const signed = (
@@ -216,19 +210,17 @@ describe('createAllowanceService', () => {
 
       const result = await service.getStatementStoreProver('session-1', 'product.dot');
 
-      expect(result.isOk()).toBe(true);
+      await expect(result).toBeOk();
       expect(session.requestResourceAllocation).toHaveBeenCalledWith({
         callingProductId: 'product.dot',
         resources: [{ tag: 'StatementStoreAllowance', value: undefined }],
         onExisting: 'Ignore',
       });
 
-      const cached = await repository.read('session-1', 'product.dot', 'statementStore');
-      expect(cached._unsafeUnwrap()).toEqual(ANOTHER_SECRET);
+      await expect(repository.read('session-1', 'product.dot', 'statementStore')).toBeOkWith(ANOTHER_SECRET);
 
       // bulletin slot must remain empty
-      const bulletinCached = await repository.read('session-1', 'product.dot', 'bulletin');
-      expect(bulletinCached._unsafeUnwrap()).toBeNull();
+      await expect(repository.read('session-1', 'product.dot', 'bulletin')).toBeOkWith(null);
     });
   });
 });

@@ -1,3 +1,18 @@
+## 0.8.12 (2026-07-23)
+
+### 🚀 Features
+
+- **host-papp:** the SSO `UserSession` gains `readAllowance(productId, resource)`, returning the session's persisted allowance slot-account key (`Uint8Array | null`) for a product and resource (`'bulletin' | 'statementStore'`). The session id is implicit — only the product and resource are passed. `AllowanceResourceKind` is now exported from the package root.
+- **host-papp:** the SSO `UserSession` gains `getIdentity()`, resolving the on-chain identity (`Identity | null`) of the session's own user identity account — no account id to pass.
+
+### 🩹 Fixes
+
+- **host-papp:** the SSO ring-VRF alias/proof responses now decode their failure payloads with host-api's canonical `GetAliasErr` / `CreateProofErr` enums (RFC 0004) instead of the local `RingVrfError`, keeping the SSO channel's error set in sync with the host-api protocol.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.8.11 (2026-07-15)
 
 ### 🚀 Features
