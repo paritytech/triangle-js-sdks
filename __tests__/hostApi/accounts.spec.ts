@@ -12,7 +12,12 @@ import {
   createTransport,
   toHex,
 } from '@novasamatech/host-api';
-import type { AccountConnectionStatus, LegacyAccount, ProductAccount } from '@novasamatech/host-api-wrapper';
+import type {
+  AccountConnectionStatus,
+  LegacyAccount,
+  ProductAccount,
+  ProofContext,
+} from '@novasamatech/host-api-wrapper';
 import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
@@ -51,7 +56,11 @@ const mockRingLocation: CodecType<typeof RingLocation> = {
   ],
 };
 
-const mockContext: CodecType<typeof ProductProofContext> = ['product.dot', '0x00'];
+// Ergonomic form the product passes in, and the wire form the host receives:
+// the suffix is the same `Either<u32, [u8; 32]>` selector as an account index
+// (RFC 0022).
+const mockContext: ProofContext = ['product.dot', 0];
+const mockWireContext: CodecType<typeof ProductProofContext> = ['product.dot', { tag: 'Left', value: 0 }];
 
 describe('Host API: Accounts', () => {
   describe('getUserId', () => {
@@ -125,7 +134,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getProductAccount('my-product.dot', 3);
 
-      expect(handler).toBeCalledWith(['my-product.dot', 3], expect.anything());
+      expect(handler).toBeCalledWith(['my-product.dot', { tag: 'Left', value: 3 }], expect.anything());
     });
 
     it('should use derivation index 0 by default', async () => {
@@ -137,7 +146,27 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getProductAccount('product.dot');
 
-      expect(handler).toBeCalledWith(['product.dot', 0], expect.anything());
+      expect(handler).toBeCalledWith(['product.dot', { tag: 'Left', value: 0 }], expect.anything());
+    });
+
+    it('should pass a raw 32-byte derivation index through unchanged', async () => {
+      const { container, accountsProvider } = setup();
+      const rawIndex = new Uint8Array(32).fill(0xee);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
+        ok({ publicKey: mockPublicKey }),
+      );
+      container.handleAccountGet(handler);
+
+      const result = await accountsProvider.getProductAccount('product.dot', rawIndex);
+
+      expect(handler).toBeCalledWith(['product.dot', { tag: 'Right', value: rawIndex }], expect.anything());
+      expect(result._unsafeUnwrap().derivationIndex).toEqual(rawIndex);
+    });
+
+    it('should reject a raw index that is not 32 bytes', () => {
+      const { accountsProvider } = setup();
+
+      expect(() => accountsProvider.getProductAccount('product.dot', new Uint8Array(31))).toThrow();
     });
 
     it('should return error on failure', async () => {
@@ -175,7 +204,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
-      expect(handler).toBeCalledWith([mockContext, mockRingLocation], expect.anything());
+      expect(handler).toBeCalledWith([mockWireContext, mockRingLocation], expect.anything());
     });
 
     it('should return error on failure', async () => {
@@ -286,7 +315,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, message);
 
-      expect(handler).toBeCalledWith([mockContext, mockRingLocation, message], {
+      expect(handler).toBeCalledWith([mockWireContext, mockRingLocation, message], {
         ok: expect.any(Function),
         err: expect.any(Function),
       });
@@ -352,7 +381,7 @@ describe('Host API: Accounts', () => {
       const result = await signer.signBytes(rawData);
 
       expect(capturedParams).toEqual({
-        account: [mockProductAccount.dotNsIdentifier, mockProductAccount.derivationIndex],
+        account: [mockProductAccount.dotNsIdentifier, { tag: 'Left', value: 0 }],
         payload: { tag: 'Bytes', value: rawData },
       });
       expect(result).toEqual(signatureBytes);

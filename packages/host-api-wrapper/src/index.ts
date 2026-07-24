@@ -22,6 +22,7 @@ export { createProductChatManager, matchChatCustomRenderers } from './chat.js';
 
 export type {
   ProductAccountId,
+  ProductAccountRef,
   SignedStatement,
   Statement,
   StatementTopicFilter,
@@ -30,7 +31,13 @@ export type {
 } from './statementStore.js';
 export { createStatementStore } from './statementStore.js';
 
-export type { AccountConnectionStatus, LegacyAccount, ProductAccount } from './accounts.js';
+export type {
+  AccountConnectionStatus,
+  AccountSelector,
+  LegacyAccount,
+  ProductAccount,
+  ProofContext,
+} from './accounts.js';
 export { accounts, createAccountsProvider } from './accounts.js';
 
 export type { ThemeMode } from './theme.js';

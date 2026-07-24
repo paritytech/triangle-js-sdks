@@ -130,6 +130,13 @@ export type UserSession = StoredUserSession & {
     ring: CodecType<typeof RingLocation>,
     message: Uint8Array,
   ): ResultAsync<CodecType<typeof RingVrfProof>, Error>;
+  /**
+   * Fetches the sr25519 public key of `//product//{productId}` (RFC-0022).
+   *
+   * Consent-free and cacheable: one round trip per product, ever. Account
+   * public keys are then soft-derived locally from the returned subtree key.
+   */
+  getProductSubtree(productId: string): ResultAsync<Uint8Array, Error>;
   requestResourceAllocation(request: ResourceAllocationRequest): ResultAsync<ApAllocationOutcome[], Error>;
   subscribe(callback: Callback<CodecType<typeof RemoteMessageCodec>, ResultAsync<boolean, Error>>): VoidFunction;
   dispose(): void;
@@ -408,6 +415,33 @@ export function createUserSession({
           messageId,
           userSession.id,
         );
+      });
+    },
+
+    getProductSubtree(productId) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue('v1', enumValue('ProductSubtreeRequest', { productId }));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+
+        const responseFilter = (message: RemoteMessage) => {
+          if (
+            message.data.tag === 'v1' &&
+            message.data.value.tag === 'ProductSubtreeResponse' &&
+            message.data.value.value.respondingTo === messageId
+          ) {
+            return message.data.value.value.payload;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(result =>
+          result.success ? ok(result.value.productPublicKey) : err(new Error(result.value)),
+        );
+
+        return withHostActionTrace(withQueueTimeout(inner, 'getProductSubtree'), messageId, userSession.id);
       });
     },
 

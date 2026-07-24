@@ -1,4 +1,5 @@
 import { Enum, ErrEnum, Hex, Status } from '@novasamatech/scale';
+import type { CodecType } from 'scale-ts';
 import { Bytes, Option, Result, Struct, Tuple, Vector, _void, str, u32, u8 } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
@@ -8,12 +9,77 @@ import { GenericErr } from '../commonCodecs.js';
 export const AccountId = Bytes(32);
 export const PublicKey = Bytes();
 export const DotNsIdentifier = str;
-export const DerivationIndex = u32;
+
+/**
+ * Plain account index — the primary selector form (RFC 0022). Used on its own
+ * where the wire type is a bare `u32` (payments top-up source, smart-contract
+ * allowance) and as the `Left` variant of {@link DerivationIndex}.
+ */
+export const AccountIndex = u32;
+
+/**
+ * Raw 32-byte derivation index — the escape hatch for byte-valued selectors.
+ * Used directly as the soft-junction chain code of `//product//{productId}/{index}`.
+ */
+export const RawDerivationIndex = Bytes(32);
+
+/**
+ * Account selector within a product subtree: `Either<u32, [u8; 32]>` (RFC 0022).
+ *
+ * `Left` is the primary form — plain indices keep a product's accounts
+ * enumerable. `Right` carries a raw 32-byte index. Hosts expand `Left(n)` to
+ * the internal 32-byte index (`u32` little-endian ++ index magic) and pass
+ * `Right(bytes)` through unchanged.
+ */
+export const DerivationIndex = Enum({
+  Left: AccountIndex,
+  Right: RawDerivationIndex,
+});
+
 export const ProductAccountId = Tuple(DotNsIdentifier, DerivationIndex);
 export const RingVrgAlias = Bytes();
 
+/** Length of the raw 32-byte derivation index (RFC 0022). */
+export const RAW_DERIVATION_INDEX_LENGTH = 32;
+
+/**
+ * Ergonomic form of an account selector: a plain index or a raw 32-byte index.
+ */
+export type AccountSelector = number | Uint8Array;
+
+/**
+ * Normalizes an {@link AccountSelector} into the wire {@link DerivationIndex}:
+ * numbers become `Left`, 32-byte arrays become `Right`.
+ */
+export function derivationIndexOf(selector: AccountSelector): CodecType<typeof DerivationIndex> {
+  if (typeof selector === 'number') {
+    return { tag: 'Left', value: selector };
+  }
+
+  if (selector.length !== RAW_DERIVATION_INDEX_LENGTH) {
+    throw new Error(`Raw derivation index must be ${RAW_DERIVATION_INDEX_LENGTH} bytes, got ${selector.length}`);
+  }
+
+  return { tag: 'Right', value: selector };
+}
+
+/**
+ * Inverse of {@link derivationIndexOf} — unwraps the wire selector back into
+ * the ergonomic form.
+ */
+export function accountSelectorOf(index: CodecType<typeof DerivationIndex>): AccountSelector {
+  return index.value;
+}
+
 export const ProductId = DotNsIdentifier;
-export const ProductProofContextSuffix = Hex();
+
+/**
+ * Selector distinguishing proof contexts within a product (RFC 0004 amended by
+ * RFC 0022). Expands to the same 32-byte derivation index as
+ * {@link ProductAccountId}'s index, so the alias ↔ account mapping is the
+ * identity on it.
+ */
+export const ProductProofContextSuffix = DerivationIndex;
 export const ProductProofContext = Tuple(ProductId, ProductProofContextSuffix);
 
 // structs

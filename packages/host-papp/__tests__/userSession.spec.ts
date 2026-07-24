@@ -204,7 +204,7 @@ describe('createUserSession debug emits', () => {
       const session = buildSession();
       const { events, unsubscribe } = captureEvents();
       try {
-        await session.getRingVrfAlias('caller.dot', ['product.alpha', '0x00'], {
+        await session.getRingVrfAlias('caller.dot', ['product.alpha', { tag: 'Left', value: 0 }], {
           chainId: '0x22',
           junctions: [{ tag: 'PalletInstance', value: 42 }],
         });
@@ -225,7 +225,7 @@ describe('createUserSession debug emits', () => {
       try {
         await session.createRingVrfProof(
           'caller.dot',
-          ['product.alpha', '0x00'],
+          ['product.alpha', { tag: 'Left', value: 0 }],
           { chainId: '0x22', junctions: [{ tag: 'PalletInstance', value: 42 }] },
           new Uint8Array([1, 2, 3]),
         );

@@ -1,6 +1,7 @@
 import { GenericError, StatementProofErr, createTransport, enumValue } from '@novasamatech/host-api';
 import type {
   ProductAccountId,
+  ProductAccountRef,
   SignedStatement,
   Statement,
   StatementTopicFilter,
@@ -58,10 +59,13 @@ function createMockStatement(topicSeed: number): Statement {
   };
 }
 
-// Helper to create a ProductAccountId
-function createMockAccountId(): ProductAccountId {
+// Helper to create a product account reference (RFC 0022 selector form)
+function createMockAccountId(): ProductAccountRef {
   return ['test.dot', 0];
 }
+
+// The same reference as it reaches the host over the wire.
+const mockWireAccountId: ProductAccountId = ['test.dot', { tag: 'Left', value: 0 }];
 
 describe('Host API: StatementStore', () => {
   it('should subscribe to statement updates', async () => {
@@ -104,7 +108,10 @@ describe('Host API: StatementStore', () => {
 
     const result = await statementStore.createProof(accountId, statement);
 
-    expect(handler).toBeCalledWith([accountId, statement], { ok: expect.any(Function), err: expect.any(Function) });
+    expect(handler).toBeCalledWith([mockWireAccountId, statement], {
+      ok: expect.any(Function),
+      err: expect.any(Function),
+    });
     expect(result).toEqual(expectedProof);
   });
 

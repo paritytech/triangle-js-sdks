@@ -208,7 +208,10 @@ selects the member key for the ring; `callingProductId` names the product the ho
 for. Both take the same `(context, ring)` so the alias in the proof matches `getRingVrfAlias`.
 
 ```ts
-const context = ['product.dot', '0x00']; // [productId, suffix] — suffix is a 0x-hex string
+// [productId, suffix]. The suffix is the wire `Either<u32, [u8; 32]>` selector
+// (RFC 0022): `Left` for a plain index, `Right` for a raw 32-byte index. It
+// expands to the same 32-byte value as a product account's derivation index.
+const context = ['product.dot', { tag: 'Left', value: 0 }];
 const ring = {
   chainId: '0x…', // 32-byte chain genesis hash
   junctions: [{ tag: 'PalletInstance', value: 42 }],
@@ -224,6 +227,28 @@ proof.match(
   error => console.error('proof failed:', error),
 );
 ```
+
+## Product subtree public keys
+
+Product accounts live at `//product//{productId}/{index}` (RFC 0022). The
+product junction is **hard**, so the user's root public key alone no longer
+determines product account public keys — the host asks the paired device for the
+product-subtree public key once, then soft-derives account public keys locally
+from it.
+
+```ts
+const subtreeKey = await currentSession.getProductSubtree('product.dot');
+
+subtreeKey.match(
+  publicKey => cacheProductSubtree('product.dot', publicKey), // one round trip per product, ever
+  error => console.error('subtree lookup failed:', error),
+);
+```
+
+The request is consent-free — the response carries no secret material. Only
+`AutoSigning` does: its payload is now the product-subtree secret key alone
+(`productRootPrivateKey`, 64-byte expanded sr25519 secret), which exposes exactly
+that product's subtree. The former `productDerivationSecret` is gone.
 
 ## Identity lookups
 

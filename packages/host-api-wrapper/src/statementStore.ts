@@ -1,4 +1,5 @@
 import type {
+  AccountSelector,
   CodecType,
   ProductAccountId as ProductAccountIdCodec,
   SignedStatement as SignedStatementCodec,
@@ -7,7 +8,7 @@ import type {
   Topic as TopicCodec,
   Transport,
 } from '@novasamatech/host-api';
-import { createHostApi, enumValue } from '@novasamatech/host-api';
+import { createHostApi, derivationIndexOf, enumValue } from '@novasamatech/host-api';
 
 import { sandboxTransport } from './sandboxTransport.js';
 
@@ -15,7 +16,14 @@ export type Statement = CodecType<typeof StatementCodec>;
 export type SignedStatement = CodecType<typeof SignedStatementCodec>;
 
 export type Topic = CodecType<typeof TopicCodec>;
+/** Wire-level product account id — the selector in its `Left`/`Right` form. */
 export type ProductAccountId = CodecType<typeof ProductAccountIdCodec>;
+
+/**
+ * Product account reference in ergonomic form: the dotNS identifier plus a
+ * plain index or a raw 32-byte index (RFC 0022).
+ */
+export type ProductAccountRef = [dotNsIdentifier: string, derivationIndex: AccountSelector];
 
 export type StatementTopicFilter = { matchAll: Topic[] } | { matchAny: Topic[] };
 
@@ -43,7 +51,8 @@ export const createStatementStore = (transport: Transport = sandboxTransport) =>
       };
     },
 
-    async createProof(accountId: ProductAccountId, statement: Statement) {
+    async createProof([dotNsIdentifier, derivationIndex]: ProductAccountRef, statement: Statement) {
+      const accountId: ProductAccountId = [dotNsIdentifier, derivationIndexOf(derivationIndex)];
       const result = await hostApi.statementStoreCreateProof(enumValue('v1', [accountId, statement]));
 
       return result.match(

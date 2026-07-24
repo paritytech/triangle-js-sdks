@@ -223,9 +223,17 @@ container.handleRequestLogin(async (reason, { ok, err }) => {
 
 ### handleAccountGet
 
+The derivation index is an `Either<u32, [u8; 32]>` selector (RFC 0022): `Left`
+carries a plain index, `Right` a raw 32-byte index. Expand it with
+[`derivationIndexBytes`](#derivation-index-helpers) — past this boundary only
+the 32-byte form exists.
+
 ```ts
+import { derivationIndexBytes } from '@novasamatech/host-container';
+
 container.handleAccountGet(async ([dotnsId, derivationIndex], { ok, err }) => {
-  const account = await getProductAccount(dotnsId, derivationIndex);
+  // `//product//{dotnsId}/{index}` — hard, hard, soft junctions.
+  const account = await getProductAccount(dotnsId, derivationIndexBytes(derivationIndex));
   if (account) {
     return ok({ publicKey: account.publicKey });
   }
@@ -234,6 +242,10 @@ container.handleAccountGet(async ([dotnsId, derivationIndex], { ok, err }) => {
 ```
 
 ### handleAccountGetAlias
+
+`context` is `[productId, suffix]`, where `suffix` is the same selector as an
+account's derivation index and expands to the same 32-byte value (RFC 0022), so
+the alias ↔ account mapping is the identity on it.
 
 ```ts
 container.handleAccountGetAlias(async ([context, ring], { ok, err }) => {
@@ -397,7 +409,7 @@ container.handleStatementStoreSubscribe((filter, send, interrupt) => {
 ```ts
 container.handleStatementStoreCreateProof(async ([[dotnsId, derivationIndex], statement], { ok, err }) => {
   try {
-    const proof = await createStatementProof(dotnsId, derivationIndex, statement);
+    const proof = await createStatementProof(dotnsId, derivationIndexBytes(derivationIndex), statement);
     return ok(proof);
   } catch (e) {
     return err({ tag: 'UnableToSign' });
@@ -462,8 +474,8 @@ Called when a product requests a balance top-up from a product-controlled source
 ```ts
 container.handlePaymentTopUp(async ({ amount, source }, { ok, err }) => {
   if (source.tag === 'ProductAccount') {
-    const [dotNsIdentifier, derivationIndex] = source.value;
-    await transferFromProductAccount(dotNsIdentifier, derivationIndex, amount);
+    // Plain `u32` index of an account of the calling product.
+    await transferFromProductAccount(source.value, amount);
     return ok(undefined);
   }
   if (source.tag === 'PrivateKey') {
@@ -545,6 +557,32 @@ const unsubscribe = container.subscribeProductConnectionStatus((status) => {
   console.log('Connection status:', status);
 });
 ```
+
+## Derivation index helpers
+
+Product accounts live at `//product//{productId}/{index}` (RFC 0022): two hard
+junctions and a soft one whose chain code is a **32-byte** derivation index. The
+wire selector (`ProductAccountId`'s index and `ProductProofContext`'s suffix)
+carries either a plain `u32` or those 32 bytes directly; these helpers expand it.
+
+```ts
+import { INDEX_MAGIC, derivationIndexBytes, indexBytes } from '@novasamatech/host-container';
+
+// blake2b256("product-account-index")[..28] — keeps the plain-index space and
+// the raw-index space disjoint.
+INDEX_MAGIC;
+
+// u32 little-endian ++ INDEX_MAGIC. A product's default account is index 0.
+indexBytes(0);
+
+// Wire selector → the 32 bytes used as the soft junction's chain code.
+derivationIndexBytes({ tag: 'Left', value: 5 }); // === indexBytes(5)
+derivationIndexBytes({ tag: 'Right', value: raw32 }); // === raw32
+```
+
+Note that stock tooling (`polkadot-js`, `subkey`) cannot express this path: the
+32-byte index is not a typeable path segment, so `//product//browse.dot/5` there
+does **not** derive index `5`.
 
 ## Known pitfalls
 

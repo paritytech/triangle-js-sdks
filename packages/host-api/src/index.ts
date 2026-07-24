@@ -39,9 +39,12 @@ export {
 
 export { GenericError } from './protocol/commonCodecs.js';
 export { CreateTransactionErr, LegacyTransaction, ProductAccountTransaction } from './protocol/v1/createTransaction.js';
+export type { AccountSelector } from './protocol/v1/accounts.js';
+export { RAW_DERIVATION_INDEX_LENGTH, accountSelectorOf, derivationIndexOf } from './protocol/v1/accounts.js';
 export {
   AccountConnectionStatus,
   AccountId,
+  AccountIndex,
   ContextualAlias,
   CreateProofErr,
   DerivationIndex,
@@ -56,6 +59,7 @@ export {
   ProductId,
   ProductProofContext,
   ProductProofContextSuffix,
+  RawDerivationIndex,
   RequestCredentialsErr,
   RingLocation,
   RingLocationJunction,
