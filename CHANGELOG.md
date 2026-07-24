@@ -2,9 +2,11 @@
 
 ### 🚀 Features
 
+- **host-api / host-container / host-api-wrapper:** account derivation index is now an enum selector (`Index(u32)` / `Raw([u8; 32])`, RFC-0022) supporting raw 32-byte indices. `AccountSelector` ergonomic form (number or 32-byte array) plus `derivationIndexOf` / `derivationIndexBytes` helpers; the proof-context suffix uses the same selector.
 - **host-api / host-container / host-api-wrapper:** sr25519 VRF signing over a product account (RFC-0023). `accountSignVrf` / `accounts.signVrf` / `handleAccountSignVrf` take a transcript recipe (root label + ordered `(label, value)` items) and return `{ preOutput, proof }`. Authorization mirrors `sign_raw`.
 - **host-papp:** `UserSession.signVrf` forwards the VRF request to the paired Account Holder for the non-`AutoSigning` path; fails with `SignVrfErr` (`Rejected` / `Unknown`).
 - **host-papp:** `UserSession.readAllowance(productId, resource)` returns the session's allowance slot-account key (`Uint8Array | null`); `AllowanceResourceKind` now exported.
+- **host-papp:** `UserSession.getProductSubtree(productId)` fetches a product subtree public key (RFC-0022); accounts are soft-derived locally from it.
 - **host-papp:** `UserSession.getIdentity()` returns the session user's on-chain identity (`Identity | null`).
 
 ### 🩹 Fixes

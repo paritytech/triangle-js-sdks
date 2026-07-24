@@ -17,7 +17,7 @@ export const DotNsIdentifier = str;
 export const RawDerivationIndex = Bytes(32);
 
 /**
- * Account selector within a product subtree: `Either<u32, [u8; 32]>` (RFC 0022).
+ * Account selector within a product subtree: `Index(u32) | Raw([u8; 32])` (RFC 0022).
  *
  * `Index` is the primary form — plain indices keep a product's accounts
  * enumerable. `Raw` carries a raw 32-byte index. Hosts expand `Index(n)` to

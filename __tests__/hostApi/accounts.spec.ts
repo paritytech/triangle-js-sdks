@@ -60,7 +60,7 @@ const mockRingLocation: CodecType<typeof RingLocation> = {
 };
 
 // Ergonomic form the product passes in, and the wire form the host receives:
-// the suffix is the same `Either<u32, [u8; 32]>` selector as an account index
+// the suffix is the same `Index(u32) | Raw([u8; 32])` selector as an account index
 // (RFC 0022).
 const mockContext: ProofContext = ['product.dot', 0];
 const mockWireContext: CodecType<typeof ProductProofContext> = ['product.dot', { tag: 'Index', value: 0 }];

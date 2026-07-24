@@ -233,7 +233,7 @@ selects the member key for the ring; `callingProductId` names the product the ho
 for. Both take the same `(context, ring)` so the alias in the proof matches `getRingVrfAlias`.
 
 ```ts
-// [productId, suffix]. The suffix is the wire `Either<u32, [u8; 32]>` selector
+// [productId, suffix]. The suffix is the wire `Index(u32) | Raw([u8; 32])` selector
 // (RFC 0022): `Index` for a plain index, `Raw` for a raw 32-byte index. It
 // expands to the same 32-byte value as a product account's derivation index.
 const context = ['product.dot', { tag: 'Index', value: 0 }];
