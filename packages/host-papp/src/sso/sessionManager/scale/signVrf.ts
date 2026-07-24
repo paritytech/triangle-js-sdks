@@ -1,5 +1,5 @@
 import { ProductAccountId, VrfSignature, VrfTranscriptItem } from '@novasamatech/host-api';
-import { Enum } from '@novasamatech/scale';
+import { ErrEnum } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
 import { Bytes, Result, Struct, Vector, _void, str } from 'scale-ts';
 
@@ -25,9 +25,9 @@ export const SignVrfRequestCodec = Struct({
 
 /** Failure returned by the Account Holder for a VRF signing request. */
 export type SignVrfErr = CodecType<typeof SignVrfErrCodec>;
-export const SignVrfErrCodec = Enum({
-  Rejected: _void,
-  Unknown: Struct({ reason: str }),
+export const SignVrfErrCodec = ErrEnum('SignVrfErr', {
+  Rejected: [_void, 'Rejected'],
+  Unknown: [Struct({ reason: str }), ({ reason }) => reason],
 });
 
 export type SignVrfResponse = CodecType<typeof SignVrfResponseCodec>;

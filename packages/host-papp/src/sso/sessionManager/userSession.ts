@@ -22,7 +22,7 @@ import type { CreateTransactionLegacyRequest, CreateTransactionRequest } from '.
 import type { RemoteMessage } from './scale/remoteMessage.js';
 import { RemoteMessageCodec } from './scale/remoteMessage.js';
 import type { ApAllocationOutcome, ResourceAllocationRequest } from './scale/resourceAllocation.js';
-import type { SignVrfErr, SignVrfRequest } from './scale/signVrf.js';
+import type { SignVrfRequest } from './scale/signVrf.js';
 import type {
   SignRawLegacyRequest,
   SigningPayloadRequest,
@@ -77,14 +77,6 @@ function actionKindFromMessageData(data: CodecType<typeof RemoteMessageCodec>['d
   const inner = data.value;
   if (inner.tag === 'SignRequest') return `SignRequest:${inner.value.tag}`;
   return inner.tag;
-}
-
-/**
- * `SignVrfErr` is a structured enum rather than the bare `str` the other SSO
- * responses carry, so flatten it into the `Error` message the caller expects.
- */
-function signVrfErrMessage(error: SignVrfErr): string {
-  return error.tag === 'Unknown' ? `signVrf: ${error.value.reason}` : 'signVrf: rejected';
 }
 
 function emitHostAction(messageId: string, actionKind: string, sessionId: string): void {
@@ -460,7 +452,7 @@ export function createUserSession({
         const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
 
         const inner = awaitReplyOrAckFailure(request, reply).andThen(result =>
-          result.success ? ok(result.value) : err(new Error(signVrfErrMessage(result.value))),
+          result.success ? ok(result.value) : err(result.value),
         );
 
         return withHostActionTrace(withQueueTimeout(inner, 'signVrf'), messageId, userSession.id);
