@@ -2,12 +2,14 @@
 
 ### 🚀 Features
 
-- **host-papp:** the SSO `UserSession` gains `readAllowance(productId, resource)`, returning the session's persisted allowance slot-account key (`Uint8Array | null`) for a product and resource (`'bulletin' | 'statementStore'`). The session id is implicit — only the product and resource are passed. `AllowanceResourceKind` is now exported from the package root.
-- **host-papp:** the SSO `UserSession` gains `getIdentity()`, resolving the on-chain identity (`Identity | null`) of the session's own user identity account — no account id to pass.
+- **host-api / host-container / host-api-wrapper:** sr25519 VRF signing over a product account (RFC-0023). `accountSignVrf` / `accounts.signVrf` / `handleAccountSignVrf` take a transcript recipe (root label + ordered `(label, value)` items) and return `{ preOutput, proof }`. Authorization mirrors `sign_raw`.
+- **host-papp:** `UserSession.signVrf` forwards the VRF request to the paired Account Holder for the non-`AutoSigning` path; fails with `SignVrfErr` (`Rejected` / `Unknown`).
+- **host-papp:** `UserSession.readAllowance(productId, resource)` returns the session's allowance slot-account key (`Uint8Array | null`); `AllowanceResourceKind` now exported.
+- **host-papp:** `UserSession.getIdentity()` returns the session user's on-chain identity (`Identity | null`).
 
 ### 🩹 Fixes
 
-- **host-papp:** the SSO ring-VRF alias/proof responses now decode their failure payloads with host-api's canonical `GetAliasErr` / `CreateProofErr` enums (RFC 0004) instead of the local `RingVrfError`, keeping the SSO channel's error set in sync with the host-api protocol.
+- **host-papp:** SSO ring-VRF alias/proof failures now decode with host-api's `GetAliasErr` / `CreateProofErr` instead of the local `RingVrfError`.
 
 ### ❤️ Thank You
 
@@ -19,8 +21,6 @@
 
 - **host-api:** `host_account_create_proof` and `host_account_get_alias` are redesigned per RFC 0004. A ring is now addressed by a stable `RingLocation` (`{ chainId, junctions }`, with `PalletInstance` / `CollectionId` junctions) instead of the race-prone `ringRootHash`, and the request carries a product-scoped `ProductProofContext` (`[productId, suffix]`) plus an opaque `message` in place of a `ProductAccountId`. `create_proof` now returns a `RingVrfProof` (`{ proof, contextualAlias, ringIndex, ringRevision }`) so a caller gets the alias and the ring index/revision without a second round trip; `get_alias` takes the same `(context, ring)` and returns a `ContextualAlias`. Both gain a `NotMember` error (a new `GetAliasErr`, and `CreateProofErr.NotMember`) so a product can tell "user has not reached full personhood" apart from "ring not found" and route to onboarding.
 - **host-papp:** the SSO `UserSession` gains `getRingVrfAlias` and `createRingVrfProof`, forwarding contextual-alias and ring-VRF-proof requests to the paired device over the encrypted SSO channel. `callingProductId` names the product the host acts for, and both take the same `(context, ring)` so the alias returned in a proof matches `getRingVrfAlias`.
-- **host-api / host-container / host-api-wrapper:** products can now request an sr25519 (schnorrkel) VRF signature from a product account (RFC-0023). The transcript is supplied as a recipe — a root domain-separation label plus an ordered list of `(label, value)` items — which the host replays verbatim into a Merlin transcript and signs, returning the `VRFPreOut` / `VRFProof` pair. Being a pure replayer, one method serves any consuming runtime (the motivating case is the People Chain airdrop lottery ticket for participants who are not yet people-set members; members keep using the bandersnatch ring-VRF `createRingVrfProof`). Exposed as `accountSignVrf` on host-api, `accounts.signVrf` on the wrapper, and `handleAccountSignVrf` on the container. Authorization mirrors `sign_raw`: `NotConnected` without a session, a silent local sign when `AutoSigning` covers the account, otherwise a per-call user confirmation (`Rejected` on decline).
-- **host-papp:** the SSO session gained the accounts-protocol companion for the non-`AutoSigning` path. `UserSession.signVrf` forwards the transcript recipe to the paired Account Holder, which derives the account, presents the confirmation and signs; failures come back as a structured `SignVrfErr` (`Rejected` / `Unknown`).
 
 ### ❤️ Thank You
 
