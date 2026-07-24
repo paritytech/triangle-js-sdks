@@ -28,13 +28,13 @@ describe('RFC-0022 derivation index', () => {
   });
 
   it('maps both selector forms', () => {
-    expect(derivationIndexBytes({ tag: 'Left', value: 7 })).toEqual(indexBytes(7));
+    expect(derivationIndexBytes({ tag: 'Index', value: 7 })).toEqual(indexBytes(7));
 
     const raw = new Uint8Array(32).fill(0xee);
-    expect(derivationIndexBytes({ tag: 'Right', value: raw })).toBe(raw);
+    expect(derivationIndexBytes({ tag: 'Raw', value: raw })).toBe(raw);
   });
 
   it('rejects raw indexes of the wrong length', () => {
-    expect(() => derivationIndexBytes({ tag: 'Right', value: new Uint8Array(31) })).toThrow();
+    expect(() => derivationIndexBytes({ tag: 'Raw', value: new Uint8Array(31) })).toThrow();
   });
 });

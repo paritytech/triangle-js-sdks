@@ -16,7 +16,7 @@ export type Statement = CodecType<typeof StatementCodec>;
 export type SignedStatement = CodecType<typeof SignedStatementCodec>;
 
 export type Topic = CodecType<typeof TopicCodec>;
-/** Wire-level product account id — the selector in its `Left`/`Right` form. */
+/** Wire-level product account id — the selector in its `Index`/`Raw` form. */
 export type ProductAccountId = CodecType<typeof ProductAccountIdCodec>;
 
 /**

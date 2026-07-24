@@ -19,14 +19,14 @@ export const RawDerivationIndex = Bytes(32);
 /**
  * Account selector within a product subtree: `Either<u32, [u8; 32]>` (RFC 0022).
  *
- * `Left` is the primary form — plain indices keep a product's accounts
- * enumerable. `Right` carries a raw 32-byte index. Hosts expand `Left(n)` to
+ * `Index` is the primary form — plain indices keep a product's accounts
+ * enumerable. `Raw` carries a raw 32-byte index. Hosts expand `Index(n)` to
  * the internal 32-byte index (`u32` little-endian ++ index magic) and pass
- * `Right(bytes)` through unchanged.
+ * `Raw(bytes)` through unchanged.
  */
 export const DerivationIndex = Enum({
-  Left: u32,
-  Right: RawDerivationIndex,
+  Index: u32,
+  Raw: RawDerivationIndex,
 });
 
 export const ProductAccountId = Tuple(DotNsIdentifier, DerivationIndex);
@@ -42,18 +42,18 @@ export type AccountSelector = number | Uint8Array;
 
 /**
  * Normalizes an {@link AccountSelector} into the wire {@link DerivationIndex}:
- * numbers become `Left`, 32-byte arrays become `Right`.
+ * numbers become `Index`, 32-byte arrays become `Raw`.
  */
 export function derivationIndexOf(selector: AccountSelector): CodecType<typeof DerivationIndex> {
   if (typeof selector === 'number') {
-    return { tag: 'Left', value: selector };
+    return { tag: 'Index', value: selector };
   }
 
   if (selector.length !== RAW_DERIVATION_INDEX_LENGTH) {
     throw new Error(`Raw derivation index must be ${RAW_DERIVATION_INDEX_LENGTH} bytes, got ${selector.length}`);
   }
 
-  return { tag: 'Right', value: selector };
+  return { tag: 'Raw', value: selector };
 }
 
 /**

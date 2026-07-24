@@ -65,7 +65,7 @@ function createMockAccountId(): ProductAccountRef {
 }
 
 // The same reference as it reaches the host over the wire.
-const mockWireAccountId: ProductAccountId = ['test.dot', { tag: 'Left', value: 0 }];
+const mockWireAccountId: ProductAccountId = ['test.dot', { tag: 'Index', value: 0 }];
 
 describe('Host API: StatementStore', () => {
   it('should subscribe to statement updates', async () => {

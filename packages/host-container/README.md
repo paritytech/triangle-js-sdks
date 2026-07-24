@@ -223,8 +223,8 @@ container.handleRequestLogin(async (reason, { ok, err }) => {
 
 ### handleAccountGet
 
-The derivation index is an `Either<u32, [u8; 32]>` selector (RFC 0022): `Left`
-carries a plain index, `Right` a raw 32-byte index. Expand it with
+The derivation index is an `Enum` (RFC 0022): `Index`
+carries a plain index, `Raw` a raw 32-byte index. Expand it with
 [`derivationIndexBytes`](#derivation-index-helpers) — past this boundary only
 the 32-byte form exists.
 
@@ -605,8 +605,8 @@ INDEX_MAGIC;
 indexBytes(0);
 
 // Wire selector → the 32 bytes used as the soft junction's chain code.
-derivationIndexBytes({ tag: 'Left', value: 5 }); // === indexBytes(5)
-derivationIndexBytes({ tag: 'Right', value: raw32 }); // === raw32
+derivationIndexBytes({ tag: 'Index', value: 5 }); // === indexBytes(5)
+derivationIndexBytes({ tag: 'Raw', value: raw32 }); // === raw32
 ```
 
 Note that stock tooling (`polkadot-js`, `subkey`) cannot express this path: the

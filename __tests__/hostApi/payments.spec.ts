@@ -101,7 +101,7 @@ describe('Host API: Payments', () => {
       await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 });
 
       expect(handler).toHaveBeenCalledWith(
-        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Left', value: 2 } } },
+        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Index', value: 2 } } },
         expect.anything(),
       );
     });
@@ -117,7 +117,7 @@ describe('Host API: Payments', () => {
       await payments.topUp(200n, { type: 'productAccount', derivationIndex: rawIndex });
 
       expect(handler).toHaveBeenCalledWith(
-        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Right', value: rawIndex } } },
+        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Raw', value: rawIndex } } },
         expect.anything(),
       );
     });
@@ -132,7 +132,7 @@ describe('Host API: Payments', () => {
       await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 }, 5);
 
       expect(handler).toHaveBeenCalledWith(
-        { into: 5, amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Left', value: 2 } } },
+        { into: 5, amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Index', value: 2 } } },
         expect.anything(),
       );
     });

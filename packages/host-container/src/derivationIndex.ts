@@ -42,11 +42,11 @@ export function indexBytes(index: number): Uint8Array {
 
 /**
  * Maps a wire-level account selector to the internal 32-byte derivation index:
- * `Left(n)` expands via {@link indexBytes}, `Right(bytes)` passes through
+ * `Index(n)` expands via {@link indexBytes}, `Raw(bytes)` passes through
  * unchanged. Past the host API boundary only the 32-byte form exists.
  */
 export function derivationIndexBytes(index: CodecType<typeof DerivationIndex>): Uint8Array {
-  if (index.tag === 'Left') {
+  if (index.tag === 'Index') {
     return indexBytes(index.value);
   }
 

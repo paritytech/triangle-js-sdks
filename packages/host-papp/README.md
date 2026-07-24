@@ -234,9 +234,9 @@ for. Both take the same `(context, ring)` so the alias in the proof matches `get
 
 ```ts
 // [productId, suffix]. The suffix is the wire `Either<u32, [u8; 32]>` selector
-// (RFC 0022): `Left` for a plain index, `Right` for a raw 32-byte index. It
+// (RFC 0022): `Index` for a plain index, `Raw` for a raw 32-byte index. It
 // expands to the same 32-byte value as a product account's derivation index.
-const context = ['product.dot', { tag: 'Left', value: 0 }];
+const context = ['product.dot', { tag: 'Index', value: 0 }];
 const ring = {
   chainId: '0x…', // 32-byte chain genesis hash
   junctions: [{ tag: 'PalletInstance', value: 42 }],
