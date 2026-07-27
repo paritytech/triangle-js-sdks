@@ -22,6 +22,11 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      # main is PR-only (branch protection + ruleset); the version commit can't be pushed here.
+      - name: Guard against main
+        if: github.ref == 'refs/heads/main'
+        run: echo '::error::Run this workflow from a release/* branch, not main' && exit 1
+
       - name: Checkout
         uses: actions/checkout@v7
         with:
