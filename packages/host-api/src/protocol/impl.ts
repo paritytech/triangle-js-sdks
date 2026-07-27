@@ -12,6 +12,8 @@ import {
   AccountGetAliasV1_response,
   AccountGetV1_request,
   AccountGetV1_response,
+  AccountSignVrfV1_request,
+  AccountSignVrfV1_response,
   GetLegacyAccountsV1_request,
   GetLegacyAccountsV1_response,
   GetUserIdV1_request,
@@ -445,5 +447,12 @@ export const hostApiProtocol = {
 
   host_push_notification_cancel: versionedRequest(indexer.request(), {
     v1: [PushNotificationCancelV1_request, PushNotificationCancelV1_response],
+  }),
+
+  // Prefix 28 skips indices 136-163, reserved upstream by the truapi coin-payment
+  // methods this SDK does not implement, so `sign_vrf` lands on its specified
+  // `request_id = 164` (RFC-0023).
+  host_account_sign_vrf: versionedRequest(indexer.request(28), {
+    v1: [AccountSignVrfV1_request, AccountSignVrfV1_response],
   }),
 } as const;

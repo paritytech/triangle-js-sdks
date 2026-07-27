@@ -43,11 +43,7 @@ export type HandshakeSuccessState = CodecType<typeof HandshakeSuccessV2> & {
 export type HandshakeFailedState = { tag: 'Failed'; reason: string };
 
 export type HandshakeState =
-  | HandshakeIdleState
-  | HandshakeSubmittedState
-  | HandshakePendingState
-  | HandshakeSuccessState
-  | HandshakeFailedState;
+  HandshakeIdleState | HandshakeSubmittedState | HandshakePendingState | HandshakeSuccessState | HandshakeFailedState;
 
 export const idle = (): HandshakeIdleState => ({ tag: 'Idle' });
 

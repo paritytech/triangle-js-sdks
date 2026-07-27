@@ -117,8 +117,7 @@ const decodeStatementData = fromThrowable(StatementData.dec, toError);
 // Outcome of trying to read an incoming statement. `undecodable` carries the requestId when
 // it could be recovered from a decrypted-but-malformed payload (so we can NACK the sender).
 type DecodeOutcome =
-  | { kind: 'decoded'; data: CodecType<typeof StatementData> }
-  | { kind: 'undecodable'; requestId: string | null };
+  { kind: 'decoded'; data: CodecType<typeof StatementData> } | { kind: 'undecodable'; requestId: string | null };
 
 // Best-effort recovery of the requestId from a decrypted-but-undecodable payload. The requestId
 // is the first field after the enum tag, so it usually survives a corrupt message body. Only

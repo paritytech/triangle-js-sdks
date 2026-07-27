@@ -82,6 +82,7 @@ export function createPappAdapter({
   const ssoSessionRepository = createUserSessionRepository(storage);
   const userSecretRepository = createUserSecretRepository(appId, storage);
   const allowanceRepository = createAllowanceRepository(appId, storage);
+  const identityRepository = createIdentityRepository({ adapter: identities, storage });
   const deviceIdentityStore = createDeviceIdentityStore(appId, storage);
 
   const sessions = createSsoSessionManager({
@@ -90,6 +91,7 @@ export function createPappAdapter({
     ssoSessionRepository,
     userSecretRepository,
     allowanceRepository,
+    identityRepository,
   });
 
   return {
@@ -104,7 +106,7 @@ export function createPappAdapter({
     }),
     sessions,
     secrets: userSecretRepository,
-    identity: createIdentityRepository({ adapter: identities, storage }),
+    identity: identityRepository,
     allowance: createAllowanceService({ sessions: sessions.sessions, repository: allowanceRepository }),
   };
 }

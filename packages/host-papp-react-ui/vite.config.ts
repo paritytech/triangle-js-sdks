@@ -1,6 +1,7 @@
+import { isAbsolute } from 'node:path';
+
 import { default as react } from '@vitejs/plugin-react';
 import { default as dts } from 'vite-plugin-dts';
-import { externalizeDeps } from 'vite-plugin-externalize-deps';
 import { default as wasm } from 'vite-plugin-wasm';
 import { defineConfig } from 'vitest/config';
 
@@ -15,7 +16,9 @@ export default defineConfig({
     },
   },
   build: {
-    rollupOptions: {
+    rolldownOptions: {
+      // Externalize every bare import (deps + peerDeps); only bundle relative/absolute source.
+      external: id => !id.startsWith('.') && !isAbsolute(id),
       output: {
         preserveModules: true,
       },
@@ -30,7 +33,6 @@ export default defineConfig({
   },
 
   plugins: [
-    externalizeDeps(),
     react({
       babel: {
         plugins: ['babel-plugin-react-compiler'],

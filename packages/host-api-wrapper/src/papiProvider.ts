@@ -170,11 +170,7 @@ export function createPapiProvider(
     }
 
     type StorageQueryTypeValue =
-      | 'Value'
-      | 'Hash'
-      | 'ClosestDescendantMerkleValue'
-      | 'DescendantsValues'
-      | 'DescendantsHashes';
+      'Value' | 'Hash' | 'ClosestDescendantMerkleValue' | 'DescendantsValues' | 'DescendantsHashes';
 
     function convertStorageTypeToTyped(type: string): StorageQueryTypeValue {
       const map: Record<string, StorageQueryTypeValue> = {

@@ -12,8 +12,7 @@ describe('createAllowanceRepository', () => {
 
     const result = await repo.read('session-1', 'product.dot', 'bulletin');
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toBeNull();
+    await expect(result).toBeOkWith(null);
   });
 
   it('round-trips an encrypted slot account key', async () => {
@@ -22,8 +21,7 @@ describe('createAllowanceRepository', () => {
     await repo.write('session-1', 'product.dot', 'bulletin', KEY_A);
     const result = await repo.read('session-1', 'product.dot', 'bulletin');
 
-    expect(result.isOk()).toBe(true);
-    expect(result._unsafeUnwrap()).toEqual(KEY_A);
+    await expect(result).toBeOkWith(KEY_A);
   });
 
   it('isolates entries by sessionId, productId, and resource', async () => {
@@ -32,10 +30,10 @@ describe('createAllowanceRepository', () => {
     await repo.write('session-1', 'product.dot', 'bulletin', KEY_A);
     await repo.write('session-1', 'product.dot', 'statementStore', KEY_B);
 
-    expect((await repo.read('session-1', 'product.dot', 'bulletin'))._unsafeUnwrap()).toEqual(KEY_A);
-    expect((await repo.read('session-1', 'product.dot', 'statementStore'))._unsafeUnwrap()).toEqual(KEY_B);
-    expect((await repo.read('session-2', 'product.dot', 'bulletin'))._unsafeUnwrap()).toBeNull();
-    expect((await repo.read('session-1', 'other.dot', 'bulletin'))._unsafeUnwrap()).toBeNull();
+    await expect(repo.read('session-1', 'product.dot', 'bulletin')).toBeOkWith(KEY_A);
+    await expect(repo.read('session-1', 'product.dot', 'statementStore')).toBeOkWith(KEY_B);
+    await expect(repo.read('session-2', 'product.dot', 'bulletin')).toBeOkWith(null);
+    await expect(repo.read('session-1', 'other.dot', 'bulletin')).toBeOkWith(null);
   });
 
   it('overwrites existing entry for same (session, product, resource)', async () => {
@@ -44,7 +42,7 @@ describe('createAllowanceRepository', () => {
     await repo.write('session-1', 'product.dot', 'bulletin', KEY_A);
     await repo.write('session-1', 'product.dot', 'bulletin', KEY_B);
 
-    expect((await repo.read('session-1', 'product.dot', 'bulletin'))._unsafeUnwrap()).toEqual(KEY_B);
+    await expect(repo.read('session-1', 'product.dot', 'bulletin')).toBeOkWith(KEY_B);
   });
 
   it('clears all entries for a session', async () => {
@@ -56,10 +54,10 @@ describe('createAllowanceRepository', () => {
 
     await repo.clearSession('session-1');
 
-    expect((await repo.read('session-1', 'product.dot', 'bulletin'))._unsafeUnwrap()).toBeNull();
-    expect((await repo.read('session-1', 'product.dot', 'statementStore'))._unsafeUnwrap()).toBeNull();
+    await expect(repo.read('session-1', 'product.dot', 'bulletin')).toBeOkWith(null);
+    await expect(repo.read('session-1', 'product.dot', 'statementStore')).toBeOkWith(null);
     // sibling session untouched
-    expect((await repo.read('session-2', 'product.dot', 'bulletin'))._unsafeUnwrap()).toEqual(KEY_A);
+    await expect(repo.read('session-2', 'product.dot', 'bulletin')).toBeOkWith(KEY_A);
   });
 
   it('does not decrypt when salt differs', async () => {
@@ -71,6 +69,6 @@ describe('createAllowanceRepository', () => {
 
     const result = await reader.read('session-1', 'product.dot', 'bulletin');
 
-    expect(result.isErr()).toBe(true);
+    await expect(result).toBeErr();
   });
 });

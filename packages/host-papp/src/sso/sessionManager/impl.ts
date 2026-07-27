@@ -5,6 +5,7 @@ import { okAsync } from 'neverthrow';
 
 import { emitHostPappDebugMessage } from '../../debugBus.js';
 import { createState } from '../../helpers/state.js';
+import type { IdentityRepository } from '../../identity/types.js';
 import type { Callback } from '../../types.js';
 import type { AllowanceRepository } from '../allowance/index.js';
 import { createSsoStatementProver } from '../ssoSessionProver.js';
@@ -22,12 +23,14 @@ type Params = {
   ssoSessionRepository: UserSessionRepository;
   userSecretRepository: UserSecretRepository;
   allowanceRepository: AllowanceRepository;
+  identityRepository: IdentityRepository;
 };
 
 export function createSsoSessionManager({
   ssoSessionRepository,
   userSecretRepository,
   allowanceRepository,
+  identityRepository,
   statementStore,
   storage,
 }: Params) {
@@ -53,7 +56,14 @@ export function createSsoSessionManager({
 
       if (userSession.id in activeSessions) continue;
 
-      const session = createSession(userSession, statementStore, storage, userSecretRepository);
+      const session = createSession(
+        userSession,
+        statementStore,
+        storage,
+        userSecretRepository,
+        allowanceRepository,
+        identityRepository,
+      );
 
       toAdd.add(session);
 
@@ -114,7 +124,14 @@ export function createSsoSessionManager({
     },
 
     disconnect(userSession: StoredUserSession) {
-      const session = createSession(userSession, statementStore, storage, userSecretRepository);
+      const session = createSession(
+        userSession,
+        statementStore,
+        storage,
+        userSecretRepository,
+        allowanceRepository,
+        identityRepository,
+      );
 
       return session
         .sendDisconnectMessage()
@@ -137,6 +154,8 @@ function createSession(
   statementStore: StatementStoreAdapter,
   storage: StorageAdapter,
   userSecretRepository: UserSecretRepository,
+  allowanceRepository: AllowanceRepository,
+  identityRepository: IdentityRepository,
 ) {
   const encryption = createEncryption(userSession.remoteAccount.publicKey);
   const prover = createSsoStatementProver(userSession, userSecretRepository);
@@ -146,5 +165,7 @@ function createSession(
     encryption,
     storage,
     prover,
+    allowanceRepository,
+    identityRepository,
   });
 }
