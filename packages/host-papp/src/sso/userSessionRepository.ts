@@ -67,7 +67,11 @@ export const createUserSessionRepository = (storage: StorageAdapter) => {
 
   return fieldListView<StoredUserSession>({
     storage,
-    key: 'SsoSessionsV3',
+    // V4: the encryption keys shrank from 65-byte P-256 to 32-byte X25519
+    // (CHAT-RFC-0004). Fixed-size `Bytes` does not length-check on decode, so a
+    // V3 blob would decode misaligned into a session that looks valid but
+    // carries garbage keys — bump the key so old blobs are dropped instead.
+    key: 'SsoSessionsV4',
     from: x => codec.dec(fromHex(x)),
     to: x => toHex(codec.enc(x)),
   });
