@@ -33,6 +33,9 @@ vitest.config.*.timestamp*
 
 packages/*/dist
 
+# `npm run pack:local` output — local tarballs for consuming unpublished packages
+local-tarballs
+
 storybook-static
 
 docs/superpowers/
