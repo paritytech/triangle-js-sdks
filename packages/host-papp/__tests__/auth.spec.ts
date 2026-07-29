@@ -1,4 +1,4 @@
-import { p256 } from '@noble/curves/nist.js';
+import { x25519 } from '@noble/curves/ed25519.js';
 import type { Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createEncryption } from '@novasamatech/statement-store';
 import { okAsync } from 'neverthrow';
@@ -14,7 +14,7 @@ import type { UserSecretRepository } from '../src/sso/userSecretRepository.js';
 import type { UserSessionRepository } from '../src/sso/userSessionRepository.js';
 
 const DEVICE_ENC_PRIV = new Uint8Array(32).fill(0x22);
-const DEVICE_ENC_PUB = p256.getPublicKey(DEVICE_ENC_PRIV, false);
+const DEVICE_ENC_PUB = x25519.getPublicKey(DEVICE_ENC_PRIV);
 const DEVICE_STMT_ACCT = new Uint8Array(32).fill(0x33);
 const DEVICE_STMT_SECRET = new Uint8Array(64).fill(0x55);
 
@@ -22,8 +22,8 @@ const IDENTITY_CHAT_PRIV = new Uint8Array(32).fill(0xdd);
 const IDENTITY_ACCT = new Uint8Array(32).fill(0xa1);
 const ROOT_ACCT = new Uint8Array(32).fill(0xa2);
 const SSO_ENC_PRIV = new Uint8Array(32).fill(0x06);
-const SSO_ENC_PUB = p256.getPublicKey(SSO_ENC_PRIV, false);
-const EXPECTED_SHARED_SECRET = p256.getSharedSecret(DEVICE_ENC_PRIV, SSO_ENC_PUB).slice(1, 33);
+const SSO_ENC_PUB = x25519.getPublicKey(SSO_ENC_PRIV);
+const EXPECTED_SHARED_SECRET = x25519.getSharedSecret(DEVICE_ENC_PRIV, SSO_ENC_PUB);
 const ROOT_ENTROPY_SOURCE = new Uint8Array(32).fill(0x07);
 const PEER_STMT_ACCT_HEX = '0x' + '44'.repeat(32);
 
@@ -47,8 +47,8 @@ const wrapSuccessBody = (inner: Uint8Array): Statement => {
   successEnvelope.set(inner, 1);
 
   const tmpPriv = new Uint8Array(32).fill(0x77);
-  const tmpPub = p256.getPublicKey(tmpPriv, false);
-  const shared = p256.getSharedSecret(tmpPriv, DEVICE_ENC_PUB).slice(1, 33);
+  const tmpPub = x25519.getPublicKey(tmpPriv);
+  const shared = x25519.getSharedSecret(tmpPriv, DEVICE_ENC_PUB);
   const enc = createEncryption(shared as never);
   const encrypted = enc.encrypt(successEnvelope)._unsafeUnwrap();
 
@@ -223,13 +223,13 @@ describe('createAuth', () => {
           tag: 'V2',
           value: (() => {
             const enc = createEncryption(
-              p256.getSharedSecret(new Uint8Array(32).fill(0x66), DEVICE_ENC_PUB).slice(1, 33) as never,
+              x25519.getSharedSecret(new Uint8Array(32).fill(0x66), DEVICE_ENC_PUB) as never,
             );
             // Failed body = enum index 2 + SCALE-compact length (8 << 2 = 0x20) + "declined"
             const failedPayload = new Uint8Array([2, 0x20, 0x64, 0x65, 0x63, 0x6c, 0x69, 0x6e, 0x65, 0x64]);
             return {
               encrypted: enc.encrypt(failedPayload)._unsafeUnwrap(),
-              tmpKey: p256.getPublicKey(new Uint8Array(32).fill(0x66), false),
+              tmpKey: x25519.getPublicKey(new Uint8Array(32).fill(0x66)),
             };
           })(),
         }),

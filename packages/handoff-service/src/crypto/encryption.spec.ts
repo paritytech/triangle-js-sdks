@@ -1,3 +1,4 @@
+import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { randomBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
 
@@ -46,6 +47,29 @@ describe('file encryption', () => {
     const encrypted = enc1.encrypt(plaintext);
 
     expect(() => enc2.decrypt(encrypted)).toThrow();
+  });
+
+  it('encrypts with ChaCha20-Poly1305 (external reader decrypts nonce || ct || tag)', () => {
+    const key = randomBytes(32);
+    const plaintext = new TextEncoder().encode('file chunk');
+
+    const encrypted = createFileEncryption(key).encrypt(plaintext);
+    const nonce = encrypted.slice(0, 12);
+    const body = encrypted.slice(12);
+    const decrypted = chacha20poly1305(key, nonce).decrypt(body);
+
+    expect(decrypted).toEqual(plaintext);
+  });
+
+  it('decrypts a ChaCha20-Poly1305 ciphertext built externally', () => {
+    const key = randomBytes(32);
+    const plaintext = new TextEncoder().encode('external chunk');
+    const nonce = randomBytes(12);
+    const body = chacha20poly1305(key, nonce).encrypt(plaintext);
+
+    const decrypted = createFileEncryption(key).decrypt(new Uint8Array([...nonce, ...body]));
+
+    expect(decrypted).toEqual(plaintext);
   });
 
   it('handles empty data', () => {

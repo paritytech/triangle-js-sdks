@@ -1,4 +1,4 @@
-import { p256 } from '@noble/curves/nist.js';
+import { x25519 } from '@noble/curves/ed25519.js';
 import { describe, expect, it } from 'vitest';
 
 import type { MetadataEntry } from '../src/sso/auth/scale/handshakeV2.js';
@@ -18,13 +18,13 @@ import {
 } from '../src/sso/auth/scale/handshakeV2.js';
 
 const fixedChatPrivateKey = new Uint8Array(32).fill(0xdd);
-const fixedChatPublicKey = p256.getPublicKey(fixedChatPrivateKey, false);
-const fixedSsoEncPubKey = new Uint8Array(65).fill(0x06);
+const fixedChatPublicKey = x25519.getPublicKey(fixedChatPrivateKey);
+const fixedSsoEncPubKey = new Uint8Array(32).fill(0x06);
 const fixedRootEntropySource = new Uint8Array(32).fill(0x07);
 
 const makeDevice = () => ({
   statementAccountId: new Uint8Array(32).fill(0xa1),
-  encryptionPublicKey: new Uint8Array(65).fill(0x04),
+  encryptionPublicKey: new Uint8Array(32).fill(0x04),
 });
 
 describe('MetadataKey', () => {
@@ -43,13 +43,13 @@ describe('MetadataKey', () => {
 });
 
 describe('Device', () => {
-  it('round-trips a 32-byte accountId and 65-byte uncompressed public key', () => {
+  it('round-trips a 32-byte accountId and 32-byte X25519 public key', () => {
     const d = makeDevice();
     expect(Device.dec(Device.enc(d))).toEqual(d);
   });
 
-  it('encodes Device with the expected fixed length (32 + 65 = 97 bytes)', () => {
-    expect(Device.enc(makeDevice()).length).toBe(97);
+  it('encodes Device with the expected fixed length (32 + 32 = 64 bytes)', () => {
+    expect(Device.enc(makeDevice()).length).toBe(64);
   });
 });
 
@@ -99,7 +99,7 @@ describe('HandshakeSuccessV2', () => {
       rootAccountId: new Uint8Array(32).fill(0xa2),
       identityChatPrivateKey: fixedChatPrivateKey,
       ssoEncPubKey: fixedSsoEncPubKey,
-      deviceEncPubKey: new Uint8Array(65).fill(0x04),
+      deviceEncPubKey: new Uint8Array(32).fill(0x04),
       rootEntropySource: fixedRootEntropySource,
     };
     const decoded = HandshakeSuccessV2.dec(HandshakeSuccessV2.enc(input));
@@ -124,12 +124,13 @@ describe('EncryptedHandshakeResponseV2', () => {
         rootAccountId: new Uint8Array(32).fill(0xa2),
         identityChatPrivateKey: fixedChatPrivateKey,
         ssoEncPubKey: fixedSsoEncPubKey,
-        deviceEncPubKey: new Uint8Array(65).fill(0x04),
+        deviceEncPubKey: new Uint8Array(32).fill(0x04),
         rootEntropySource: fixedRootEntropySource,
       },
     };
     const encoded = EncryptedHandshakeResponseV2.enc(success);
-    expect(encoded.length).toBe(1 + 258);
+    // 1 enum tag + 6 × 32-byte fields.
+    expect(encoded.length).toBe(1 + 192);
     expect(encoded[0]).toBe(0x01);
     expect(EncryptedHandshakeResponseV2.dec(encoded)).toEqual(success);
   });
@@ -151,7 +152,7 @@ describe('HandshakeResponseV2', () => {
   it('round-trips with arbitrary ciphertext and ephemeral key', () => {
     const r = {
       encrypted: new Uint8Array([1, 2, 3, 4, 5]),
-      tmpKey: new Uint8Array(65).fill(0x04),
+      tmpKey: new Uint8Array(32).fill(0x04),
     };
     expect(HandshakeResponseV2.dec(HandshakeResponseV2.enc(r))).toEqual(r);
   });
@@ -161,15 +162,15 @@ describe('VersionedHandshakeResponse', () => {
   it('round-trips a V2 response', () => {
     const r = {
       tag: 'V2' as const,
-      value: { encrypted: new Uint8Array([7, 8, 9]), tmpKey: new Uint8Array(65).fill(0x04) },
+      value: { encrypted: new Uint8Array([7, 8, 9]), tmpKey: new Uint8Array(32).fill(0x04) },
     };
     expect(VersionedHandshakeResponse.dec(VersionedHandshakeResponse.enc(r))).toEqual(r);
   });
 
-  it('decodes a legacy V1 response from older mobile clients', () => {
+  it('round-trips the reserved V1 variant', () => {
     const r = {
       tag: 'V1' as const,
-      value: { encrypted: new Uint8Array([1, 2]), tmpKey: new Uint8Array(65).fill(0x04) },
+      value: { encrypted: new Uint8Array([1, 2]), tmpKey: new Uint8Array(32).fill(0x04) },
     };
     expect(VersionedHandshakeResponse.dec(VersionedHandshakeResponse.enc(r))).toEqual(r);
   });
@@ -178,7 +179,7 @@ describe('VersionedHandshakeResponse', () => {
 describe('EncryptedHandshakeResponseV1 (legacy)', () => {
   it('round-trips encryptionKey and accountId', () => {
     const r = {
-      encryptionKey: new Uint8Array(65).fill(0x04),
+      encryptionKey: new Uint8Array(32).fill(0x04),
       accountId: new Uint8Array(32).fill(0xb2),
     };
     expect(EncryptedHandshakeResponseV1.dec(EncryptedHandshakeResponseV1.enc(r))).toEqual(r);
@@ -189,14 +190,14 @@ describe('HandshakeResponseV1 (legacy)', () => {
   it('round-trips with arbitrary ciphertext and ephemeral key', () => {
     const r = {
       encrypted: new Uint8Array([0xff, 0xee]),
-      tmpKey: new Uint8Array(65).fill(0x04),
+      tmpKey: new Uint8Array(32).fill(0x04),
     };
     expect(HandshakeResponseV1.dec(HandshakeResponseV1.enc(r))).toEqual(r);
   });
 });
 
 describe('deriveIdentityChatPublicKey', () => {
-  it('returns the uncompressed 65-byte P-256 public key matching @noble', () => {
+  it('returns the 32-byte X25519 public key matching @noble', () => {
     expect(deriveIdentityChatPublicKey(fixedChatPrivateKey)).toEqual(fixedChatPublicKey);
   });
 });

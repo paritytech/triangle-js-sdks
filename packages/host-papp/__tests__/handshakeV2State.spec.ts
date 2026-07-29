@@ -1,4 +1,4 @@
-import { p256 } from '@noble/curves/nist.js';
+import { x25519 } from '@noble/curves/ed25519.js';
 import type { CodecType } from 'scale-ts';
 import { describe, expect, it } from 'vitest';
 
@@ -14,8 +14,8 @@ import {
 } from '../src/sso/auth/v2/state.js';
 
 const fixedChatPrivateKey = new Uint8Array(32).fill(0xdd);
-const fixedChatPublicKey = p256.getPublicKey(fixedChatPrivateKey, false);
-const fixedSsoEncPubKey = new Uint8Array(65).fill(0x06);
+const fixedChatPublicKey = x25519.getPublicKey(fixedChatPrivateKey);
+const fixedSsoEncPubKey = new Uint8Array(32).fill(0x06);
 const fixedRootEntropySource = new Uint8Array(32).fill(0x07);
 
 const makeSuccess = (overrides: Partial<HandshakeState & { tag: 'Success' }> = {}): HandshakeState => ({
@@ -24,7 +24,7 @@ const makeSuccess = (overrides: Partial<HandshakeState & { tag: 'Success' }> = {
   rootAccountId: new Uint8Array(32).fill(0xa2),
   identityChatPrivateKey: fixedChatPrivateKey,
   identityChatPublicKey: fixedChatPublicKey,
-  deviceEncPubKey: new Uint8Array(65).fill(0x04),
+  deviceEncPubKey: new Uint8Array(32).fill(0x04),
   ssoEncPubKey: fixedSsoEncPubKey,
   rootEntropySource: fixedRootEntropySource,
   peerStatementAccountId: null,
@@ -48,7 +48,7 @@ describe('fromInnerResponse', () => {
         rootAccountId: new Uint8Array(32).fill(0xa2),
         identityChatPrivateKey: fixedChatPrivateKey,
         ssoEncPubKey: fixedSsoEncPubKey,
-        deviceEncPubKey: new Uint8Array(65).fill(0x04),
+        deviceEncPubKey: new Uint8Array(32).fill(0x04),
         rootEntropySource: fixedRootEntropySource,
       },
     };
@@ -59,7 +59,7 @@ describe('fromInnerResponse', () => {
     expect(state.rootAccountId).toEqual(new Uint8Array(32).fill(0xa2));
     expect(state.identityChatPrivateKey).toEqual(fixedChatPrivateKey);
     expect(state.identityChatPublicKey).toEqual(fixedChatPublicKey);
-    expect(state.deviceEncPubKey).toEqual(new Uint8Array(65).fill(0x04));
+    expect(state.deviceEncPubKey).toEqual(new Uint8Array(32).fill(0x04));
     expect(state.ssoEncPubKey).toEqual(fixedSsoEncPubKey);
     expect(state.rootEntropySource).toEqual(fixedRootEntropySource);
   });

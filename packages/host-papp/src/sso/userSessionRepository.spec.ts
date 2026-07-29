@@ -8,15 +8,15 @@ import { createStoredUserSession, createUserSessionRepository } from './userSess
 const bytes = (len: number, fill: number) => new Uint8Array(len).fill(fill);
 
 // remoteAccount.publicKey is a fixed 32-byte field (the SSO shared secret),
-// which is exactly why the peer device's 65-byte encryption key needs its own
+// which is exactly why the peer device's 32-byte encryption key needs its own
 // `deviceEncPubKey` field rather than being squeezed in here.
 const SHARED_SECRET = bytes(32, 0x07);
-const DEVICE_ENC_PUB = bytes(65, 0x04);
+const DEVICE_ENC_PUB = bytes(32, 0x04);
 
 const baseExtras = {
   identityAccountId: createAccountId(bytes(32, 0x11)),
-  identityChatPublicKey: bytes(65, 0x22),
-  ssoEncPubKey: bytes(65, 0x33),
+  identityChatPublicKey: bytes(32, 0x22),
+  ssoEncPubKey: bytes(32, 0x33),
   rootEntropySource: bytes(32, 0x44),
 };
 

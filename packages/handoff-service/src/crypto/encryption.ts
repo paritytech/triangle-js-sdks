@@ -1,4 +1,4 @@
-import { gcm } from '@noble/ciphers/aes.js';
+import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
 import { randomBytes } from '@noble/hashes/utils.js';
 import { mergeUint8 } from '@polkadot-api/utils';
 
@@ -8,22 +8,22 @@ export type FileEncryption = {
 };
 
 /**
- * AES-256-GCM encryption for file chunks and metadata.
+ * ChaCha20-Poly1305 (IETF, RFC 8439) encryption for file chunks and metadata.
  * Format: nonce (12 bytes) || ciphertext || tag (16 bytes)
  */
 export function createFileEncryption(key: Uint8Array): FileEncryption {
   return {
     encrypt(data: Uint8Array): Uint8Array {
       const nonce = randomBytes(12);
-      const aes = gcm(key, nonce);
-      return mergeUint8([nonce, aes.encrypt(data)]);
+      const aead = chacha20poly1305(key, nonce);
+      return mergeUint8([nonce, aead.encrypt(data)]);
     },
 
     decrypt(encryptedData: Uint8Array): Uint8Array {
       const nonce = encryptedData.slice(0, 12);
       const ciphertext = encryptedData.slice(12);
-      const aes = gcm(key, nonce);
-      return aes.decrypt(ciphertext);
+      const aead = chacha20poly1305(key, nonce);
+      return aead.decrypt(ciphertext);
     },
   };
 }

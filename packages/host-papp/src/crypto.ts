@@ -1,4 +1,4 @@
-import { p256 } from '@noble/curves/nist.js';
+import { x25519 } from '@noble/curves/ed25519.js';
 import {
   createSr25519Secret,
   deriveSr25519PublicKey,
@@ -29,7 +29,7 @@ export function BrandedBytesCodec<T extends Uint8Array>(length?: number) {
 }
 
 export const SsPubKey = BrandedBytesCodec<SsPublicKey>(32);
-export const EncrPubKey = BrandedBytesCodec<EncrPublicKey>(65);
+export const EncrPubKey = BrandedBytesCodec<EncrPublicKey>(32);
 
 // helpers
 
@@ -66,18 +66,15 @@ export function deriveSr25519Account(mnemonic: string, derivation?: string): Der
 // encryption key pair
 
 export function createEncrSecret(entropy: Uint8Array) {
-  const miniSecret = entropyToMiniSecret(entropy);
-  const seed = new Uint8Array(48);
-  seed.set(miniSecret);
-  const { secretKey } = p256.keygen(seed);
-  return secretKey as EncrSecret;
+  // The 32-byte mini-secret is the X25519 private scalar (clamped internally by @noble on use).
+  return entropyToMiniSecret(entropy) as EncrSecret;
 }
 
 export function getEncrPub(secret: EncrSecret) {
-  return p256.getPublicKey(secret, false) as EncrPublicKey;
+  return x25519.getPublicKey(secret) as EncrPublicKey;
 }
 
 export function createSharedSecret(secret: EncrSecret, publicKey: Uint8Array) {
-  // slicing first byte: @noble/curves adds y offset at the start
-  return p256.getSharedSecret(secret, publicKey).slice(1, 33) as SharedSecret;
+  // The X25519 output is used whole. @noble aborts on an all-zero (small-order) result per RFC 7748.
+  return x25519.getSharedSecret(secret, publicKey) as SharedSecret;
 }
