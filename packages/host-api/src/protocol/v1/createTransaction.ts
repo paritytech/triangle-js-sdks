@@ -2,7 +2,7 @@ import { Bytes, ErrEnum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
 import { Result, Struct, Vector, _void, str, u8 } from 'scale-ts';
 
-import { GenericErr } from '../commonCodecs.js';
+import { GenericErr, GenesisHash } from '../commonCodecs.js';
 
 import { AccountId, ProductAccountId } from './accounts.js';
 
@@ -43,7 +43,7 @@ function GenericTxPayloadV1<Signer>(signer: Codec<Signer>) {
     /**
      * Chain identifier where transaction will be executed
      */
-    genesisHash: Bytes(32),
+    genesisHash: GenesisHash,
     /**
      * SCALE-encoded Call (module indicator + function indicator + params).
      */
