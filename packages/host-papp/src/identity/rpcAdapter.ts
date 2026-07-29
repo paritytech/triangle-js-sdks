@@ -22,19 +22,28 @@ function decodeRawIdentity(
 ): Identity | null {
   if (!raw) return null;
 
+  // Runtime metadata may expose fields in snake_case (V1) or camelCase (V2
+  // multi-device). The .papi descriptor only types snake_case, so widen here
+  // and read defensively — otherwise the V2 multi-device runtime decodes to an
+  // empty username (the "Unknown user" regression).
+  const wide = raw as unknown as Record<string, unknown> & typeof raw;
+  const fullUsername = (wide.full_username as Uint8Array | undefined) ?? (wide.fullUsername as Uint8Array | undefined);
+  const liteUsername = (wide.lite_username as Uint8Array | undefined) ?? (wide.liteUsername as Uint8Array | undefined);
+
   const credibility: Credibility =
     raw.credibility.type === 'Lite'
       ? { type: 'Lite' }
       : {
           type: 'Person',
           alias: raw.credibility.value.alias as HexString,
-          lastUpdate: raw.credibility.value.last_update.toString(),
+          lastUpdate: ((raw.credibility.value as Record<string, unknown>).last_update ??
+            (raw.credibility.value as Record<string, unknown>).lastUpdate)!.toString(),
         };
 
   return {
     accountId,
-    fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
-    liteUsername: textDecoder.decode(raw.lite_username),
+    fullUsername: fullUsername ? textDecoder.decode(fullUsername) : null,
+    liteUsername: liteUsername ? textDecoder.decode(liteUsername) : '',
     credibility,
   };
 }

@@ -1,6 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import { FileMeta, FileVariant, GeneralFileMeta, ImageFileMeta, P2PMixnetFile, VideoFileMeta } from './attachment.js';
+import {
+  FileMeta,
+  FileVariant,
+  GeneralFileMeta,
+  ImageFileMeta,
+  NodeEndpoint,
+  P2PMixnetFile,
+  VideoFileMeta,
+} from './attachment.js';
 
 describe('attachment codecs', () => {
   describe('GeneralFileMeta', () => {
@@ -13,21 +21,33 @@ describe('attachment codecs', () => {
   });
 
   describe('ImageFileMeta', () => {
-    it('round-trips', () => {
+    it('round-trips without thumbnail', () => {
       const original = {
         general: { mimeType: 'image/jpeg', fileSize: 500_000 },
         width: 1920,
         height: 1080,
-        thumbnail: new TextEncoder().encode('LEHV6nWB2yk8pyo0adR*.7kCMdnj'),
+        thumbnail: undefined,
       };
       const encoded = ImageFileMeta.enc(original);
       const decoded = ImageFileMeta.dec(encoded);
       expect(decoded).toEqual(original);
     });
+
+    it('round-trips with blurhash thumbnail', () => {
+      const original = {
+        general: { mimeType: 'image/jpeg', fileSize: 500_000 },
+        width: 1920,
+        height: 1080,
+        thumbnail: new TextEncoder().encode('L6PZfSi_.AyE_3t7t7R**0o#DgR4'),
+      };
+      const encoded = ImageFileMeta.enc(original);
+      const decoded = ImageFileMeta.dec(encoded);
+      expect(decoded.thumbnail).toEqual(original.thumbnail);
+    });
   });
 
   describe('VideoFileMeta', () => {
-    it('round-trips', () => {
+    it('round-trips without thumbnail', () => {
       const original = {
         general: { mimeType: 'video/mp4', fileSize: 10_000_000 },
         duration: 120,
@@ -36,6 +56,17 @@ describe('attachment codecs', () => {
       const encoded = VideoFileMeta.enc(original);
       const decoded = VideoFileMeta.dec(encoded);
       expect(decoded).toEqual(original);
+    });
+
+    it('round-trips with blurhash thumbnail', () => {
+      const original = {
+        general: { mimeType: 'video/mp4', fileSize: 10_000_000 },
+        duration: 120,
+        thumbnail: new TextEncoder().encode('LKO2?U%2Tw=w]~RBVZRi};RPxuwH'),
+      };
+      const encoded = VideoFileMeta.enc(original);
+      const decoded = VideoFileMeta.dec(encoded);
+      expect(decoded.thumbnail).toEqual(original.thumbnail);
     });
   });
 
@@ -54,7 +85,11 @@ describe('attachment codecs', () => {
         },
         {
           tag: 'video' as const,
-          value: { general: { mimeType: 'video/mp4', fileSize: 4096 }, duration: 60, thumbnail: undefined },
+          value: {
+            general: { mimeType: 'video/mp4', fileSize: 4096 },
+            duration: 60,
+            thumbnail: new TextEncoder().encode('blurhashstring'),
+          },
         },
       ];
 
@@ -66,19 +101,28 @@ describe('attachment codecs', () => {
     });
   });
 
+  describe('NodeEndpoint', () => {
+    it('round-trips wssUrl', () => {
+      const original = { tag: 'wssUrl' as const, value: { url: 'wss://hop-a.example/chat' } };
+      const encoded = NodeEndpoint.enc(original);
+      const decoded = NodeEndpoint.dec(encoded);
+      expect(decoded).toEqual(original);
+    });
+  });
+
   describe('P2PMixnetFile', () => {
-    it('round-trips', () => {
+    it('round-trips with nodeEndpoint and image thumbnail', () => {
       const original = {
         identifier: new Uint8Array(32).fill(0xaa),
         claimTicket: new Uint8Array(32).fill(0xbb),
-        nodeEndpoint: { tag: 'wssUrl' as const, value: { url: 'wss://hop.example/ws' } },
+        nodeEndpoint: { tag: 'wssUrl' as const, value: { url: 'wss://bulletin.example/hop' } },
         meta: {
           tag: 'image' as const,
           value: {
             general: { mimeType: 'image/jpeg', fileSize: 500_000 },
             width: 1920,
             height: 1080,
-            thumbnail: undefined,
+            thumbnail: new TextEncoder().encode('L6PZfSi_.AyE_3t7t7R**0o#DgR4'),
           },
         },
       };
@@ -98,7 +142,7 @@ describe('attachment codecs', () => {
         value: {
           identifier: new Uint8Array(32).fill(0x11),
           claimTicket: new Uint8Array(32).fill(0x22),
-          nodeEndpoint: { tag: 'wssUrl' as const, value: { url: 'wss://hop.example/ws' } },
+          nodeEndpoint: { tag: 'wssUrl' as const, value: { url: 'wss://hop.example/path' } },
           meta: { tag: 'general' as const, value: { mimeType: 'text/plain', fileSize: 10 } },
         },
       };
