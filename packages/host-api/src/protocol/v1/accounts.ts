@@ -1,6 +1,6 @@
-import { Enum, ErrEnum, Hex, Status } from '@novasamatech/scale';
+import { Bytes, Enum, ErrEnum, Hex, Status } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Option, Result, Struct, Tuple, Vector, _void, str, u32, u8 } from 'scale-ts';
+import { Option, Result, Struct, Tuple, Vector, _void, str, u32, u8 } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
 
@@ -32,9 +32,6 @@ export const DerivationIndex = Enum({
 export const ProductAccountId = Tuple(DotNsIdentifier, DerivationIndex);
 export const RingVrgAlias = Bytes();
 
-/** Length of the raw 32-byte derivation index (RFC 0022). */
-export const RAW_DERIVATION_INDEX_LENGTH = 32;
-
 /**
  * Ergonomic form of an account selector: a plain index or a raw 32-byte index.
  */
@@ -49,8 +46,8 @@ export function derivationIndexOf(selector: AccountSelector): CodecType<typeof D
     return { tag: 'Index', value: selector };
   }
 
-  if (selector.length !== RAW_DERIVATION_INDEX_LENGTH) {
-    throw new Error(`Raw derivation index must be ${RAW_DERIVATION_INDEX_LENGTH} bytes, got ${selector.length}`);
+  if (selector.length !== RawDerivationIndex.size) {
+    throw new Error(`Raw derivation index must be ${RawDerivationIndex.size} bytes, got ${selector.length}`);
   }
 
   return { tag: 'Raw', value: selector };

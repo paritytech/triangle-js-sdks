@@ -1,6 +1,9 @@
 export { lazy } from './lazy.js';
 
-export type { HexString } from './hex.js';
+export type { BytesCodec } from './bytes.js';
+export { Bytes } from './bytes.js';
+
+export type { HexCodec, HexString } from './hex.js';
 export { Hex } from './hex.js';
 
 export { Nullable } from './nullable.js';
