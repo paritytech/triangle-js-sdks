@@ -33,7 +33,8 @@
  */
 
 import { x25519 } from '@noble/curves/ed25519.js';
-import { Bytes, Enum, Struct, Tuple, Vector, _void, str } from 'scale-ts';
+import { Bytes } from '@novasamatech/scale';
+import { Enum, Struct, Tuple, Vector, _void, str } from 'scale-ts';
 
 const AccountIdCodec = Bytes(32);
 const PublicKeyCodec = Bytes(32);

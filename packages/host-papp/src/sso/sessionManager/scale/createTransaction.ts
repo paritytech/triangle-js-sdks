@@ -1,7 +1,7 @@
 import { LegacyTransaction, ProductAccountTransaction } from '@novasamatech/host-api';
-import { Enum } from '@novasamatech/scale';
+import { Bytes, Enum } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Result, Struct, str } from 'scale-ts';
+import { Result, Struct, str } from 'scale-ts';
 
 export type CreateTransactionRequest = CodecType<typeof CreateTransactionRequestCodec>;
 export const CreateTransactionRequestCodec = Struct({

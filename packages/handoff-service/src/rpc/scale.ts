@@ -1,4 +1,5 @@
-import { Bytes, Enum } from 'scale-ts';
+import { Bytes } from '@novasamatech/scale';
+import { Enum } from 'scale-ts';
 
 /**
  * SCALE-encoded MultiSigner:

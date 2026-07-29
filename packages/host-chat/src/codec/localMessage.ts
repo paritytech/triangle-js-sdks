@@ -1,6 +1,6 @@
-import { Enum, Status } from '@novasamatech/scale';
+import { Bytes, Enum, Status } from '@novasamatech/scale';
 import { AccountIdCodec } from '@novasamatech/statement-store';
-import { Bytes, Struct, u64 } from 'scale-ts';
+import { Struct, u64 } from 'scale-ts';
 
 import { ChatMessage } from './message.js';
 

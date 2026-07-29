@@ -60,10 +60,10 @@ function makeStoredUserSession(id: string): StoredUserSession {
     remoteAccount: { accountId: createAccountId(bytes(32)), publicKey: bytes(32), pin: undefined },
     rootAccountId: createAccountId(bytes(32)),
     identityAccountId: createAccountId(bytes(32)),
-    identityChatPublicKey: bytes(65),
-    ssoEncPubKey: bytes(65),
+    identityChatPublicKey: bytes(32),
+    ssoEncPubKey: bytes(32),
     rootEntropySource: bytes(32),
-    deviceEncPubKey: bytes(65),
+    deviceEncPubKey: bytes(32),
   };
 }
 

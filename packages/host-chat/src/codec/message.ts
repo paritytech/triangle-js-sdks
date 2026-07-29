@@ -1,5 +1,5 @@
-import { Enum, Hex, Nullable, Status } from '@novasamatech/scale';
-import { Bytes, Option, Struct, Vector, _void, compact, str, u64 } from 'scale-ts';
+import { Bytes, Enum, Hex, Nullable, Status } from '@novasamatech/scale';
+import { Option, Struct, Vector, _void, compact, str, u64 } from 'scale-ts';
 
 import { FileVariant } from './attachment.js';
 

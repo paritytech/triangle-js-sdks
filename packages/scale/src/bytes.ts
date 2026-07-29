@@ -14,6 +14,8 @@ export type BytesCodec<Size extends number | undefined = number | undefined> = C
  */
 export function Bytes(): BytesCodec<undefined>;
 export function Bytes(size: number): BytesCodec<number>;
+/** Pass-through for callers forwarding an optional size. */
+export function Bytes(size: number | undefined): BytesCodec;
 export function Bytes(size?: number): BytesCodec {
   const codec =
     size === undefined

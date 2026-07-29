@@ -1,11 +1,12 @@
 import { gcm } from '@noble/ciphers/aes.js';
 import { blake2b } from '@noble/hashes/blake2.js';
+import { Bytes } from '@novasamatech/scale';
 import { createSr25519Secret, deriveSr25519PublicKey } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, fromPromise, okAsync } from 'neverthrow';
 import { fromHex, toHex } from 'polkadot-api/utils';
-import { Bytes, Option, Struct, str } from 'scale-ts';
+import { Option, Struct, str } from 'scale-ts';
 
 import type { EncrPublicKey, EncrSecret, SsPublicKey, SsSecret } from '../crypto.js';
 import { getEncrPub, stringToBytes } from '../crypto.js';

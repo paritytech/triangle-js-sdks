@@ -1,11 +1,12 @@
 import { gcm } from '@noble/ciphers/aes.js';
 import { blake2b } from '@noble/hashes/blake2.js';
+import { Bytes } from '@novasamatech/scale';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import type { ResultAsync } from 'neverthrow';
 import { fromThrowable } from 'neverthrow';
 import { fromHex, toHex } from 'polkadot-api/utils';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Struct } from 'scale-ts';
+import { Struct } from 'scale-ts';
 
 import type { EncrSecret, SsSecret } from '../crypto.js';
 import { BrandedBytesCodec, stringToBytes } from '../crypto.js';

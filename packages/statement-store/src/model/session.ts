@@ -1,5 +1,5 @@
+import { Bytes } from '@novasamatech/scale';
 import { mergeUint8 } from 'polkadot-api/utils';
-import { Bytes } from 'scale-ts';
 
 import { khash, stringToBytes } from '../crypto.js';
 import type { Branded } from '../types.js';

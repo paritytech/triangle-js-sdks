@@ -1,5 +1,5 @@
-import { Enum } from '@novasamatech/scale';
-import { Bytes, Option, Struct, str, u32 } from 'scale-ts';
+import { Bytes, Enum } from '@novasamatech/scale';
+import { Option, Struct, str, u32 } from 'scale-ts';
 
 // UTF-8 bytes of a Wolt-spec blurhash string (componentX=4, componentY=3).
 // Wire type is Vec<u8>; the bytes themselves are the ASCII blurhash.

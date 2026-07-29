@@ -1,4 +1,5 @@
-import { Bytes, Struct, Vector, u64 } from 'scale-ts';
+import { Bytes } from '@novasamatech/scale';
+import { Struct, Vector, u64 } from 'scale-ts';
 
 /**
  * Internal metadata stored in the HOP pool that references all chunks of an uploaded file.
