@@ -36,3 +36,4 @@ export type {
   CreateTransactionRequest,
   CreateTransactionResponse,
 } from './sso/sessionManager/scale/createTransaction.js';
+export type { ProductSubtreeRequest, ProductSubtreeResponse } from './sso/sessionManager/scale/productSubtree.js';

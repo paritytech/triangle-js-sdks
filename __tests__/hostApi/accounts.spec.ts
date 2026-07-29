@@ -18,6 +18,7 @@ import type {
   AccountConnectionStatus,
   LegacyAccount,
   ProductAccount,
+  ProofContext,
   VrfTranscriptItem,
 } from '@novasamatech/host-api-wrapper';
 import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
@@ -58,7 +59,11 @@ const mockRingLocation: CodecType<typeof RingLocation> = {
   ],
 };
 
-const mockContext: CodecType<typeof ProductProofContext> = ['product.dot', '0x00'];
+// Ergonomic form the product passes in, and the wire form the host receives:
+// the suffix is the same `Index(u32) | Raw([u8; 32])` selector as an account index
+// (RFC 0022).
+const mockContext: ProofContext = ['product.dot', 0];
+const mockWireContext: CodecType<typeof ProductProofContext> = ['product.dot', { tag: 'Index', value: 0 }];
 
 describe('Host API: Accounts', () => {
   describe('getUserId', () => {
@@ -127,7 +132,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getProductAccount('my-product.dot', 3);
 
-      expect(handler).toHaveBeenCalledWith(['my-product.dot', 3], expect.anything());
+      expect(handler).toHaveBeenCalledWith(['my-product.dot', { tag: 'Index', value: 3 }], expect.anything());
     });
 
     it('should use derivation index 0 by default', async () => {
@@ -139,7 +144,27 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getProductAccount('product.dot');
 
-      expect(handler).toHaveBeenCalledWith(['product.dot', 0], expect.anything());
+      expect(handler).toHaveBeenCalledWith(['product.dot', { tag: 'Index', value: 0 }], expect.anything());
+    });
+
+    it('should pass a raw 32-byte derivation index through unchanged', async () => {
+      const { container, accountsProvider } = setup();
+      const rawIndex = new Uint8Array(32).fill(0xee);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
+        ok({ publicKey: mockPublicKey }),
+      );
+      container.handleAccountGet(handler);
+
+      const result = await accountsProvider.getProductAccount('product.dot', rawIndex);
+
+      expect(handler).toHaveBeenCalledWith(['product.dot', { tag: 'Raw', value: rawIndex }], expect.anything());
+      expect(result._unsafeUnwrap().derivationIndex).toEqual(rawIndex);
+    });
+
+    it('should reject a raw index that is not 32 bytes', () => {
+      const { accountsProvider } = setup();
+
+      expect(() => accountsProvider.getProductAccount('product.dot', new Uint8Array(31))).toThrow(/must be 32 bytes/);
     });
 
     it('should return error on failure', async () => {
@@ -175,7 +200,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
 
-      expect(handler).toHaveBeenCalledWith([mockContext, mockRingLocation], expect.anything());
+      expect(handler).toHaveBeenCalledWith([mockWireContext, mockRingLocation], expect.anything());
     });
 
     it('should return error on failure', async () => {
@@ -281,7 +306,7 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, message);
 
-      expect(handler).toHaveBeenCalledWith([mockContext, mockRingLocation, message], {
+      expect(handler).toHaveBeenCalledWith([mockWireContext, mockRingLocation, message], {
         ok: expect.any(Function),
         err: expect.any(Function),
       });
@@ -359,9 +384,9 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.signVrf('product.dot', 1, mockTranscriptLabel, mockItems);
 
-      expect(handler).toBeCalledWith(
+      expect(handler).toHaveBeenCalledWith(
         {
-          account: ['product.dot', 1],
+          account: ['product.dot', { tag: 'Index', value: 1 }],
           transcriptLabel: mockTranscriptLabel,
           items: mockItems,
         },
@@ -378,8 +403,8 @@ describe('Host API: Accounts', () => {
 
       await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, []);
 
-      expect(handler).toBeCalledWith(
-        { account: ['product.dot', 0], transcriptLabel: mockTranscriptLabel, items: [] },
+      expect(handler).toHaveBeenCalledWith(
+        { account: ['product.dot', { tag: 'Index', value: 0 }], transcriptLabel: mockTranscriptLabel, items: [] },
         { ok: expect.any(Function), err: expect.any(Function) },
       );
     });
@@ -432,7 +457,7 @@ describe('Host API: Accounts', () => {
       const result = await signer.signBytes(rawData);
 
       expect(capturedParams).toEqual({
-        account: [mockProductAccount.dotNsIdentifier, mockProductAccount.derivationIndex],
+        account: [mockProductAccount.dotNsIdentifier, { tag: 'Index', value: 0 }],
         payload: { tag: 'Bytes', value: rawData },
       });
       expect(result).toEqual(signatureBytes);

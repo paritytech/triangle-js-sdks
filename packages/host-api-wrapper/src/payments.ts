@@ -1,5 +1,5 @@
-import type { CodecType, PaymentBalanceErr, Subscription, Transport } from '@novasamatech/host-api';
-import { createHostApi, enumValue } from '@novasamatech/host-api';
+import type { AccountSelector, CodecType, PaymentBalanceErr, Subscription, Transport } from '@novasamatech/host-api';
+import { createHostApi, derivationIndexOf, enumValue } from '@novasamatech/host-api';
 
 import { resultToPromise, unwrapVersionedResult } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
@@ -11,7 +11,8 @@ export type PaymentBalance = {
 export type PaymentStatus = { type: 'processing' } | { type: 'completed' } | { type: 'failed'; reason: string };
 
 export type TopUpSource =
-  | { type: 'productAccount'; derivationIndex: number }
+  /** `derivationIndex` is the RFC-0022 selector: a plain index or a raw 32-byte index. */
+  | { type: 'productAccount'; derivationIndex: AccountSelector }
   | { type: 'privateKey'; key: Uint8Array }
   | { type: 'coins'; keys: Uint8Array[] };
 
@@ -44,7 +45,7 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
         source.type === 'productAccount'
           ? {
               tag: 'ProductAccount' as const,
-              value: source.derivationIndex,
+              value: derivationIndexOf(source.derivationIndex),
             }
           : source.type === 'privateKey'
             ? { tag: 'PrivateKey' as const, value: source.key }

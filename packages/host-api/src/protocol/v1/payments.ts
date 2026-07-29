@@ -1,5 +1,5 @@
-import { Enum, ErrEnum } from '@novasamatech/scale';
-import { Bytes, Option, Result, Struct, Vector, _void, str, u128, u32 } from 'scale-ts';
+import { Bytes, Enum, ErrEnum } from '@novasamatech/scale';
+import { Option, Result, Struct, Vector, _void, str, u128, u32 } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
 
@@ -15,6 +15,7 @@ export const PaymentId = str;
 export const CoinPaymentPurseId = u32;
 
 export const PaymentTopUpSource = Enum({
+  // Account of the calling product, addressed by the RFC-0022 selector.
   ProductAccount: DerivationIndex,
   PrivateKey: Sr25519SecretKey,
   Coins: Vector(Sr25519SecretKey),

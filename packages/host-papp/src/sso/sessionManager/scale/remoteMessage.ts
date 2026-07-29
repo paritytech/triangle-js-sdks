@@ -7,6 +7,7 @@ import {
   CreateTransactionRequestCodec,
   CreateTransactionResponseCodec,
 } from './createTransaction.js';
+import { ProductSubtreeRequestCodec, ProductSubtreeResponseCodec } from './productSubtree.js';
 import { ResourceAllocationRequestCodec, ResourceAllocationResponseCodec } from './resourceAllocation.js';
 import {
   RingVrfAliasRequestCodec,
@@ -45,6 +46,9 @@ export const RemoteMessageCodec = Struct({
       RingVrfProofResponse: RingVrfProofResponseCodec,
       SignVrfRequest: SignVrfRequestCodec,
       SignVrfResponse: SignVrfResponseCodec,
+      // RFC-0022 additions — appended so existing variant indexes stay stable.
+      ProductSubtreeRequest: ProductSubtreeRequestCodec,
+      ProductSubtreeResponse: ProductSubtreeResponseCodec,
     }),
   }),
 });

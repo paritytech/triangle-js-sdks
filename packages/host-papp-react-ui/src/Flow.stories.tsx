@@ -26,7 +26,7 @@ const SignTransactionExample = ({ session }: { session: UserSession | null }) =>
     payload: {
       tag: 'v1',
       value: {
-        signer: ['test-product.dot', 0],
+        signer: ['test-product.dot', { tag: 'Left', value: 0 }],
         genesisHash: fromHex('0xc5af1826b31493f08b7e2a823842f98575b806a784126f28da9608c68665afa5'),
         // SCALE-encoded Call (module + function + params); arbitrary bytes for the example.
         callData: new Uint8Array([0x0a, 0x03, 0x00, 0x6a, 0x78, 0x5b, 0xe5]),
