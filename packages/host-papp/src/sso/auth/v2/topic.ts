@@ -6,7 +6,7 @@
  *
  * Where:
  *   - `statementAccountId`     = the host's sr25519 device public key (32 bytes)
- *   - `encryptionPublicKey`    = the host's P-256 device public key (65 bytes uncompressed)
+ *   - `encryptionPublicKey`    = the host's X25519 device public key (32 bytes)
  *
  * Both sides compute the same topic/channel deterministically from the same
  * pubkeys carried in the QR-coded `VersionedHandshakeProposal::V2`, so they

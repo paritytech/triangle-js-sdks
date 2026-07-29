@@ -7,7 +7,7 @@ import { buildPairingDeeplink, encodeProposal } from '../src/sso/auth/v2/proposa
 
 const device = {
   statementAccountPublicKey: new Uint8Array(32).fill(0xa1),
-  encryptionPublicKey: new Uint8Array(65).fill(0x04),
+  encryptionPublicKey: new Uint8Array(32).fill(0x04),
 };
 
 const metadata: HandshakeMetadata = {

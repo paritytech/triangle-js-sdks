@@ -26,8 +26,8 @@ export type HandshakePendingState = { tag: 'Pending'; reason: 'AllowanceAllocati
 export type HandshakeSuccessState = CodecType<typeof HandshakeSuccessV2> & {
   tag: 'Success';
   /**
-   * Derived locally from `identityChatPrivateKey` via P-256 scalar
-   * multiplication (uncompressed 65-byte form). Both sides MUST derive
+   * Derived locally from `identityChatPrivateKey` via X25519 scalar
+   * multiplication (32-byte form). Both sides MUST derive
    * identically; downstream session topics depend on it.
    */
   identityChatPublicKey: Uint8Array;

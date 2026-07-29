@@ -16,14 +16,14 @@
  *                               for soft-derivation of product accounts; PApp
  *                               and host MUST derive identically so a dapp sees
  *                               the same address on every device.
- *   - `identityChatPrivateKey`— user identity chat P-256 private scalar (32 bytes),
+ *   - `identityChatPrivateKey`— user identity chat X25519 private scalar (32 bytes),
  *                               shared per the multi-device spec so this device
  *                               can decrypt traffic addressed to the user identity
- *   - `deviceEncPubKey`       — encryption public key of the PApp device (65 bytes,
- *                               P-256 uncompressed). Tells the host which key to
+ *   - `deviceEncPubKey`       — encryption public key of the PApp device (32 bytes,
+ *                               X25519). Tells the host which key to
  *                               use when addressing chat envelopes back to the
  *                               authorising PApp device.
- *   - `ssoEncPubKey`          — `papp_encr_pub` (65 bytes, P-256 uncompressed); see
+ *   - `ssoEncPubKey`          — `papp_encr_pub` (32 bytes, X25519); see
  *                               the `HandshakeSuccessV2` codec doc below.
  *   - `rootEntropySource`     — 32 bytes; `blake2b256_keyed(rootAccountSecret,
  *                               "product-entropy-derivation")` per RFC-0007 (layer 1).
@@ -32,11 +32,11 @@
  *                               root account secret. See the codec doc below.
  */
 
-import { p256 } from '@noble/curves/nist.js';
+import { x25519 } from '@noble/curves/ed25519.js';
 import { Bytes, Enum, Struct, Tuple, Vector, _void, str } from 'scale-ts';
 
 const AccountIdCodec = Bytes(32);
-const PublicKeyCodec = Bytes(65);
+const PublicKeyCodec = Bytes(32);
 const PrivateKeyCodec = Bytes(32);
 const EntropySourceCodec = Bytes(32);
 
@@ -72,15 +72,15 @@ export const HandshakeSuccessV2 = Struct({
   identityAccountId: AccountIdCodec,
   rootAccountId: AccountIdCodec,
   identityChatPrivateKey: PrivateKeyCodec,
-  /** PApp's P-256 SSO ECDH public key (`papp_encr_pub`). */
+  /** PApp's X25519 SSO ECDH public key (`papp_encr_pub`). */
   ssoEncPubKey: PublicKeyCodec,
   deviceEncPubKey: PublicKeyCodec,
   /** Layer-1 source for deterministic product entropy derivation (RFC-0007). */
   rootEntropySource: EntropySourceCodec,
 });
 
-/** Derive the identity chat P-256 public key (uncompressed) from its private scalar. */
-export const deriveIdentityChatPublicKey = (privateKey: Uint8Array): Uint8Array => p256.getPublicKey(privateKey, false);
+/** Derive the identity chat X25519 public key (32 bytes) from its private scalar. */
+export const deriveIdentityChatPublicKey = (privateKey: Uint8Array): Uint8Array => x25519.getPublicKey(privateKey);
 
 export const HandshakeStatusV2 = Enum({
   AllowanceAllocation: _void,

@@ -4,7 +4,7 @@ import { Bytes, Option, Struct, Vector, _void, compact, str, u64 } from 'scale-t
 import { FileVariant } from './attachment.js';
 
 const AccountIdCodec = Bytes(32);
-const PublicKeyCodec = Bytes(65);
+const PublicKeyCodec = Bytes(32);
 
 export const TextContent = str;
 

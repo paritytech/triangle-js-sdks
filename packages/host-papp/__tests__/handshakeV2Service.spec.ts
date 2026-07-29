@@ -1,4 +1,4 @@
-import { p256 } from '@noble/curves/nist.js';
+import { x25519 } from '@noble/curves/ed25519.js';
 import type { Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createEncryption } from '@novasamatech/statement-store';
 import { okAsync } from 'neverthrow';
@@ -10,15 +10,15 @@ import type { DeviceIdentityForPairing } from '../src/sso/auth/v2/service.js';
 import { startPairingV2 } from '../src/sso/auth/v2/service.js';
 import { computePairingTopic } from '../src/sso/auth/v2/topic.js';
 
-const ecdhX = (priv: Uint8Array, pub: Uint8Array): Uint8Array => p256.getSharedSecret(priv, pub).slice(1, 33);
+const ecdh = (priv: Uint8Array, pub: Uint8Array): Uint8Array => x25519.getSharedSecret(priv, pub);
 
 const buildDeviceIdentity = (): DeviceIdentityForPairing => {
-  const encryptionPrivateKey = p256.utils.randomSecretKey();
+  const encryptionPrivateKey = x25519.utils.randomSecretKey();
   return {
     statementAccountPublicKey: new Uint8Array(32).fill(0xa1),
     statementAccountSecret: new Uint8Array(64).fill(0x55),
     encryptionPrivateKey,
-    encryptionPublicKey: p256.getPublicKey(encryptionPrivateKey, false),
+    encryptionPublicKey: x25519.getPublicKey(encryptionPrivateKey),
   };
 };
 
@@ -26,9 +26,9 @@ const wrapInnerResponse = (
   device: DeviceIdentityForPairing,
   inner: Uint8Array,
 ): { encrypted: Uint8Array; tmpKey: Uint8Array } => {
-  const tmpPrivate = p256.utils.randomSecretKey();
-  const tmpKey = p256.getPublicKey(tmpPrivate, false);
-  const shared = ecdhX(tmpPrivate, device.encryptionPublicKey);
+  const tmpPrivate = x25519.utils.randomSecretKey();
+  const tmpKey = x25519.getPublicKey(tmpPrivate);
+  const shared = ecdh(tmpPrivate, device.encryptionPublicKey);
   const result = createEncryption(shared).encrypt(inner);
   if (result.isErr()) throw result.error;
   return { encrypted: result.value, tmpKey };
@@ -128,8 +128,8 @@ describe('startPairingV2', () => {
         identityAccountId: new Uint8Array(32).fill(0xa1),
         rootAccountId: new Uint8Array(32).fill(0xa2),
         identityChatPrivateKey: new Uint8Array(32).fill(0xdd),
-        ssoEncPubKey: new Uint8Array(65).fill(0x06),
-        deviceEncPubKey: new Uint8Array(65).fill(0x04),
+        ssoEncPubKey: new Uint8Array(32).fill(0x06),
+        deviceEncPubKey: new Uint8Array(32).fill(0x04),
         rootEntropySource: new Uint8Array(32).fill(0x07),
       },
     });

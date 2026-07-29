@@ -17,22 +17,22 @@ const storedUserSessionCodec = Struct({
   remoteAccount: RemoteSessionAccountCodec,
   rootAccountId: AccountIdCodec,
   identityAccountId: AccountIdCodec,
-  identityChatPublicKey: Bytes(65),
-  // `papp_encr_pub` (65-byte uncompressed P-256). Persisted so the host can
+  identityChatPublicKey: Bytes(32),
+  // `papp_encr_pub` (32-byte X25519). Persisted so the host can
   // rebuild its SSO session transport (`shared_secret_session =
   // ECDH(host_encr_secret, ssoEncPubKey)`) on a cold start without re-running
   // the handshake.
-  ssoEncPubKey: Bytes(65),
+  ssoEncPubKey: Bytes(32),
   // RFC-0007 layer-1 `rootEntropySource` from the handshake; consumed by the
   // host's `host_derive_entropy` handler via `deriveProductEntropyFromSource`.
   rootEntropySource: Bytes(32),
-  // Encryption public key of the authorising PApp device (65-byte uncompressed
-  // P-256), lifted from `HandshakeResponseV2.deviceEncPubKey`. Distinct from
+  // Encryption public key of the authorising PApp device (32-byte X25519),
+  // lifted from `HandshakeResponseV2.deviceEncPubKey`. Distinct from
   // `ssoEncPubKey` (the SSO session keypair) and from `remoteAccount.publicKey`
   // (the derived SSO shared secret): this is the peer device's long-lived ECDH
   // key, used by the host's device-sync channel to address the paired device.
   // Always present — `HandshakeResponseV2` carries it for every V2 pairing.
-  deviceEncPubKey: Bytes(65),
+  deviceEncPubKey: Bytes(32),
 });
 
 type StoredUserSessionV2Extras = {
