@@ -1,4 +1,5 @@
 import { x25519 } from '@noble/curves/ed25519.js';
+import { Bytes } from '@novasamatech/scale';
 import {
   createSr25519Secret,
   deriveSr25519PublicKey,
@@ -7,7 +8,6 @@ import {
 } from '@novasamatech/statement-store';
 import { entropyToMiniSecret, mnemonicToEntropy } from '@polkadot-labs/hdkd-helpers';
 import type { Codec } from 'scale-ts';
-import { Bytes } from 'scale-ts';
 
 import type { Branded } from './types.js';
 

@@ -1,9 +1,10 @@
+import { Bytes } from '@novasamatech/scale';
 import type { SignedStatement, Statement } from '@novasamatech/sdk-statement';
 import { createExpiryFromDuration } from '@novasamatech/sdk-statement';
 import type { Result } from 'neverthrow';
 import { ResultAsync, err, errAsync, ok, okAsync } from 'neverthrow';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Struct, str } from 'scale-ts';
+import { Struct, str } from 'scale-ts';
 import { describe, expect, it, vi } from 'vitest';
 
 import { createInMemoryStatementStore } from '../adapter/inMemory.js';

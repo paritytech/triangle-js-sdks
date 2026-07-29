@@ -1,3 +1,21 @@
+## 0.9.0 (2026-07-29)
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-container / host-api-wrapper:** the account derivation index is an enum selector — `Index(u32) | Raw([u8; 32])` (RFC-0022) — where 0.8.12 had a bare `u32`, and the `ProductProofContext` suffix is that same selector instead of a hex string. This changes the wire encoding of every request carrying a `ProductAccountId`, a proof context, a `ProductAccount` top-up source or a `SmartContractAllowance`, so hosts and products must be upgraded together. Products keep passing a plain number (`accounts.getProductAccount`, `signVrf`, `payments.topUp`, `statementStore.createProof` take the ergonomic `AccountSelector` — a number or a 32-byte array); hosts must expand the selector with the new `derivationIndexBytes` from `@novasamatech/host-container`, which maps `Index(n)` to `u32` little-endian ++ `INDEX_MAGIC` and passes `Raw` through. Because both forms can name one account, anything keyed by account must key on the expanded 32 bytes. See the [account selector section](./docs/migration/v0.9.md#account-selector-rfc-0022) of the migration guide.
+- **host-papp / host-chat / statement-store / handoff-service:** the chat protocol's two crypto primitives were replaced (CHAT-RFC-0004) — key agreement moves from NIST P-256 ECDH to X25519 (RFC 7748) and the AEAD from AES-256-GCM to IETF ChaCha20-Poly1305 (RFC 8439). Encryption public keys shrink from 65 bytes to 32 on the wire (chat messages, every V2 handshake key, `ssoEncPubKey` / `deviceEncPubKey` / `identityChatPublicKey`); the shared secret is used whole instead of sliced to the SEC1 X-coordinate. Nonce/tag framing (`nonce ++ ciphertext ++ tag`, 12 + 16 bytes) and HKDF key derivation are unchanged, and local at-rest storage encryption stays on AES-GCM. This breaks both the wire and persisted SSO sessions: hosts and the paired Polkadot Mobile build must upgrade together **and re-pair** — the session store key moved to `SsoSessionsV4` so pre-upgrade sessions are dropped rather than mis-decoded. See the [chat crypto section](./docs/migration/v0.9.md#chat-crypto-x25519--chacha20-poly1305) of the migration guide.
+- **host-papp:** `AllocatedResource.AutoSigning` carries only `productRootPrivateKey` — the former `productDerivationSecret` is gone. `//product//{productId}` is now a hard junction, so that key exposes exactly one product's subtree. See the [`AutoSigning` payload section](./docs/migration/v0.9.md#autosigning-payload) of the migration guide.
+- **host-api / host-api-wrapper / host-papp:** `genesisHash` on the `createTransaction` / `createTransactionWithLegacyAccount` payloads is a `0x`-prefixed hex string instead of a `Uint8Array`, matching every other `genesisHash` in the SDK. The wire encoding is unchanged (32 raw bytes either way), so hosts and products do not have to upgrade together — only callers that build the payload in TypeScript need to drop their `fromHex` / add a `toHex`. See the [`createTransaction` section](./docs/migration/v0.9.md#createtransaction-genesishash-is-hex) of the migration guide.
+
+### 🚀 Features
+
+- **host-papp:** `UserSession.getProductSubtree(productId)` fetches a product subtree public key (RFC-0022); accounts are soft-derived locally from it. See the [product subtree section](./docs/migration/v0.9.md#usersessiongetproductsubtreeproductid) of the migration guide.
+- **scale:** new `Bytes` codec wrapping scale-ts's, with the fixed size exposed as `codec.size` (`length` is unavailable — a scale-ts codec is an `[enc, dec]` tuple). `Hex` is built on it and exposes `size` too.
+
+### 🩹 Fixes
+
+- **scale / host-api:** a wrong-sized value passed to a fixed-size `Bytes` / `Hex` codec no longer encodes silently — scale-ts truncated over-long values and let shorter ones corrupt the stream; the codec now throws on over-long values and zero-pads shorter ones. All `host-api` fixed-size codecs (`AccountId`, signatures, `Topic`, `genesisHash`, …) go through it. Correctly sized values encode exactly as before. See the [fixed-size codecs section](./docs/migration/v0.9.md#fixed-size-codecs-no-longer-truncate-silently) of the migration guide.
+
 ## 0.8.12 (2026-07-27)
 
 ### 🚀 Features

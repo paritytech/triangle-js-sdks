@@ -10,6 +10,7 @@ import { DerivationIndex } from './accounts.js';
 export const AllocatableResource = Enum({
   StatementStoreAllowance: _void,
   BulletinAllowance: _void,
+  // Account the allowance is granted for, addressed by the RFC-0022 selector.
   SmartContractAllowance: DerivationIndex,
   AutoSigning: _void,
 });

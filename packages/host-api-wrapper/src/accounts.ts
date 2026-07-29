@@ -1,5 +1,6 @@
 import type {
   AccountConnectionStatus as AccountConnectionStatusCodec,
+  AccountSelector,
   CodecType,
   HexString,
   LegacyAccount as LegacyAccountCodec,
@@ -24,6 +25,7 @@ import {
   SigningRawPayloadWithoutAccount,
   assertEnumVariant,
   createHostApi,
+  derivationIndexOf,
   enumValue,
   fromHex,
   isEnumVariant,
@@ -37,13 +39,26 @@ import { getPolkadotSignerFromPjs } from 'polkadot-api/pjs-signer';
 
 import { sandboxTransport } from './sandboxTransport.js';
 
+export type { AccountSelector } from '@novasamatech/host-api';
+
 export type ProductAccountId = CodecType<typeof ProductAccountIdCodec>;
 
 export type ProductAccount = {
   dotNsIdentifier: string;
-  derivationIndex: number;
+  /**
+   * Account selector within the product subtree (RFC 0022): a plain index or a
+   * raw 32-byte index.
+   */
+  derivationIndex: AccountSelector;
   publicKey: Uint8Array;
 };
+
+/**
+ * Product-scoped proof context (RFC 0004, amended by RFC 0022): the product id
+ * plus a selector that expands to the same 32-byte derivation index as a
+ * product account's.
+ */
+export type ProofContext = [productId: string, suffix: AccountSelector];
 
 export type LegacyAccount = CodecType<typeof LegacyAccountCodec>;
 
@@ -82,9 +97,9 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           return err(new LoginErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
-    getProductAccount(dotNsIdentifier: string, derivationIndex = 0) {
+    getProductAccount(dotNsIdentifier: string, derivationIndex: AccountSelector = 0) {
       return hostApi
-        .accountGet(enumValue('v1', [dotNsIdentifier, derivationIndex]))
+        .accountGet(enumValue('v1', [dotNsIdentifier, derivationIndexOf(derivationIndex)]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -98,9 +113,9 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
-    getContextualAlias(context: CodecType<typeof ProductProofContext>, ring: CodecType<typeof RingLocation>) {
+    getContextualAlias(context: ProofContext, ring: CodecType<typeof RingLocation>) {
       return hostApi
-        .accountGetAlias(enumValue('v1', [context, ring]))
+        .accountGetAlias(enumValue('v1', [toProofContext(context), ring]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -122,13 +137,9 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
-    createRingVRFProof(
-      context: CodecType<typeof ProductProofContext>,
-      ring: CodecType<typeof RingLocation>,
-      message: Uint8Array,
-    ) {
+    createRingVRFProof(context: ProofContext, ring: CodecType<typeof RingLocation>, message: Uint8Array) {
       return hostApi
-        .accountCreateProof(enumValue('v1', [context, ring, message]))
+        .accountCreateProof(enumValue('v1', [toProofContext(context), ring, message]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -147,9 +158,16 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
      * in order — and signs it. Callers that need a `signer` item must pass their own public
      * key (from `getProductAccount`); the host never injects it.
      */
-    signVrf(dotNsIdentifier: string, derivationIndex: number, transcriptLabel: Uint8Array, items: VrfTranscriptItem[]) {
+    signVrf(
+      dotNsIdentifier: string,
+      derivationIndex: AccountSelector,
+      transcriptLabel: Uint8Array,
+      items: VrfTranscriptItem[],
+    ) {
       return hostApi
-        .accountSignVrf(enumValue('v1', { account: [dotNsIdentifier, derivationIndex], transcriptLabel, items }))
+        .accountSignVrf(
+          enumValue('v1', { account: [dotNsIdentifier, derivationIndexOf(derivationIndex)], transcriptLabel, items }),
+        )
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -171,7 +189,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
       signerType: 'signPayload' | 'createTransaction' = 'createTransaction',
     ): PolkadotSigner {
       const hostApi = createHostApi(transport);
-      const productAccountId: ProductAccountId = [account.dotNsIdentifier, account.derivationIndex];
+      const productAccountId: ProductAccountId = [account.dotNsIdentifier, derivationIndexOf(account.derivationIndex)];
 
       /**
        * @deprecated added for backward compatibility
@@ -181,7 +199,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           toHex(account.publicKey),
           async payload => {
             const codecPayload: CodecType<typeof SigningPayload> = {
-              account: [account.dotNsIdentifier, account.derivationIndex],
+              account: productAccountId,
               payload: buildSigningPayloadFields(payload),
             };
 
@@ -204,7 +222,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           },
           async raw => {
             const payload: CodecType<typeof SigningRawPayload> = {
-              account: [account.dotNsIdentifier, account.derivationIndex],
+              account: productAccountId,
               payload:
                 raw.type === 'bytes'
                   ? {
@@ -253,7 +271,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
 
           const txPayload: CodecType<typeof ProductAccountTransaction> = {
             signer: productAccountId,
-            genesisHash: checkGenesis.additionalSigned,
+            genesisHash: toHex(checkGenesis.additionalSigned),
             callData,
             extensions: Object.values(signedExtensions).map(({ identifier, value, additionalSigned }) => ({
               id: identifier,
@@ -370,6 +388,10 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
 };
 
 export const accounts = createAccountsProvider();
+
+function toProofContext([productId, suffix]: ProofContext): CodecType<typeof ProductProofContext> {
+  return [productId, derivationIndexOf(suffix)];
+}
 
 function asHex(v: string): HexString {
   if (v.startsWith('0x')) return v as HexString;

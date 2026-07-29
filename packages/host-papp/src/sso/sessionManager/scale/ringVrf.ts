@@ -7,8 +7,9 @@ import {
   RingLocation,
   RingVrfProof,
 } from '@novasamatech/host-api';
+import { Bytes } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Result, Struct, str } from 'scale-ts';
+import { Result, Struct, str } from 'scale-ts';
 
 export type RingVrfAliasRequest = CodecType<typeof RingVrfAliasRequestCodec>;
 export const RingVrfAliasRequestCodec = Struct({

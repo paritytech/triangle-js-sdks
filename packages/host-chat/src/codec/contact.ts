@@ -1,5 +1,6 @@
+import { Bytes } from '@novasamatech/scale';
 import { AccountIdCodec } from '@novasamatech/statement-store';
-import { Bytes, Option, Struct, str } from 'scale-ts';
+import { Option, Struct, str } from 'scale-ts';
 
 export const Contact = Struct({
   username: str,

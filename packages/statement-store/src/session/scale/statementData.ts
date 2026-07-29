@@ -1,4 +1,5 @@
-import { Bytes, Enum, Struct, Vector, enhanceCodec, str, u8 } from 'scale-ts';
+import { Bytes } from '@novasamatech/scale';
+import { Enum, Struct, Vector, enhanceCodec, str, u8 } from 'scale-ts';
 
 export type ResponseStatus = 'success' | 'decryptionFailed' | 'decodingFailed' | 'unknown';
 

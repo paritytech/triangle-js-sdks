@@ -166,7 +166,13 @@ It can be used for various purposes like p2p communication, storing temp data, e
 
 ```ts
 import { createStatementStore } from '@novasamatech/host-api-wrapper';
-import type { Topic, Statement, SignedStatement, StatementTopicFilter } from '@novasamatech/host-api-wrapper';
+import type {
+  Topic,
+  Statement,
+  SignedStatement,
+  StatementTopicFilter,
+  ProductAccountRef,
+} from '@novasamatech/host-api-wrapper';
 
 // Create statement store instance
 const statementStore = createStatementStore();
@@ -182,7 +188,9 @@ const subscription = statementStore.subscribe(filter, (page) => {
 });
 
 // Create a proof for a new statement
-const accountId = ['product.dot', 0]; // [DotNS identifier, derivation index]
+// [DotNS identifier, account selector]. The selector is a plain index or a raw
+// 32-byte index (RFC 0022).
+const accountId: ProductAccountRef = ['product.dot', 0];
 const statement: Statement = {
   proof: undefined,
   decryptionKey: undefined,
@@ -212,7 +220,7 @@ The Accounts Provider allows you to access product accounts and create signers f
 
 ```ts
 import { accounts } from '@novasamatech/host-api-wrapper';
-import type { ProductAccount } from '@novasamatech/host-api-wrapper';
+import type { ProductAccount, ProofContext } from '@novasamatech/host-api-wrapper';
 
 // Get the user's primary DotNS username (RFC-0014)
 // — prompts for permission on first call
@@ -242,8 +250,12 @@ if (loginResult.isOk()) {
   console.error('Login error:', loginResult.error);
 }
 
-// Get a product account by DotNS identifier and derivation index
+// Get a product account by DotNS identifier and account selector. The selector
+// is a plain index (the primary, enumerable form) or a raw 32-byte index
+// (RFC 0022); it defaults to index 0, the product's default account.
 const accountResult = await accounts.getProductAccount('product.dot', 0);
+// …or, for a byte-valued selector:
+// const accountResult = await accounts.getProductAccount('product.dot', raw32);
 
 if (accountResult.isOk()) {
   const account: ProductAccount = accountResult.value;
@@ -252,7 +264,9 @@ if (accountResult.isOk()) {
 
 // Ring VRF: a contextual alias and a proof are addressed by a product-scoped
 // `context` (`[productId, suffix]`) and a `ring` location on a chain (RFC 0004).
-const context: [string, string] = ['product.dot', '0x00']; // [productId, 0x-hex suffix]
+// The suffix is the same selector as an account's derivation index and expands
+// to the same 32-byte value (RFC 0022).
+const context: ProofContext = ['product.dot', 0]; // [productId, selector]
 const ring = {
   chainId: '0x…', // 32-byte chain genesis hash
   junctions: [{ tag: 'PalletInstance', value: 42 }],
@@ -447,10 +461,11 @@ const balanceSub = payments.subscribeBalance(balance => {
 });
 balanceSub.onInterrupt(() => console.log('Balance access denied or lost'));
 
-// Top up the user's balance from a product account
+// Top up the user's balance from one of the calling product's accounts.
+// `derivationIndex` is the same selector as `accounts.getProductAccount` takes:
+// a plain index or a raw 32-byte index (RFC 0022).
 await payments.topUp(1_000_000n, {
   type: 'productAccount',
-  dotNsIdentifier: 'my-product.dot',
   derivationIndex: 0,
 });
 

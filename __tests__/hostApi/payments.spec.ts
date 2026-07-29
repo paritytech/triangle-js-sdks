@@ -101,7 +101,23 @@ describe('Host API: Payments', () => {
       await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 });
 
       expect(handler).toHaveBeenCalledWith(
-        { amount: 200n, source: { tag: 'ProductAccount', value: 2 } },
+        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Index', value: 2 } } },
+        expect.anything(),
+      );
+    });
+
+    it('should pass a raw 32-byte derivation index through unchanged', async () => {
+      const { container, payments } = setup();
+      const rawIndex = new Uint8Array(32).fill(0xee);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
+        ok(undefined),
+      );
+      container.handlePaymentTopUp(handler);
+
+      await payments.topUp(200n, { type: 'productAccount', derivationIndex: rawIndex });
+
+      expect(handler).toHaveBeenCalledWith(
+        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Raw', value: rawIndex } } },
         expect.anything(),
       );
     });
@@ -116,7 +132,7 @@ describe('Host API: Payments', () => {
       await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 }, 5);
 
       expect(handler).toHaveBeenCalledWith(
-        { into: 5, amount: 200n, source: { tag: 'ProductAccount', value: 2 } },
+        { into: 5, amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Index', value: 2 } } },
         expect.anything(),
       );
     });

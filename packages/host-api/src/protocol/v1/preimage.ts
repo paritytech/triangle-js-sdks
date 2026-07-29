@@ -1,5 +1,5 @@
-import { ErrEnum, Hex, Nullable } from '@novasamatech/scale';
-import { Bytes, Result, _void } from 'scale-ts';
+import { Bytes, ErrEnum, Hex, Nullable } from '@novasamatech/scale';
+import { Result, _void } from 'scale-ts';
 
 import { GenericErr } from '../commonCodecs.js';
 

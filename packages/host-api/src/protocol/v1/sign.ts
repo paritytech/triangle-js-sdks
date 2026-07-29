@@ -1,7 +1,7 @@
-import { Enum, ErrEnum, Hex } from '@novasamatech/scale';
-import { Bytes, Option, Result, Struct, Vector, _void, bool, str, u32 } from 'scale-ts';
+import { Bytes, Enum, ErrEnum, Hex } from '@novasamatech/scale';
+import { Option, Result, Struct, Vector, _void, bool, str, u32 } from 'scale-ts';
 
-import { GenericErr, GenesisHash } from '../commonCodecs.js';
+import { GenericErr } from '../commonCodecs.js';
 
 import { ProductAccountId } from './accounts.js';
 
@@ -48,7 +48,7 @@ const SigningPayloadPayload = Struct({
   blockHash: Hex(),
   blockNumber: Hex(),
   era: Hex(),
-  genesisHash: GenesisHash,
+  genesisHash: Hex(),
   method: Hex(),
   nonce: Hex(),
   specVersion: Hex(),

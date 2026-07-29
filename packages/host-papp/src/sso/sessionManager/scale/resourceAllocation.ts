@@ -1,13 +1,14 @@
 import { DerivationIndex, DotNsIdentifier } from '@novasamatech/host-api';
-import { Status } from '@novasamatech/scale';
+import { Bytes, Status } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Enum, Result, Struct, Vector, _void, str } from 'scale-ts';
+import { Enum, Result, Struct, Vector, _void, str } from 'scale-ts';
 
 // Resource kinds that the Host can ask the Account Holder to allocate.
 export type ApAllocatableResource = CodecType<typeof ApAllocatableResourceCodec>;
 export const ApAllocatableResourceCodec = Enum({
   StatementStoreAllowance: _void,
   BulletInAllowance: _void,
+  // Account the allowance is granted for, addressed by the RFC-0022 selector.
   SmartContractAllowance: DerivationIndex,
   AutoSigning: _void,
 });
@@ -22,8 +23,12 @@ export const ApAllocatedResourceCodec = Enum({
     slotAccountKey: Bytes(),
   }),
   SmartContractAllowance: _void,
+  // RFC-0022: the payload collapsed to the product-subtree secret key alone.
+  // `//product//{productId}` is a hard junction, so this key exposes exactly
+  // that product's subtree — the secret path component is gone.
   AutoSigning: Struct({
-    productDerivationSecret: str,
+    // `Sr25519PrivateKey ++ Sr25519Nonce` (64 bytes): the full expanded secret
+    // needed to sign and soft-derive `/{index}` below the product root.
     productRootPrivateKey: Bytes(),
   }),
 });

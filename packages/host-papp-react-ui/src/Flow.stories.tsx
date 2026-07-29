@@ -1,6 +1,6 @@
 import type { CreateTransactionRequest, HostMetadata, UserSession } from '@novasamatech/host-papp';
 import { createPappAdapter } from '@novasamatech/host-papp';
-import { fromHex, toHex } from '@novasamatech/scale';
+import { toHex } from '@novasamatech/scale';
 import { createLazyClient } from '@novasamatech/statement-store';
 import { Button, ScrollArea } from '@novasamatech/tr-ui';
 import type { Meta, StoryObj } from '@storybook/react-vite';
@@ -26,8 +26,8 @@ const SignTransactionExample = ({ session }: { session: UserSession | null }) =>
     payload: {
       tag: 'v1',
       value: {
-        signer: ['test-product.dot', 0],
-        genesisHash: fromHex('0xc5af1826b31493f08b7e2a823842f98575b806a784126f28da9608c68665afa5'),
+        signer: ['test-product.dot', { tag: 'Left', value: 0 }],
+        genesisHash: '0xc5af1826b31493f08b7e2a823842f98575b806a784126f28da9608c68665afa5',
         // SCALE-encoded Call (module + function + params); arbitrary bytes for the example.
         callData: new Uint8Array([0x0a, 0x03, 0x00, 0x6a, 0x78, 0x5b, 0xe5]),
         // Let the implementer infer the extensions for this example.

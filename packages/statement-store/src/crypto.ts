@@ -1,4 +1,5 @@
 import { blake2b } from '@noble/hashes/blake2.js';
+import { Bytes } from '@novasamatech/scale';
 import {
   deriveSlotAccountPublicKey as deriveSlotPublicKey,
   ensureSubstrateSlotSr25519Ready,
@@ -8,7 +9,7 @@ import {
 import { entropyToMiniSecret } from '@polkadot-labs/hdkd-helpers';
 import { HDKD as sr25519HDKD, secretFromSeed as sr25519SecretFromSeed } from '@scure/sr25519';
 import type { Codec } from 'scale-ts';
-import { Bytes, str, u64 } from 'scale-ts';
+import { str, u64 } from 'scale-ts';
 
 import { substrateSr25519PublicKey, substrateSr25519Sign, substrateSr25519Verify } from './substrateSr25519.js';
 

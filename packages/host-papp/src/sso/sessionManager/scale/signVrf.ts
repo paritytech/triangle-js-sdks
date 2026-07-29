@@ -1,7 +1,7 @@
 import { ProductAccountId, VrfSignature, VrfTranscriptItem } from '@novasamatech/host-api';
-import { ErrEnum } from '@novasamatech/scale';
+import { Bytes, ErrEnum } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Result, Struct, Vector, _void, str } from 'scale-ts';
+import { Result, Struct, Vector, _void, str } from 'scale-ts';
 
 /**
  * Host → Account Holder request for an sr25519 (schnorrkel) VRF signature over a

@@ -1,19 +1,67 @@
-import { Enum, ErrEnum, Hex, Status } from '@novasamatech/scale';
-import { Bytes, Option, Result, Struct, Tuple, Vector, _void, str, u32, u8 } from 'scale-ts';
+import { Bytes, Enum, ErrEnum, Status } from '@novasamatech/scale';
+import type { CodecType } from 'scale-ts';
+import { Option, Result, Struct, Tuple, Vector, _void, str, u32, u8 } from 'scale-ts';
 
-import { GenericErr } from '../commonCodecs.js';
+import { GenericErr, GenesisHash } from '../commonCodecs.js';
 
 // common types
 
 export const AccountId = Bytes(32);
 export const PublicKey = Bytes();
 export const DotNsIdentifier = str;
-export const DerivationIndex = u32;
+
+/**
+ * Raw 32-byte derivation index — the escape hatch for byte-valued selectors.
+ * Used directly as the soft-junction chain code of `//product//{productId}/{index}`.
+ */
+export const RawDerivationIndex = Bytes(32);
+
+/**
+ * Account selector within a product subtree: `Index(u32) | Raw([u8; 32])` (RFC 0022).
+ *
+ * `Index` is the primary form — plain indices keep a product's accounts
+ * enumerable. `Raw` carries a raw 32-byte index. Hosts expand `Index(n)` to
+ * the internal 32-byte index (`u32` little-endian ++ index magic) and pass
+ * `Raw(bytes)` through unchanged.
+ */
+export const DerivationIndex = Enum({
+  Index: u32,
+  Raw: RawDerivationIndex,
+});
+
 export const ProductAccountId = Tuple(DotNsIdentifier, DerivationIndex);
 export const RingVrgAlias = Bytes();
 
+/**
+ * Ergonomic form of an account selector: a plain index or a raw 32-byte index.
+ */
+export type AccountSelector = number | Uint8Array;
+
+/**
+ * Normalizes an {@link AccountSelector} into the wire {@link DerivationIndex}:
+ * numbers become `Index`, 32-byte arrays become `Raw`.
+ */
+export function derivationIndexOf(selector: AccountSelector): CodecType<typeof DerivationIndex> {
+  if (typeof selector === 'number') {
+    return { tag: 'Index', value: selector };
+  }
+
+  if (selector.length !== RawDerivationIndex.size) {
+    throw new Error(`Raw derivation index must be ${RawDerivationIndex.size} bytes, got ${selector.length}`);
+  }
+
+  return { tag: 'Raw', value: selector };
+}
+
 export const ProductId = DotNsIdentifier;
-export const ProductProofContextSuffix = Hex();
+
+/**
+ * Selector distinguishing proof contexts within a product (RFC 0004 amended by
+ * RFC 0022). Expands to the same 32-byte derivation index as
+ * {@link ProductAccountId}'s index, so the alias ↔ account mapping is the
+ * identity on it.
+ */
+export const ProductProofContextSuffix = DerivationIndex;
 export const ProductProofContext = Tuple(ProductId, ProductProofContextSuffix);
 
 // structs
@@ -49,8 +97,7 @@ export const RingLocationJunction = Enum({
 });
 
 export const RingLocation = Struct({
-  // TODO make GenesisHash fixed size and replace hardcoded codec with it
-  chainId: Hex(32),
+  chainId: GenesisHash,
   junctions: Vector(RingLocationJunction),
 });
 

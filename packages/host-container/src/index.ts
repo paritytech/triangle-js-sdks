@@ -5,5 +5,6 @@ export type { Container, ContainerHandlerOf, CreateContainerOptions, HostApiDebu
 export { onHostApiDebugMessage } from './debugBus.js';
 
 export { deriveProductEntropy, deriveProductEntropyFromSource } from './deriveEntropy.js';
+export { INDEX_MAGIC, derivationIndexBytes, indexBytes } from './derivationIndex.js';
 export { createRateLimiter } from './rateLimiter.js';
 export type { CreateRateLimiterConfig, RateLimiter, RateLimiterConfig, RateLimiterStrategy } from './rateLimiter.js';

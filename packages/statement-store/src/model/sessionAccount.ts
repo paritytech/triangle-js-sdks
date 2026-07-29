@@ -1,4 +1,5 @@
-import { Bytes, Option, Struct, str } from 'scale-ts';
+import { Bytes } from '@novasamatech/scale';
+import { Option, Struct, str } from 'scale-ts';
 
 import { BrandedBytesCodec } from '../crypto.js';
 import type { Branded } from '../types.js';
