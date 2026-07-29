@@ -1,6 +1,7 @@
 import { DotNsIdentifier } from '@novasamatech/host-api';
+import { Bytes } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Result, Struct, str } from 'scale-ts';
+import { Result, Struct, str } from 'scale-ts';
 
 // RFC-0022 made `//product//{productId}` a hard junction, so the root public
 // key alone no longer determines product account public keys. This request

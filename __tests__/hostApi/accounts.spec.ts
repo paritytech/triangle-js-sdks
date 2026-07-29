@@ -164,7 +164,7 @@ describe('Host API: Accounts', () => {
     it('should reject a raw index that is not 32 bytes', () => {
       const { accountsProvider } = setup();
 
-      expect(() => accountsProvider.getProductAccount('product.dot', new Uint8Array(31))).toThrow();
+      expect(() => accountsProvider.getProductAccount('product.dot', new Uint8Array(31))).toThrow(/must be 32 bytes/);
     });
 
     it('should return error on failure', async () => {

@@ -40,7 +40,7 @@ export {
 export { GenericError } from './protocol/commonCodecs.js';
 export { CreateTransactionErr, LegacyTransaction, ProductAccountTransaction } from './protocol/v1/createTransaction.js';
 export type { AccountSelector } from './protocol/v1/accounts.js';
-export { accountSelectorOf, derivationIndexOf } from './protocol/v1/accounts.js';
+export { derivationIndexOf } from './protocol/v1/accounts.js';
 export {
   AccountConnectionStatus,
   AccountId,

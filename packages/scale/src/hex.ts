@@ -6,14 +6,19 @@ import { Bytes } from './bytes.js';
 
 export type HexString = `0x${string}`;
 
-export type HexCodec = Codec<HexString> & { size?: number };
+export type HexCodec<Size extends number | undefined = number | undefined> = Codec<HexString> & { size: Size };
 
 /**
  * Wrapper around {@link Bytes} codec. Every usage of Hex codec should be threaded as raw Bytes with mapping to hex string.
  * @param [size] Optional, corresponds to byte array size, not the length of hex string.
  */
-export const Hex = (size?: number): HexCodec =>
-  Object.assign(
-    enhanceCodec<Uint8Array, HexString>(Bytes(size), fromHex, v => toHex(v) as HexString),
+export function Hex(): HexCodec<undefined>;
+export function Hex(size: number): HexCodec<number>;
+export function Hex(size?: number): HexCodec {
+  const bytes = size === undefined ? Bytes() : Bytes(size);
+
+  return Object.assign(
+    enhanceCodec<Uint8Array, HexString>(bytes, fromHex, v => toHex(v) as HexString),
     { size },
   );
+}

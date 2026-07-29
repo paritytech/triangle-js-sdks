@@ -53,14 +53,6 @@ export function derivationIndexOf(selector: AccountSelector): CodecType<typeof D
   return { tag: 'Raw', value: selector };
 }
 
-/**
- * Inverse of {@link derivationIndexOf} — unwraps the wire selector back into
- * the ergonomic form.
- */
-export function accountSelectorOf(index: CodecType<typeof DerivationIndex>): AccountSelector {
-  return index.value;
-}
-
 export const ProductId = DotNsIdentifier;
 
 /**

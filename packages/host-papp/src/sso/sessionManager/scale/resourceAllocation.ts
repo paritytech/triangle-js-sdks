@@ -1,7 +1,7 @@
 import { DerivationIndex, DotNsIdentifier } from '@novasamatech/host-api';
-import { Status } from '@novasamatech/scale';
+import { Bytes, Status } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Bytes, Enum, Result, Struct, Vector, _void, str } from 'scale-ts';
+import { Enum, Result, Struct, Vector, _void, str } from 'scale-ts';
 
 // Resource kinds that the Host can ask the Account Holder to allocate.
 export type ApAllocatableResource = CodecType<typeof ApAllocatableResourceCodec>;

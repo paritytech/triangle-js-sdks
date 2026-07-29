@@ -1,7 +1,7 @@
 import { blake2b } from '@noble/hashes/blake2.js';
 import { describe, expect, it } from 'vitest';
 
-import { DERIVATION_INDEX_LENGTH, INDEX_MAGIC, derivationIndexBytes, indexBytes } from './derivationIndex.js';
+import { INDEX_MAGIC, derivationIndexBytes, indexBytes } from './derivationIndex.js';
 
 describe('RFC-0022 derivation index', () => {
   it('pins the index magic to blake2b256("product-account-index")[..28]', () => {
@@ -12,7 +12,7 @@ describe('RFC-0022 derivation index', () => {
   it('lays out a plain index as u32 little-endian followed by the magic', () => {
     const index = indexBytes(5);
 
-    expect(index).toHaveLength(DERIVATION_INDEX_LENGTH);
+    expect(index).toHaveLength(32);
     expect(index.slice(0, 4)).toEqual(new Uint8Array([5, 0, 0, 0]));
     expect(index.slice(4)).toEqual(INDEX_MAGIC);
   });

@@ -2,12 +2,17 @@
 
 ### ⚠️ Breaking Changes
 
-- **host-api / host-container / host-api-wrapper:** account derivation index is now an enum selector (`Index(u32)` / `Raw([u8; 32])`, RFC-0022) supporting raw 32-byte indices. This changes the wire encoding of every request carrying a `ProductAccountId` (and of the proof-context suffix), so hosts and products must be upgraded together. `AccountSelector` ergonomic form (number or 32-byte array) plus `derivationIndexOf` / `derivationIndexBytes` helpers; the proof-context suffix uses the same selector.
-- **scale:** `Bytes` is now exported from `@novasamatech/scale` and used by `Hex` and all `host-api` codecs. With a fixed size it throws on over-long values and zero-pads shorter ones, where scale-ts silently mis-encoded them; the fixed size is exposed as `codec.size` (`length` is unavailable — a scale-ts codec is an `[enc, dec]` tuple). `Hex(length)` param is renamed to `size`. `RAW_DERIVATION_INDEX_LENGTH` is removed from `host-api` — use `RawDerivationIndex.size`.
+- **host-api / host-container / host-api-wrapper:** the account derivation index is an enum selector — `Index(u32) | Raw([u8; 32])` (RFC-0022) — where 0.8.12 had a bare `u32`, and the `ProductProofContext` suffix is that same selector instead of a hex string. This changes the wire encoding of every request carrying a `ProductAccountId`, a proof context, a `ProductAccount` top-up source or a `SmartContractAllowance`, so hosts and products must be upgraded together. Products keep passing a plain number (`accounts.getProductAccount`, `signVrf`, `payments.topUp`, `statementStore.createProof` take the ergonomic `AccountSelector` — a number or a 32-byte array); hosts must expand the selector with the new `derivationIndexBytes` from `@novasamatech/host-container`, which maps `Index(n)` to `u32` little-endian ++ `INDEX_MAGIC` and passes `Raw` through. Because both forms can name one account, anything keyed by account must key on the expanded 32 bytes — `derivationIndexBytes` rejects a `Raw` index ending in `INDEX_MAGIC` to keep the mapping injective.
+- **host-papp:** `AllocatedResource.AutoSigning` carries only `productRootPrivateKey` — the former `productDerivationSecret` is gone. `//product//{productId}` is now a hard junction, so that key exposes exactly one product's subtree.
 
 ### 🚀 Features
 
 - **host-papp:** `UserSession.getProductSubtree(productId)` fetches a product subtree public key (RFC-0022); accounts are soft-derived locally from it.
+- **scale:** new `Bytes` codec wrapping scale-ts's, with the fixed size exposed as `codec.size` (`length` is unavailable — a scale-ts codec is an `[enc, dec]` tuple). `Hex` is built on it and exposes `size` too.
+
+### 🩹 Fixes
+
+- **scale / host-api:** a wrong-sized value passed to a fixed-size `Bytes` / `Hex` codec no longer encodes silently — scale-ts truncated over-long values and let shorter ones corrupt the stream; the codec now throws on over-long values and zero-pads shorter ones. All `host-api` fixed-size codecs (`AccountId`, signatures, `Topic`, `genesisHash`, …) go through it. Correctly sized values encode exactly as before.
 
 ## 0.8.12 (2026-07-27)
 
