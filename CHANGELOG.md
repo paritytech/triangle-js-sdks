@@ -1,12 +1,21 @@
+## 0.9.0 (2026-07-29)
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-container / host-api-wrapper:** account derivation index is now an enum selector (`Index(u32)` / `Raw([u8; 32])`, RFC-0022) supporting raw 32-byte indices. This changes the wire encoding of every request carrying a `ProductAccountId` (and of the proof-context suffix), so hosts and products must be upgraded together. `AccountSelector` ergonomic form (number or 32-byte array) plus `derivationIndexOf` / `derivationIndexBytes` helpers; the proof-context suffix uses the same selector.
+- **scale:** `Bytes` is now exported from `@novasamatech/scale` and used by `Hex` and all `host-api` codecs. With a fixed size it throws on over-long values and zero-pads shorter ones, where scale-ts silently mis-encoded them; the fixed size is exposed as `codec.size` (`length` is unavailable — a scale-ts codec is an `[enc, dec]` tuple). `Hex(length)` param is renamed to `size`. `RAW_DERIVATION_INDEX_LENGTH` is removed from `host-api` — use `RawDerivationIndex.size`.
+
+### 🚀 Features
+
+- **host-papp:** `UserSession.getProductSubtree(productId)` fetches a product subtree public key (RFC-0022); accounts are soft-derived locally from it.
+
 ## 0.8.12 (2026-07-27)
 
 ### 🚀 Features
 
-- **host-api / host-container / host-api-wrapper:** account derivation index is now an enum selector (`Index(u32)` / `Raw([u8; 32])`, RFC-0022) supporting raw 32-byte indices. `AccountSelector` ergonomic form (number or 32-byte array) plus `derivationIndexOf` / `derivationIndexBytes` helpers; the proof-context suffix uses the same selector.
 - **host-api / host-container / host-api-wrapper:** sr25519 VRF signing over a product account (RFC-0023). `accountSignVrf` / `accounts.signVrf` / `handleAccountSignVrf` take a transcript recipe (root label + ordered `(label, value)` items) and return `{ preOutput, proof }`. Authorization mirrors `sign_raw`.
 - **host-papp:** `UserSession.signVrf` forwards the VRF request to the paired Account Holder for the non-`AutoSigning` path; fails with `SignVrfErr` (`Rejected` / `Unknown`).
 - **host-papp:** `UserSession.readAllowance(productId, resource)` returns the session's allowance slot-account key (`Uint8Array | null`); `AllowanceResourceKind` now exported.
-- **host-papp:** `UserSession.getProductSubtree(productId)` fetches a product subtree public key (RFC-0022); accounts are soft-derived locally from it.
 - **host-papp:** `UserSession.getIdentity()` returns the session user's on-chain identity (`Identity | null`).
 
 ### 🩹 Fixes
