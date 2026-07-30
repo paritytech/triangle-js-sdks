@@ -33,6 +33,21 @@ export const ProductAccountId = Tuple(DotNsIdentifier, DerivationIndex);
 export const RingVrgAlias = Bytes();
 
 /**
+ * Public name of a registered ring VRF key (RFC-0024): the owning product plus
+ * the index of the key inside that product's ring VRF domain (`//{productId}//{index}`
+ * of the ring VRF tree, RFC-0022).
+ *
+ * Structurally a {@link ProductAccountId}, but it names a slot in the ring VRF
+ * tree — *not* the sr25519 product account at the same `(product, index)`.
+ * Consumers MUST treat it as opaque and select keys by declared
+ * {@link RingLocation}; the index is the owner's implementation detail.
+ */
+export const RingVrfKeyHandle = ProductAccountId;
+
+/** Ring VRF member public key. Linkable across every ring the key appears in. */
+export const RingVrfPublicKey = Bytes(32);
+
+/**
  * Ergonomic form of an account selector: a plain index or a raw 32-byte index.
  */
 export type AccountSelector = number | Uint8Array;
@@ -101,6 +116,28 @@ export const RingLocation = Struct({
   junctions: Vector(RingLocationJunction),
 });
 
+/**
+ * How much of a registry entry the caller is asking for (RFC-0024).
+ *
+ * `PublicKey` is owner-visible by default but permissioned cross-product: a
+ * member public key is linkable across every ring it appears in.
+ */
+export const RingVrfKeyDisclosure = Status('Anonymized', 'PublicKey');
+
+/**
+ * A ring VRF key registry entry as returned to a caller (RFC-0024).
+ *
+ * `rings` is what the owning product *declared* the key for, not proof of
+ * membership — membership is still discovered only by attempting a proof, which
+ * fails with `NotMember`. `publicKey` is present only when the caller owns the
+ * key or asked for (and was granted) `PublicKey` disclosure.
+ */
+export const RegisteredRingVrfKey = Struct({
+  handle: RingVrfKeyHandle,
+  rings: Vector(RingLocation),
+  publicKey: Option(RingVrfPublicKey),
+});
+
 /** One `transcript.append_message(label, value)` call replayed by the host. */
 export const VrfTranscriptItem = Struct({
   label: Bytes(),
@@ -125,6 +162,9 @@ export const RequestCredentialsErr = ErrEnum('RequestCredentialsErr', {
 export const CreateProofErr = ErrEnum('CreateProofErr', {
   RingNotFound: [_void, 'CreateProof: ring not found'],
   NotMember: [_void, 'CreateProof: selected member key is not a member of the ring'],
+  KeyNotRegistered: [_void, 'CreateProof: key handle has no registry entry'],
+  KeyNotInRing: [_void, 'CreateProof: key handle is registered, but not for the requested ring'],
+  NotAllowlisted: [_void, 'CreateProof: key handle is foreign and its owner has not allowlisted the caller'],
   Rejected: [_void, 'CreateProof: rejected'],
   Unknown: [GenericErr, 'CreateProof: unknown error'],
 });
@@ -132,8 +172,31 @@ export const CreateProofErr = ErrEnum('CreateProofErr', {
 export const GetAliasErr = ErrEnum('GetAliasErr', {
   RingNotFound: [_void, 'GetAlias: ring not found'],
   NotMember: [_void, 'GetAlias: selected member key is not a member of the ring'],
+  KeyNotRegistered: [_void, 'GetAlias: key handle has no registry entry'],
+  KeyNotInRing: [_void, 'GetAlias: key handle is registered, but not for the requested ring'],
   Rejected: [_void, 'GetAlias: rejected'],
   Unknown: [GenericErr, 'GetAlias: unknown error'],
+});
+
+export const RegisterRingVrfKeyErr = ErrEnum('RegisterRingVrfKeyErr', {
+  NotConnected: [_void, 'RegisterRingVrfKey: not connected'],
+  RingNotFound: [_void, 'RegisterRingVrfKey: ring not found'],
+  Rejected: [_void, 'RegisterRingVrfKey: rejected'],
+  Unknown: [GenericErr, 'RegisterRingVrfKey: unknown error'],
+});
+
+export const ListRingVrfKeysErr = ErrEnum('ListRingVrfKeysErr', {
+  NotConnected: [_void, 'ListRingVrfKeys: not connected'],
+  Rejected: [_void, 'ListRingVrfKeys: owner is not the calling product and the caller has no grant for it'],
+  Unknown: [GenericErr, 'ListRingVrfKeys: unknown error'],
+});
+
+export const RingVrfSignErr = ErrEnum('RingVrfSignErr', {
+  NotConnected: [_void, 'RingVrfSign: not connected'],
+  KeyNotRegistered: [_void, 'RingVrfSign: key handle has no registry entry'],
+  NotAllowlisted: [_void, 'RingVrfSign: key handle is foreign and its owner has not allowlisted the caller'],
+  Rejected: [_void, 'RingVrfSign: rejected'],
+  Unknown: [GenericErr, 'RingVrfSign: unknown error'],
 });
 
 export const GetUserIdErr = ErrEnum('GetUserIdErr', {
@@ -168,13 +231,52 @@ export const AccountGetV1_response = Result(ProductAccount, RequestCredentialsEr
 
 // account_get_alias
 
-export const AccountGetAliasV1_request = Tuple(ProductProofContext, RingLocation);
+/**
+ * `(keyHandle, context, ring)` — RFC-0024 replaced RFC-0004's host-side member
+ * key selection with an explicit handle. `ring` stays a separate argument
+ * because a key may be registered for several; the host MUST check that `ring`
+ * is among the handle's declared rings and fail with `KeyNotInRing` otherwise.
+ */
+export const AccountGetAliasV1_request = Tuple(RingVrfKeyHandle, ProductProofContext, RingLocation);
 export const AccountGetAliasV1_response = Result(ContextualAlias, GetAliasErr);
 
 // account_create_proof
 
-export const AccountCreateProofV1_request = Tuple(ProductProofContext, RingLocation, Bytes());
+/** `(keyHandle, context, ring, message)` — see {@link AccountGetAliasV1_request}. */
+export const AccountCreateProofV1_request = Tuple(RingVrfKeyHandle, ProductProofContext, RingLocation, Bytes());
 export const AccountCreateProofV1_response = Result(RingVrfProof, CreateProofErr);
+
+// account_register_ring_vrf_key
+
+/**
+ * `(index, ring)` — registers a key the *calling* product owns. Ownership is the
+ * calling product id and is never a parameter, so registration needs no
+ * capability gate and no prompt. Registering an already-registered `index` for
+ * an additional `ring` extends the existing entry rather than creating a second
+ * one (RFC-0024).
+ */
+export const AccountRegisterRingVrfKeyV1_request = Tuple(DerivationIndex, RingLocation);
+export const AccountRegisterRingVrfKeyV1_response = Result(RingVrfPublicKey, RegisterRingVrfKeyErr);
+
+// account_list_ring_vrf_keys
+
+/** `(owner, disclosure)` — lists the registry entries owned by `owner` (RFC-0024). */
+export const AccountListRingVrfKeysV1_request = Tuple(ProductId, RingVrfKeyDisclosure);
+export const AccountListRingVrfKeysV1_response = Result(Vector(RegisteredRingVrfKey), ListRingVrfKeysErr);
+
+// account_ring_vrf_sign
+
+/**
+ * `(keyHandle, message)` — signs `message` with the member key itself, producing
+ * an ordinary signature rather than an anonymous ring proof (RFC-0024).
+ *
+ * Takes neither a context nor a ring: it derives no alias and proves no
+ * membership, so there is nothing for either to scope. Verified against the
+ * member public key, which makes every such signature linkable to every other
+ * use of that key.
+ */
+export const AccountRingVrfSignV1_request = Tuple(RingVrfKeyHandle, Bytes());
+export const AccountRingVrfSignV1_response = Result(Bytes(), RingVrfSignErr);
 
 // account_sign_vrf
 

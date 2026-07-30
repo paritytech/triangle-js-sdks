@@ -14,7 +14,15 @@ import {
   RingVrfAliasResponseCodec,
   RingVrfProofRequestCodec,
   RingVrfProofResponseCodec,
+  RingVrfSignRequestCodec,
+  RingVrfSignResponseCodec,
 } from './ringVrf.js';
+import {
+  ListRingVrfKeysRequestCodec,
+  ListRingVrfKeysResponseCodec,
+  RegisterRingVrfKeyRequestCodec,
+  RegisterRingVrfKeyResponseCodec,
+} from './ringVrfKeys.js';
 import { SignVrfRequestCodec, SignVrfResponseCodec } from './signVrf.js';
 import {
   SignRawLegacyRequestCodec,
@@ -49,6 +57,15 @@ export const RemoteMessageCodec = Struct({
       // RFC-0022 additions — appended so existing variant indexes stay stable.
       ProductSubtreeRequest: ProductSubtreeRequestCodec,
       ProductSubtreeResponse: ProductSubtreeResponseCodec,
+      // RFC-0024 additions — likewise appended. `RingVrfAliasRequest` and
+      // `RingVrfProofRequest` above gained a `keyHandle` field in place rather
+      // than being re-added here, since a handle is now mandatory on both.
+      RegisterRingVrfKeyRequest: RegisterRingVrfKeyRequestCodec,
+      RegisterRingVrfKeyResponse: RegisterRingVrfKeyResponseCodec,
+      ListRingVrfKeysRequest: ListRingVrfKeysRequestCodec,
+      ListRingVrfKeysResponse: ListRingVrfKeysResponseCodec,
+      RingVrfSignRequest: RingVrfSignRequestCodec,
+      RingVrfSignResponse: RingVrfSignResponseCodec,
     }),
   }),
 });

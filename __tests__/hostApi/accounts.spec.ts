@@ -3,11 +3,14 @@ import {
   CreateProofErr,
   GetAliasErr,
   GetUserIdErr,
+  ListRingVrfKeysErr,
   LoginErr,
   ProductProofContext,
+  RegisterRingVrfKeyErr,
   RequestCredentialsErr,
   RingLocation,
   RingVrfProof,
+  RingVrfSignErr,
   SignVrfErr,
   SigningErr,
   createTransport,
@@ -19,9 +22,10 @@ import type {
   LegacyAccount,
   ProductAccount,
   ProofContext,
+  RingVrfKeyHandle,
   VrfTranscriptItem,
 } from '@novasamatech/host-api-wrapper';
-import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
+import { createAccountsProvider, ringVrfKeyHandle } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 
@@ -64,6 +68,12 @@ const mockRingLocation: CodecType<typeof RingLocation> = {
 // (RFC 0022).
 const mockContext: ProofContext = ['product.dot', 0];
 const mockWireContext: CodecType<typeof ProductProofContext> = ['product.dot', { tag: 'Index', value: 0 }];
+
+// RFC-0024: proofs, aliases and signatures name an explicit member key. The
+// handle is already in wire form — the index belongs to the owning product and
+// consumers pass it through opaquely.
+const mockKeyHandle: RingVrfKeyHandle = ['peopl.dot', { tag: 'Index', value: 0 }];
+const mockRingVrfPublicKey = new Uint8Array(32).fill(0x5a);
 
 describe('Host API: Accounts', () => {
   describe('getUserId', () => {
@@ -186,21 +196,21 @@ describe('Host API: Accounts', () => {
 
       container.handleAccountGetAlias((_, { ok }) => ok(expected));
 
-      const result = await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
+      const result = await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
 
       await expect(result).toBeOkWith(expected);
     });
 
-    it('should pass context and ring to handler', async () => {
+    it('should pass key handle, context and ring to handler', async () => {
       const { container, accountsProvider } = setup();
       const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGetAlias>>((_, { ok }) =>
         ok({ context: new Uint8Array(32), alias: new Uint8Array(0) }),
       );
       container.handleAccountGetAlias(handler);
 
-      await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
+      await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
 
-      expect(handler).toHaveBeenCalledWith([mockWireContext, mockRingLocation], expect.anything());
+      expect(handler).toHaveBeenCalledWith([mockKeyHandle, mockWireContext, mockRingLocation], expect.anything());
     });
 
     it('should return error on failure', async () => {
@@ -209,7 +219,29 @@ describe('Host API: Accounts', () => {
 
       container.handleAccountGetAlias((_, { err }) => err(error));
 
-      const result = await accountsProvider.getContextualAlias(mockContext, mockRingLocation);
+      const result = await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
+
+      await expect(result).toBeErrWith(error);
+    });
+
+    it('should surface KeyNotInRing when the handle is not registered for the requested ring', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new GetAliasErr.KeyNotInRing();
+
+      container.handleAccountGetAlias((_, { err }) => err(error));
+
+      const result = await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
+
+      await expect(result).toBeErrWith(error);
+    });
+
+    it('should surface KeyNotRegistered when the handle has no registry entry', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new GetAliasErr.KeyNotRegistered();
+
+      container.handleAccountGetAlias((_, { err }) => err(error));
+
+      const result = await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
 
       await expect(result).toBeErrWith(error);
     });
@@ -291,12 +323,17 @@ describe('Host API: Accounts', () => {
 
       container.handleAccountCreateProof((_, { ok }) => ok(mockProof));
 
-      const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array([1]));
+      const result = await accountsProvider.createRingVRFProof(
+        mockKeyHandle,
+        mockContext,
+        mockRingLocation,
+        new Uint8Array([1]),
+      );
 
       await expect(result).toBeOkWith(mockProof);
     });
 
-    it('should pass context, ring and message to handler', async () => {
+    it('should pass key handle, context, ring and message to handler', async () => {
       const { container, accountsProvider } = setup();
       const message = new Uint8Array([7, 8, 9]);
       const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
@@ -304,12 +341,29 @@ describe('Host API: Accounts', () => {
       );
       container.handleAccountCreateProof(handler);
 
-      await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, message);
+      await accountsProvider.createRingVRFProof(mockKeyHandle, mockContext, mockRingLocation, message);
 
-      expect(handler).toHaveBeenCalledWith([mockWireContext, mockRingLocation, message], {
+      expect(handler).toHaveBeenCalledWith([mockKeyHandle, mockWireContext, mockRingLocation, message], {
         ok: expect.any(Function),
         err: expect.any(Function),
       });
+    });
+
+    it('should carry a raw-index handle through unchanged', async () => {
+      const { container, accountsProvider } = setup();
+      const rawIndex = new Uint8Array(32).fill(0x7f);
+      const handle = ringVrfKeyHandle('peopl.dot', rawIndex);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
+        ok(mockProof),
+      );
+      container.handleAccountCreateProof(handler);
+
+      await accountsProvider.createRingVRFProof(handle, mockContext, mockRingLocation, new Uint8Array(0));
+
+      expect(handler).toHaveBeenCalledWith(
+        [['peopl.dot', { tag: 'Raw', value: rawIndex }], mockWireContext, mockRingLocation, new Uint8Array(0)],
+        expect.anything(),
+      );
     });
 
     it('should return error when ring not found', async () => {
@@ -318,7 +372,12 @@ describe('Host API: Accounts', () => {
 
       container.handleAccountCreateProof((_, { err }) => err(error));
 
-      const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
+      const result = await accountsProvider.createRingVRFProof(
+        mockKeyHandle,
+        mockContext,
+        mockRingLocation,
+        new Uint8Array(0),
+      );
 
       await expect(result).toBeErrWith(error);
     });
@@ -329,7 +388,46 @@ describe('Host API: Accounts', () => {
 
       container.handleAccountCreateProof((_, { err }) => err(error));
 
-      const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
+      const result = await accountsProvider.createRingVRFProof(
+        mockKeyHandle,
+        mockContext,
+        mockRingLocation,
+        new Uint8Array(0),
+      );
+
+      await expect(result).toBeErrWith(error);
+    });
+
+    it('should return NotAllowlisted when the owner has not allowlisted the caller', async () => {
+      const { container, accountsProvider } = setup();
+      // RFC-0024: the owner's manifest allowlist is the *only* authorization for
+      // a foreign key handle — there is deliberately no user-prompt fallback.
+      const error = new CreateProofErr.NotAllowlisted();
+
+      container.handleAccountCreateProof((_, { err }) => err(error));
+
+      const result = await accountsProvider.createRingVRFProof(
+        mockKeyHandle,
+        mockContext,
+        mockRingLocation,
+        new Uint8Array(0),
+      );
+
+      await expect(result).toBeErrWith(error);
+    });
+
+    it('should return KeyNotRegistered when the handle has no registry entry', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new CreateProofErr.KeyNotRegistered();
+
+      container.handleAccountCreateProof((_, { err }) => err(error));
+
+      const result = await accountsProvider.createRingVRFProof(
+        mockKeyHandle,
+        mockContext,
+        mockRingLocation,
+        new Uint8Array(0),
+      );
 
       await expect(result).toBeErrWith(error);
     });
@@ -340,7 +438,203 @@ describe('Host API: Accounts', () => {
 
       container.handleAccountCreateProof((_, { err }) => err(error));
 
-      const result = await accountsProvider.createRingVRFProof(mockContext, mockRingLocation, new Uint8Array(0));
+      const result = await accountsProvider.createRingVRFProof(
+        mockKeyHandle,
+        mockContext,
+        mockRingLocation,
+        new Uint8Array(0),
+      );
+
+      await expect(result).toBeErrWith(error);
+    });
+  });
+
+  describe('registerRingVrfKey', () => {
+    it('should return the member public key on success', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleAccountRegisterRingVrfKey((_, { ok }) => ok(mockRingVrfPublicKey));
+
+      const result = await accountsProvider.registerRingVrfKey(0, mockRingLocation);
+
+      await expect(result).toBeOkWith(mockRingVrfPublicKey);
+    });
+
+    it('should pass the index and ring to handler, and never an owner', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountRegisterRingVrfKey>>((_, { ok }) =>
+        ok(mockRingVrfPublicKey),
+      );
+      container.handleAccountRegisterRingVrfKey(handler);
+
+      await accountsProvider.registerRingVrfKey(1, mockRingLocation);
+
+      // Ownership is the calling product id, never a parameter — that is what
+      // makes registration permissionless (RFC-0024).
+      expect(handler).toHaveBeenCalledWith([{ tag: 'Index', value: 1 }, mockRingLocation], expect.anything());
+    });
+
+    it('should accept a raw 32-byte index', async () => {
+      const { container, accountsProvider } = setup();
+      const rawIndex = new Uint8Array(32).fill(3);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountRegisterRingVrfKey>>((_, { ok }) =>
+        ok(mockRingVrfPublicKey),
+      );
+      container.handleAccountRegisterRingVrfKey(handler);
+
+      await accountsProvider.registerRingVrfKey(rawIndex, mockRingLocation);
+
+      expect(handler).toHaveBeenCalledWith([{ tag: 'Raw', value: rawIndex }, mockRingLocation], expect.anything());
+    });
+
+    it('should return error when the ring is not found', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new RegisterRingVrfKeyErr.RingNotFound();
+
+      container.handleAccountRegisterRingVrfKey((_, { err }) => err(error));
+
+      const result = await accountsProvider.registerRingVrfKey(0, mockRingLocation);
+
+      await expect(result).toBeErrWith(error);
+    });
+
+    it('should return error when not connected', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new RegisterRingVrfKeyErr.NotConnected();
+
+      container.handleAccountRegisterRingVrfKey((_, { err }) => err(error));
+
+      const result = await accountsProvider.registerRingVrfKey(0, mockRingLocation);
+
+      await expect(result).toBeErrWith(error);
+    });
+  });
+
+  describe('listRingVrfKeys', () => {
+    it('should default to anonymized disclosure', async () => {
+      const { container, accountsProvider } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountListRingVrfKeys>>((_, { ok }) => ok([]));
+      container.handleAccountListRingVrfKeys(handler);
+
+      await accountsProvider.listRingVrfKeys('peopl.dot');
+
+      expect(handler).toHaveBeenCalledWith(['peopl.dot', 'Anonymized'], expect.anything());
+    });
+
+    it('should omit the public key under anonymized disclosure', async () => {
+      const { container, accountsProvider } = setup();
+      // Anonymized entries name the key and its declared rings only. That is
+      // enough for a consumer to select by ring without learning the linkable
+      // member public key.
+      const entries = [{ handle: mockKeyHandle, rings: [mockRingLocation], publicKey: undefined }];
+
+      container.handleAccountListRingVrfKeys((_, { ok }) => ok(entries));
+
+      const result = await accountsProvider.listRingVrfKeys('peopl.dot');
+
+      await expect(result).toBeOkWith(entries);
+    });
+
+    it('should return the member public key under PublicKey disclosure', async () => {
+      const { container, accountsProvider } = setup();
+      const entries = [{ handle: mockKeyHandle, rings: [mockRingLocation], publicKey: mockRingVrfPublicKey }];
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountListRingVrfKeys>>((_, { ok }) =>
+        ok(entries),
+      );
+      container.handleAccountListRingVrfKeys(handler);
+
+      const result = await accountsProvider.listRingVrfKeys('peopl.dot', 'PublicKey');
+
+      expect(handler).toHaveBeenCalledWith(['peopl.dot', 'PublicKey'], expect.anything());
+      await expect(result).toBeOkWith(entries);
+    });
+
+    it('should round-trip an entry declared for several rings', async () => {
+      const { container, accountsProvider } = setup();
+      // A key may be registered for many rings, and a product may hold several
+      // keys for one ring — nothing assumes 1:1 (RFC-0024).
+      const secondRing: CodecType<typeof RingLocation> = {
+        chainId: toHex(new Uint8Array(32).fill(0x33)),
+        junctions: [{ tag: 'PalletInstance', value: 43 }],
+      };
+      const entries = [{ handle: mockKeyHandle, rings: [mockRingLocation, secondRing], publicKey: undefined }];
+
+      container.handleAccountListRingVrfKeys((_, { ok }) => ok(entries));
+
+      const result = await accountsProvider.listRingVrfKeys('peopl.dot');
+
+      await expect(result).toBeOkWith(entries);
+    });
+
+    it('should return error when the caller has no grant for a foreign owner', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new ListRingVrfKeysErr.Rejected();
+
+      container.handleAccountListRingVrfKeys((_, { err }) => err(error));
+
+      const result = await accountsProvider.listRingVrfKeys('peopl.dot', 'PublicKey');
+
+      await expect(result).toBeErrWith(error);
+    });
+  });
+
+  describe('ringVrfSign', () => {
+    const mockSignature = new Uint8Array(64).fill(0x9e);
+
+    it('should return the signature on success', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.handleAccountRingVrfSign((_, { ok }) => ok(mockSignature));
+
+      const result = await accountsProvider.ringVrfSign(mockKeyHandle, new Uint8Array([1, 2, 3]));
+
+      await expect(result).toBeOkWith(mockSignature);
+    });
+
+    it('should pass only the handle and message — no context, no ring', async () => {
+      const { container, accountsProvider } = setup();
+      const message = new Uint8Array([4, 5, 6]);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountRingVrfSign>>((_, { ok }) =>
+        ok(mockSignature),
+      );
+      container.handleAccountRingVrfSign(handler);
+
+      await accountsProvider.ringVrfSign(mockKeyHandle, message);
+
+      // The signature derives no alias and proves no membership, so there is
+      // nothing for a context or a ring to scope (RFC-0024).
+      expect(handler).toHaveBeenCalledWith([mockKeyHandle, message], expect.anything());
+    });
+
+    it('should return NotAllowlisted for a foreign key without the owner grant', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new RingVrfSignErr.NotAllowlisted();
+
+      container.handleAccountRingVrfSign((_, { err }) => err(error));
+
+      const result = await accountsProvider.ringVrfSign(mockKeyHandle, new Uint8Array(0));
+
+      await expect(result).toBeErrWith(error);
+    });
+
+    it('should return KeyNotRegistered when the handle has no registry entry', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new RingVrfSignErr.KeyNotRegistered();
+
+      container.handleAccountRingVrfSign((_, { err }) => err(error));
+
+      const result = await accountsProvider.ringVrfSign(mockKeyHandle, new Uint8Array(0));
+
+      await expect(result).toBeErrWith(error);
+    });
+
+    it('should return error when rejected', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new RingVrfSignErr.Rejected();
+
+      container.handleAccountRingVrfSign((_, { err }) => err(error));
+
+      const result = await accountsProvider.ringVrfSign(mockKeyHandle, new Uint8Array(0));
 
       await expect(result).toBeErrWith(error);
     });

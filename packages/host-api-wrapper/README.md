@@ -262,31 +262,61 @@ if (accountResult.isOk()) {
   console.log('Public key:', account.publicKey);
 }
 
-// Ring VRF: a contextual alias and a proof are addressed by a product-scoped
-// `context` (`[productId, suffix]`) and a `ring` location on a chain (RFC 0004).
-// The suffix is the same selector as an account's derivation index and expands
-// to the same 32-byte value (RFC 0022).
+// Ring VRF: a contextual alias and a proof are addressed by an explicit member
+// key handle, a product-scoped `context` (`[productId, suffix]`) and a `ring`
+// location on a chain (RFC 0004, amended by RFC 0024). The suffix is the same
+// selector as an account's derivation index and expands to the same 32-byte
+// value (RFC 0022).
 const context: ProofContext = ['product.dot', 0]; // [productId, selector]
 const ring = {
   chainId: '0x…', // 32-byte chain genesis hash
   junctions: [{ tag: 'PalletInstance', value: 42 }],
 };
 
-// Get the contextual alias for that (context, ring).
-const aliasResult = await accounts.getContextualAlias(context, ring);
+// Register a key your own product owns for that ring. Permissionless and
+// prompt-free — ownership is the calling product, never a parameter. Returns the
+// member public key. Registering the same index for another ring extends the
+// existing entry rather than adding a second one.
+const registerResult = await accounts.registerRingVrfKey(0, ring);
+
+// Discover another product's keys. Handles are opaque: select by the rings an
+// entry declares, NEVER by index — the index is the owner's implementation
+// detail and hardcoding it breaks the moment the owner rotates or adds a key.
+const keysResult = await accounts.listRingVrfKeys('peopl.dot'); // 'Anonymized' by default
+const personKey = keysResult.isOk()
+  ? keysResult.value.find(entry => entry.rings.some(r => r.chainId === ring.chainId))
+  : undefined;
+
+// A key handle for one of your own keys — for a foreign key use the handle from
+// `listRingVrfKeys` verbatim instead.
+import { ringVrfKeyHandle } from '@novasamatech/host-api-wrapper';
+
+const ownHandle = ringVrfKeyHandle('product.dot', 0);
+
+// Get the contextual alias for that (handle, context, ring).
+const aliasResult = await accounts.getContextualAlias(ownHandle, context, ring);
 
 if (aliasResult.isOk()) {
   const { context: contextBytes, alias } = aliasResult.value;
   console.log('Alias:', alias);
 }
 
-// Create a ring VRF proof binding `message`; the host selects the member key.
-const proofResult = await accounts.createRingVRFProof(context, ring, new Uint8Array([0x48, 0x69]));
+// Create a ring VRF proof binding `message` with an explicit member key.
+// A proof is a bearer token for its context's alias, so a *foreign* handle is
+// admitted only when its owner allowlisted your product in its manifest — there
+// is no user-prompt fallback, and you get `NotAllowlisted` otherwise.
+const proofResult = await accounts.createRingVRFProof(ownHandle, context, ring, new Uint8Array([0x48, 0x69]));
 
 if (proofResult.isOk()) {
   const { proof, contextualAlias, ringIndex, ringRevision } = proofResult.value;
   console.log('Proof:', proof, 'at ring index', ringIndex, 'revision', ringRevision);
 }
+
+// Sign with the member key itself rather than proving membership anonymously
+// (RFC 0024). No context and no ring: it derives no alias and proves nothing, so
+// there is nothing for either to scope. Verified against the member public key,
+// which makes the signature linkable to every other use of that key.
+const signatureResult = await accounts.ringVrfSign(ownHandle, new Uint8Array([0x48, 0x69]));
 
 // sr25519 VRF signature over a product account (RFC-0023). The transcript is a
 // recipe — a root label plus ordered `(label, value)` items — that the host

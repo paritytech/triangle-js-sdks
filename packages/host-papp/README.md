@@ -225,33 +225,76 @@ vrf.match(
 This is the non-`AutoSigning` path only: when `AutoSigning` covers the account the host
 signs locally and never round-trips to the wallet.
 
-## Ring VRF proofs and aliases
+## Ring VRF keys, proofs and aliases
 
-A `UserSession` can ask the paired device for a privacy-preserving contextual alias, or a
-ring VRF proof, for a product-scoped `context` and a `ring` location. The device
-selects the member key for the ring; `callingProductId` names the product the host is acting
-for. Both take the same `(context, ring)` so the alias in the proof matches `getRingVrfAlias`.
+Ring VRF member keys are **explicit and product-owned** (RFC-0024): a product registers the
+keys it owns against the rings it intends them for, other products discover those
+registrations by an anonymized handle, and the handle is passed to every call that uses the
+key. The paired device is the authoritative registry — it needs the complete set to serve
+slot assignment and PGAS claims, and to show the user what their keys are used for.
 
 ```ts
-// [productId, suffix]. The suffix is the wire `Index(u32) | Raw([u8; 32])` selector
-// (RFC 0022): `Index` for a plain index, `Raw` for a raw 32-byte index. It
-// expands to the same 32-byte value as a product account's derivation index.
-const context = ['product.dot', { tag: 'Index', value: 0 }];
 const ring = {
   chainId: '0x…', // 32-byte chain genesis hash
   junctions: [{ tag: 'PalletInstance', value: 42 }],
 };
 
-const alias = await currentSession.getRingVrfAlias('caller.dot', context, ring);
+// Register a key owned by `peopl.dot` at index 0 for that ring. Consent-free and
+// idempotent — re-registering an index for another ring extends the entry.
+const publicKey = await currentSession.registerRingVrfKey('peopl.dot', { tag: 'Index', value: 0 }, ring);
 
-const proof = await currentSession.createRingVrfProof('caller.dot', context, ring, new Uint8Array([0x48, 0x69]));
+// Discover another product's keys. `'PublicKey'` disclosure additionally returns
+// the member public key, which is linkable across every ring it appears in and so
+// is permissioned cross-product.
+const entries = await currentSession.listRingVrfKeys('game.dot', 'peopl.dot', 'Anonymized');
+```
+
+A `UserSession` can then ask the paired device for a privacy-preserving contextual alias, or
+a ring VRF proof, for a given `keyHandle`, product-scoped `context` and `ring` location.
+`callingProductId` names the product the host is acting for — it is what the owner's
+allowlist is checked against when the handle is foreign. Both take the same
+`(keyHandle, context, ring)` so the alias in the proof matches `getRingVrfAlias`.
+
+```ts
+// The key handle names a slot in the owner's ring VRF domain. Select it from
+// `listRingVrfKeys` by declared ring and pass it through opaquely — never
+// hardcode another product's index.
+const keyHandle = ['peopl.dot', { tag: 'Index', value: 0 }];
+
+// [productId, suffix]. The suffix is the wire `Index(u32) | Raw([u8; 32])` selector
+// (RFC 0022): `Index` for a plain index, `Raw` for a raw 32-byte index. It
+// expands to the same 32-byte value as a product account's derivation index.
+const context = ['product.dot', { tag: 'Index', value: 0 }];
+
+const alias = await currentSession.getRingVrfAlias('caller.dot', keyHandle, context, ring);
+
+const proof = await currentSession.createRingVrfProof(
+  'caller.dot',
+  keyHandle,
+  context,
+  ring,
+  new Uint8Array([0x48, 0x69]),
+);
 proof.match(
   ({ proof, contextualAlias, ringIndex, ringRevision }) =>
     console.log('proof at ring', ringIndex, 'revision', ringRevision),
-  // failures decode to a structured `RingVrfError` (RingNotFound / NotMember / Rejected / Unknown)
+  // failures decode to a structured `CreateProofErr` — RingNotFound / NotMember /
+  // KeyNotRegistered / KeyNotInRing / NotAllowlisted / Rejected / Unknown
   error => console.error('proof failed:', error),
 );
+
+// `ringVrfSign` signs with the member key itself instead of proving membership
+// anonymously. No context and no ring — nothing for either to scope — and the
+// result is verified against the member public key, so it is linkable to every
+// other use of that key.
+const signature = await currentSession.ringVrfSign('caller.dot', keyHandle, new Uint8Array([0x48, 0x69]));
 ```
+
+Producing a proof or a signature with a **foreign** key handle is gated on the key's owning
+product having allowlisted the caller in its manifest, and there is deliberately no
+user-prompt fallback: `message` is opaque, so consenting to it is not meaningful consent, and
+only the owner is positioned to evaluate the risk. Reading an alias authorizes nothing and
+stays on the ordinary grant-or-prompt path.
 
 ## Product subtree public keys
 
@@ -271,9 +314,18 @@ subtreeKey.match(
 ```
 
 The request is consent-free — the response carries no secret material. Only
-`AutoSigning` does: its payload is now the product-subtree secret key alone
+`AutoSigning` does: its payload is the product-subtree secret key
 (`productRootPrivateKey`, 64-byte expanded sr25519 secret), which exposes exactly
-that product's subtree. The former `productDerivationSecret` is gone.
+that product's subtree, plus `ringVrfDomainEntropy` (RFC-0024) — the entropy of
+the `//{productId}` node of the disjoint ring VRF tree, which lets the host derive
+the member secret of a **registered** key locally. The former
+`productDerivationSecret` is gone.
+
+Bundling the entropy widens the grant: "sign transactions without prompting me"
+and "produce personhood proofs offline" become one decision. And because
+derivation from the entropy is unconditional arithmetic, the registry is what
+distinguishes a meaningful index from a meaningless one — a host MUST NOT derive
+a member secret for a `(product, index)` pair absent from its registry.
 
 ## Identity lookups
 

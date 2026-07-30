@@ -287,10 +287,15 @@ describe('createUserSession debug emits', () => {
       const session = buildSession();
       const { events, unsubscribe } = captureEvents();
       try {
-        await session.getRingVrfAlias('caller.dot', ['product.alpha', { tag: 'Index', value: 0 }], {
-          chainId: '0x22',
-          junctions: [{ tag: 'PalletInstance', value: 42 }],
-        });
+        await session.getRingVrfAlias(
+          'caller.dot',
+          ['peopl.dot', { tag: 'Index', value: 0 }],
+          ['product.alpha', { tag: 'Index', value: 0 }],
+          {
+            chainId: '0x22',
+            junctions: [{ tag: 'PalletInstance', value: 42 }],
+          },
+        );
         expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
           actionKind: 'RingVrfAliasRequest',
         });
@@ -308,12 +313,68 @@ describe('createUserSession debug emits', () => {
       try {
         await session.createRingVrfProof(
           'caller.dot',
+          ['peopl.dot', { tag: 'Index', value: 0 }],
           ['product.alpha', { tag: 'Index', value: 0 }],
           { chainId: '0x22', junctions: [{ tag: 'PalletInstance', value: 42 }] },
           new Uint8Array([1, 2, 3]),
         );
         expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
           actionKind: 'RingVrfProofRequest',
+        });
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('ringVrfSign emits host_action_sent with actionKind RingVrfSignRequest', async () => {
+      mocks.request.mockReturnValue(okAsync(undefined));
+      mocks.waitForRequestMessage.mockReturnValue(okAsync({ success: true, value: new Uint8Array() as any }));
+
+      const session = buildSession();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        await session.ringVrfSign('caller.dot', ['peopl.dot', { tag: 'Index', value: 0 }], new Uint8Array([1, 2, 3]));
+        expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
+          actionKind: 'RingVrfSignRequest',
+        });
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('registerRingVrfKey emits host_action_sent with actionKind RegisterRingVrfKeyRequest', async () => {
+      mocks.request.mockReturnValue(okAsync(undefined));
+      mocks.waitForRequestMessage.mockReturnValue(okAsync({ success: true, value: new Uint8Array() as any }));
+
+      const session = buildSession();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        await session.registerRingVrfKey(
+          'peopl.dot',
+          { tag: 'Index', value: 0 },
+          {
+            chainId: '0x22',
+            junctions: [{ tag: 'PalletInstance', value: 42 }],
+          },
+        );
+        expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
+          actionKind: 'RegisterRingVrfKeyRequest',
+        });
+      } finally {
+        unsubscribe();
+      }
+    });
+
+    it('listRingVrfKeys emits host_action_sent with actionKind ListRingVrfKeysRequest', async () => {
+      mocks.request.mockReturnValue(okAsync(undefined));
+      mocks.waitForRequestMessage.mockReturnValue(okAsync({ success: true, value: [] as any }));
+
+      const session = buildSession();
+      const { events, unsubscribe } = captureEvents();
+      try {
+        await session.listRingVrfKeys('game.dot', 'peopl.dot', 'Anonymized');
+        expect(events.find(e => e.event === 'host_action_sent')?.payload).toMatchObject({
+          actionKind: 'ListRingVrfKeysRequest',
         });
       } finally {
         unsubscribe();

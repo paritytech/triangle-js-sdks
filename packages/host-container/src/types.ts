@@ -125,6 +125,12 @@ export type Container = {
   handleAccountSignVrf: InferHandler<'v1', HostApiProtocol['host_account_sign_vrf']>;
   handleGetLegacyAccounts: InferHandler<'v1', HostApiProtocol['host_get_legacy_accounts']>;
 
+  // ring VRF key registry (RFC-0024)
+
+  handleAccountRegisterRingVrfKey: InferHandler<'v1', HostApiProtocol['host_account_register_ring_vrf_key']>;
+  handleAccountListRingVrfKeys: InferHandler<'v1', HostApiProtocol['host_account_list_ring_vrf_keys']>;
+  handleAccountRingVrfSign: InferHandler<'v1', HostApiProtocol['host_account_ring_vrf_sign']>;
+
   // signing
 
   handleCreateTransaction: InferHandler<'v1', HostApiProtocol['host_create_transaction']>;

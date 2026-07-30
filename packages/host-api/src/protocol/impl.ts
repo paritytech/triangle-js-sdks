@@ -12,6 +12,12 @@ import {
   AccountGetAliasV1_response,
   AccountGetV1_request,
   AccountGetV1_response,
+  AccountListRingVrfKeysV1_request,
+  AccountListRingVrfKeysV1_response,
+  AccountRegisterRingVrfKeyV1_request,
+  AccountRegisterRingVrfKeyV1_response,
+  AccountRingVrfSignV1_request,
+  AccountRingVrfSignV1_response,
   AccountSignVrfV1_request,
   AccountSignVrfV1_response,
   GetLegacyAccountsV1_request,
@@ -454,5 +460,20 @@ export const hostApiProtocol = {
   // `request_id = 164` (RFC-0023).
   host_account_sign_vrf: versionedRequest(indexer.request(28), {
     v1: [AccountSignVrfV1_request, AccountSignVrfV1_response],
+  }),
+
+  // RFC-0024 — explicit ring VRF key management. Appended so every index above
+  // stays stable; `create_proof` / `get_alias` changed shape in place instead,
+  // since a key handle is now mandatory there.
+  host_account_register_ring_vrf_key: versionedRequest(indexer.request(), {
+    v1: [AccountRegisterRingVrfKeyV1_request, AccountRegisterRingVrfKeyV1_response],
+  }),
+
+  host_account_list_ring_vrf_keys: versionedRequest(indexer.request(), {
+    v1: [AccountListRingVrfKeysV1_request, AccountListRingVrfKeysV1_response],
+  }),
+
+  host_account_ring_vrf_sign: versionedRequest(indexer.request(), {
+    v1: [AccountRingVrfSignV1_request, AccountRingVrfSignV1_response],
   }),
 } as const;
