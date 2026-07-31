@@ -12,10 +12,11 @@ import type { StatementStoreAdapter, StatementsPage } from '../adapter/types.js'
 import { AccountFullError, ExpiryTooLowError } from '../adapter/types.js';
 import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount } from '../model/sessionAccount.js';
 
+import { STATEMENT_OVERHEAD } from './core.js';
 import type { Encryption } from './encyption.js';
 import { DecodingError, UnknownError } from './error.js';
 import { StatementData } from './scale/statementData.js';
-import { STATEMENT_OVERHEAD, createSession } from './session.js';
+import { createSession } from './session.js';
 import type { StatementProver } from './statementProver.js';
 
 // Real signature work belongs in statementProver tests; this stub stamps a

@@ -16,7 +16,7 @@ import { createExpiryAllocator } from '../submit/allocator.js';
 
 import type { DeviceTarget } from './codec/envelope.js';
 import type { PeerRoster } from './codec/incomingTopics.js';
-import { createMultiDeviceSession } from './session.js';
+import { createMultiDeviceSession } from './multiDeviceSession.js';
 import type { StatementProver } from './statementProver.js';
 
 const rawCodec = Bytes();

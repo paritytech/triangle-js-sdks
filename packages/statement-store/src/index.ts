@@ -14,8 +14,10 @@ export {
 } from './model/sessionAccount.js';
 
 export type { Session } from './session/types.js';
-export type { MultiDeviceSessionParams, SessionParams } from './session/session.js';
-export { createMultiDeviceSession, createSession } from './session/session.js';
+export type { SessionParams } from './session/session.js';
+export { createSession } from './session/session.js';
+export type { MultiDeviceSessionParams } from './session/multiDeviceSession.js';
+export { createMultiDeviceSession } from './session/multiDeviceSession.js';
 /** A peer device, and the observable roster a multi-device session sends to. */
 export type { DeviceTarget } from './session/codec/envelope.js';
 export type { PeerRoster } from './session/codec/incomingTopics.js';
