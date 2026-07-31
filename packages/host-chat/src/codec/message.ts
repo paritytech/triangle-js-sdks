@@ -13,7 +13,10 @@ export const RichTextContent = Struct({
   attachments: Option(Vector(FileVariant)),
 });
 
-export const Platform = Status('Android', 'iOS');
+// Byte ordinals are wire format — APPEND only, never reorder. `iOSVoIP` (2) is emitted by
+// iOS PApp for VoIP push tokens; without it any envelope carrying one fails to decode with
+// `Unknown status index: 2`.
+export const Platform = Status('Android', 'iOS', 'iOSVoIP');
 
 export const TokenContent = Struct({
   token: Hex(),

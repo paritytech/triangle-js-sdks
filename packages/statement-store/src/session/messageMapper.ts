@@ -1,6 +1,6 @@
-import type { Codec, CodecType } from 'scale-ts';
+import type { Codec } from 'scale-ts';
 
-import type { StatementData } from './scale/statementData.js';
+import type { ReadableEvent } from './codec/decoder.js';
 import type { Message, RequestMessage, RequestPayload } from './types.js';
 
 function decode<T>(payload: Uint8Array, codec: Codec<T>): RequestPayload<T> {
@@ -11,14 +11,14 @@ function decode<T>(payload: Uint8Array, codec: Codec<T>): RequestPayload<T> {
   }
 }
 
-export function toMessage<T>(statementData: CodecType<typeof StatementData>, codec: Codec<T>): Message<T>[] {
-  switch (statementData.tag) {
+export function toMessage<T>(event: ReadableEvent, codec: Codec<T>): Message<T>[] {
+  switch (event.tag) {
     case 'request': {
-      return statementData.value.data.map<RequestMessage<T>>((payload, index) => {
+      return event.messages.map<RequestMessage<T>>((payload, index) => {
         return {
           type: 'request',
-          localId: `${statementData.value.requestId}-${index.toString()}`,
-          requestId: statementData.value.requestId,
+          localId: `${event.requestId}-${index.toString()}`,
+          requestId: event.requestId,
           payload: decode(payload, codec),
         };
       });
@@ -27,9 +27,9 @@ export function toMessage<T>(statementData: CodecType<typeof StatementData>, cod
       return [
         {
           type: 'response',
-          localId: statementData.value.requestId,
-          requestId: statementData.value.requestId,
-          responseCode: statementData.value.responseCode,
+          localId: event.requestId,
+          requestId: event.requestId,
+          responseCode: event.responseCode,
         },
       ];
   }
