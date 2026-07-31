@@ -1,6 +1,8 @@
 # Design (1/2): unified statement-store session — SDK changes
 
 **Date:** 2026-07-31
+**Status:** implemented on `feat/statement-store-session-unification`, with two
+documented deviations — see §7.1 and §7.2.
 **Repo:** `paritytech/triangle-js-sdks`
 **Companion:** [desktop design](./2026-07-31-statement-store-session-unification-desktop-design.md)
 **Research:** [research report](./2026-07-31-statement-store-session-unification-research.md)
@@ -239,7 +241,39 @@ produces the `undecodable` variant, preserving today's NACK behaviour.
 
 ---
 
-## 7. State machine — `stateMachine/`
+## 7. State machine — `stateMachine/` — DEFERRED, NOT IMPLEMENTED
+
+### 7.1 Why it was deferred
+
+Tracing the actual seams needed for `createMultiDeviceSession` showed they are six
+contained call sites in the existing driver — the request submit, the response
+submit, `clearOutgoingStatement`'s supersede, the store subscription, `init()`'s
+decode, and the payload-size check. None of them require the decision logic to be
+extracted first.
+
+Extracting the state machine is therefore a refactor for its own sake: the highest-risk
+step in the plan (a 792-line driver with subtle retry/expiry semantics and 73 tests) and
+the one that unblocks nothing. It is worth doing once the desktop migration has proven
+the seams in production, not before. The seams landed directly on the existing driver;
+`createSessionCore` is the injection point a later extraction would sit behind.
+
+### 7.2 `incomingRequest` stays a Map (reverses this document's original proposal)
+
+The original text below proposed narrowing to a single `incomingRequest` per
+`base-spec.md` §"Session State". **That was wrong and was not implemented.**
+
+Two existing tests pin the Map's behaviour deliberately:
+`session.spec.ts:921` (answering an earlier request after a newer one arrives) and
+`session.spec.ts:954` (absorbing a superseded response while keeping the request marked
+answered). Both matter to `host-papp`, where the responder is asynchronous.
+
+The `session.ts` comment cited as evidence that the Map "cannot be honoured" is about
+**wire** delivery — the shared response channel only ever exposes the latest response —
+not about the local bookkeeping being wrong. The Map costs nothing on the wire and
+prevents double-NACK. The spec's single-value model assumes a synchronous responder,
+which this SDK does not require.
+
+### 7.3 The design as originally written (retained for the later extraction)
 
 ```ts
 type SessionState =
@@ -397,12 +431,17 @@ every step boundary (`prepublishOnly` gates on build + lint + test).
 
 Each step is independently shippable and revertible.
 
-| # | Step | Wire impact |
-|---|---|---|
-| 1 | `statementData` variants 2/3 + `codec/envelope.ts` + `codec/decoder.ts`; `host-chat` `Platform` fix | additive — the SDK can now *read* everything desktop and Android emit |
-| 2 | extract `stateMachine/` from `session.ts` behind the unchanged `Session` interface | none |
-| 3 | `codec/outgoingBody.ts` + `codec/incomingTopics.ts` + `transport.ts` seams; `createMultiDeviceSession` | none for `host-papp` |
-| 4 | builder-as-size-oracle replaces `requestPayloadSize()` | none |
+| # | Step | Wire impact | Status |
+|---|---|---|---|
+| 1 | `statementData` variants 2/3 + `codec/envelope.ts` + `codec/decoder.ts`; `host-chat` `Platform` fix | additive — the SDK can now *read* everything desktop and Android emit | **done** (`5a2d318`) |
+| 2 | extract `stateMachine/` from `session.ts` | none | **deferred** — see §7.1 |
+| 3 | `codec/outgoingBody.ts` + `codec/incomingTopics.ts` seams; `createMultiDeviceSession` | none for `host-papp` | **done** (`27a2669`) |
+| 4 | builder-as-size-oracle replaces `requestPayloadSize()` | none | **done** — folded into step 3 |
+
+One observable change not anticipated above: the incoming query and subscription filter
+moved from `matchAll: [topic]` to `matchAny: [topics]`. For a single topic the two are
+semantically identical; `matchAny` is required to cover N device topics in one
+subscription. `session.spec.ts:203` was updated to pin the new filter shape.
 
 Steps 5–8 (desktop migration, RFC-0002 compaction seam) live in the companion
 design.
