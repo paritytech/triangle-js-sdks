@@ -688,6 +688,21 @@ describe('session', () => {
       expect(store.activeSubscriptions()).toBe(1);
     });
 
+    it('reopens the subscription when a subscriber returns after the last one left', async () => {
+      const { subscribeStatements } = capturingSubscribe();
+      const { session } = makeSession({ subscribeStatements });
+      await delay();
+
+      const unsubscribe = session.subscribe(rawCodec, vi.fn());
+      expect(subscribeStatements).toHaveBeenCalledTimes(1);
+      unsubscribe();
+
+      // The topic-set watcher and the store subscription must be torn down together —
+      // otherwise the session silently never listens again.
+      session.subscribe(rawCodec, vi.fn());
+      expect(subscribeStatements).toHaveBeenCalledTimes(2);
+    });
+
     it('tears down the subscription when the last subscriber leaves', () => {
       const store = createInMemoryStatementStore();
       const session = makeHost(store);

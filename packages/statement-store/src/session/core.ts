@@ -282,6 +282,14 @@ export function createSessionCore({
       .orElse(() => okAsync<TransportEvent, never>({ tag: 'undecodable', requestId: null }));
   }
 
+  // False when the request is already known, so callers skip both delivery and NACKing.
+  function trackNewRequest(requestId: string): boolean {
+    if (incomingRequest(machineState, requestId)) return false;
+    dispatch({ type: 'requestReceived', requestId });
+
+    return true;
+  }
+
   function processIncomingStatement(statement: Statement, spec: IncomingTopicSpec): void {
     if (!statement.data) return;
     const key = toHex(statement.data);
@@ -295,12 +303,10 @@ export function createSessionCore({
           console.warn('statement-store: dropping an undecodable incoming statement (no recoverable requestId)');
           return;
         }
-        // Only NACK a genuinely new id. If we already know this request, a valid copy is being
-        // handled (or was already answered) — NACKing now would mask the real response, since the
-        // `responded` flag is sticky.
-        // Decrypted but the message body is malformed — NACK so the sender stops waiting.
-        if (incomingRequest(machineState, event.requestId)) return;
-        dispatch({ type: 'requestReceived', requestId: event.requestId });
+        // Decrypted but malformed — NACK so the sender stops waiting. Only for a genuinely
+        // new id: if we already know it, a valid copy is in hand (or was answered), and
+        // NACKing now would mask the real response because `responded` is sticky.
+        if (!trackNewRequest(event.requestId)) return;
         void session
           .submitResponseMessage(event.requestId, 'decodingFailed')
           .mapErr(e => console.error('statement-store: failed to NACK an undecodable request:', e));
@@ -308,8 +314,7 @@ export function createSessionCore({
       }
 
       if (event.tag === 'request') {
-        if (incomingRequest(machineState, event.requestId)) return;
-        dispatch({ type: 'requestReceived', requestId: event.requestId });
+        if (!trackNewRequest(event.requestId)) return;
         deliver(event);
       } else {
         // Whether the response matches our batch is the reducer's rule to apply, not ours:
@@ -363,6 +368,16 @@ export function createSessionCore({
       if (disposed) return;
       openStoreSubscription(specs);
     });
+  }
+
+  // Both handles are cleared together: `ensureStoreSubscription` guards on `topicsUnsub`,
+  // so leaving it set while dropping `storeUnsub` would make a later subscribe() a no-op
+  // and the session would never listen again.
+  function closeStoreSubscription(): void {
+    topicsUnsub?.();
+    topicsUnsub = null;
+    storeUnsub?.();
+    storeUnsub = null;
   }
 
   // Once a request is answered it no longer needs to be replayed to future subscribers (and a
@@ -619,10 +634,7 @@ export function createSessionCore({
 
       return () => {
         subscribers = subscribers.filter(s => s !== sub);
-        if (subscribers.length === 0 && storeUnsub) {
-          storeUnsub();
-          storeUnsub = null;
-        }
+        if (subscribers.length === 0) closeStoreSubscription();
       };
     },
 
@@ -661,10 +673,7 @@ export function createSessionCore({
         clearTimeout(initRetryTimer);
         initRetryTimer = null;
       }
-      topicsUnsub?.();
-      topicsUnsub = null;
-      storeUnsub?.();
-      storeUnsub = null;
+      closeStoreSubscription();
       subscribers = [];
       // Drop pending work so no in-flight retry or queue drain acts on a disposed session.
       dispatch({ type: 'outgoingCleared' });
