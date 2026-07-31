@@ -203,11 +203,16 @@ describe('session', () => {
     it('queries the outgoing and incoming topics on creation', async () => {
       const { adapter } = makeSession();
       await delay();
-      // Two single-topic matchAll queries — one per topic (outgoing/incoming); they must differ.
-      const topics = adapter.queryStatements.mock.calls.map(([f]) => (f as { matchAll: unknown[] }).matchAll);
-      expect(topics).toHaveLength(2);
-      expect(topics.map(t => t.length)).toEqual([1, 1]);
-      expect(topics[0]).not.toEqual(topics[1]);
+      // Outgoing is our single publish topic (matchAll); incoming is matchAny because a
+      // multi-device session listens on one topic per peer device. Both carry exactly one
+      // topic here, and they must differ.
+      const filters = adapter.queryStatements.mock.calls.map(
+        ([f]) => f as { matchAll?: unknown[]; matchAny?: unknown[] },
+      );
+      expect(filters).toHaveLength(2);
+      expect(filters[0]!.matchAll).toHaveLength(1);
+      expect(filters[1]!.matchAny).toHaveLength(1);
+      expect(filters[0]!.matchAll).not.toEqual(filters[1]!.matchAny);
     });
 
     it('seeds the expiry from the highest own statement expiry', async () => {

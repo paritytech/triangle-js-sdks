@@ -1,23 +1,32 @@
+import { x25519 } from '@noble/curves/ed25519.js';
 import { toHex } from '@novasamatech/scale';
 import type { Statement } from '@novasamatech/sdk-statement';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, fromPromise, fromThrowable, ok, okAsync } from 'neverthrow';
 import type { Codec, CodecType } from 'scale-ts';
-import { Struct, str } from 'scale-ts';
 
 import type { StatementStoreAdapter } from '../adapter/types.js';
-import { khash, stringToBytes } from '../crypto.js';
-import { nonNullable, toError } from '../helpers.js';
+import { toError } from '../helpers.js';
 import type { SessionId } from '../model/session.js';
 import { createSessionId } from '../model/session.js';
-import type { LocalSessionAccount, RemoteSessionAccount } from '../model/sessionAccount.js';
+import type { AccountId, LocalSessionAccount, RemoteSessionAccount, SessionAccount } from '../model/sessionAccount.js';
+import { createAccountId } from '../model/sessionAccount.js';
 import type { ExpiryAllocator } from '../submit/allocator.js';
 import { createExpiryAllocator } from '../submit/allocator.js';
 import { isPriorityTooLow, submitWithRetry } from '../submit/retry.js';
 import { submitStatementOnce } from '../submit/submitStatement.js';
 import type { Callback } from '../types.js';
 
+import type { IncomingTopicSpec, StatementDecoder, TransportEvent } from './codec/decoder.js';
+import { createStatementDecoder } from './codec/decoder.js';
+import type { DeviceTarget } from './codec/envelope.js';
+import { createEnvelope, createRejectingEnvelope } from './codec/envelope.js';
+import type { IncomingTopics, PeerRoster } from './codec/incomingTopics.js';
+import { createRosterTopics, createStaticTopics } from './codec/incomingTopics.js';
+import type { OutgoingBodyBuilder, StatementBody } from './codec/outgoingBody.js';
+import { createMultiDeviceBodyBuilder, createSingleBodyBuilder } from './codec/outgoingBody.js';
 import type { Encryption } from './encyption.js';
+import { createEncryption } from './encyption.js';
 import { DecodingError, DecryptionError, UnknownError } from './error.js';
 import { toMessage } from './messageMapper.js';
 import type { ResponseStatus } from './scale/statementData.js';
@@ -110,43 +119,12 @@ type SessionState = {
   seenStatements: Set<string>;
 };
 
-// Encode/decode a StatementData envelope, surfacing scale-ts throws as a Result.
-const encodeStatementData = fromThrowable(StatementData.enc, toError);
-const decodeStatementData = fromThrowable(StatementData.dec, toError);
-
-// Outcome of trying to read an incoming statement. `undecodable` carries the requestId when
-// it could be recovered from a decrypted-but-malformed payload (so we can NACK the sender).
-type DecodeOutcome =
-  { kind: 'decoded'; data: CodecType<typeof StatementData> } | { kind: 'undecodable'; requestId: string | null };
-
-// Best-effort recovery of the requestId from a decrypted-but-undecodable payload. The requestId
-// is the first field after the enum tag, so it usually survives a corrupt message body. Only
-// requests (tag 0) carry an id we should answer; responses (tag 1) and unrecoverable payloads
-// return null and are dropped rather than NACKed.
-const RequestIdPrefix = Struct({ requestId: str });
-const decodeRequestIdPrefix = fromThrowable(
-  // slice (a copy), not subarray: scale-ts decodes from the backing buffer start and ignores
-  // a view's byteOffset, so a subarray would be read from the wrong position.
-  (decrypted: Uint8Array) => RequestIdPrefix.dec(decrypted.slice(1)).requestId,
-  () => null,
-);
-function recoverRequestId(decrypted: Uint8Array): string | null {
-  if (decrypted.length < 1 || decrypted[0] !== 0) return null;
-  return decodeRequestIdPrefix(decrypted).unwrapOr(null);
-}
-
 // nanoid() is fixed-length, so the requestId contributes a constant size; any
 // placeholder of that length yields the real encoded size.
 const SIZING_REQUEST_ID = 'x'.repeat(21);
 
-// Encoded size of the request payload these messages would occupy in a statement's `data`
-// field — the full SCALE envelope (requestId + vector framing), not just the raw bytes. This
-// is what must fit the per-statement budget, matching iOS/Android (which size the full payload).
-function requestPayloadSize(messages: Uint8Array[]): number {
-  return encodeStatementData({ tag: 'request', value: { requestId: SIZING_REQUEST_ID, data: messages } })
-    .map(d => d.length)
-    .unwrapOr(Number.MAX_SAFE_INTEGER); // unencodable → treat as "doesn't fit"
-}
+// A statement we could neither verify, decrypt, nor decode far enough to answer.
+const UNDECODABLE_EVENT: TransportEvent = { tag: 'undecodable', requestId: null };
 
 // A response promise paired with its resolver/rejecter. The pre-attached catch
 // keeps a clearOutgoingStatement()/dispose() rejection from surfacing as an
@@ -162,22 +140,37 @@ function makeDeferred(): PendingDelivery {
   return { resolve, reject, promise };
 }
 
-export function createSession({
-  localAccount,
-  remoteAccount,
-  statementStore,
-  encryption,
-  prover,
-  sessionKey,
-  allocator = createExpiryAllocator(),
-  maxRequestSize = DEFAULT_MAX_REQUEST_SIZE,
-}: SessionParams): Session {
-  const outgoingSessionId = createSessionId(sessionKey, localAccount, remoteAccount);
-  const incomingSessionId = createSessionId(sessionKey, remoteAccount, localAccount);
-  // Session-constant channel hashes — derived once so retries don't re-hash them per attempt.
-  const requestChannel = createRequestChannel(outgoingSessionId);
-  const responseChannel = createResponseChannel(outgoingSessionId);
+/**
+ * Collaborators the driver runs on. `createSession` / `createMultiDeviceSession` assemble
+ * these; the driver itself never branches on single- vs multi-device.
+ */
+export type SessionCoreParams = {
+  statementStore: StatementStoreAdapter;
+  prover: StatementProver;
+  allocator: ExpiryAllocator;
+  maxRequestSize: number;
+  /** Wire-format writer, and the session's size oracle. */
+  bodyBuilder: OutgoingBodyBuilder;
+  /** Topic(s) we listen on, with the keys to read each. */
+  incomingTopics: IncomingTopics;
+  decoder: StatementDecoder;
+  /** Topic our own statements are published on — queried to restore state at init. */
+  outgoingTopic: SessionId;
+  /** Peer devices, for reading back our own multi-device envelopes. Empty when single-device. */
+  peerDevices: () => DeviceTarget[];
+};
 
+export function createSessionCore({
+  statementStore,
+  prover,
+  allocator,
+  maxRequestSize,
+  bodyBuilder,
+  incomingTopics,
+  decoder,
+  outgoingTopic,
+  peerDevices,
+}: SessionCoreParams): Session {
   // Message bytes must fit within the statement limit minus the fixed wire overhead.
   const maxPayloadSize = Math.max(0, maxRequestSize - STATEMENT_OVERHEAD);
 
@@ -196,6 +189,8 @@ export function createSession({
   // can settle them instead of leaving them to hang forever.
   const requestWaiters = new Set<(error: Error) => void>();
   const bufferedMessages: CodecType<typeof StatementData>[] = [];
+  // Live topic-set subscription (multi-device rosters change at runtime).
+  let topicsUnsub: VoidFunction | null = null;
   let storeUnsub: VoidFunction | null = null;
   let initRetries = 0;
   let initRetryTimer: ReturnType<typeof setTimeout> | null = null;
@@ -204,26 +199,30 @@ export function createSession({
   // latest is live — a retry for an older one must not resurrect it).
   let lastResponseRequestId: string | null = null;
 
-  // Encrypt, then submit on `channel`/`topicSessionId` at the allocator's next (strictly
-  // increasing) expiry. A priority rejection does NOT resync the allocator here — each caller
-  // raises the floor to the chain-reported minimum (the submitWithRetry `onPriorityError` hooks
-  // below, and the one-shot clear in clearOutgoingStatement), so the retry — and every later
-  // submit — clears it.
-  function submitStatementData(
-    channel: Uint8Array,
-    topicSessionId: SessionId,
-    data: Uint8Array,
-  ): ResultAsync<void, Error> {
-    return encryption.encrypt(data).asyncAndThen(encrypted =>
-      submitStatementOnce({
-        statementStore,
-        prover,
-        allocator,
-        channel,
-        topics: [topicSessionId],
-        data: encrypted,
-      }),
-    );
+  // Submit a body the builder produced, at the allocator's next (strictly increasing)
+  // expiry. A priority rejection does NOT resync the allocator here — each caller raises
+  // the floor to the chain-reported minimum (the submitWithRetry `onPriorityError` hooks
+  // below, and the one-shot clear in clearOutgoingStatement), so the retry — and every
+  // later submit — clears it.
+  function submitBody(body: StatementBody): ResultAsync<void, Error> {
+    return submitStatementOnce({
+      statementStore,
+      prover,
+      allocator,
+      channel: body.channel,
+      topics: body.topics,
+      data: body.data,
+    });
+  }
+
+  // Encoded size of the statement `data` these messages would occupy — built through the
+  // real writer, so AEAD expansion and multi-device envelope fan-out are counted rather
+  // than estimated. Unbuildable → treat as "doesn't fit".
+  function requestPayloadSize(messages: Uint8Array[]): number {
+    return bodyBuilder
+      .buildRequest(SIZING_REQUEST_ID, messages)
+      .map(body => body.data.length)
+      .unwrapOr(Number.MAX_SAFE_INTEGER);
   }
 
   // Settle and remove the pending-delivery entries for the given tokens.
@@ -248,9 +247,10 @@ export function createSession({
   // once the submission is superseded, aborted, or the session is disposed it returns false, so a
   // stale retry can never resurrect an old statement.
   function encodeAndSubmitRequest(requestId: string, messages: Uint8Array[]): void {
-    encodeStatementData({ tag: 'request', value: { requestId, data: messages } })
-      .asyncAndThen(data =>
-        submitWithRetry(() => submitStatementData(requestChannel, outgoingSessionId, data), {
+    bodyBuilder
+      .buildRequest(requestId, messages)
+      .asyncAndThen(body =>
+        submitWithRetry(() => submitBody(body), {
           attempts: MAX_SUBMIT_RETRIES,
           priorityAttempts: 'unbounded',
           delaysMs: RETRY_DELAY_MS,
@@ -292,34 +292,35 @@ export function createSession({
     }
   }
 
-  function tryDecodeStatement(statement: Statement): ResultAsync<DecodeOutcome, never> {
-    if (!statement.data) return okAsync({ kind: 'undecodable', requestId: null });
-    const data = statement.data;
-    return (
-      prover
-        .verifyMessageProof(statement)
-        .andThen(verified => (verified ? ok() : err(new Error('Invalid proof'))))
-        .andThen(() => encryption.decrypt(data))
-        .map<DecodeOutcome>(decrypted => {
-          const decoded = decodeStatementData(decrypted);
-          return decoded.isOk()
-            ? { kind: 'decoded', data: decoded.value }
-            : { kind: 'undecodable', requestId: recoverRequestId(decrypted) };
-        })
-        // Proof or decryption failure: the payload (incl. the requestId) is unreadable → drop.
-        .orElse(() => okAsync<DecodeOutcome, never>({ kind: 'undecodable', requestId: null }))
-    );
+  // Decoded events are delivered to subscribers in the on-wire single-device shape, so
+  // buffered replay and `toMessage` stay independent of how the statement was framed.
+  function toStatementData(event: TransportEvent): CodecType<typeof StatementData> | null {
+    switch (event.tag) {
+      case 'request':
+        return { tag: 'request', value: { requestId: event.requestId, data: event.messages } };
+      case 'response':
+        return { tag: 'response', value: { requestId: event.requestId, responseCode: event.responseCode } };
+      case 'undecodable':
+        return null;
+    }
   }
 
-  function processIncomingStatement(statement: Statement): void {
+  // Proof or decryption failure leaves the payload (incl. the requestId) unreadable → drop.
+  function decodeIncoming(statement: Statement, spec: IncomingTopicSpec): ResultAsync<TransportEvent, never> {
+    return decoder
+      .decodePeer(statement, spec)
+      .orElse(() => okAsync<TransportEvent, never>({ tag: 'undecodable', requestId: null }));
+  }
+
+  function processIncomingStatement(statement: Statement, spec: IncomingTopicSpec): void {
     if (!statement.data) return;
     const key = toHex(statement.data);
     if (state.seenStatements.has(key)) return;
     state.seenStatements.add(key);
 
-    void tryDecodeStatement(statement).andTee(outcome => {
-      if (outcome.kind === 'undecodable') {
-        if (outcome.requestId === null) {
+    void decodeIncoming(statement, spec).andTee(event => {
+      if (event.tag === 'undecodable') {
+        if (event.requestId === null) {
           // Proof/decryption failed, or no requestId was recoverable — nothing to NACK.
           console.warn('statement-store: dropping an undecodable incoming statement (no recoverable requestId)');
           return;
@@ -327,29 +328,30 @@ export function createSession({
         // Only NACK a genuinely new id. If we already know this request, a valid copy is being
         // handled (or was already answered) — NACKing now would mask the real response, since the
         // `responded` flag is sticky.
-        if (state.incomingRequests.has(outcome.requestId)) return;
+        if (state.incomingRequests.has(event.requestId)) return;
         // Decrypted but the message body is malformed — NACK so the sender stops waiting.
-        state.incomingRequests.set(outcome.requestId, { responded: false });
+        state.incomingRequests.set(event.requestId, { responded: false });
         void session
-          .submitResponseMessage(outcome.requestId, 'decodingFailed')
+          .submitResponseMessage(event.requestId, 'decodingFailed')
           .mapErr(e => console.error('statement-store: failed to NACK an undecodable request:', e));
         return;
       }
 
-      const statementData = outcome.data;
-      if (statementData.tag === 'request') {
-        const requestId = statementData.value.requestId;
-        if (state.incomingRequests.has(requestId)) return;
-        state.incomingRequests.set(requestId, { responded: false });
+      const statementData = toStatementData(event);
+      if (!statementData) return;
+
+      if (event.tag === 'request') {
+        if (state.incomingRequests.has(event.requestId)) return;
+        state.incomingRequests.set(event.requestId, { responded: false });
         deliverStatementData(statementData);
-      } else if (statementData.tag === 'response') {
+      } else {
         const outgoing = state.outgoingRequest;
-        if (!outgoing?.requestIds.includes(statementData.value.requestId)) return;
+        if (!outgoing?.requestIds.includes(event.requestId)) return;
         const responseMessage: ResponseMessage = {
           type: 'response',
-          localId: statementData.value.requestId,
-          requestId: statementData.value.requestId,
-          responseCode: statementData.value.responseCode,
+          localId: event.requestId,
+          requestId: event.requestId,
+          responseCode: event.responseCode,
         };
         settleTokens(outgoing.tokens, deferred => deferred.resolve(responseMessage));
         state.outgoingRequest = null;
@@ -412,16 +414,44 @@ export function createSession({
     }
   }
 
+  // Find the spec whose topic a statement arrived on, so the right sender key is used to
+  // open it. Single-topic sessions short-circuit — the store already filtered for us.
+  function specForStatement(specs: IncomingTopicSpec[], statement: Statement): IncomingTopicSpec | undefined {
+    if (specs.length <= 1) return specs[0];
+    const topics = statement.topics ?? [];
+
+    return specs.find(spec => {
+      const specHex = toHex(spec.topic);
+
+      return topics.some(topic => (typeof topic === 'string' ? topic : toHex(topic)) === specHex);
+    });
+  }
+
+  // ONE subscription covering every incoming topic. A peer's requests AND its responses to
+  // our requests both arrive here (the peer publishes everything on its outgoing topic =
+  // our incoming topic). We publish on our own outgoing topic, which we don't subscribe to,
+  // so our statements are never echoed back.
+  function openStoreSubscription(specs: IncomingTopicSpec[]): void {
+    storeUnsub?.();
+    storeUnsub =
+      specs.length === 0
+        ? null
+        : statementStore.subscribeStatements({ matchAny: specs.map(spec => spec.topic) }, page => {
+            for (const statement of page.statements) {
+              const spec = specForStatement(specs, statement);
+              if (spec) processIncomingStatement(statement, spec);
+            }
+          });
+  }
+
   function ensureStoreSubscription(): void {
-    if (storeUnsub) return;
-    // A single subscription on the incoming topic carries BOTH the peer's requests
-    // and the peer's responses to our requests (the peer publishes everything on its
-    // outgoing topic = our incoming topic). We publish on the outgoing topic, which
-    // we don't subscribe to, so our own statements are never echoed back.
-    storeUnsub = statementStore.subscribeStatements({ matchAll: [incomingSessionId] }, page => {
-      for (const statement of page.statements) {
-        processIncomingStatement(statement);
-      }
+    if (topicsUnsub) return;
+    openStoreSubscription(incomingTopics.current());
+    // A roster change (peer device added/removed) changes the topic set — re-open the
+    // single subscription rather than accumulating one per device.
+    topicsUnsub = incomingTopics.subscribe(specs => {
+      if (disposed) return;
+      openStoreSubscription(specs);
     });
   }
 
@@ -450,9 +480,10 @@ export function createSession({
   }
 
   async function init(): Promise<void> {
+    const specs = incomingTopics.current();
     const result = await ResultAsync.combine([
-      statementStore.queryStatements({ matchAll: [outgoingSessionId] }),
-      statementStore.queryStatements({ matchAll: [incomingSessionId] }),
+      statementStore.queryStatements({ matchAll: [outgoingTopic] }),
+      statementStore.queryStatements({ matchAny: specs.map(spec => spec.topic) }),
     ]);
 
     if (result.isErr()) {
@@ -491,12 +522,22 @@ export function createSession({
       if (s.data) state.seenStatements.add(toHex(s.data));
     }
 
-    const decodeAll = (statements: Statement[]) =>
-      Promise.all(
-        statements.map(s => tryDecodeStatement(s).unwrapOr({ kind: 'undecodable', requestId: null } as DecodeOutcome)),
-      ).then(outcomes => outcomes.map(o => (o.kind === 'decoded' ? o.data : null)).filter(nonNullable));
+    const isReadable = (event: TransportEvent) => event.tag !== 'undecodable';
+    // Our own statements are read back with `decodeOwn` — a multi-device envelope carries no
+    // entry for us, so it is opened via a recipient device we wrapped it for. This is what
+    // lets the store, rather than a client-side outbox, hold the outgoing-request state.
+    const decodeOwnAll = Promise.all(
+      ownStatements.map(s => decoder.decodeOwn(s, peerDevices()).unwrapOr(UNDECODABLE_EVENT)),
+    ).then(events => events.filter(isReadable));
+    const decodePeerAll = Promise.all(
+      peerStatements.map(s => {
+        const spec = specForStatement(specs, s);
 
-    const [ownDecoded, peerDecoded] = await Promise.all([decodeAll(ownStatements), decodeAll(peerStatements)]);
+        return spec ? decodeIncoming(s, spec).unwrapOr(UNDECODABLE_EVENT) : Promise.resolve(UNDECODABLE_EVENT);
+      }),
+    ).then(events => events.filter(isReadable));
+
+    const [ownDecoded, peerDecoded] = await Promise.all([decodeOwnAll, decodePeerAll]);
     if (disposed) return;
 
     // Both parties publish on their own outgoing topic, so the OUTGOING query returns our
@@ -509,28 +550,28 @@ export function createSession({
     const peerResponse = peerDecoded.find(d => d.tag === 'response');
 
     if (ownRequest?.tag === 'request') {
-      const hasResponse =
-        peerResponse?.tag === 'response' && peerResponse.value.requestId === ownRequest.value.requestId;
+      const hasResponse = peerResponse?.tag === 'response' && peerResponse.requestId === ownRequest.requestId;
       if (!hasResponse) {
         state.outgoingRequest = {
-          requestIds: [ownRequest.value.requestId],
-          messages: ownRequest.value.data,
+          requestIds: [ownRequest.requestId],
+          messages: ownRequest.messages,
           tokens: [], // tokens from previous session cannot be restored
         };
       }
     }
 
     if (peerRequest?.tag === 'request') {
-      const requestId = peerRequest.value.requestId;
+      const requestId = peerRequest.requestId;
       // Don't clobber an entry a live delivery may have created during the awaits
       // above (the live one is newer/authoritative).
       if (!state.incomingRequests.has(requestId)) {
-        const responded = ownResponse?.tag === 'response' && ownResponse.value.requestId === requestId;
+        const responded = ownResponse?.tag === 'response' && ownResponse.requestId === requestId;
         state.incomingRequests.set(requestId, { responded });
         // Notify app of an unresponded incoming request. Delivered while phase is
         // still 'initialization' so deliverStatementData buffers it for replay if
         // no subscriber is registered yet.
-        if (!responded) deliverStatementData(peerRequest);
+        const statementData = toStatementData(peerRequest);
+        if (!responded && statementData) deliverStatementData(statementData);
       }
     }
 
@@ -588,8 +629,9 @@ export function createSession({
         return okAsync(undefined);
       }
 
-      const encoded = encodeStatementData({ tag: 'response', value: { requestId, responseCode } });
-      if (encoded.isErr()) return errAsync(encoded.error);
+      const body = bodyBuilder.buildResponse(requestId, responseCode);
+      if (body.isErr()) return errAsync(body.error);
+      const responseBody = body.value;
 
       // Mark responded up-front so concurrent callers dedupe, but roll back if the
       // submission fails — otherwise the ACK is lost forever (and a peer retransmit
@@ -599,7 +641,7 @@ export function createSession({
       // Responses go on OUR outgoing topic/response-channel (per spec: the responder
       // publishes on SessionId(self, peer)); the requester reads them from its incoming topic.
       return (
-        submitWithRetry(() => submitStatementData(responseChannel, outgoingSessionId, encoded.value), {
+        submitWithRetry(() => submitBody(responseBody), {
           attempts: MAX_SUBMIT_RETRIES,
           priorityAttempts: 'unbounded',
           delaysMs: RETRY_DELAY_MS,
@@ -726,18 +768,18 @@ export function createSession({
       if (outgoing === null) return okAsync(undefined);
 
       const requestId = outgoing.requestIds[outgoing.requestIds.length - 1]!;
-      const encoded = encodeStatementData({ tag: 'request', value: { requestId, data: [] } });
-      if (encoded.isErr()) return errAsync(encoded.error);
+      const emptyBody = bodyBuilder.buildRequest(requestId, []);
+      if (emptyBody.isErr()) return errAsync(emptyBody.error);
 
-      // Supersede the live batch with an empty one. Use submitStatementData so the
-      // empty statement goes out at a STRICTLY higher expiry — the store rejects an
-      // equal-or-lower expiry on the same channel, so reusing the last allocated expiry
-      // would leave the original request live on-chain. One shot, no retry (clearing is a
-      // supersede, not a request that must land); a priority rejection (ExpiryTooLow /
-      // AccountFull) means the channel already advanced past us, so the clear already
-      // happened → absorb it as success. No retry loop here means no onPriorityError hook, so
-      // resync the allocator inline: adopt the chain floor before absorbing, so later submits stay above it.
-      return submitStatementData(requestChannel, outgoingSessionId, encoded.value).orElse(error => {
+      // Supersede the live batch with an empty one, which goes out at a STRICTLY higher
+      // expiry — the store rejects an equal-or-lower expiry on the same channel, so reusing
+      // the last allocated expiry would leave the original request live on-chain. One shot,
+      // no retry (clearing is a supersede, not a request that must land); a priority
+      // rejection (ExpiryTooLow / AccountFull) means the channel already advanced past us,
+      // so the clear already happened → absorb it as success. No retry loop here means no
+      // onPriorityError hook, so resync the allocator inline: adopt the chain floor before
+      // absorbing, so later submits stay above it.
+      return submitBody(emptyBody.value).orElse(error => {
         if (!isPriorityTooLow(error)) return errAsync(error);
         allocator.raiseFloor(error.min);
         return okAsync<void, Error>(undefined);
@@ -750,6 +792,8 @@ export function createSession({
         clearTimeout(initRetryTimer);
         initRetryTimer = null;
       }
+      topicsUnsub?.();
+      topicsUnsub = null;
       storeUnsub?.();
       storeUnsub = null;
       subscribers = [];
@@ -782,10 +826,125 @@ function mapResponseCode(responseCode: ResponseStatus) {
   }
 }
 
-function createRequestChannel(sessionId: Uint8Array) {
-  return khash(sessionId, stringToBytes('request'));
+/**
+ * Single-device session (base-spec.md). Wire output is unchanged from before the
+ * multi-device seams existed: `StatementData.request`/`.response` on
+ * `SessionId(A, B)`, listening on `SessionId(B, A)`.
+ */
+export function createSession({
+  localAccount,
+  remoteAccount,
+  statementStore,
+  encryption,
+  prover,
+  sessionKey,
+  allocator = createExpiryAllocator(),
+  maxRequestSize = DEFAULT_MAX_REQUEST_SIZE,
+}: SessionParams): Session {
+  const outgoingTopic = createSessionId(sessionKey, localAccount, remoteAccount);
+  const incomingTopic = createSessionId(sessionKey, remoteAccount, localAccount);
+  // Single-device sessions neither emit nor accept multi-device variants.
+  const envelope = createRejectingEnvelope();
+
+  return createSessionCore({
+    statementStore,
+    prover,
+    allocator,
+    maxRequestSize,
+    outgoingTopic,
+    bodyBuilder: createSingleBodyBuilder({ topic: outgoingTopic, encryption }),
+    incomingTopics: createStaticTopics({
+      topic: incomingTopic,
+      senderEncryptionPublicKey: remoteAccount.publicKey,
+      encryption,
+    }),
+    decoder: createStatementDecoder({ prover, envelope, ownEncryption: encryption }),
+    peerDevices: () => [],
+  });
 }
 
-function createResponseChannel(sessionId: Uint8Array) {
-  return khash(sessionId, stringToBytes('response'));
+export type MultiDeviceSessionParams = {
+  /** This device: statement account (proof signer identity) and its X25519 encryption key. */
+  localDevice: {
+    statementAccountId: Uint8Array;
+    encryptionPrivateKey: Uint8Array;
+  };
+  /** This user's identity: account id and the identity chat key shared across own devices. */
+  localIdentity: {
+    accountId: AccountId;
+    chatPrivateKey: Uint8Array;
+    pin?: string;
+  };
+  /** The peer user's identity. */
+  remoteIdentity: {
+    accountId: AccountId;
+    chatPublicKey: Uint8Array;
+    pin?: string;
+  };
+  /** The peer's devices — observable, since `deviceAdded`/`deviceRemoved` change it at runtime. */
+  peerRoster: PeerRoster;
+  statementStore: StatementStoreAdapter;
+  prover: StatementProver;
+  allocator?: ExpiryAllocator;
+  maxRequestSize?: number;
+};
+
+/**
+ * Multi-device session (mds.md §"Sending P2P Messages").
+ *
+ * Outgoing: `topic = SessionId(D(A), B)` keyed by `x25519(ownDeviceEncPriv,
+ * peerIdentityChatPub)`, carrying a `multiRequest`/`multiResponse` envelope wrapped for
+ * every known peer device.
+ *
+ * Incoming: one topic per peer device, `SessionId(D(B'), A)` keyed by
+ * `x25519(ownIdentityChatPriv, D(B').encPub)` — covered by a single `matchAny`
+ * subscription that re-opens when the roster changes.
+ */
+export function createMultiDeviceSession({
+  localDevice,
+  localIdentity,
+  remoteIdentity,
+  peerRoster,
+  statementStore,
+  prover,
+  allocator = createExpiryAllocator(),
+  maxRequestSize = DEFAULT_MAX_REQUEST_SIZE,
+}: MultiDeviceSessionParams): Session {
+  const outgoingSharedSecret = x25519.getSharedSecret(localDevice.encryptionPrivateKey, remoteIdentity.chatPublicKey);
+  const outgoingEncryption = createEncryption(outgoingSharedSecret);
+
+  const localDeviceAccount: SessionAccount = {
+    accountId: createAccountId(localDevice.statementAccountId),
+    pin: localIdentity.pin,
+  };
+  const remoteIdentityAccount: SessionAccount = { accountId: remoteIdentity.accountId, pin: remoteIdentity.pin };
+  const localIdentityAccount: SessionAccount = { accountId: localIdentity.accountId, pin: localIdentity.pin };
+
+  const outgoingTopic = createSessionId(outgoingSharedSecret, localDeviceAccount, remoteIdentityAccount);
+
+  const envelope = createEnvelope({
+    ownStatementAccountId: localDevice.statementAccountId,
+    ownEncryptionPrivateKey: localDevice.encryptionPrivateKey,
+  });
+
+  return createSessionCore({
+    statementStore,
+    prover,
+    allocator,
+    maxRequestSize,
+    outgoingTopic,
+    bodyBuilder: createMultiDeviceBodyBuilder({
+      topic: outgoingTopic,
+      encryption: outgoingEncryption,
+      envelope,
+      recipients: () => peerRoster.current(),
+    }),
+    incomingTopics: createRosterTopics({
+      localIdentity: localIdentityAccount,
+      ownIdentityChatPrivateKey: localIdentity.chatPrivateKey,
+      peerRoster,
+    }),
+    decoder: createStatementDecoder({ prover, envelope, ownEncryption: outgoingEncryption }),
+    peerDevices: () => peerRoster.current(),
+  });
 }
