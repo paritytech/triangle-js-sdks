@@ -183,6 +183,51 @@ describe('multi-device session', () => {
     bobSession.dispose();
   });
 
+  describe('with no known peer devices', () => {
+    const emptyRosterSession = (store: ReturnType<typeof createInMemoryStatementStore>, queryStatements = vi.fn()) => {
+      const alice = createIdentity();
+      const bob = createIdentity();
+
+      return createMultiDeviceSession({
+        localDevice: createDevice(),
+        localIdentity: alice,
+        remoteIdentity: { accountId: bob.accountId, chatPublicKey: bob.chatPublicKey },
+        peerRoster: mutableRoster([]).roster,
+        statementStore: { ...store, queryStatements },
+        prover: mockProver,
+        allocator: createExpiryAllocator(),
+      });
+    };
+
+    // An empty `matchAny` has no defined meaning at the node; a store reading it as "match
+    // everything" would hand the session the entire store to decode.
+    it('does not ask the store to match an empty topic set', async () => {
+      const store = createInMemoryStatementStore();
+      const queryStatements = vi.fn().mockReturnValue(okAsync([]));
+      const session = emptyRosterSession(store, queryStatements);
+      await delay();
+
+      const filters = queryStatements.mock.calls.map(([f]) => f as { matchAny?: unknown[] });
+      expect(filters.every(f => f.matchAny === undefined || f.matchAny.length > 0)).toBe(true);
+
+      session.dispose();
+    });
+
+    it('reports the real reason a send cannot go out', async () => {
+      const store = createInMemoryStatementStore();
+      const session = emptyRosterSession(store, vi.fn().mockReturnValue(okAsync([])));
+      await delay();
+
+      const result = await session.submitRequestMessage(rawCodec, new TextEncoder().encode('hi'));
+
+      expect(result.isErr()).toBe(true);
+      // Not "message too big", which is what an unbuildable statement used to look like.
+      expect(result._unsafeUnwrapErr().message).toContain('recipient devices');
+
+      session.dispose();
+    });
+  });
+
   it('reaches every device of a multi-device peer', async () => {
     const store = createInMemoryStatementStore();
     const alice = createIdentity();

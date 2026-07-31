@@ -404,9 +404,15 @@ export function createSessionCore({
 
   async function init(): Promise<void> {
     const specs = incomingTopics.current();
+    // An empty topic set means nothing to listen to yet (a peer whose devices we have not
+    // learned). Skip the query rather than asking the store to match none — the node's
+    // reading of an empty `matchAny` is unspecified, and a store that took it as "match
+    // everything" would hand us the whole store to decode.
     const result = await ResultAsync.combine([
       statementStore.queryStatements({ matchAll: [outgoingTopic] }),
-      statementStore.queryStatements({ matchAny: specs.map(spec => spec.topic) }),
+      specs.length === 0
+        ? okAsync<Statement[], Error>([])
+        : statementStore.queryStatements({ matchAny: specs.map(spec => spec.topic) }),
     ]);
 
     if (result.isErr()) {
@@ -503,7 +509,11 @@ export function createSessionCore({
       if (encodedResult.isErr()) return errAsync(encodedResult.error);
 
       const encoded = encodedResult.value;
-      if (requestPayloadSize([encoded]) > maxPayloadSize) return errAsync(new Error('message too big'));
+      // Build once to size it, and keep the builder's own error: "cannot wrap without
+      // recipient devices" must not surface as "message too big".
+      const sized = bodyBuilder.buildRequest(SIZING_REQUEST_ID, [encoded]);
+      if (sized.isErr()) return errAsync(sized.error);
+      if (sized.value.data.length > maxPayloadSize) return errAsync(new Error('message too big'));
 
       if (machineState.phase === 'failed') {
         return errAsync(machineState.initError ?? new Error('Session initialization failed'));
