@@ -32,5 +32,11 @@ export function toMessage<T>(statementData: CodecType<typeof StatementData>, cod
           responseCode: statementData.value.responseCode,
         },
       ];
+    case 'multiRequest':
+    case 'multiResponse':
+      // Multi-device envelopes are opened by `codec/decoder.ts` before anything reaches
+      // this mapper, so it only ever sees the inner single-device variants. Unreachable
+      // in practice; the branch exists so the enum stays exhaustively handled.
+      return [];
   }
 }

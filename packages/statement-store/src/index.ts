@@ -16,7 +16,20 @@ export {
 export type { Session } from './session/types.js';
 export { createSession } from './session/session.js';
 export type { ResponseStatus } from './session/scale/statementData.js';
-export { Request, Response, ResponseCode, StatementData } from './session/scale/statementData.js';
+export {
+  MultiRequest,
+  MultiResponse,
+  Request,
+  RequestDeviceInfo,
+  Response,
+  ResponseCode,
+  StatementData,
+} from './session/scale/statementData.js';
+
+export type { DeviceTarget, Envelope, WrappedEnvelope } from './session/codec/envelope.js';
+export { createEnvelope, createRejectingEnvelope } from './session/codec/envelope.js';
+export type { IncomingTopicSpec, StatementDecoder, TransportEvent } from './session/codec/decoder.js';
+export { createStatementDecoder } from './session/codec/decoder.js';
 
 export type { StatementProver } from './session/statementProver.js';
 export { createSlotAccountProver, createSr25519Prover } from './session/statementProver.js';
