@@ -1,19 +1,15 @@
 /**
- * The session's transport decision logic, with no I/O in it.
+ * The session's transport decision logic as a pure reducer.
  *
- * Owns the three pieces of state base-spec.md §"Session State" defines — the session phase,
- * the outgoing request plus its message queue, and the incoming requests — and answers the
- * only questions that actually require judgement:
+ * {@link transition} takes the current {@link SessionState} and a {@link SessionEvent} and
+ * returns the next state plus the {@link SessionEffect}s the driver must perform. It never
+ * submits, encrypts, subscribes or settles a promise, never mutates the state it is given,
+ * and reads no clock. The only environment it needs — sizing (`fits`) and request-id
+ * generation (`newRequestId`) — arrives in {@link TransitionContext}, so a test can make
+ * both deterministic.
  *
- *  - does this message start a new batch, extend the live one, or wait in the queue?
- *  - is this an exact duplicate of something already in flight?
- *  - does this response/failure belong to the batch that is still live?
- *  - what can be drained now that the budget freed up?
- *
- * It never submits, encrypts, subscribes or settles a promise. Instead every method returns
- * {@link SessionEffect}s for the driver to perform. Sizing (`fits`) and id generation
- * (`newRequestId`) are injected, so the whole module is deterministic and testable without
- * a statement store.
+ * The state covers what base-spec.md §"Session State" defines: the session phase, the
+ * outgoing request plus the queue of messages waiting behind it, and the incoming requests.
  *
  * Deliberate deviation from base-spec.md: `incomingRequests` is a map rather than the
  * spec's single `IncomingRequest(A, B)`. The spec's model assumes the Application Layer
@@ -36,211 +32,278 @@ type OutgoingRequest = {
   tokens: string[];
 };
 
-type SessionPhase = 'initialization' | 'active' | 'failed';
+type IncomingRequest = { responded: boolean };
 
-/** Work the driver must carry out. The machine itself performs none of it. */
+export type SessionState = {
+  phase: 'initialization' | 'active' | 'failed';
+  initError: Error | null;
+  outgoingRequest: OutgoingRequest | null;
+  // A queued message can carry several tokens when later identical submissions are
+  // deduplicated onto it — they all resolve together when it is finally answered.
+  messageQueue: QueuedMessage[];
+  incomingRequests: Map<string, IncomingRequest>;
+};
+
+export type SessionEvent =
+  /** The application layer wants a message sent. */
+  | { type: 'messageSubmitted'; encoded: Uint8Array; token: string }
+  /** A peer request we had not seen before. */
+  | { type: 'requestReceived'; requestId: string }
+  /** A peer response arrived on our outgoing batch. */
+  | { type: 'responseReceived'; requestId: string; responseCode: ResponseStatus }
+  /** A request submission exhausted its retries. */
+  | { type: 'requestSubmitFailed'; requestId: string; error: Error }
+  /** We answered an incoming request (marked before the submit, so concurrent callers dedupe). */
+  | { type: 'responseSubmitted'; requestId: string }
+  /** That answer failed after retries — let a later peer retransmit be answered. */
+  | { type: 'responseSubmitFailed'; requestId: string }
+  /** Drop the live batch and everything queued behind it. */
+  | { type: 'outgoingCleared' }
+  /** An unacknowledged batch was found in the store during initialization. */
+  | { type: 'outgoingRestored'; requestId: string; messages: Uint8Array[] }
+  /** An incoming request was found in the store during initialization. */
+  | { type: 'incomingRestored'; requestId: string; responded: boolean }
+  /** Initialization finished: go active and ship whatever the queue held. */
+  | { type: 'activated' }
+  /** Initialization failed terminally. */
+  | { type: 'initFailed'; error: Error };
+
+/** Work the driver must carry out. The reducer performs none of it. */
 export type SessionEffect =
   | { type: 'submitRequest'; requestId: string; messages: Uint8Array[] }
   | { type: 'resolveTokens'; tokens: string[]; requestId: string; responseCode: ResponseStatus }
   | { type: 'rejectTokens'; tokens: string[]; error: Error };
 
-type IncomingRequestState = { responded: boolean };
-
-export type SessionStateMachine = {
-  phase(): SessionPhase;
-  initError(): Error | null;
-
-  /** Accept a message from the application layer. */
-  submitMessage(encoded: Uint8Array, token: string): SessionEffect[];
-  /** True while `requestId` is the newest submission of the live batch. */
-  isLiveRequest(requestId: string): boolean;
-  onResponse(requestId: string, responseCode: ResponseStatus): SessionEffect[];
-  onSubmitFailed(requestId: string, error: Error): SessionEffect[];
-  /**
-   * Drop the live batch and everything queued behind it. Returns the request id whose
-   * statement must be superseded on-chain, or null when nothing was in flight.
-   */
-  clearOutgoing(): string | null;
-
-  /** Restore an unacknowledged batch found in the store during initialization. */
-  restoreOutgoing(requestId: string, messages: Uint8Array[]): void;
-  /** Register an incoming request seen during initialization, with its answered state. */
-  restoreIncoming(requestId: string, responded: boolean): void;
-  /** Enter the active phase and drain whatever the queue held during initialization. */
-  activate(): SessionEffect[];
-  failInit(error: Error): void;
-
-  /** Start tracking a newly seen incoming request. False when it was already known. */
-  trackIncoming(requestId: string): boolean;
-  incoming(requestId: string): IncomingRequestState | undefined;
-
-  /** Snapshot for the disposed/aborted paths: every token still awaiting a response. */
-  pendingTokens(): string[];
-};
-
-export function createSessionStateMachine({
-  fits,
-  newRequestId,
-}: {
+export type TransitionContext = {
   /** Whether these messages fit one statement — the body builder is the size oracle. */
   fits: (messages: Uint8Array[]) => boolean;
   newRequestId: () => string;
-}): SessionStateMachine {
-  let phase: SessionPhase = 'initialization';
-  let initError: Error | null = null;
-  let outgoingRequest: OutgoingRequest | null = null;
-  let messageQueue: QueuedMessage[] = [];
-  const incomingRequests = new Map<string, IncomingRequestState>();
+};
 
-  // Attach `token` to an identical message already in flight or queued, so the caller
-  // resolves on that message's response instead of the bytes going out twice.
-  function attachToDuplicate(encoded: Uint8Array, token: string): boolean {
-    const encodedHex = toHex(encoded);
-    const sameBytes = (m: Uint8Array) => m.length === encoded.length && toHex(m) === encodedHex;
+export type Transition = { state: SessionState; effects: SessionEffect[] };
 
-    if (outgoingRequest?.messages.some(sameBytes)) {
-      outgoingRequest.tokens.push(token);
-
-      return true;
-    }
-
-    const queued = messageQueue.find(entry => sameBytes(entry.encoded));
-    if (queued) {
-      queued.tokens.push(token);
-
-      return true;
-    }
-
-    return false;
-  }
-
-  // Start a batch, extend the live one, or park the message behind it.
-  function admit(encoded: Uint8Array, tokens: string[]): SessionEffect[] {
-    if (outgoingRequest === null) {
-      const requestId = newRequestId();
-      outgoingRequest = { requestIds: [requestId], messages: [encoded], tokens: [...tokens] };
-
-      // Snapshot: the live array keeps growing as later messages join the batch.
-      return [{ type: 'submitRequest', requestId, messages: [...outgoingRequest.messages] }];
-    }
-
-    if (fits([...outgoingRequest.messages, encoded])) {
-      outgoingRequest.messages.push(encoded);
-      outgoingRequest.tokens.push(...tokens);
-      const requestId = newRequestId();
-      outgoingRequest.requestIds.push(requestId);
-
-      return [{ type: 'submitRequest', requestId, messages: [...outgoingRequest.messages] }];
-    }
-
-    messageQueue.push({ encoded, tokens });
-
-    return [];
-  }
-
-  // Move queue heads into the batch for as long as the budget allows. FIFO: a later
-  // message never overtakes one already waiting.
-  function drain(): SessionEffect[] {
-    const effects: SessionEffect[] = [];
-    while (messageQueue.length > 0) {
-      const head = messageQueue[0]!;
-      // Recomputed per iteration; `admit` grows the batch in place.
-      if (outgoingRequest !== null && !fits([...outgoingRequest.messages, head.encoded])) break;
-      messageQueue.shift();
-      effects.push(...admit(head.encoded, head.tokens));
-    }
-
-    return effects;
-  }
-
+export function initialSessionState(): SessionState {
   return {
-    phase: () => phase,
-    initError: () => initError,
+    phase: 'initialization',
+    initError: null,
+    outgoingRequest: null,
+    messageQueue: [],
+    incomingRequests: new Map(),
+  };
+}
 
-    submitMessage(encoded, token) {
-      if (attachToDuplicate(encoded, token)) return [];
+// ── selectors ────────────────────────────────────────────────────────────────
+// Reads the driver needs that are not transitions.
+
+/** True while `requestId` is the newest submission of the live batch. */
+export function isLiveRequest(state: SessionState, requestId: string): boolean {
+  return state.outgoingRequest?.requestIds.at(-1) === requestId;
+}
+
+export function incomingRequest(state: SessionState, requestId: string): IncomingRequest | undefined {
+  return state.incomingRequests.get(requestId);
+}
+
+/** The request id whose on-chain statement must be superseded to clear the batch. */
+export function liveRequestId(state: SessionState): string | null {
+  return state.outgoingRequest?.requestIds.at(-1) ?? null;
+}
+
+// ── internals ────────────────────────────────────────────────────────────────
+
+const nothing = (state: SessionState): Transition => ({ state, effects: [] });
+
+function withIncoming(state: SessionState, requestId: string, value: IncomingRequest): SessionState {
+  return { ...state, incomingRequests: new Map(state.incomingRequests).set(requestId, value) };
+}
+
+/**
+ * Attach `token` to an identical message already in flight or queued, so the caller
+ * resolves on that message's response instead of the bytes going out twice.
+ * Returns null when nothing matches.
+ */
+function attachToDuplicate(state: SessionState, encoded: Uint8Array, token: string): SessionState | null {
+  const encodedHex = toHex(encoded);
+  const sameBytes = (m: Uint8Array) => m.length === encoded.length && toHex(m) === encodedHex;
+
+  const outgoing = state.outgoingRequest;
+  if (outgoing?.messages.some(sameBytes)) {
+    return { ...state, outgoingRequest: { ...outgoing, tokens: [...outgoing.tokens, token] } };
+  }
+
+  if (state.messageQueue.some(entry => sameBytes(entry.encoded))) {
+    let attached = false;
+
+    return {
+      ...state,
+      messageQueue: state.messageQueue.map(entry => {
+        // Only the first match takes the token; a later identical entry must not duplicate it.
+        if (attached || !sameBytes(entry.encoded)) return entry;
+        attached = true;
+
+        return { ...entry, tokens: [...entry.tokens, token] };
+      }),
+    };
+  }
+
+  return null;
+}
+
+/** Start a batch, extend the live one, or park the message behind it. */
+function admit(state: SessionState, encoded: Uint8Array, tokens: string[], ctx: TransitionContext): Transition {
+  const outgoing = state.outgoingRequest;
+
+  if (outgoing === null) {
+    const requestId = ctx.newRequestId();
+    const messages = [encoded];
+
+    return {
+      state: { ...state, outgoingRequest: { requestIds: [requestId], messages, tokens: [...tokens] } },
+      effects: [{ type: 'submitRequest', requestId, messages: [...messages] }],
+    };
+  }
+
+  const messages = [...outgoing.messages, encoded];
+  if (ctx.fits(messages)) {
+    const requestId = ctx.newRequestId();
+
+    return {
+      state: {
+        ...state,
+        outgoingRequest: {
+          requestIds: [...outgoing.requestIds, requestId],
+          messages,
+          tokens: [...outgoing.tokens, ...tokens],
+        },
+      },
+      // The statement store keeps one statement per channel, so every submission must
+      // carry the FULL unacknowledged batch — an offline peer only ever sees the survivor.
+      effects: [{ type: 'submitRequest', requestId, messages: [...messages] }],
+    };
+  }
+
+  return { state: { ...state, messageQueue: [...state.messageQueue, { encoded, tokens }] }, effects: [] };
+}
+
+/**
+ * Move queue heads into the batch for as long as the budget allows. FIFO: a later message
+ * never overtakes one already waiting.
+ */
+function drain(state: SessionState, ctx: TransitionContext): Transition {
+  let current = state;
+  const effects: SessionEffect[] = [];
+
+  while (current.messageQueue.length > 0) {
+    const [head, ...rest] = current.messageQueue;
+    if (!head) break;
+    // Recomputed per iteration; `admit` grows the batch as it goes.
+    if (current.outgoingRequest !== null && !ctx.fits([...current.outgoingRequest.messages, head.encoded])) break;
+
+    const admitted = admit({ ...current, messageQueue: rest }, head.encoded, head.tokens, ctx);
+    current = admitted.state;
+    effects.push(...admitted.effects);
+  }
+
+  return { state: current, effects };
+}
+
+// ── reducer ──────────────────────────────────────────────────────────────────
+
+export function transition(state: SessionState, event: SessionEvent, ctx: TransitionContext): Transition {
+  switch (event.type) {
+    case 'messageSubmitted': {
+      const deduped = attachToDuplicate(state, event.encoded, event.token);
+      if (deduped) return nothing(deduped);
 
       // FIFO: never let a later (fitting) message overtake queued ones, and never submit
       // before initialization has established the expiry floor.
-      if (phase === 'initialization' || messageQueue.length > 0) {
-        messageQueue.push({ encoded, tokens: [token] });
-
-        return [];
+      if (state.phase === 'initialization' || state.messageQueue.length > 0) {
+        return nothing({
+          ...state,
+          messageQueue: [...state.messageQueue, { encoded: event.encoded, tokens: [event.token] }],
+        });
       }
 
-      return admit(encoded, [token]);
-    },
+      return admit(state, event.encoded, [event.token], ctx);
+    }
 
-    isLiveRequest(requestId) {
-      return outgoingRequest?.requestIds.at(-1) === requestId;
-    },
+    case 'requestReceived': {
+      if (state.incomingRequests.has(event.requestId)) return nothing(state);
 
-    onResponse(requestId, responseCode) {
-      const outgoing = outgoingRequest;
+      return nothing(withIncoming(state, event.requestId, { responded: false }));
+    }
+
+    case 'responseReceived': {
+      const outgoing = state.outgoingRequest;
       // Any id the batch was ever submitted under counts — an early response to a
       // superseded retransmit still answers the same messages.
-      if (!outgoing?.requestIds.includes(requestId)) return [];
+      if (!outgoing?.requestIds.includes(event.requestId)) return nothing(state);
 
-      outgoingRequest = null;
+      const drained = drain({ ...state, outgoingRequest: null }, ctx);
 
-      return [{ type: 'resolveTokens', tokens: outgoing.tokens, requestId, responseCode }, ...drain()];
-    },
+      return {
+        state: drained.state,
+        effects: [
+          {
+            type: 'resolveTokens',
+            tokens: outgoing.tokens,
+            requestId: event.requestId,
+            responseCode: event.responseCode,
+          },
+          ...drained.effects,
+        ],
+      };
+    }
 
-    onSubmitFailed(requestId, error) {
-      const outgoing = outgoingRequest;
+    case 'requestSubmitFailed': {
+      const outgoing = state.outgoingRequest;
       // Superseded by a newer retransmit carrying the same tokens — that one owns the
       // waiters now, so this failure is not the live batch's concern.
-      if (!outgoing || outgoing.requestIds.at(-1) !== requestId) return [];
+      if (!outgoing || outgoing.requestIds.at(-1) !== event.requestId) return nothing(state);
 
-      outgoingRequest = null;
+      const drained = drain({ ...state, outgoingRequest: null }, ctx);
 
-      return [{ type: 'rejectTokens', tokens: outgoing.tokens, error }, ...drain()];
-    },
+      return {
+        state: drained.state,
+        effects: [{ type: 'rejectTokens', tokens: outgoing.tokens, error: event.error }, ...drained.effects],
+      };
+    }
 
-    clearOutgoing() {
-      const outgoing = outgoingRequest;
-      outgoingRequest = null;
-      messageQueue = [];
+    case 'responseSubmitted': {
+      const incoming = state.incomingRequests.get(event.requestId);
+      if (!incoming) return nothing(state);
 
-      return outgoing?.requestIds.at(-1) ?? null;
-    },
+      return nothing(withIncoming(state, event.requestId, { responded: true }));
+    }
 
-    restoreOutgoing(requestId, messages) {
-      // Tokens from a previous run cannot be restored — nobody is awaiting them.
-      outgoingRequest = { requestIds: [requestId], messages, tokens: [] };
-    },
+    case 'responseSubmitFailed': {
+      const incoming = state.incomingRequests.get(event.requestId);
+      if (!incoming) return nothing(state);
 
-    restoreIncoming(requestId, responded) {
+      return nothing(withIncoming(state, event.requestId, { responded: false }));
+    }
+
+    case 'outgoingCleared':
+      return nothing({ ...state, outgoingRequest: null, messageQueue: [] });
+
+    case 'outgoingRestored':
+      return nothing({
+        ...state,
+        // Tokens from a previous run cannot be restored — nobody is awaiting them.
+        outgoingRequest: { requestIds: [event.requestId], messages: event.messages, tokens: [] },
+      });
+
+    case 'incomingRestored': {
       // Don't clobber an entry a live delivery created while init was still awaiting.
-      if (incomingRequests.has(requestId)) return;
-      incomingRequests.set(requestId, { responded });
-    },
+      if (state.incomingRequests.has(event.requestId)) return nothing(state);
 
-    activate() {
-      phase = 'active';
+      return nothing(withIncoming(state, event.requestId, { responded: event.responded }));
+    }
 
-      return drain();
-    },
+    case 'activated':
+      return drain({ ...state, phase: 'active' }, ctx);
 
-    failInit(error) {
-      phase = 'failed';
-      initError = error;
-      messageQueue = [];
-    },
-
-    trackIncoming(requestId) {
-      if (incomingRequests.has(requestId)) return false;
-      incomingRequests.set(requestId, { responded: false });
-
-      return true;
-    },
-
-    incoming(requestId) {
-      return incomingRequests.get(requestId);
-    },
-
-    pendingTokens() {
-      return [...(outgoingRequest?.tokens ?? []), ...messageQueue.flatMap(entry => entry.tokens)];
-    },
-  };
+    case 'initFailed':
+      return nothing({ ...state, phase: 'failed', initError: event.error, messageQueue: [] });
+  }
 }

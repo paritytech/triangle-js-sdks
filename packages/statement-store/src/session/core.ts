@@ -30,8 +30,8 @@ import type { OutgoingBodyBuilder, StatementBody } from './codec/outgoingBody.js
 import { DecodingError, DecryptionError, UnknownError } from './error.js';
 import { toMessage } from './messageMapper.js';
 import type { ResponseStatus } from './scale/statementData.js';
-import type { SessionEffect } from './stateMachine.js';
-import { createSessionStateMachine } from './stateMachine.js';
+import type { SessionEffect, SessionEvent, SessionState } from './stateMachine.js';
+import { incomingRequest, initialSessionState, isLiveRequest, liveRequestId, transition } from './stateMachine.js';
 import type { StatementProver } from './statementProver.js';
 import type { Filter, Message, RequestMessage, ResponseMessage, Session } from './types.js';
 
@@ -133,11 +133,19 @@ export function createSessionCore({
   // Message bytes must fit within the statement limit minus the fixed wire overhead.
   const maxPayloadSize = Math.max(0, maxRequestSize - STATEMENT_OVERHEAD);
 
-  // All batching / dedup / phase decisions live here; this file only performs the effects.
-  const machine = createSessionStateMachine({
-    fits: messages => requestPayloadSize(messages) <= maxPayloadSize,
+  // All batching / dedup / phase decisions are made by the reducer; this file only performs
+  // the effects it returns.
+  const transitionContext = {
+    fits: (messages: Uint8Array[]) => requestPayloadSize(messages) <= maxPayloadSize,
     newRequestId: nanoid,
-  });
+  };
+  let machineState: SessionState = initialSessionState();
+
+  function dispatch(event: SessionEvent): void {
+    const result = transition(machineState, event, transitionContext);
+    machineState = result.state;
+    runEffects(result.effects);
+  }
 
   const pendingDelivery = new Map<string, PendingDelivery>();
   const seenStatements = new Set<string>();
@@ -239,7 +247,7 @@ export function createSessionCore({
           onPriorityError: error => allocator.raiseFloor(error.min),
           // Only keep retrying while this is still the live submission (not superseded by a
           // newer retransmit, aborted via clearOutgoingStatement, or disposed).
-          shouldRetry: () => !disposed && machine.isLiveRequest(requestId),
+          shouldRetry: () => !disposed && isLiveRequest(machineState, requestId),
         }),
       )
       .mapErr(e => {
@@ -249,9 +257,9 @@ export function createSessionCore({
         // the waiters. Otherwise the live batch never landed, so its waiters are failed
         // rather than left hanging.
         if (disposed) return;
-        const effects = machine.onSubmitFailed(requestId, e);
-        if (effects.length > 0) console.error('submitRequest failed:', e);
-        runEffects(effects);
+        // Only the live batch's failure matters; a superseded submission yields no effects.
+        if (isLiveRequest(machineState, requestId)) console.error('submitRequest failed:', e);
+        dispatch({ type: 'requestSubmitFailed', requestId, error: e });
       });
   }
 
@@ -259,7 +267,7 @@ export function createSessionCore({
     // Buffer 'request' events unconditionally so that waitForRequestMessage
     // registered after delivery (race condition) still receives them via subscribe() replay.
     // Buffer everything else during initialization when there are no subscribers yet.
-    if (event.tag === 'request' || (subscribers.length === 0 && machine.phase() === 'initialization')) {
+    if (event.tag === 'request' || (subscribers.length === 0 && machineState.phase === 'initialization')) {
       bufferedMessages.push(event);
     }
 
@@ -295,7 +303,8 @@ export function createSessionCore({
         // handled (or was already answered) — NACKing now would mask the real response, since the
         // `responded` flag is sticky.
         // Decrypted but the message body is malformed — NACK so the sender stops waiting.
-        if (!machine.trackIncoming(event.requestId)) return;
+        if (incomingRequest(machineState, event.requestId)) return;
+        dispatch({ type: 'requestReceived', requestId: event.requestId });
         void session
           .submitResponseMessage(event.requestId, 'decodingFailed')
           .mapErr(e => console.error('statement-store: failed to NACK an undecodable request:', e));
@@ -303,13 +312,13 @@ export function createSessionCore({
       }
 
       if (event.tag === 'request') {
-        if (!machine.trackIncoming(event.requestId)) return;
+        if (incomingRequest(machineState, event.requestId)) return;
+        dispatch({ type: 'requestReceived', requestId: event.requestId });
         deliver(event);
       } else {
-        const effects = machine.onResponse(event.requestId, event.responseCode);
-        // Not ours (or already answered) — nothing to deliver.
-        if (effects.length === 0) return;
-        runEffects(effects);
+        // Not ours (or already answered) — nothing to settle or deliver.
+        if (!machineState.outgoingRequest?.requestIds.includes(event.requestId)) return;
+        dispatch({ type: 'responseReceived', requestId: event.requestId, responseCode: event.responseCode });
         deliver(event);
       }
     });
@@ -374,7 +383,7 @@ export function createSessionCore({
   }
 
   function failInit(error: Error): void {
-    machine.failInit(error);
+    dispatch({ type: 'initFailed', error });
     rejectAllPending(error);
   }
 
@@ -450,22 +459,23 @@ export function createSessionCore({
 
     if (ownRequest?.tag === 'request') {
       const hasResponse = peerResponse?.tag === 'response' && peerResponse.requestId === ownRequest.requestId;
-      if (!hasResponse) machine.restoreOutgoing(ownRequest.requestId, ownRequest.messages);
+      if (!hasResponse)
+        dispatch({ type: 'outgoingRestored', requestId: ownRequest.requestId, messages: ownRequest.messages });
     }
 
     if (peerRequest?.tag === 'request') {
       const requestId = peerRequest.requestId;
-      const alreadyKnown = machine.incoming(requestId) !== undefined;
+      const alreadyKnown = incomingRequest(machineState, requestId) !== undefined;
       const responded = ownResponse?.tag === 'response' && ownResponse.requestId === requestId;
-      // restoreIncoming ignores an entry a live delivery created during the awaits above
-      // (the live one is newer/authoritative), so only notify when this one is genuinely new.
-      machine.restoreIncoming(requestId, responded);
+      // The reducer ignores an entry a live delivery created during the awaits above (the
+      // live one is newer/authoritative), so only notify when this one is genuinely new.
+      dispatch({ type: 'incomingRestored', requestId, responded });
       // Notify app of an unresponded incoming request. Delivered while phase is still
       // 'initialization' so `deliver` buffers it for replay if no subscriber is registered yet.
       if (!alreadyKnown && !responded) deliver(peerRequest);
     }
 
-    runEffects(machine.activate());
+    dispatch({ type: 'activated' });
   }
 
   const session: Session = {
@@ -487,8 +497,8 @@ export function createSessionCore({
       const encoded = encodedResult.value;
       if (requestPayloadSize([encoded]) > maxPayloadSize) return errAsync(new Error('message too big'));
 
-      if (machine.phase() === 'failed') {
-        return errAsync(machine.initError() ?? new Error('Session initialization failed'));
+      if (machineState.phase === 'failed') {
+        return errAsync(machineState.initError ?? new Error('Session initialization failed'));
       }
 
       const token = nanoid();
@@ -496,14 +506,14 @@ export function createSessionCore({
 
       // Dedup: an identical message already in flight or queued is not re-sent — the
       // new caller is attached to it and resolves on the same response.
-      runEffects(machine.submitMessage(encoded, token));
+      dispatch({ type: 'messageSubmitted', encoded, token });
 
       return okAsync({ requestId: token });
     },
 
     submitResponseMessage(requestId: string, responseCode: ResponseStatus) {
       if (disposed) return errAsync(new Error(SESSION_DISPOSED));
-      const incoming = machine.incoming(requestId);
+      const incoming = incomingRequest(machineState, requestId);
       if (!incoming) return errAsync(new Error(`No incoming request with id ${requestId}`));
       if (incoming.responded) {
         pruneBufferedRequest(requestId);
@@ -517,7 +527,7 @@ export function createSessionCore({
       // Mark responded up-front so concurrent callers dedupe, but roll back if the
       // submission fails — otherwise the ACK is lost forever (and a peer retransmit
       // with a fresh id could never be answered either).
-      incoming.responded = true;
+      dispatch({ type: 'responseSubmitted', requestId });
       lastResponseRequestId = requestId;
       // Responses go on OUR outgoing topic/response-channel (per spec: the responder
       // publishes on SessionId(self, peer)); the requester reads them from its incoming topic.
@@ -541,7 +551,7 @@ export function createSessionCore({
             if (disposed || lastResponseRequestId !== requestId) return okAsync<void, Error>(undefined);
             // The live response genuinely failed after exhausting retries — roll back so a later
             // peer retransmit can still be answered, and surface the error.
-            incoming.responded = false;
+            dispatch({ type: 'responseSubmitFailed', requestId });
             return errAsync(error);
           })
           // Answered (or absorbed as such): it no longer needs replaying to future subscribers.
@@ -639,7 +649,8 @@ export function createSessionCore({
       // which path follows. This covers messages queued before the batch went out (e.g.
       // during init, while there is no live batch) and guarantees cleanup even if the
       // superseding submission below fails — the caller still receives any submission error.
-      const requestId = machine.clearOutgoing();
+      const requestId = liveRequestId(machineState);
+      dispatch({ type: 'outgoingCleared' });
       rejectAllPending(new Error('Outgoing batch aborted'));
 
       if (requestId === null) return okAsync(undefined);
@@ -674,7 +685,7 @@ export function createSessionCore({
       storeUnsub = null;
       subscribers = [];
       // Drop pending work so no in-flight retry or queue drain acts on a disposed session.
-      machine.clearOutgoing();
+      dispatch({ type: 'outgoingCleared' });
       // Settle any waitForRequestMessage() promises so callers unwind instead of
       // hanging forever. Snapshot first — rejecting mutates the set.
       for (const rejectWaiter of [...requestWaiters]) rejectWaiter(new Error(SESSION_DISPOSED));
