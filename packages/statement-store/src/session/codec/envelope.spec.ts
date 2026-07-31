@@ -3,7 +3,7 @@ import { randomBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
 
 import type { DeviceTarget } from './envelope.js';
-import { createEnvelope, createRejectingEnvelope } from './envelope.js';
+import { createEnvelope } from './envelope.js';
 
 function createDevice(): DeviceTarget & { encryptionPrivateKey: Uint8Array } {
   const encryptionPrivateKey = x25519.utils.randomSecretKey();
@@ -139,13 +139,5 @@ describe('multi-device envelope', () => {
 
     expect(first.encryptedPayload).not.toEqual(second.encryptedPayload);
     expect(first.devicesInfo[0]!.encryptedKey).not.toEqual(second.devicesInfo[0]!.encryptedKey);
-  });
-
-  it('the rejecting envelope fails every operation', () => {
-    const envelope = createRejectingEnvelope();
-
-    expect(envelope.wrap(PLAINTEXT, [createDevice()]).isErr()).toBe(true);
-    expect(envelope.unwrapForOwnDevice(PLAINTEXT, [], randomBytes(32)).isErr()).toBe(true);
-    expect(envelope.unwrapOwn(PLAINTEXT, [], []).isErr()).toBe(true);
   });
 });

@@ -42,6 +42,9 @@ export type TransportEvent =
    */
   | { tag: 'undecodable'; requestId: string | null };
 
+/** An event carrying an actual payload — everything except {@link TransportEvent} `undecodable`. */
+export type ReadableEvent = Extract<TransportEvent, { tag: 'request' | 'response' }>;
+
 /** Everything needed to read statements arriving on one incoming topic. */
 export type IncomingTopicSpec = {
   topic: Uint8Array;
@@ -57,8 +60,11 @@ export type StatementDecoder = {
 };
 
 type DeviceEntry = CodecType<typeof RequestDeviceInfo>;
-/** Opens a multi-device envelope; the two directions differ only in which key they use. */
-type UnwrapEnvelope = (encryptedPayload: Uint8Array, devicesInfo: DeviceEntry[]) => Result<Uint8Array, Error>;
+/**
+ * Opens a multi-device envelope; the two directions differ only in which key they use.
+ * `null` for single-device sessions, which neither emit nor accept those variants.
+ */
+type UnwrapEnvelope = ((encryptedPayload: Uint8Array, devicesInfo: DeviceEntry[]) => Result<Uint8Array, Error>) | null;
 
 const decodeStatementData = fromThrowable(StatementData.dec, toError);
 const decodeRequest = fromThrowable(Request.dec, toError);
@@ -98,7 +104,8 @@ export function createStatementDecoder({
   ownEncryption,
 }: {
   prover: StatementProver;
-  envelope: Envelope;
+  /** Omit for a single-device session: multi-device variants then decode as `undecodable`. */
+  envelope?: Envelope;
   /** Outer encryption of our OWN outgoing statements — used only by {@link StatementDecoder.decodeOwn}. */
   ownEncryption: Encryption;
 }): StatementDecoder {
@@ -128,11 +135,15 @@ export function createStatementDecoder({
       case 'response':
         return toResponseEvent(statementData.value, expiry);
       case 'multiRequest':
+        if (!unwrap) return UNOPENABLE;
+
         return unwrap(statementData.value.encryptedRequest, statementData.value.devicesInfo)
           .andThen(decodeRequest)
           .map(value => toRequestEvent(value, expiry))
           .unwrapOr(UNOPENABLE);
       case 'multiResponse':
+        if (!unwrap) return UNOPENABLE;
+
         return unwrap(statementData.value.encryptedResponse, statementData.value.devicesInfo)
           .andThen(decodeResponse)
           .map(value => toResponseEvent(value, expiry))
@@ -142,14 +153,20 @@ export function createStatementDecoder({
 
   return {
     decodePeer(statement, spec) {
-      return decode(statement, spec.encryption, (payload, devicesInfo) =>
-        envelope.unwrapForOwnDevice(payload, devicesInfo, spec.senderEncryptionPublicKey),
+      return decode(
+        statement,
+        spec.encryption,
+        envelope
+          ? (payload, devicesInfo) => envelope.unwrapForOwnDevice(payload, devicesInfo, spec.senderEncryptionPublicKey)
+          : null,
       );
     },
 
     decodeOwn(statement, peerDevices) {
-      return decode(statement, ownEncryption, (payload, devicesInfo) =>
-        envelope.unwrapOwn(payload, devicesInfo, peerDevices),
+      return decode(
+        statement,
+        ownEncryption,
+        envelope ? (payload, devicesInfo) => envelope.unwrapOwn(payload, devicesInfo, peerDevices) : null,
       );
     },
   };

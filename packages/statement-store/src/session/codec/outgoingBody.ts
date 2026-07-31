@@ -14,15 +14,19 @@
 
 import type { Result } from 'neverthrow';
 import { fromThrowable } from 'neverthrow';
+import type { CodecType } from 'scale-ts';
 
 import { khash, stringToBytes } from '../../crypto.js';
 import { toError } from '../../helpers.js';
 import type { SessionId } from '../../model/session.js';
 import type { Encryption } from '../encyption.js';
 import type { ResponseStatus } from '../scale/statementData.js';
-import { Request, Response, StatementData } from '../scale/statementData.js';
+import { Request, RequestDeviceInfo, Response, StatementData } from '../scale/statementData.js';
 
 import type { DeviceTarget, Envelope } from './envelope.js';
+
+type DeviceEntry = CodecType<typeof RequestDeviceInfo>;
+type StatementDataValue = CodecType<typeof StatementData>;
 
 export type StatementBody = {
   channel: Uint8Array;
@@ -50,80 +54,63 @@ export function createResponseChannel(sessionId: Uint8Array) {
   return khash(sessionId, RESPONSE_LABEL);
 }
 
-/** Single-device bodies: `StatementData.request` / `.response` under the pairwise encryption. */
-export function createSingleBodyBuilder({
-  topic,
-  encryption,
-}: {
-  topic: SessionId;
-  encryption: Encryption;
-}): OutgoingBodyBuilder {
-  const requestChannel = createRequestChannel(topic);
-  const responseChannel = createResponseChannel(topic);
-
-  const build = (channel: Uint8Array, payload: Uint8Array): Result<StatementBody, Error> =>
-    encryption.encrypt(payload).map(data => ({ channel, topics: [topic], data }));
-
-  return {
-    buildRequest(requestId, messages) {
-      return encodeStatementData({ tag: 'request', value: { requestId, data: messages } }).andThen(payload =>
-        build(requestChannel, payload),
-      );
-    },
-    buildResponse(requestId, responseCode) {
-      return encodeStatementData({ tag: 'response', value: { requestId, responseCode } }).andThen(payload =>
-        build(responseChannel, payload),
-      );
-    },
-  };
-}
-
 /**
- * Multi-device bodies: the inner `Request`/`Response` is wrapped for every recipient
- * device, then the whole envelope is encrypted with the outer pairwise key — the same
- * outer layer the single-device path uses (mds.md §"Sending P2P Messages").
+ * Omit `multiDevice` for the single-device format (`StatementData.request`/`.response`
+ * straight under the pairwise encryption). Supply it to wrap the inner `Request`/`Response`
+ * for every recipient device first (mds.md §"Sending P2P Messages"); the outer encryption
+ * layer is the same either way.
  *
  * `recipients` is a thunk so a peer roster change is picked up on the next submit without
  * rebuilding the session.
  */
-export function createMultiDeviceBodyBuilder({
+export function createBodyBuilder({
   topic,
   encryption,
-  envelope,
-  recipients,
+  multiDevice,
 }: {
   topic: SessionId;
   encryption: Encryption;
-  envelope: Envelope;
-  recipients: () => DeviceTarget[];
+  multiDevice?: { envelope: Envelope; recipients: () => DeviceTarget[] };
 }): OutgoingBodyBuilder {
   const requestChannel = createRequestChannel(topic);
   const responseChannel = createResponseChannel(topic);
 
+  const seal = (channel: Uint8Array, payload: Result<Uint8Array, Error>): Result<StatementBody, Error> =>
+    payload.andThen(encryption.encrypt).map(data => ({ channel, topics: [topic], data }));
+
+  // Wrap an inner Request/Response into its multi-device StatementData variant.
+  const wrap = (
+    md: NonNullable<typeof multiDevice>,
+    inner: Result<Uint8Array, Error>,
+    toStatementData: (encryptedPayload: Uint8Array, devicesInfo: DeviceEntry[]) => StatementDataValue,
+  ) =>
+    inner
+      .andThen(bytes => md.envelope.wrap(bytes, md.recipients()))
+      .andThen(wrapped => encodeStatementData(toStatementData(wrapped.encryptedPayload, wrapped.devicesInfo)));
+
   return {
     buildRequest(requestId, messages) {
-      return encodeRequest({ requestId, data: messages })
-        .andThen(inner => envelope.wrap(inner, recipients()))
-        .andThen(wrapped =>
-          encodeStatementData({
-            tag: 'multiRequest',
-            value: { encryptedRequest: wrapped.encryptedPayload, devicesInfo: wrapped.devicesInfo },
-          }),
-        )
-        .andThen(payload => encryption.encrypt(payload))
-        .map(data => ({ channel: requestChannel, topics: [topic], data }));
+      return seal(
+        requestChannel,
+        multiDevice
+          ? wrap(multiDevice, encodeRequest({ requestId, data: messages }), (encryptedRequest, devicesInfo) => ({
+              tag: 'multiRequest',
+              value: { encryptedRequest, devicesInfo },
+            }))
+          : encodeStatementData({ tag: 'request', value: { requestId, data: messages } }),
+      );
     },
+
     buildResponse(requestId, responseCode) {
-      return encodeResponse({ requestId, responseCode })
-        .andThen(inner => envelope.wrap(inner, recipients()))
-        .andThen(wrapped =>
-          encodeStatementData({
-            tag: 'multiResponse',
-            value: { encryptedResponse: wrapped.encryptedPayload, devicesInfo: wrapped.devicesInfo },
-          }),
-        )
-        .andThen(payload => encryption.encrypt(payload))
-        .map(data => ({ channel: responseChannel, topics: [topic], data }));
+      return seal(
+        responseChannel,
+        multiDevice
+          ? wrap(multiDevice, encodeResponse({ requestId, responseCode }), (encryptedResponse, devicesInfo) => ({
+              tag: 'multiResponse',
+              value: { encryptedResponse, devicesInfo },
+            }))
+          : encodeStatementData({ tag: 'response', value: { requestId, responseCode } }),
+      );
     },
   };
 }

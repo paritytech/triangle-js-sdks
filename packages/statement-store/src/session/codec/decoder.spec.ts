@@ -13,7 +13,7 @@ import type { StatementProver } from '../statementProver.js';
 import type { IncomingTopicSpec } from './decoder.js';
 import { createStatementDecoder } from './decoder.js';
 import type { DeviceTarget } from './envelope.js';
-import { createEnvelope, createRejectingEnvelope } from './envelope.js';
+import { createEnvelope } from './envelope.js';
 
 const acceptingProver: StatementProver = {
   generateMessageProof: statement => okAsync({ ...statement, proof: undefined as never }),
@@ -55,11 +55,8 @@ function specFor(senderEncryptionPublicKey: Uint8Array): IncomingTopicSpec {
 const MESSAGES = [new TextEncoder().encode('hello'), new TextEncoder().encode('world')];
 
 function singleDeviceDecoder(prover: StatementProver = acceptingProver) {
-  return createStatementDecoder({
-    prover,
-    envelope: createRejectingEnvelope(),
-    ownEncryption: passthroughEncryption(),
-  });
+  // No envelope — a single-device session cannot open multi-device variants.
+  return createStatementDecoder({ prover, ownEncryption: passthroughEncryption() });
 }
 
 describe('statement decoder', () => {

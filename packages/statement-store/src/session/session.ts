@@ -3,7 +3,7 @@ import { toHex } from '@novasamatech/scale';
 import type { Statement } from '@novasamatech/sdk-statement';
 import { nanoid } from 'nanoid';
 import { ResultAsync, err, errAsync, fromPromise, fromThrowable, ok, okAsync } from 'neverthrow';
-import type { Codec, CodecType } from 'scale-ts';
+import type { Codec } from 'scale-ts';
 
 import type { StatementStoreAdapter } from '../adapter/types.js';
 import { toError } from '../helpers.js';
@@ -17,20 +17,19 @@ import { isPriorityTooLow, submitWithRetry } from '../submit/retry.js';
 import { submitStatementOnce } from '../submit/submitStatement.js';
 import type { Callback } from '../types.js';
 
-import type { IncomingTopicSpec, StatementDecoder, TransportEvent } from './codec/decoder.js';
+import type { IncomingTopicSpec, ReadableEvent, StatementDecoder, TransportEvent } from './codec/decoder.js';
 import { createStatementDecoder } from './codec/decoder.js';
 import type { DeviceTarget } from './codec/envelope.js';
-import { createEnvelope, createRejectingEnvelope } from './codec/envelope.js';
+import { createEnvelope } from './codec/envelope.js';
 import type { IncomingTopics, PeerRoster } from './codec/incomingTopics.js';
 import { createRosterTopics, createStaticTopics } from './codec/incomingTopics.js';
 import type { OutgoingBodyBuilder, StatementBody } from './codec/outgoingBody.js';
-import { createMultiDeviceBodyBuilder, createSingleBodyBuilder } from './codec/outgoingBody.js';
+import { createBodyBuilder } from './codec/outgoingBody.js';
 import type { Encryption } from './encyption.js';
 import { createEncryption } from './encyption.js';
 import { DecodingError, DecryptionError, UnknownError } from './error.js';
 import { toMessage } from './messageMapper.js';
 import type { ResponseStatus } from './scale/statementData.js';
-import { StatementData } from './scale/statementData.js';
 import type { StatementProver } from './statementProver.js';
 import type { Filter, Message, RequestMessage, ResponseMessage, Session } from './types.js';
 
@@ -144,7 +143,7 @@ function makeDeferred(): PendingDelivery {
  * Collaborators the driver runs on. `createSession` / `createMultiDeviceSession` assemble
  * these; the driver itself never branches on single- vs multi-device.
  */
-export type SessionCoreParams = {
+type SessionCoreParams = {
   statementStore: StatementStoreAdapter;
   prover: StatementProver;
   allocator: ExpiryAllocator;
@@ -160,7 +159,7 @@ export type SessionCoreParams = {
   peerDevices: () => DeviceTarget[];
 };
 
-export function createSessionCore({
+function createSessionCore({
   statementStore,
   prover,
   allocator,
@@ -188,7 +187,7 @@ export function createSessionCore({
   // Reject callbacks for in-flight waitForRequestMessage() promises, so dispose()
   // can settle them instead of leaving them to hang forever.
   const requestWaiters = new Set<(error: Error) => void>();
-  const bufferedMessages: CodecType<typeof StatementData>[] = [];
+  const bufferedMessages: ReadableEvent[] = [];
   // Live topic-set subscription (multi-device rosters change at runtime).
   let topicsUnsub: VoidFunction | null = null;
   let storeUnsub: VoidFunction | null = null;
@@ -276,32 +275,19 @@ export function createSessionCore({
       });
   }
 
-  function deliverStatementData(statementData: CodecType<typeof StatementData>): void {
-    // Buffer 'request' statements unconditionally so that waitForRequestMessage
+  function deliver(event: ReadableEvent): void {
+    // Buffer 'request' events unconditionally so that waitForRequestMessage
     // registered after delivery (race condition) still receives them via subscribe() replay.
     // Buffer everything else during initialization when there are no subscribers yet.
-    if (statementData.tag === 'request' || (subscribers.length === 0 && state.phase === 'initialization')) {
-      bufferedMessages.push(statementData);
+    if (event.tag === 'request' || (subscribers.length === 0 && state.phase === 'initialization')) {
+      bufferedMessages.push(event);
     }
 
     if (subscribers.length === 0) return;
 
     for (const sub of subscribers) {
-      const messages = toMessage(statementData, sub.codec);
+      const messages = toMessage(event, sub.codec);
       if (messages.length > 0) sub.callback(messages);
-    }
-  }
-
-  // Decoded events are delivered to subscribers in the on-wire single-device shape, so
-  // buffered replay and `toMessage` stay independent of how the statement was framed.
-  function toStatementData(event: TransportEvent): CodecType<typeof StatementData> | null {
-    switch (event.tag) {
-      case 'request':
-        return { tag: 'request', value: { requestId: event.requestId, data: event.messages } };
-      case 'response':
-        return { tag: 'response', value: { requestId: event.requestId, responseCode: event.responseCode } };
-      case 'undecodable':
-        return null;
     }
   }
 
@@ -337,13 +323,10 @@ export function createSessionCore({
         return;
       }
 
-      const statementData = toStatementData(event);
-      if (!statementData) return;
-
       if (event.tag === 'request') {
         if (state.incomingRequests.has(event.requestId)) return;
         state.incomingRequests.set(event.requestId, { responded: false });
-        deliverStatementData(statementData);
+        deliver(event);
       } else {
         const outgoing = state.outgoingRequest;
         if (!outgoing?.requestIds.includes(event.requestId)) return;
@@ -355,7 +338,7 @@ export function createSessionCore({
         };
         settleTokens(outgoing.tokens, deferred => deferred.resolve(responseMessage));
         state.outgoingRequest = null;
-        deliverStatementData(statementData);
+        deliver(event);
         processMessageQueue();
       }
     });
@@ -460,8 +443,8 @@ export function createSessionCore({
   // keeps bufferedMessages from growing unboundedly with every incoming request.
   function pruneBufferedRequest(requestId: string): void {
     for (let i = bufferedMessages.length - 1; i >= 0; i--) {
-      const sd = bufferedMessages[i];
-      if (sd && sd.tag === 'request' && sd.value.requestId === requestId) bufferedMessages.splice(i, 1);
+      const buffered = bufferedMessages[i];
+      if (buffered?.tag === 'request' && buffered.requestId === requestId) bufferedMessages.splice(i, 1);
     }
   }
 
@@ -568,10 +551,9 @@ export function createSessionCore({
         const responded = ownResponse?.tag === 'response' && ownResponse.requestId === requestId;
         state.incomingRequests.set(requestId, { responded });
         // Notify app of an unresponded incoming request. Delivered while phase is
-        // still 'initialization' so deliverStatementData buffers it for replay if
-        // no subscriber is registered yet.
-        const statementData = toStatementData(peerRequest);
-        if (!responded && statementData) deliverStatementData(statementData);
+        // still 'initialization' so `deliver` buffers it for replay if no subscriber
+        // is registered yet.
+        if (!responded) deliver(peerRequest);
       }
     }
 
@@ -843,8 +825,6 @@ export function createSession({
 }: SessionParams): Session {
   const outgoingTopic = createSessionId(sessionKey, localAccount, remoteAccount);
   const incomingTopic = createSessionId(sessionKey, remoteAccount, localAccount);
-  // Single-device sessions neither emit nor accept multi-device variants.
-  const envelope = createRejectingEnvelope();
 
   return createSessionCore({
     statementStore,
@@ -852,13 +832,14 @@ export function createSession({
     allocator,
     maxRequestSize,
     outgoingTopic,
-    bodyBuilder: createSingleBodyBuilder({ topic: outgoingTopic, encryption }),
+    bodyBuilder: createBodyBuilder({ topic: outgoingTopic, encryption }),
     incomingTopics: createStaticTopics({
       topic: incomingTopic,
       senderEncryptionPublicKey: remoteAccount.publicKey,
       encryption,
     }),
-    decoder: createStatementDecoder({ prover, envelope, ownEncryption: encryption }),
+    // No envelope: a single-device session neither emits nor accepts multi-device variants.
+    decoder: createStatementDecoder({ prover, ownEncryption: encryption }),
     peerDevices: () => [],
   });
 }
@@ -933,11 +914,10 @@ export function createMultiDeviceSession({
     allocator,
     maxRequestSize,
     outgoingTopic,
-    bodyBuilder: createMultiDeviceBodyBuilder({
+    bodyBuilder: createBodyBuilder({
       topic: outgoingTopic,
       encryption: outgoingEncryption,
-      envelope,
-      recipients: () => peerRoster.current(),
+      multiDevice: { envelope, recipients: () => peerRoster.current() },
     }),
     incomingTopics: createRosterTopics({
       localIdentity: localIdentityAccount,

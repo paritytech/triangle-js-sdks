@@ -14,33 +14,16 @@ export {
 } from './model/sessionAccount.js';
 
 export type { Session } from './session/types.js';
-export type { MultiDeviceSessionParams, SessionCoreParams, SessionParams } from './session/session.js';
-export { STATEMENT_OVERHEAD, createMultiDeviceSession, createSession, createSessionCore } from './session/session.js';
+export type { MultiDeviceSessionParams, SessionParams } from './session/session.js';
+export { createMultiDeviceSession, createSession } from './session/session.js';
+/** A peer device, and the observable roster a multi-device session sends to. */
+export type { DeviceTarget } from './session/codec/envelope.js';
+export type { PeerRoster } from './session/codec/incomingTopics.js';
+/** Channel derivation, for callers publishing on a session's topics directly. */
+export { createRequestChannel, createResponseChannel } from './session/codec/outgoingBody.js';
 
-export type { IncomingTopics, PeerRoster } from './session/codec/incomingTopics.js';
-export { createRosterTopics, createStaticTopics } from './session/codec/incomingTopics.js';
-export type { OutgoingBodyBuilder, StatementBody } from './session/codec/outgoingBody.js';
-export {
-  createMultiDeviceBodyBuilder,
-  createRequestChannel,
-  createResponseChannel,
-  createSingleBodyBuilder,
-} from './session/codec/outgoingBody.js';
 export type { ResponseStatus } from './session/scale/statementData.js';
-export {
-  MultiRequest,
-  MultiResponse,
-  Request,
-  RequestDeviceInfo,
-  Response,
-  ResponseCode,
-  StatementData,
-} from './session/scale/statementData.js';
-
-export type { DeviceTarget, Envelope, WrappedEnvelope } from './session/codec/envelope.js';
-export { createEnvelope, createRejectingEnvelope } from './session/codec/envelope.js';
-export type { IncomingTopicSpec, StatementDecoder, TransportEvent } from './session/codec/decoder.js';
-export { createStatementDecoder } from './session/codec/decoder.js';
+export { Request, Response, ResponseCode, StatementData } from './session/scale/statementData.js';
 
 export type { StatementProver } from './session/statementProver.js';
 export { createSlotAccountProver, createSr25519Prover } from './session/statementProver.js';

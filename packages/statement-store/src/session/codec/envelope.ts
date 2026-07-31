@@ -19,7 +19,7 @@
  *    secret is symmetric, so we re-derive it against any recipient device we wrapped for.
  *    This is what lets the statement store hold the outgoing-request state through a
  *    restart (base-spec.md §"Session Initialization Phase") instead of a client-side outbox.
- *  - single-device sessions use {@link createRejectingEnvelope}, which fails on tags 2/3.
+ *  - single-device sessions pass no envelope at all; tags 2/3 then decode as `undecodable`.
  */
 
 import { chacha20poly1305 } from '@noble/ciphers/chacha.js';
@@ -48,7 +48,7 @@ export type DeviceTarget = {
 
 type DeviceEntry = CodecType<typeof RequestDeviceInfo>;
 
-export type WrappedEnvelope = {
+type WrappedEnvelope = {
   encryptedPayload: Uint8Array;
   devicesInfo: DeviceEntry[];
 };
@@ -169,19 +169,5 @@ export function createEnvelope({
 
       return err(new Error('envelope: no known peer device entry to unwrap own payload'));
     },
-  };
-}
-
-/**
- * Envelope for single-device sessions: they never emit or accept multi-device variants,
- * so every operation fails rather than silently degrading.
- */
-export function createRejectingEnvelope(): Envelope {
-  const reject = () => err(new Error('envelope: multi-device payloads are not supported by this session'));
-
-  return {
-    wrap: reject,
-    unwrapForOwnDevice: reject,
-    unwrapOwn: reject,
   };
 }

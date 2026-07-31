@@ -54,12 +54,12 @@ export const RequestDeviceInfo = Struct({
   encryptedKey: Bytes(),
 });
 
-export const MultiRequest = Struct({
+const MultiRequest = Struct({
   encryptedRequest: Bytes(),
   devicesInfo: Vector(RequestDeviceInfo),
 });
 
-export const MultiResponse = Struct({
+const MultiResponse = Struct({
   encryptedResponse: Bytes(),
   devicesInfo: Vector(RequestDeviceInfo),
 });
