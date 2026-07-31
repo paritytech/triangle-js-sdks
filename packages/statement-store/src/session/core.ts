@@ -30,6 +30,8 @@ import type { OutgoingBodyBuilder, StatementBody } from './codec/outgoingBody.js
 import { DecodingError, DecryptionError, UnknownError } from './error.js';
 import { toMessage } from './messageMapper.js';
 import type { ResponseStatus } from './scale/statementData.js';
+import type { SessionEffect } from './stateMachine.js';
+import { createSessionStateMachine } from './stateMachine.js';
 import type { StatementProver } from './statementProver.js';
 import type { Filter, Message, RequestMessage, ResponseMessage, Session } from './types.js';
 
@@ -74,29 +76,6 @@ type PendingDelivery = {
   resolve(r: ResponseMessage): void;
   reject(e: Error): void;
   promise: Promise<ResponseMessage>;
-};
-
-type OutgoingRequest = {
-  // Every retransmit appends a fresh id; matching any of them resolves all
-  // pending tokens so an early response to a superseded id is not lost.
-  requestIds: string[];
-  messages: Uint8Array[];
-  tokens: string[];
-};
-
-type SessionState = {
-  phase: 'initialization' | 'active' | 'failed';
-  initError: Error | null;
-  outgoingRequest: OutgoingRequest | null;
-  // Tracks every incoming request by its id with its own responded flag, so an
-  // older request stays answerable after a newer one arrives, and an async
-  // responder can still ACK the correct id.
-  incomingRequests: Map<string, { responded: boolean }>;
-  // A queued message can carry several tokens when later identical submissions are
-  // deduplicated onto it — they all resolve together when it is finally answered.
-  messageQueue: Array<{ encoded: Uint8Array; tokens: string[] }>;
-  pendingDelivery: Map<string, PendingDelivery>;
-  seenStatements: Set<string>;
 };
 
 // nanoid() is fixed-length, so the requestId contributes a constant size; any
@@ -154,16 +133,14 @@ export function createSessionCore({
   // Message bytes must fit within the statement limit minus the fixed wire overhead.
   const maxPayloadSize = Math.max(0, maxRequestSize - STATEMENT_OVERHEAD);
 
-  const state: SessionState = {
-    phase: 'initialization',
-    initError: null,
-    outgoingRequest: null,
-    incomingRequests: new Map(),
-    messageQueue: [],
-    pendingDelivery: new Map(),
-    seenStatements: new Set(),
-  };
+  // All batching / dedup / phase decisions live here; this file only performs the effects.
+  const machine = createSessionStateMachine({
+    fits: messages => requestPayloadSize(messages) <= maxPayloadSize,
+    newRequestId: nanoid,
+  });
 
+  const pendingDelivery = new Map<string, PendingDelivery>();
+  const seenStatements = new Set<string>();
   let subscribers: Subscriber[] = [];
   // Reject callbacks for in-flight waitForRequestMessage() promises, so dispose()
   // can settle them instead of leaving them to hang forever.
@@ -208,10 +185,34 @@ export function createSessionCore({
   // Settle and remove the pending-delivery entries for the given tokens.
   function settleTokens(tokens: string[], settle: (deferred: PendingDelivery) => void): void {
     for (const token of tokens) {
-      const deferred = state.pendingDelivery.get(token);
+      const deferred = pendingDelivery.get(token);
       if (deferred) {
         settle(deferred);
-        state.pendingDelivery.delete(token);
+        pendingDelivery.delete(token);
+      }
+    }
+  }
+
+  // Perform what the machine decided. The only place effects are interpreted.
+  function runEffects(effects: SessionEffect[]): void {
+    for (const effect of effects) {
+      switch (effect.type) {
+        case 'submitRequest':
+          submitRequest(effect.requestId, effect.messages);
+          break;
+        case 'resolveTokens': {
+          const responseMessage: ResponseMessage = {
+            type: 'response',
+            localId: effect.requestId,
+            requestId: effect.requestId,
+            responseCode: effect.responseCode,
+          };
+          settleTokens(effect.tokens, deferred => deferred.resolve(responseMessage));
+          break;
+        }
+        case 'rejectTokens':
+          settleTokens(effect.tokens, deferred => deferred.reject(effect.error));
+          break;
       }
     }
   }
@@ -226,7 +227,7 @@ export function createSessionCore({
   // the bounded retry and propagate when exhausted. `shouldRetry` is re-checked before each retry:
   // once the submission is superseded, aborted, or the session is disposed it returns false, so a
   // stale retry can never resurrect an old statement.
-  function encodeAndSubmitRequest(requestId: string, messages: Uint8Array[]): void {
+  function submitRequest(requestId: string, messages: Uint8Array[]): void {
     bodyBuilder
       .buildRequest(requestId, messages)
       .asyncAndThen(body =>
@@ -238,21 +239,19 @@ export function createSessionCore({
           onPriorityError: error => allocator.raiseFloor(error.min),
           // Only keep retrying while this is still the live submission (not superseded by a
           // newer retransmit, aborted via clearOutgoingStatement, or disposed).
-          shouldRetry: () => !disposed && state.outgoingRequest?.requestIds.at(-1) === requestId,
+          shouldRetry: () => !disposed && machine.isLiveRequest(requestId),
         }),
       )
       .mapErr(e => {
         // Priority errors never reach here (see the policy note above), so this is a genuine
-        // failure. If this submission was already superseded by a newer retransmit (same tokens)
-        // it is not the live request's concern — drop it silently; the newer one carries the
-        // waiters. Otherwise the bounded retries are exhausted on the LIVE submission: the
-        // request never landed, so fail its waiters rather than let them hang.
-        const outgoing = state.outgoingRequest;
-        if (disposed || !outgoing || outgoing.requestIds.at(-1) !== requestId) return;
-        console.error('submitRequest failed:', e);
-        settleTokens(outgoing.tokens, deferred => deferred.reject(e));
-        state.outgoingRequest = null;
-        processMessageQueue();
+        // failure. The machine decides whether it still matters: a submission already
+        // superseded by a newer retransmit yields no effects, because that newer one carries
+        // the waiters. Otherwise the live batch never landed, so its waiters are failed
+        // rather than left hanging.
+        if (disposed) return;
+        const effects = machine.onSubmitFailed(requestId, e);
+        if (effects.length > 0) console.error('submitRequest failed:', e);
+        runEffects(effects);
       });
   }
 
@@ -260,7 +259,7 @@ export function createSessionCore({
     // Buffer 'request' events unconditionally so that waitForRequestMessage
     // registered after delivery (race condition) still receives them via subscribe() replay.
     // Buffer everything else during initialization when there are no subscribers yet.
-    if (event.tag === 'request' || (subscribers.length === 0 && state.phase === 'initialization')) {
+    if (event.tag === 'request' || (subscribers.length === 0 && machine.phase() === 'initialization')) {
       bufferedMessages.push(event);
     }
 
@@ -282,8 +281,8 @@ export function createSessionCore({
   function processIncomingStatement(statement: Statement, spec: IncomingTopicSpec): void {
     if (!statement.data) return;
     const key = toHex(statement.data);
-    if (state.seenStatements.has(key)) return;
-    state.seenStatements.add(key);
+    if (seenStatements.has(key)) return;
+    seenStatements.add(key);
 
     void decodeIncoming(statement, spec).andTee(event => {
       if (event.tag === 'undecodable') {
@@ -295,9 +294,8 @@ export function createSessionCore({
         // Only NACK a genuinely new id. If we already know this request, a valid copy is being
         // handled (or was already answered) — NACKing now would mask the real response, since the
         // `responded` flag is sticky.
-        if (state.incomingRequests.has(event.requestId)) return;
         // Decrypted but the message body is malformed — NACK so the sender stops waiting.
-        state.incomingRequests.set(event.requestId, { responded: false });
+        if (!machine.trackIncoming(event.requestId)) return;
         void session
           .submitResponseMessage(event.requestId, 'decodingFailed')
           .mapErr(e => console.error('statement-store: failed to NACK an undecodable request:', e));
@@ -305,77 +303,16 @@ export function createSessionCore({
       }
 
       if (event.tag === 'request') {
-        if (state.incomingRequests.has(event.requestId)) return;
-        state.incomingRequests.set(event.requestId, { responded: false });
+        if (!machine.trackIncoming(event.requestId)) return;
         deliver(event);
       } else {
-        const outgoing = state.outgoingRequest;
-        if (!outgoing?.requestIds.includes(event.requestId)) return;
-        const responseMessage: ResponseMessage = {
-          type: 'response',
-          localId: event.requestId,
-          requestId: event.requestId,
-          responseCode: event.responseCode,
-        };
-        settleTokens(outgoing.tokens, deferred => deferred.resolve(responseMessage));
-        state.outgoingRequest = null;
+        const effects = machine.onResponse(event.requestId, event.responseCode);
+        // Not ours (or already answered) — nothing to deliver.
+        if (effects.length === 0) return;
+        runEffects(effects);
         deliver(event);
-        processMessageQueue();
       }
     });
-  }
-
-  // Returns true if `encoded` matches a message already in flight or queued, after
-  // attaching `token` to it so the caller resolves on that message's response
-  // instead of the bytes being submitted a second time.
-  function attachToDuplicate(encoded: Uint8Array, token: string): boolean {
-    const encodedHex = toHex(encoded);
-    const sameBytes = (m: Uint8Array) => m.length === encoded.length && toHex(m) === encodedHex;
-
-    const outgoing = state.outgoingRequest;
-    if (outgoing && outgoing.messages.some(sameBytes)) {
-      outgoing.tokens.push(token);
-      return true;
-    }
-
-    const queued = state.messageQueue.find(entry => sameBytes(entry.encoded));
-    if (queued) {
-      queued.tokens.push(token);
-      return true;
-    }
-
-    return false;
-  }
-
-  function processNewMessage(encoded: Uint8Array, tokens: string[]): void {
-    if (state.outgoingRequest === null) {
-      const requestId = nanoid();
-      state.outgoingRequest = { requestIds: [requestId], messages: [encoded], tokens: [...tokens] };
-      encodeAndSubmitRequest(requestId, state.outgoingRequest.messages);
-    } else if (requestPayloadSize([...state.outgoingRequest.messages, encoded]) <= maxPayloadSize) {
-      state.outgoingRequest.messages.push(encoded);
-      state.outgoingRequest.tokens.push(...tokens);
-      const newRequestId = nanoid();
-      state.outgoingRequest.requestIds.push(newRequestId);
-      encodeAndSubmitRequest(newRequestId, state.outgoingRequest.messages);
-    } else {
-      state.messageQueue.push({ encoded, tokens });
-    }
-  }
-
-  function processMessageQueue(): void {
-    while (state.messageQueue.length > 0) {
-      const head = state.messageQueue[0]!;
-      // Recompute per iteration; `processNewMessage` mutates outgoingRequest.messages in place.
-      if (
-        state.outgoingRequest !== null &&
-        requestPayloadSize([...state.outgoingRequest.messages, head.encoded]) > maxPayloadSize
-      ) {
-        break;
-      }
-      state.messageQueue.shift();
-      processNewMessage(head.encoded, head.tokens);
-    }
   }
 
   // Find the spec whose topic a statement arrived on, so the right sender key is used to
@@ -430,16 +367,14 @@ export function createSessionCore({
   }
 
   function rejectAllPending(error: Error): void {
-    for (const [, deferred] of state.pendingDelivery) {
+    for (const [, deferred] of pendingDelivery) {
       deferred.reject(error);
     }
-    state.pendingDelivery.clear();
+    pendingDelivery.clear();
   }
 
   function failInit(error: Error): void {
-    state.phase = 'failed';
-    state.initError = error;
-    state.messageQueue = [];
+    machine.failInit(error);
     rejectAllPending(error);
   }
 
@@ -483,7 +418,7 @@ export function createSessionCore({
     allocator.raiseFloor(maxExpiry);
 
     for (const s of [...ownStatements, ...peerStatements]) {
-      if (s.data) state.seenStatements.add(toHex(s.data));
+      if (s.data) seenStatements.add(toHex(s.data));
     }
 
     const isReadable = (event: TransportEvent) => event.tag !== 'undecodable';
@@ -515,31 +450,22 @@ export function createSessionCore({
 
     if (ownRequest?.tag === 'request') {
       const hasResponse = peerResponse?.tag === 'response' && peerResponse.requestId === ownRequest.requestId;
-      if (!hasResponse) {
-        state.outgoingRequest = {
-          requestIds: [ownRequest.requestId],
-          messages: ownRequest.messages,
-          tokens: [], // tokens from previous session cannot be restored
-        };
-      }
+      if (!hasResponse) machine.restoreOutgoing(ownRequest.requestId, ownRequest.messages);
     }
 
     if (peerRequest?.tag === 'request') {
       const requestId = peerRequest.requestId;
-      // Don't clobber an entry a live delivery may have created during the awaits
-      // above (the live one is newer/authoritative).
-      if (!state.incomingRequests.has(requestId)) {
-        const responded = ownResponse?.tag === 'response' && ownResponse.requestId === requestId;
-        state.incomingRequests.set(requestId, { responded });
-        // Notify app of an unresponded incoming request. Delivered while phase is
-        // still 'initialization' so `deliver` buffers it for replay if no subscriber
-        // is registered yet.
-        if (!responded) deliver(peerRequest);
-      }
+      const alreadyKnown = machine.incoming(requestId) !== undefined;
+      const responded = ownResponse?.tag === 'response' && ownResponse.requestId === requestId;
+      // restoreIncoming ignores an entry a live delivery created during the awaits above
+      // (the live one is newer/authoritative), so only notify when this one is genuinely new.
+      machine.restoreIncoming(requestId, responded);
+      // Notify app of an unresponded incoming request. Delivered while phase is still
+      // 'initialization' so `deliver` buffers it for replay if no subscriber is registered yet.
+      if (!alreadyKnown && !responded) deliver(peerRequest);
     }
 
-    state.phase = 'active';
-    processMessageQueue();
+    runEffects(machine.activate());
   }
 
   const session: Session = {
@@ -561,31 +487,23 @@ export function createSessionCore({
       const encoded = encodedResult.value;
       if (requestPayloadSize([encoded]) > maxPayloadSize) return errAsync(new Error('message too big'));
 
-      if (state.phase === 'failed') {
-        return errAsync(state.initError ?? new Error('Session initialization failed'));
+      if (machine.phase() === 'failed') {
+        return errAsync(machine.initError() ?? new Error('Session initialization failed'));
       }
 
       const token = nanoid();
-      state.pendingDelivery.set(token, makeDeferred());
+      pendingDelivery.set(token, makeDeferred());
 
       // Dedup: an identical message already in flight or queued is not re-sent — the
       // new caller is attached to it and resolves on the same response.
-      if (!attachToDuplicate(encoded, token)) {
-        // FIFO: never let a later (fitting) message overtake queued ones; only append
-        // to the live batch when nothing is waiting behind it.
-        if (state.phase === 'initialization' || state.messageQueue.length > 0) {
-          state.messageQueue.push({ encoded, tokens: [token] });
-        } else {
-          processNewMessage(encoded, [token]);
-        }
-      }
+      runEffects(machine.submitMessage(encoded, token));
 
       return okAsync({ requestId: token });
     },
 
     submitResponseMessage(requestId: string, responseCode: ResponseStatus) {
       if (disposed) return errAsync(new Error(SESSION_DISPOSED));
-      const incoming = state.incomingRequests.get(requestId);
+      const incoming = machine.incoming(requestId);
       if (!incoming) return errAsync(new Error(`No incoming request with id ${requestId}`));
       if (incoming.responded) {
         pruneBufferedRequest(requestId);
@@ -688,7 +606,7 @@ export function createSessionCore({
     },
 
     waitForResponseMessage(token: string) {
-      const deferred = state.pendingDelivery.get(token);
+      const deferred = pendingDelivery.get(token);
       if (!deferred) return errAsync(new Error(`No pending delivery for token ${token}`));
       return fromPromise(deferred.promise, toError);
     },
@@ -717,20 +635,15 @@ export function createSessionCore({
     },
 
     clearOutgoingStatement() {
-      const outgoing = state.outgoingRequest;
-
-      // Always drop local outgoing state and reject pending waiters up-front,
-      // regardless of which path follows. This covers messages queued before the
-      // batch went out (e.g. during init, while outgoingRequest is still null) and
-      // guarantees cleanup even if the superseding submission below fails — the
-      // caller still receives any submission error.
-      state.outgoingRequest = null;
-      state.messageQueue = [];
+      // Always drop local outgoing state and reject pending waiters up-front, regardless of
+      // which path follows. This covers messages queued before the batch went out (e.g.
+      // during init, while there is no live batch) and guarantees cleanup even if the
+      // superseding submission below fails — the caller still receives any submission error.
+      const requestId = machine.clearOutgoing();
       rejectAllPending(new Error('Outgoing batch aborted'));
 
-      if (outgoing === null) return okAsync(undefined);
+      if (requestId === null) return okAsync(undefined);
 
-      const requestId = outgoing.requestIds[outgoing.requestIds.length - 1]!;
       const emptyBody = bodyBuilder.buildRequest(requestId, []);
       if (emptyBody.isErr()) return errAsync(emptyBody.error);
 
@@ -761,8 +674,7 @@ export function createSessionCore({
       storeUnsub = null;
       subscribers = [];
       // Drop pending work so no in-flight retry or queue drain acts on a disposed session.
-      state.outgoingRequest = null;
-      state.messageQueue = [];
+      machine.clearOutgoing();
       // Settle any waitForRequestMessage() promises so callers unwind instead of
       // hanging forever. Snapshot first — rejecting mutates the set.
       for (const rejectWaiter of [...requestWaiters]) rejectWaiter(new Error(SESSION_DISPOSED));
