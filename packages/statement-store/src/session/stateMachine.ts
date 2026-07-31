@@ -95,16 +95,14 @@ export function initialSessionState(): SessionState {
 // ── selectors ────────────────────────────────────────────────────────────────
 // Reads the driver needs that are not transitions.
 
-/** True while `requestId` is the newest submission of the live batch. */
-export function isLiveRequest(state: SessionState, requestId: string): boolean {
-  return state.outgoingRequest?.requestIds.at(-1) === requestId;
-}
-
 export function incomingRequest(state: SessionState, requestId: string): IncomingRequest | undefined {
   return state.incomingRequests.get(requestId);
 }
 
-/** The request id whose on-chain statement must be superseded to clear the batch. */
+/**
+ * The newest submission of the live batch: the id still worth retrying, and the one whose
+ * on-chain statement must be superseded to clear the batch. Null when nothing is in flight.
+ */
 export function liveRequestId(state: SessionState): string | null {
   return state.outgoingRequest?.requestIds.at(-1) ?? null;
 }
@@ -131,22 +129,16 @@ function attachToDuplicate(state: SessionState, encoded: Uint8Array, token: stri
     return { ...state, outgoingRequest: { ...outgoing, tokens: [...outgoing.tokens, token] } };
   }
 
-  if (state.messageQueue.some(entry => sameBytes(entry.encoded))) {
-    let attached = false;
+  // Only the first match takes the token; a later identical entry must not duplicate it.
+  const index = state.messageQueue.findIndex(entry => sameBytes(entry.encoded));
+  if (index === -1) return null;
 
-    return {
-      ...state,
-      messageQueue: state.messageQueue.map(entry => {
-        // Only the first match takes the token; a later identical entry must not duplicate it.
-        if (attached || !sameBytes(entry.encoded)) return entry;
-        attached = true;
-
-        return { ...entry, tokens: [...entry.tokens, token] };
-      }),
-    };
-  }
-
-  return null;
+  return {
+    ...state,
+    messageQueue: state.messageQueue.map((entry, i) =>
+      i === index ? { ...entry, tokens: [...entry.tokens, token] } : entry,
+    ),
+  };
 }
 
 /** Start a batch, extend the live one, or park the message behind it. */

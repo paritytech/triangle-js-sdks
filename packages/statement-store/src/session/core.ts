@@ -31,7 +31,7 @@ import { DecodingError, DecryptionError, UnknownError } from './error.js';
 import { toMessage } from './messageMapper.js';
 import type { ResponseStatus } from './scale/statementData.js';
 import type { SessionEffect, SessionEvent, SessionState } from './stateMachine.js';
-import { incomingRequest, initialSessionState, isLiveRequest, liveRequestId, transition } from './stateMachine.js';
+import { incomingRequest, initialSessionState, liveRequestId, transition } from './stateMachine.js';
 import type { StatementProver } from './statementProver.js';
 import type { Filter, Message, RequestMessage, ResponseMessage, Session } from './types.js';
 
@@ -141,10 +141,14 @@ export function createSessionCore({
   };
   let machineState: SessionState = initialSessionState();
 
-  function dispatch(event: SessionEvent): void {
+  // Returns the effects performed, so a caller can tell whether the reducer acted on the
+  // event at all rather than re-deriving that decision for itself.
+  function dispatch(event: SessionEvent): SessionEffect[] {
     const result = transition(machineState, event, transitionContext);
     machineState = result.state;
     runEffects(result.effects);
+
+    return result.effects;
   }
 
   const pendingDelivery = new Map<string, PendingDelivery>();
@@ -247,19 +251,19 @@ export function createSessionCore({
           onPriorityError: error => allocator.raiseFloor(error.min),
           // Only keep retrying while this is still the live submission (not superseded by a
           // newer retransmit, aborted via clearOutgoingStatement, or disposed).
-          shouldRetry: () => !disposed && isLiveRequest(machineState, requestId),
+          shouldRetry: () => !disposed && liveRequestId(machineState) === requestId,
         }),
       )
       .mapErr(e => {
         // Priority errors never reach here (see the policy note above), so this is a genuine
-        // failure. The machine decides whether it still matters: a submission already
-        // superseded by a newer retransmit yields no effects, because that newer one carries
-        // the waiters. Otherwise the live batch never landed, so its waiters are failed
-        // rather than left hanging.
+        // failure. The reducer decides whether it still matters: a submission superseded by a
+        // newer retransmit yields no effects, because that newer one carries the waiters.
+        // Otherwise the live batch never landed and its waiters are failed rather than left
+        // hanging — so an empty effect list is exactly the "not worth reporting" case.
         if (disposed) return;
-        // Only the live batch's failure matters; a superseded submission yields no effects.
-        if (isLiveRequest(machineState, requestId)) console.error('submitRequest failed:', e);
-        dispatch({ type: 'requestSubmitFailed', requestId, error: e });
+        if (dispatch({ type: 'requestSubmitFailed', requestId, error: e }).length > 0) {
+          console.error('submitRequest failed:', e);
+        }
       });
   }
 
@@ -316,10 +320,14 @@ export function createSessionCore({
         dispatch({ type: 'requestReceived', requestId: event.requestId });
         deliver(event);
       } else {
-        // Not ours (or already answered) — nothing to settle or deliver.
-        if (!machineState.outgoingRequest?.requestIds.includes(event.requestId)) return;
-        dispatch({ type: 'responseReceived', requestId: event.requestId, responseCode: event.responseCode });
-        deliver(event);
+        // Whether the response matches our batch is the reducer's rule to apply, not ours:
+        // no effects means it was not ours (or was already answered), so nothing to deliver.
+        const effects = dispatch({
+          type: 'responseReceived',
+          requestId: event.requestId,
+          responseCode: event.responseCode,
+        });
+        if (effects.length > 0) deliver(event);
       }
     });
   }

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { SessionEffect, SessionEvent, SessionState, TransitionContext } from './stateMachine.js';
-import { incomingRequest, initialSessionState, isLiveRequest, liveRequestId, transition } from './stateMachine.js';
+import { incomingRequest, initialSessionState, liveRequestId, transition } from './stateMachine.js';
 
 const msg = (text: string) => new TextEncoder().encode(text);
 
@@ -240,12 +240,9 @@ describe('session state machine', () => {
     });
 
     it('tracks which submission is live', () => {
-      const first = run([ACTIVATE, send('a', 't1')]);
-      expect(isLiveRequest(first.state, 'r1')).toBe(true);
-
-      const second = run([ACTIVATE, send('a', 't1'), send('b', 't2')]);
-      expect(isLiveRequest(second.state, 'r1')).toBe(false);
-      expect(isLiveRequest(second.state, 'r2')).toBe(true);
+      expect(liveRequestId(run([ACTIVATE, send('a', 't1')]).state)).toBe('r1');
+      // A retransmit takes over: only the newest id is still worth retrying.
+      expect(liveRequestId(run([ACTIVATE, send('a', 't1'), send('b', 't2')]).state)).toBe('r2');
     });
   });
 
