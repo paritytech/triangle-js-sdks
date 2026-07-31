@@ -1,15 +1,12 @@
 /**
- * The session's transport decision logic as a pure reducer.
+ * The session's transport decision logic as a pure reducer: {@link transition} maps a
+ * {@link SessionState} and a {@link SessionEvent} to the next state plus the
+ * {@link SessionEffect}s the driver must perform. It performs no I/O, mutates nothing it is
+ * given, and reads no clock — sizing and id generation arrive in {@link TransitionContext},
+ * so tests make both deterministic.
  *
- * {@link transition} takes the current {@link SessionState} and a {@link SessionEvent} and
- * returns the next state plus the {@link SessionEffect}s the driver must perform. It never
- * submits, encrypts, subscribes or settles a promise, never mutates the state it is given,
- * and reads no clock. The only environment it needs — sizing (`fits`) and request-id
- * generation (`newRequestId`) — arrives in {@link TransitionContext}, so a test can make
- * both deterministic.
- *
- * The state covers what base-spec.md §"Session State" defines: the session phase, the
- * outgoing request plus the queue of messages waiting behind it, and the incoming requests.
+ * The state is what base-spec.md §"Session State" defines: the phase, the outgoing request
+ * plus the queue behind it, and the incoming requests.
  *
  * Deliberate deviation from base-spec.md: `incomingRequests` is a map rather than the
  * spec's single `IncomingRequest(A, B)`. The spec's model assumes the Application Layer
