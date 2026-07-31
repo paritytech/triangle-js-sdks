@@ -1,3 +1,17 @@
+## 0.9.1 (2026-07-31)
+
+### 🚀 Features
+
+- **statement-store:** multi-device sessions (mds.md). `createMultiDeviceSession` addresses one statement to every device a peer runs and listens on one topic per peer device, driven by an observable `PeerRoster`. `StatementData` gains `multiRequest` / `multiResponse` variants (appended — indices 2 and 3, existing ones unchanged), each carrying a one-shot AEAD key wrapped per recipient device via X25519. `createSession` and the single-device wire format are untouched. Newly exported: `createMultiDeviceSession`, `MultiDeviceSessionParams`, `SessionParams`, `createEnvelope`, `DeviceTarget`, `Envelope`, `PeerRoster`, `createRequestChannel`, `createResponseChannel`. See the [multi-device sessions section](./docs/migration/v0.9.md#multi-device-sessions-statement-store) of the migration guide.
+
+### 🩹 Fixes
+
+- **host-chat:** `Platform` gains `iOSVoIP` (ordinal 2), emitted by iOS PApp for VoIP push tokens — without it any envelope carrying one failed to decode with `Unknown status index: 2`.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.9.0 (2026-07-29)
 
 ### ⚠️ Breaking Changes
