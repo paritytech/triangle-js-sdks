@@ -60,10 +60,27 @@ export type SessionParams = {
    * identical to the previous per-session behavior.
    */
   allocator?: ExpiryAllocator;
+  /**
+   * Statement size budget in bytes; the batch is sized against
+   * `maxRequestSize - STATEMENT_OVERHEAD`. Defaults to
+   * {@link DEFAULT_MAX_REQUEST_SIZE} — override only to be MORE conservative than the
+   * chain, never less.
+   */
   maxRequestSize?: number;
 };
 
-const DEFAULT_MAX_REQUEST_SIZE = 4096;
+/**
+ * The Bulletin statement store caps a statement at roughly 500 KiB of total encoded size
+ * (proof + channel + topics + expiry + data); 2 KiB leaves margin for the non-data fields.
+ * `DataTooLargeError.available` is the chain's authoritative number if this ever drifts.
+ *
+ * This is deliberately the transport's real capacity rather than an application policy.
+ * A too-small budget degrades silently — messages queue instead of batching, with no
+ * error — whereas a too-large one fails loudly and recoverably with `DataTooLargeError`.
+ * Applications that want a tighter bound (Android's chat uses 100 KiB) should pass their
+ * own `maxRequestSize`; base-spec.md leaves the choice to the Application Layer.
+ */
+const DEFAULT_MAX_REQUEST_SIZE = 498 * 1024;
 
 // Rejection reason shared by dispose() and the disposed guards on submit*, so a torn-down session
 // always fails new and in-flight work the same way.
