@@ -54,6 +54,11 @@ export type SessionEvent =
   | { type: 'responseSubmitted'; requestId: string }
   /** That answer failed after retries — let a later peer retransmit be answered. */
   | { type: 'responseSubmitFailed'; requestId: string }
+  /**
+   * The statement budget may now hold a different number of messages — the peer's device
+   * roster changed, so the envelope grew or shrank. Re-evaluate what the queue can ship.
+   */
+  | { type: 'capacityChanged' }
   /** Drop the live batch and everything queued behind it. */
   | { type: 'outgoingCleared' }
   /** An unacknowledged batch was found in the store during initialization. */
@@ -271,6 +276,10 @@ export function transition(state: SessionState, event: SessionEvent, ctx: Transi
 
       return nothing(withIncoming(state, event.requestId, { responded: false }));
     }
+
+    case 'capacityChanged':
+      // Never before initialization has established the expiry floor; `activated` drains.
+      return state.phase === 'active' ? drain(state, ctx) : nothing(state);
 
     case 'outgoingCleared':
       return nothing({ ...state, outgoingRequest: null, messageQueue: [] });

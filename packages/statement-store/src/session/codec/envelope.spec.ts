@@ -125,6 +125,21 @@ describe('multi-device envelope', () => {
     ).toBe(true);
   });
 
+  // Both fields are fixed-width on the wire and Bytes(32) zero-pads, so a short value would
+  // otherwise produce a statement addressed to a device that does not exist.
+  it.each([
+    [
+      'statementAccountId',
+      { statementAccountId: randomBytes(20), encryptionPublicKey: createDevice().encryptionPublicKey },
+    ],
+    ['encryptionPublicKey', { statementAccountId: randomBytes(32), encryptionPublicKey: randomBytes(20) }],
+  ])('refuses to wrap for a recipient with a malformed %s', (_field, recipient) => {
+    const result = envelopeFor(createDevice()).wrap(PLAINTEXT, [recipient]);
+
+    expect(result.isErr()).toBe(true);
+    expect(result._unsafeUnwrapErr().message).toContain('malformed');
+  });
+
   it('refuses to wrap without recipients', () => {
     expect(envelopeFor(createDevice()).wrap(PLAINTEXT, []).isErr()).toBe(true);
   });

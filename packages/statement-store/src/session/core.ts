@@ -367,6 +367,9 @@ export function createSessionCore({
     topicsUnsub = incomingTopics.subscribe(specs => {
       if (disposed) return;
       openStoreSubscription(specs);
+      // The same roster drives the outgoing envelope, so its size just changed: messages
+      // parked when the budget was tighter may fit now.
+      dispatch({ type: 'capacityChanged' });
     });
   }
 

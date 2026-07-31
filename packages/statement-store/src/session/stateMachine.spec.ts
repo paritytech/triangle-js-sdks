@@ -246,6 +246,33 @@ describe('session state machine', () => {
     });
   });
 
+  describe('capacity changes', () => {
+    it('ships what the queue can now hold when the budget grows', () => {
+      // Queued at capacity 1, then re-evaluated once two fit.
+      const ctx = makeContext();
+      let capacity = 1;
+      const sizing: TransitionContext = { ...ctx, fits: messages => messages.length <= capacity };
+
+      let state = transition(initialSessionState(), ACTIVATE, sizing).state;
+      state = transition(state, send('a', 't1'), sizing).state;
+      state = transition(state, send('b', 't2'), sizing).state;
+      expect(state.messageQueue).toHaveLength(1);
+
+      capacity = 2;
+      const result = transition(state, { type: 'capacityChanged' }, sizing);
+
+      expect(submits(result.effects).at(-1)).toMatchObject({ messages: [msg('a'), msg('b')] });
+      expect(result.state.messageQueue).toEqual([]);
+    });
+
+    it('does not ship anything before initialization completes', () => {
+      const { effects, state } = run([send('a', 't1'), { type: 'capacityChanged' }]);
+
+      expect(effects).toEqual([]);
+      expect(state.messageQueue).toHaveLength(1);
+    });
+  });
+
   describe('clearing the outgoing batch', () => {
     it('reports the id to supersede and drops the batch and queue', () => {
       const built = run([ACTIVATE, send('a', 't1'), send('b', 't2')], { capacity: 1 });

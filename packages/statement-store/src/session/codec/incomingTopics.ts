@@ -20,6 +20,7 @@ import { createEncryption } from '../encyption.js';
 
 import type { IncomingTopicSpec } from './decoder.js';
 import type { DeviceTarget } from './envelope.js';
+import { isValidDevice } from './envelope.js';
 
 export type PeerRoster = {
   current(): DeviceTarget[];
@@ -68,6 +69,10 @@ export function createRosterTopics({
 }): IncomingTopics {
   function toSpecs(devices: DeviceTarget[]): IncomingTopicSpec[] {
     return devices.flatMap(device => {
+      // A malformed entry would derive a topic no peer writes to; skip it rather than
+      // listening on a dead one.
+      if (!isValidDevice(device)) return [];
+
       let sharedSecret: Uint8Array;
       try {
         // Throws on a small-order peer key (RFC 7748); a malformed roster entry must not

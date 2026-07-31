@@ -46,6 +46,20 @@ export type DeviceTarget = {
   encryptionPublicKey: Uint8Array;
 };
 
+const ACCOUNT_ID_BYTES = 32;
+const PUBLIC_KEY_BYTES = 32;
+
+/**
+ * Both fields are fixed-width on the wire, and `Bytes(32)` zero-pads anything shorter — a
+ * malformed roster entry would otherwise yield a valid-looking statement addressed to the
+ * wrong device, or a topic no peer ever writes to, with no error anywhere.
+ */
+export function isValidDevice(device: DeviceTarget): boolean {
+  return (
+    device.statementAccountId.length === ACCOUNT_ID_BYTES && device.encryptionPublicKey.length === PUBLIC_KEY_BYTES
+  );
+}
+
 type DeviceEntry = CodecType<typeof RequestDeviceInfo>;
 
 type WrappedEnvelope = {
@@ -121,6 +135,15 @@ export function createEnvelope({
     wrap(plaintext, recipients) {
       if (recipients.length === 0) {
         return err(new Error('envelope: cannot wrap without recipient devices'));
+      }
+
+      const malformed = recipients.find(recipient => !isValidDevice(recipient));
+      if (malformed) {
+        return err(
+          new Error(
+            `envelope: recipient device is malformed (statementAccountId ${malformed.statementAccountId.length.toString()} bytes, encryptionPublicKey ${malformed.encryptionPublicKey.length.toString()} bytes; both must be 32)`,
+          ),
+        );
       }
 
       const oneShotKey = randomBytes(ONE_SHOT_KEY_BYTES);
