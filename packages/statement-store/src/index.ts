@@ -14,7 +14,15 @@ export {
 } from './model/sessionAccount.js';
 
 export type { Session } from './session/types.js';
+export type { SessionParams } from './session/session.js';
 export { createSession } from './session/session.js';
+export type { MultiDeviceSessionParams } from './session/multiDeviceSession.js';
+export { createMultiDeviceSession } from './session/multiDeviceSession.js';
+export type { DeviceTarget, Envelope } from './session/codec/envelope.js';
+export { createEnvelope } from './session/codec/envelope.js';
+export type { PeerRoster } from './session/codec/incomingTopics.js';
+export { createRequestChannel, createResponseChannel } from './session/codec/outgoingBody.js';
+
 export type { ResponseStatus } from './session/scale/statementData.js';
 export { Request, Response, ResponseCode, StatementData } from './session/scale/statementData.js';
 

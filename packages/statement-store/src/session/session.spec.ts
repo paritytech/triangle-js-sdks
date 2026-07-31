@@ -12,10 +12,11 @@ import type { StatementStoreAdapter, StatementsPage } from '../adapter/types.js'
 import { AccountFullError, ExpiryTooLowError } from '../adapter/types.js';
 import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount } from '../model/sessionAccount.js';
 
+import { STATEMENT_OVERHEAD } from './core.js';
 import type { Encryption } from './encyption.js';
 import { DecodingError, UnknownError } from './error.js';
 import { StatementData } from './scale/statementData.js';
-import { STATEMENT_OVERHEAD, createSession } from './session.js';
+import { createSession } from './session.js';
 import type { StatementProver } from './statementProver.js';
 
 // Real signature work belongs in statementProver tests; this stub stamps a
@@ -203,11 +204,16 @@ describe('session', () => {
     it('queries the outgoing and incoming topics on creation', async () => {
       const { adapter } = makeSession();
       await delay();
-      // Two single-topic matchAll queries — one per topic (outgoing/incoming); they must differ.
-      const topics = adapter.queryStatements.mock.calls.map(([f]) => (f as { matchAll: unknown[] }).matchAll);
-      expect(topics).toHaveLength(2);
-      expect(topics.map(t => t.length)).toEqual([1, 1]);
-      expect(topics[0]).not.toEqual(topics[1]);
+      // Outgoing is our single publish topic (matchAll); incoming is matchAny because a
+      // multi-device session listens on one topic per peer device. Both carry exactly one
+      // topic here, and they must differ.
+      const filters = adapter.queryStatements.mock.calls.map(
+        ([f]) => f as { matchAll?: unknown[]; matchAny?: unknown[] },
+      );
+      expect(filters).toHaveLength(2);
+      expect(filters[0]!.matchAll).toHaveLength(1);
+      expect(filters[1]!.matchAny).toHaveLength(1);
+      expect(filters[0]!.matchAll).not.toEqual(filters[1]!.matchAny);
     });
 
     it('seeds the expiry from the highest own statement expiry', async () => {
@@ -680,6 +686,21 @@ describe('session', () => {
 
       // One subscription: the incoming topic carries both peer requests and peer responses.
       expect(store.activeSubscriptions()).toBe(1);
+    });
+
+    it('reopens the subscription when a subscriber returns after the last one left', async () => {
+      const { subscribeStatements } = capturingSubscribe();
+      const { session } = makeSession({ subscribeStatements });
+      await delay();
+
+      const unsubscribe = session.subscribe(rawCodec, vi.fn());
+      expect(subscribeStatements).toHaveBeenCalledTimes(1);
+      unsubscribe();
+
+      // The topic-set watcher and the store subscription must be torn down together —
+      // otherwise the session silently never listens again.
+      session.subscribe(rawCodec, vi.fn());
+      expect(subscribeStatements).toHaveBeenCalledTimes(2);
     });
 
     it('tears down the subscription when the last subscriber leaves', () => {

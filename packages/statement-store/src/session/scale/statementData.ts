@@ -41,7 +41,42 @@ export const Response = Struct({
   responseCode: ResponseCode,
 });
 
+/**
+ * One recipient device of a multi-device envelope. `encryptedKey` is the envelope's
+ * one-shot symmetric key wrapped for this device (see `session/codec/envelope.ts`).
+ *
+ * `statementAccountId` is a FIXED 32-byte array, matching Android's `RequestDeviceInfo`
+ * (paritytech/polkadot-app-android-v2#605) and desktop. Pre-#605 Android builds emit
+ * `Vec<u8>` here and are not interoperable.
+ */
+export const RequestDeviceInfo = Struct({
+  statementAccountId: Bytes(32),
+  encryptedKey: Bytes(),
+});
+
+const MultiRequest = Struct({
+  encryptedRequest: Bytes(),
+  devicesInfo: Vector(RequestDeviceInfo),
+});
+
+const MultiResponse = Struct({
+  encryptedResponse: Bytes(),
+  devicesInfo: Vector(RequestDeviceInfo),
+});
+
+/**
+ * Statement `data` payload, after the outer pairwise decryption.
+ *
+ * Variant indices are wire format — scale-ts assigns them by declaration order, so
+ * entries may only be APPENDED, never reordered:
+ *   0 request       — single-device (base-spec.md)
+ *   1 response      — single-device
+ *   2 multiRequest  — multi-device envelope (mds.md)
+ *   3 multiResponse — multi-device envelope
+ */
 export const StatementData = Enum({
   request: Request,
   response: Response,
+  multiRequest: MultiRequest,
+  multiResponse: MultiResponse,
 });
