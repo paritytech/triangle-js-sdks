@@ -14,7 +14,18 @@ export {
 } from './model/sessionAccount.js';
 
 export type { Session } from './session/types.js';
-export { createSession } from './session/session.js';
+export type { MultiDeviceSessionParams, SessionCoreParams, SessionParams } from './session/session.js';
+export { STATEMENT_OVERHEAD, createMultiDeviceSession, createSession, createSessionCore } from './session/session.js';
+
+export type { IncomingTopics, PeerRoster } from './session/codec/incomingTopics.js';
+export { createRosterTopics, createStaticTopics } from './session/codec/incomingTopics.js';
+export type { OutgoingBodyBuilder, StatementBody } from './session/codec/outgoingBody.js';
+export {
+  createMultiDeviceBodyBuilder,
+  createRequestChannel,
+  createResponseChannel,
+  createSingleBodyBuilder,
+} from './session/codec/outgoingBody.js';
 export type { ResponseStatus } from './session/scale/statementData.js';
 export {
   MultiRequest,
