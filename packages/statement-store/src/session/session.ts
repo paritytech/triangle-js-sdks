@@ -921,6 +921,7 @@ export function createMultiDeviceSession({
     }),
     incomingTopics: createRosterTopics({
       localIdentity: localIdentityAccount,
+      remotePin: remoteIdentity.pin,
       ownIdentityChatPrivateKey: localIdentity.chatPrivateKey,
       peerRoster,
     }),

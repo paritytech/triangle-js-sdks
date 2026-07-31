@@ -132,6 +132,57 @@ describe('multi-device session', () => {
     bobSession.dispose();
   });
 
+  // A device inherits the pin of the identity it belongs to. If the sender and receiver
+  // disagree about which pin goes in the SessionIdParam, they derive different topics and
+  // messages silently never arrive — so exercise a round trip with pins set on both sides.
+  it('agrees on topics when both identities carry a pin', async () => {
+    const store = createInMemoryStatementStore();
+    const alice = createIdentity();
+    const bob = createIdentity();
+    const aliceDevice = createDevice();
+    const bobDevice = createDevice();
+    const alicePin = 'alice-pin';
+    const bobPin = 'bob-pin';
+
+    const aliceSession = createMultiDeviceSession({
+      localDevice: aliceDevice,
+      localIdentity: { ...alice, pin: alicePin },
+      remoteIdentity: { accountId: bob.accountId, chatPublicKey: bob.chatPublicKey, pin: bobPin },
+      peerRoster: mutableRoster([toTarget(bobDevice)]).roster,
+      statementStore: store,
+      prover: mockProver,
+      allocator: createExpiryAllocator(),
+    });
+
+    const bobSession = createMultiDeviceSession({
+      localDevice: bobDevice,
+      localIdentity: { ...bob, pin: bobPin },
+      remoteIdentity: { accountId: alice.accountId, chatPublicKey: alice.chatPublicKey, pin: alicePin },
+      peerRoster: mutableRoster([toTarget(aliceDevice)]).roster,
+      statementStore: store,
+      prover: mockProver,
+      allocator: createExpiryAllocator(),
+    });
+
+    await delay();
+
+    const seen: Uint8Array[] = [];
+    bobSession.subscribe(rawCodec, messages => {
+      for (const message of messages) {
+        if (message.type === 'request' && message.payload.status === 'parsed') seen.push(message.payload.value);
+      }
+    });
+
+    const payload = new TextEncoder().encode('pinned hello');
+    await expect(aliceSession.submitRequestMessage(rawCodec, payload)).toBeOk();
+    await delay();
+
+    expect(seen).toEqual([payload]);
+
+    aliceSession.dispose();
+    bobSession.dispose();
+  });
+
   it('reaches every device of a multi-device peer', async () => {
     const store = createInMemoryStatementStore();
     const alice = createIdentity();

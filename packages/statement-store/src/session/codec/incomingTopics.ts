@@ -51,10 +51,18 @@ export function createStaticTopics(spec: IncomingTopicSpec): IncomingTopics {
  */
 export function createRosterTopics({
   localIdentity,
+  remotePin,
   ownIdentityChatPrivateKey,
   peerRoster,
 }: {
   localIdentity: SessionAccount;
+  /**
+   * The peer IDENTITY's pin. A device inherits the pin of the identity it belongs to, so
+   * this is what goes in the sender slot of `SessionIdParam` — matching what the peer used
+   * when it published (Android `RealIncomingTopicsProviderFactory`, `pin = remoteAccount.pin`).
+   * Getting this wrong yields a topic the peer never writes to, and messages simply never arrive.
+   */
+  remotePin: string | undefined;
   ownIdentityChatPrivateKey: Uint8Array;
   peerRoster: PeerRoster;
 }): IncomingTopics {
@@ -69,7 +77,7 @@ export function createRosterTopics({
         return [];
       }
 
-      const remoteDevice: SessionAccount = { accountId: device.statementAccountId as never, pin: undefined };
+      const remoteDevice: SessionAccount = { accountId: device.statementAccountId as never, pin: remotePin };
 
       return [
         {
