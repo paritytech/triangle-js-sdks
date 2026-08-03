@@ -14,52 +14,52 @@ const toBinary = (base64) => {
   return bytes;
 };
 
-const descriptorValues$3 = import('./descriptors-Dge-jRzR.js').then((module) => module["Bulletin_westend"]);
-const metadataTypes$3 = import('./metadataTypes-DWFwcrnp.js').then(
+const descriptorValues$3 = import('./descriptors-Br5i5shy.js').then((module) => module["Bulletin_westend"]);
+const metadataTypes$3 = import('./metadataTypes-BpbRJS7y.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 const asset$3 = {};
 const extensions$3 = {};
-const getMetadata$4 = () => import('./bulletin_westend_metadata-CzkMM1cj.js').then(
+const getMetadata$4 = () => import('./bulletin_westend_metadata-DEhG-bdi.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 const genesis$3 = "0xee1f44f62e68312c4852f37585941e9b64b5ceae539e4aa112ce9d3cf7bbe9fd";
 const _allDescriptors$3 = { descriptors: descriptorValues$3, metadataTypes: metadataTypes$3, asset: asset$3, extensions: extensions$3, getMetadata: getMetadata$4, genesis: genesis$3 };
 
-const descriptorValues$2 = import('./descriptors-Dge-jRzR.js').then((module) => module["Bulletin_paseo"]);
-const metadataTypes$2 = import('./metadataTypes-DWFwcrnp.js').then(
+const descriptorValues$2 = import('./descriptors-Br5i5shy.js').then((module) => module["Bulletin_paseo"]);
+const metadataTypes$2 = import('./metadataTypes-BpbRJS7y.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 const asset$2 = {};
 const extensions$2 = {};
-const getMetadata$3 = () => import('./bulletin_paseo_metadata-Btf7Dcxv.js').then(
+const getMetadata$3 = () => import('./bulletin_paseo_metadata-CqqzAxrq.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
-const genesis$2 = "0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea";
+const genesis$2 = "0xe101f0fa4627d29a257645e02be86d80378fea1a2bf8fa6a918d150ebc760a59";
 const _allDescriptors$2 = { descriptors: descriptorValues$2, metadataTypes: metadataTypes$2, asset: asset$2, extensions: extensions$2, getMetadata: getMetadata$3, genesis: genesis$2 };
 
-const descriptorValues$1 = import('./descriptors-Dge-jRzR.js').then((module) => module["Bulletin_pop_stable"]);
-const metadataTypes$1 = import('./metadataTypes-DWFwcrnp.js').then(
+const descriptorValues$1 = import('./descriptors-Br5i5shy.js').then((module) => module["Bulletin_pop_stable"]);
+const metadataTypes$1 = import('./metadataTypes-BpbRJS7y.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 const asset$1 = {};
 const extensions$1 = {};
-const getMetadata$2 = () => import('./bulletin_pop_stable_metadata-DqBeJqWj.js').then(
+const getMetadata$2 = () => import('./bulletin_pop_stable_metadata-B5YIN1Ow.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
-const genesis$1 = "0x6fdf4baff0328ddaca1812e6d2f8f26afc439e6e0a339c0094d17013f8da246d";
+const genesis$1 = "0x8cfe6717dc4becfda2e13c488a1e2061ff2dfee96e7d031157f72d36716c0a22";
 const _allDescriptors$1 = { descriptors: descriptorValues$1, metadataTypes: metadataTypes$1, asset: asset$1, extensions: extensions$1, getMetadata: getMetadata$2, genesis: genesis$1 };
 
-const descriptorValues = import('./descriptors-Dge-jRzR.js').then((module) => module["Bulletin_previewnet"]);
-const metadataTypes = import('./metadataTypes-DWFwcrnp.js').then(
+const descriptorValues = import('./descriptors-Br5i5shy.js').then((module) => module["Bulletin_previewnet"]);
+const metadataTypes = import('./metadataTypes-BpbRJS7y.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 const asset = {};
 const extensions = {};
-const getMetadata$1 = () => import('./bulletin_previewnet_metadata-DR1_ORGs.js').then(
+const getMetadata$1 = () => import('./bulletin_previewnet_metadata-B5YIN1Ow.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
-const genesis = "0x1c28cc48ee21f4f6dd2712c68c9a416f19cd518cbfe205e70e4d9dd007278fca";
+const genesis = "0x2778b1c94c4362e49a54be57d3056bc714f3712e4486625312704ffb74eb973d";
 const _allDescriptors = { descriptors: descriptorValues, metadataTypes, asset, extensions, getMetadata: getMetadata$1, genesis };
 
 const DigestItem = _Enum;
@@ -113,10 +113,9 @@ const TransactionValidityTransactionSource = _Enum;
 const XcmVersionedAsset = _Enum;
 
 const metadatas = {
-  ["0x9838682961f13a0665e7dac54178aa99531391530e60e879a9eab84d6dc2a199"]: _allDescriptors$3,
-  ["0x1a82e5143be3211ded412b0368b486ce83bd41a80ec95eb267f6c204adda8365"]: _allDescriptors$2,
-  ["0xce76768a4d9db3a9dbea8acdefeec037a1119dafdc98c62c30c90453ef3a2c75"]: _allDescriptors$1,
-  ["0xbf09b8cae0c5d583cfb06367e0398dca67a840937387a3841731092aa4b9dc0b"]: _allDescriptors
+  ["0x38bfc044dabd6d3ad3494e4096d8efbf8f6d7e66f69dd6a4526f5ceaf4e72356"]: _allDescriptors$3,
+  ["0x919b08470811f08edef7c2d15d387182adf5b501c2a2c8486c5b829a2c78018b"]: _allDescriptors$2,
+  ["0xe6deb62a7078a64b2534febedb4638acce1615a95b2622272d368db3e559b8ac"]: _allDescriptors
 };
 const getMetadata = async (codeHash) => {
   try {

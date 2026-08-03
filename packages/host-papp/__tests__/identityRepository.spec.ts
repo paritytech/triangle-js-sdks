@@ -10,7 +10,7 @@ import type { Identity, IdentityAdapter } from '../src/identity/types.js';
 const TIMEOUT_MS = 100;
 
 function lite(accountId = 'acc-1', liteUsername = 'alice.01'): Identity {
-  return { accountId, fullUsername: null, liteUsername, credibility: { type: 'Lite' } };
+  return { accountId, fullUsername: null, liteUsername, credibility: { type: 'Lite' }, identifierKey: null };
 }
 
 function person(accountId = 'acc-1', fullUsername = 'alice'): Identity {
@@ -19,6 +19,7 @@ function person(accountId = 'acc-1', fullUsername = 'alice'): Identity {
     fullUsername,
     liteUsername: 'alice.01',
     credibility: { type: 'Person', alias: '0xdeadbeef', lastUpdate: '42' },
+    identifierKey: `0x${'ab'.repeat(32)}`,
   };
 }
 
@@ -85,6 +86,20 @@ describe('createIdentityRepository.watchIdentity', () => {
 
     expect(writeSpy).toHaveBeenCalledTimes(2);
     expect(writeSpy).toHaveBeenLastCalledWith('identity_acc-1', JSON.stringify(person()));
+  });
+
+  // `getIdentity` only refetches on a null hit, so a stale shape would stick forever.
+  it('ignores a cached record missing a current Identity field', async () => {
+    const { identifierKey: _dropped, ...olderShape } = person();
+    const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(olderShape) });
+    const repo = makeRepo(makeAdapter(new Subject<Identity | null>()), storage);
+
+    const emissions: (Identity | null)[] = [];
+    repo.watchIdentity('acc-1').subscribe(v => emissions.push(v));
+    await flushMicrotasks();
+
+    // Nothing seeded: the stale record read as a miss.
+    expect(emissions).toEqual([]);
   });
 
   it('does not write a null emission through to storage', () => {

@@ -8,7 +8,8 @@ export type Credibility =
   | {
       type: 'Person';
       alias: `0x${string}`;
-      lastUpdate: string;
+      /** `null` when the chain record carries no readable timestamp. */
+      lastUpdate: string | null;
     };
 
 export type Identity = {
@@ -16,6 +17,13 @@ export type Identity = {
   fullUsername: string | null;
   liteUsername: string;
   credibility: Credibility;
+  /**
+   * The account's 32-byte X25519 chat encryption key, unwrapped from its RFC-0004
+   * container. `null` for a keypair type this SDK does not implement.
+   *
+   * Hex, not `Uint8Array`: `Identity` is JSON round-tripped through the storage cache.
+   */
+  identifierKey: `0x${string}` | null;
 };
 
 export type IdentityAdapter = {

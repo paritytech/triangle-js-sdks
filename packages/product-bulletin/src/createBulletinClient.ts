@@ -29,5 +29,6 @@ export function createBulletinClient(options: CreateBulletinClientOptions): Asyn
 
   const api = polkadotClient.getTypedApi(descriptor);
 
-  return new AsyncBulletinClient(api, signer, polkadotClient.submit, config, () => polkadotClient.destroy());
+  // TODO fix integration with new bulletin chain api
+  return new AsyncBulletinClient(api as never, signer, polkadotClient.submit, config, () => polkadotClient.destroy());
 }

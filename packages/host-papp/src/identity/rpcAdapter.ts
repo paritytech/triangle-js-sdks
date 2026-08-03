@@ -1,6 +1,7 @@
 import type { HexString } from '@novasamatech/scale';
+import { toHex } from '@novasamatech/scale';
 import type { LazyClient } from '@novasamatech/statement-store';
-import { errAsync, fromPromise, ok } from 'neverthrow';
+import { Result, errAsync, fromPromise, ok } from 'neverthrow';
 import { AccountId } from 'polkadot-api';
 import type { Observable } from 'rxjs';
 import { defer, map, throwError } from 'rxjs';
@@ -9,13 +10,14 @@ import type { People_lite, People_liteQueries } from '../../.papi/descriptors/di
 import { toError } from '../helpers/utils.js';
 import { zipWith } from '../helpers/zipWith.js';
 
+import { IdentifierKey } from './identifierKey.js';
 import type { Credibility, Identity, IdentityAdapter } from './types.js';
 
 // The raw value type is owned by the papi descriptor; derive it from the
 // `Resources.Consumers` storage entry rather than restating the shape here.
 type RawConsumers = NonNullable<People_liteQueries['Resources']['Consumers']['Value']>;
 
-function decodeRawIdentity(
+export function decodeRawIdentity(
   accountId: string,
   raw: RawConsumers | undefined,
   textDecoder: TextDecoder,
@@ -28,7 +30,7 @@ function decodeRawIdentity(
       : {
           type: 'Person',
           alias: raw.credibility.value.alias as HexString,
-          lastUpdate: raw.credibility.value.last_update.toString(),
+          lastUpdate: (raw.credibility.value.last_update as bigint | undefined)?.toString() ?? null,
         };
 
   return {
@@ -36,6 +38,10 @@ function decodeRawIdentity(
     fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
     liteUsername: textDecoder.decode(raw.lite_username),
     credibility,
+    // A keypair type we can't encrypt to is a normal condition, not a fault.
+    identifierKey: Result.fromThrowable(IdentifierKey.dec)(raw.identifier_key)
+      .map(({ value }) => toHex(value.key))
+      .unwrapOr(null),
   };
 }
 

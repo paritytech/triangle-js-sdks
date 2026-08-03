@@ -9,7 +9,9 @@ export type BytesCodec<Size extends number | undefined = number | undefined> = C
 
 /**
  * Wrapper around scale-ts `Bytes` codec.
- * With a fixed size, encoding throws when the value is longer and zero-pads it when shorter.
+ * With a fixed size, encoding throws when the value is longer and zero-pads it when shorter,
+ * and decoding throws unless exactly that many bytes were available — scale-ts returns
+ * whatever the stream had left, which silently yields a short value from a truncated record.
  * The fixed size, if any, is exposed as `codec.size`.
  */
 export function Bytes(): BytesCodec<undefined>;
@@ -30,7 +32,13 @@ export function Bytes(size?: number): BytesCodec {
             padded.set(value);
             return padded;
           },
-          value => value,
+          value => {
+            if (value.length !== size) {
+              throw new Error(`Bytes(${size}): decoded ${value.length} bytes, expected ${size}`);
+            }
+
+            return value;
+          },
         );
 
   return Object.assign(codec, { size });

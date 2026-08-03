@@ -14,7 +14,9 @@ export type { AllowanceResourceKind } from './sso/allowance/index.js';
 
 export type { UserSession } from './sso/sessionManager/userSession.js';
 export type { StoredUserSession } from './sso/userSessionRepository.js';
-export type { Identity } from './identity/types.js';
+export type { Credibility, Identity, IdentityAdapter, IdentityRepository } from './identity/types.js';
+export { createIdentityRepository } from './identity/impl.js';
+export { createIdentityRpcAdapter } from './identity/rpcAdapter.js';
 
 export type {
   SignRawLegacyRequest,

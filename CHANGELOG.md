@@ -1,3 +1,31 @@
+## 0.9.2 (2026-08-03)
+
+### ⚠️ Breaking Changes
+
+- **host-chat:** `createAccountService` takes an identity repository instead of a `LazyClient` — `{ identityEndpoint, identity }`. Pass `papp.identity`, or build one with the newly exported `createIdentityRepository`. `Credibility.lastUpdate` is now `string | null`. See the [`Identity` section](./docs/migration/v0.9.md#identity-is-one-type-owned-by-host-papp) of the migration guide.
+- **product-bulletin:** three of the four `BulletinChain` genesis hashes changed — `paseo` and `previewnet` were reset, `popStable` moved onto Paseo Bulletin Next. See the [product-bulletin section](./docs/migration/v0.9.md#product-bulletin) of the migration guide.
+
+### 🚀 Features
+
+- **host-chat / host-papp:** `Identity.identifierKey` — an account's chat encryption public key, the 32-byte X25519 key unwrapped from its 65-byte RFC-0004 container as hex, or `null` for a keypair type this SDK does not implement. See the [migration guide](./docs/migration/v0.9.md#the-on-chain-identifier-key-is-still-65-bytes).
+
+### 🩹 Fixes
+
+- **host-chat / host-papp:** one `Resources.Consumers` reader instead of two. `host-chat` no longer carries its own papi descriptors, so the packages cannot drift onto different runtime snapshots — they already had.
+- **host-chat:** `getConsumerInfo` returns an `err` for a malformed SS58 address instead of throwing out of a function that returns a `ResultAsync`.
+- **host-chat:** `@polkadot-api/substrate-bindings` was imported without being declared; the import moves to `polkadot-api`, which is now a dependency.
+- **host-papp:** a cached identity missing any field of the current `Identity` now reads as a miss and is refetched. `getIdentity` only goes to chain on a `null` hit, so a record written before `identifierKey` existed would otherwise have been served without it forever.
+- **host-papp / product-bulletin:** papi descriptors regenerated — several pinned RPCs no longer resolve.
+- **repo:** `scripts/fix-papi-descriptors.mjs` restores the `.js` extensions polkadot-api 2.x drops from generated `.d.ts` re-exports, without which nothing resolves under `nodenext`. Wired into `papi:update`, and exposed as `papi:fix` for a scoped refresh.
+
+### ⚠️ Known Issues
+
+- **product-bulletin:** `renew` is broken on every network except `westend` — current runtimes take an entry selector where `@parity/bulletin-sdk` 0.3.0 (the newest published) still sends `{ block, index }`. It compiles and fails only when the chain rejects the extrinsic; `store` and chunked upload are unaffected. See the [migration guide](./docs/migration/v0.9.md#known-issue-renew).
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.9.1 (2026-07-31)
 
 ### 🚀 Features

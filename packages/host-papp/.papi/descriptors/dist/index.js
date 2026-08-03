@@ -14,16 +14,16 @@ const toBinary = (base64) => {
   return bytes;
 };
 
-const descriptorValues = import('./descriptors-D5oN4i7I.js').then((module) => module["People_lite"]);
-const metadataTypes = import('./metadataTypes-BaUy_4gO.js').then(
+const descriptorValues = import('./descriptors-BLqmZ_vS.js').then((module) => module["People_lite"]);
+const metadataTypes = import('./metadataTypes-wXgvb64i.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 const asset = {};
 const extensions = {};
-const getMetadata$1 = () => import('./people_lite_metadata-Cj1JLFI2.js').then(
+const getMetadata$1 = () => import('./people_lite_metadata-CwU9OBGy.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
-const genesis = "0xa22a2424d2cbf561eaecf7da8b1b548fa9d1939f60265e942b1049616a012f71";
+const genesis = "0xe6c30d6e148f250b887105237bcaa5cb9f16dd203bf7b5b9d4f1da7387cb86ec";
 const _allDescriptors = { descriptors: descriptorValues, metadataTypes, asset, extensions, getMetadata: getMetadata$1, genesis };
 
 const DigestItem = _Enum;
@@ -63,6 +63,7 @@ const XcmV3TraitsError = _Enum;
 const XcmV4Response = _Enum;
 const XcmPalletVersionMigrationStage = _Enum;
 const XcmVersionedAssetId = _Enum;
+const IdentityJudgement = _Enum;
 const IdentityData = _Enum;
 const MultiAddress = _Enum;
 const BalancesAdjustmentDirection = _Enum;
@@ -75,8 +76,9 @@ const XcmV4AssetAssetFilter = _Enum;
 const XcmV4AssetWildAsset = _Enum;
 const TransactionValidityUnknownTransaction = _Enum;
 const TransactionValidityTransactionSource = _Enum;
+const XcmVersionedAsset = _Enum;
 
-const metadatas = { ["0x0e48da626edc33a96d18d81fdc5eebe5d6a9b624af4ca4b9dbcc1345a3b03bb6"]: _allDescriptors };
+const metadatas = { ["0x82a343ddb8c1faf6d88721f6188dabb393b3d5b4fd54aae6d621bc3b0452ebbb"]: _allDescriptors };
 const getMetadata = async (codeHash) => {
   try {
     return await metadatas[codeHash].getMetadata();
@@ -85,4 +87,4 @@ const getMetadata = async (codeHash) => {
   return null;
 };
 
-export { ArithmeticError, BalanceStatus, BalancesAdjustmentDirection, BalancesTypesReasons, DigestItem, DispatchClass, IdentityData, MultiAddress, Phase, TokenError, TransactionPaymentEvent, TransactionPaymentReleases, TransactionValidityTransactionSource, TransactionValidityUnknownTransaction, TransactionalError, UpgradeGoAhead, UpgradeRestriction, XcmPalletVersionMigrationStage, XcmV2JunctionBodyPart, XcmV2MultiassetWildFungibility, XcmV2OriginKind, XcmV3Instruction, XcmV3Junction, XcmV3JunctionBodyId, XcmV3JunctionNetworkId, XcmV3Junctions, XcmV3MaybeErrorCode, XcmV3MultiassetAssetId, XcmV3MultiassetAssetInstance, XcmV3MultiassetFungibility, XcmV3MultiassetMultiAssetFilter, XcmV3MultiassetWildMultiAsset, XcmV3Response, XcmV3TraitsError, XcmV3WeightLimit, XcmV4AssetAssetFilter, XcmV4AssetWildAsset, XcmV4Instruction, XcmV4Response, XcmV5AssetFilter, XcmV5Instruction, XcmV5Junction, XcmV5Junctions, XcmV5NetworkId, XcmV5WildAsset, XcmVersionedAssetId, XcmVersionedAssets, XcmVersionedLocation, XcmVersionedXcm, getMetadata, _allDescriptors as people_lite };
+export { ArithmeticError, BalanceStatus, BalancesAdjustmentDirection, BalancesTypesReasons, DigestItem, DispatchClass, IdentityData, IdentityJudgement, MultiAddress, Phase, TokenError, TransactionPaymentEvent, TransactionPaymentReleases, TransactionValidityTransactionSource, TransactionValidityUnknownTransaction, TransactionalError, UpgradeGoAhead, UpgradeRestriction, XcmPalletVersionMigrationStage, XcmV2JunctionBodyPart, XcmV2MultiassetWildFungibility, XcmV2OriginKind, XcmV3Instruction, XcmV3Junction, XcmV3JunctionBodyId, XcmV3JunctionNetworkId, XcmV3Junctions, XcmV3MaybeErrorCode, XcmV3MultiassetAssetId, XcmV3MultiassetAssetInstance, XcmV3MultiassetFungibility, XcmV3MultiassetMultiAssetFilter, XcmV3MultiassetWildMultiAsset, XcmV3Response, XcmV3TraitsError, XcmV3WeightLimit, XcmV4AssetAssetFilter, XcmV4AssetWildAsset, XcmV4Instruction, XcmV4Response, XcmV5AssetFilter, XcmV5Instruction, XcmV5Junction, XcmV5Junctions, XcmV5NetworkId, XcmV5WildAsset, XcmVersionedAsset, XcmVersionedAssetId, XcmVersionedAssets, XcmVersionedLocation, XcmVersionedXcm, getMetadata, _allDescriptors as people_lite };

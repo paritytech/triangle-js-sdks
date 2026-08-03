@@ -1,9 +1,7 @@
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
-import { Result, ResultAsync, err, ok, okAsync } from 'neverthrow';
+import { ResultAsync, okAsync } from 'neverthrow';
 import type { Observable } from 'rxjs';
 import { defer, distinctUntilChanged, filter, finalize, map, merge, shareReplay, takeUntil, tap, timer } from 'rxjs';
-
-import { toError } from '../helpers/utils.js';
 
 import type { Identity, IdentityAdapter, IdentityRepository } from './types.js';
 
@@ -13,10 +11,19 @@ function getCacheKey(accountId: string): string {
   return `identity_${accountId}`;
 }
 
+/**
+ * An older-shape record reads as absent so the caller refetches — `getIdentity` only goes
+ * to chain on a `null` hit. Extend whenever `Identity` grows a field.
+ */
+const REQUIRED_FIELDS = ['accountId', 'fullUsername', 'liteUsername', 'credibility', 'identifierKey'] as const;
+
 function parseIdentity(raw: string | null): Identity | null {
   if (!raw) return null;
+
   try {
-    return JSON.parse(raw) as Identity;
+    const parsed = JSON.parse(raw) as Identity;
+
+    return REQUIRED_FIELDS.every(field => field in parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -43,7 +50,7 @@ export function createIdentityRepository({
   storage: StorageAdapter;
   initialEmissionTimeoutMs?: number;
 }): IdentityRepository {
-  const cachedRequester = createCachedIdentityRequester(storage, getCacheKey);
+  const cachedRequester = createCachedIdentityRequester(storage);
 
   // Per-account de-dup: concurrent watchIdentity(acc) calls share one chain
   // subscription via the shared stream built below. The entry clears itself —
@@ -115,26 +122,16 @@ export function createIdentityRepository({
   };
 }
 
-function createCachedIdentityRequester(storage: StorageAdapter, getKey: (accountId: string) => string) {
+function createCachedIdentityRequester(storage: StorageAdapter) {
   function readSingleCacheRecord(accountId: string) {
-    return storage.read(getKey(accountId)).andThen<Result<Identity | null, Error>>(raw => {
-      if (!raw) {
-        return ok(null);
-      }
-
-      try {
-        return ok(JSON.parse(raw));
-      } catch (e) {
-        return err(toError(e));
-      }
-    });
+    return storage.read(getCacheKey(accountId)).map(parseIdentity);
   }
 
   function writeSingleCacheRecord(accountId: string, identity: Identity | null) {
     if (identity === null) {
       return okAsync<void>(undefined);
     }
-    return storage.write(getKey(accountId), JSON.stringify(identity));
+    return storage.write(getCacheKey(accountId), JSON.stringify(identity));
   }
 
   function readCache(accounts: string[]) {
