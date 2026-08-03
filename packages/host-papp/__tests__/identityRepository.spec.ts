@@ -85,20 +85,21 @@ describe('createIdentityRepository.watchIdentity', () => {
     source.next(person());
 
     expect(writeSpy).toHaveBeenCalledTimes(2);
-    expect(writeSpy).toHaveBeenLastCalledWith('identity_v2_acc-1', JSON.stringify(person()));
+    expect(writeSpy).toHaveBeenLastCalledWith('identity_acc-1', JSON.stringify(person()));
   });
 
-  // `StorageAdapter` cannot enumerate keys, so a version bump that doesn't sweep leaves
-  // one unreachable record per account behind forever.
-  it('clears the retired cache key when writing the current one', () => {
-    const source = new Subject<Identity | null>();
-    const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(lite()) });
-    const clearSpy = vi.spyOn(storage, 'clear');
-    makeRepo(makeAdapter(source), storage).watchIdentity('acc-1').subscribe();
+  // `getIdentity` only refetches on a null hit, so a stale shape would stick forever.
+  it('ignores a cached record missing a current Identity field', async () => {
+    const { identifierKey: _dropped, ...olderShape } = person();
+    const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(olderShape) });
+    const repo = makeRepo(makeAdapter(new Subject<Identity | null>()), storage);
 
-    source.next(person());
+    const emissions: (Identity | null)[] = [];
+    repo.watchIdentity('acc-1').subscribe(v => emissions.push(v));
+    await flushMicrotasks();
 
-    expect(clearSpy).toHaveBeenCalledWith('identity_acc-1');
+    // Nothing seeded: the stale record read as a miss.
+    expect(emissions).toEqual([]);
   });
 
   it('does not write a null emission through to storage', () => {
@@ -169,7 +170,7 @@ describe('createIdentityRepository.watchIdentity', () => {
 
   it('emits a cached identity as the first value when the chain is silent', async () => {
     const cached = person('acc-1', 'cached-name');
-    const storage = createMemoryAdapter({ 'identity_v2_acc-1': JSON.stringify(cached) });
+    const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(cached) });
     const repo = makeRepo(makeAdapter(new Subject<Identity | null>()), storage);
 
     const emissions: (Identity | null)[] = [];
@@ -197,7 +198,7 @@ describe('createIdentityRepository.watchIdentity', () => {
   });
 
   it('reads storage only once per watch subscription', async () => {
-    const storage = createMemoryAdapter({ 'identity_v2_acc-1': JSON.stringify(person()) });
+    const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(person()) });
     const readSpy = vi.spyOn(storage, 'read');
     const repo = makeRepo(makeAdapter(new Subject<Identity | null>()), storage);
 
@@ -210,7 +211,7 @@ describe('createIdentityRepository.watchIdentity', () => {
 
   it('drops the cache seed if the live chain emits first', async () => {
     const cached = person('acc-1', 'cached-name');
-    const storage = createMemoryAdapter({ 'identity_v2_acc-1': JSON.stringify(cached) });
+    const storage = createMemoryAdapter({ 'identity_acc-1': JSON.stringify(cached) });
     const source = new Subject<Identity | null>();
     const repo = makeRepo(makeAdapter(source), storage);
 

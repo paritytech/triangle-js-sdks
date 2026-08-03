@@ -8,15 +8,16 @@ const encode = (value: string) => new TextEncoder().encode(value);
 const KEY = 'ab'.repeat(32);
 const PADDING = '00'.repeat(32);
 
-// `SizedHex<65>`; the descriptor's exact shape is wider than what
-// `decodeRawIdentity` reads, so cast at the boundary.
+// The descriptor's shape is wider than what `decodeRawIdentity` reads, so cast at the boundary.
+const asRaw = (value: unknown) => value as Parameters<typeof decodeRawIdentity>[1];
+
 function rawConsumers(identifierKey: string) {
-  return {
+  return asRaw({
     identifier_key: identifierKey,
     full_username: encode('alice'),
     lite_username: encode('alice.01'),
     credibility: { type: 'Lite' as const, value: undefined },
-  } as unknown as Parameters<typeof decodeRawIdentity>[1];
+  });
 }
 
 describe('decodeRawIdentity', () => {
@@ -43,12 +44,12 @@ describe('decodeRawIdentity', () => {
   });
 
   it('decodes a Person record', () => {
-    const raw = {
+    const raw = asRaw({
       identifier_key: `0x00${KEY}${PADDING}`,
       full_username: encode('alice'),
       lite_username: encode('alice.01'),
       credibility: { type: 'Person' as const, value: { alias: '0xdead', last_update: 42n } },
-    } as unknown as Parameters<typeof decodeRawIdentity>[1];
+    });
 
     expect(decodeRawIdentity('acc-1', raw, textDecoder)).toEqual({
       accountId: 'acc-1',
@@ -59,12 +60,8 @@ describe('decodeRawIdentity', () => {
     });
   });
 
-  // The descriptor types `last_update` as always present; `getUnsafeApi` decodes against
-  // live metadata, so this must degrade rather than fabricate a timestamp or throw.
   it('reports a missing last_update as a null lastUpdate', () => {
-    const raw = { credibility: { type: 'Person' as const, value: { alias: '0xdead' } } } as unknown as Parameters<
-      typeof decodeRawIdentity
-    >[1];
+    const raw = asRaw({ credibility: { type: 'Person' as const, value: { alias: '0xdead' } } });
 
     expect(decodeRawIdentity('acc-1', raw, textDecoder)).toEqual({
       accountId: 'acc-1',

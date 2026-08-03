@@ -1,61 +1,53 @@
+import type { Identity } from '@novasamatech/host-papp';
 import { toHex } from '@novasamatech/scale';
-import type { LazyClient } from '@novasamatech/statement-store';
+import { okAsync } from 'neverthrow';
 import { AccountId } from 'polkadot-api';
 import { describe, expect, it, vi } from 'vitest';
 
+import type { IdentitySource } from './accountService.js';
 import { createAccountService } from './accountService.js';
 
 const ADDRESS = '5GrwvaEF5zXb26Fz9rcQpDWS57CtERHpNehXCPcNoHGKutQY'; // Alice, SS58
-const KEY = 'ab'.repeat(32);
+const HEX_ACCOUNT_ID = toHex(AccountId().enc(ADDRESS));
 
-// Only the slice of `PolkadotClient` that the identity provider touches.
-function stubClient(value: unknown) {
-  const getValues = vi.fn(() => Promise.resolve([value]));
-  const client = {
-    getClient: () => ({ getUnsafeApi: () => ({ query: { Resources: { Consumers: { getValues } } } }) }),
-  } as unknown as LazyClient;
-
-  return { client, getValues };
+function identityFor(accountId: string): Identity {
+  return {
+    accountId,
+    fullUsername: 'alice',
+    liteUsername: 'alice.01',
+    credibility: { type: 'Lite' },
+    identifierKey: `0x${'ab'.repeat(32)}`,
+  };
 }
 
+const stubIdentity = (resolve: (accountId: string) => Identity | null) =>
+  vi.fn<IdentitySource['getIdentity']>(accountId => okAsync(resolve(accountId)));
+
+const serviceWith = (getIdentity: IdentitySource['getIdentity']) =>
+  createAccountService({ identityEndpoint: 'https://example.invalid', identity: { getIdentity } });
+
 describe('accountService.getConsumerInfo', () => {
-  const consumer = {
-    identifier_key: `0x00${KEY}${'00'.repeat(32)}`,
-    full_username: new TextEncoder().encode('alice'),
-    lite_username: new TextEncoder().encode('alice.01'),
-    credibility: { type: 'Lite', value: undefined },
-  };
+  it('looks the account up by hex account id and returns its identity', async () => {
+    const getIdentity = stubIdentity(identityFor);
 
-  it('queries by SS58 address and keys the identity by hex account id', async () => {
-    const { client, getValues } = stubClient(consumer);
-    const service = createAccountService({ identityEndpoint: 'https://example.invalid', client });
+    const result = await serviceWith(getIdentity).getConsumerInfo(ADDRESS);
 
-    const result = await service.getConsumerInfo(ADDRESS);
-
-    expect(getValues).toHaveBeenCalledWith([[ADDRESS]]);
-    expect(result._unsafeUnwrap()).toEqual({
-      accountId: toHex(AccountId().enc(ADDRESS)),
-      fullUsername: 'alice',
-      liteUsername: 'alice.01',
-      credibility: { type: 'Lite' },
-      identifierKey: `0x${KEY}`,
-    });
+    expect(getIdentity).toHaveBeenCalledWith(HEX_ACCOUNT_ID);
+    expect(result._unsafeUnwrap()).toEqual(identityFor(HEX_ACCOUNT_ID));
   });
 
   it('resolves to null when the account has no consumer record', async () => {
-    const { client } = stubClient(undefined);
-    const service = createAccountService({ identityEndpoint: 'https://example.invalid', client });
+    const service = serviceWith(stubIdentity(() => null));
 
     expect((await service.getConsumerInfo(ADDRESS))._unsafeUnwrap()).toBeNull();
   });
 
   it('reports a malformed address as an error rather than throwing', async () => {
-    const { client, getValues } = stubClient(undefined);
-    const service = createAccountService({ identityEndpoint: 'https://example.invalid', client });
+    const getIdentity = stubIdentity(identityFor);
 
-    const result = await service.getConsumerInfo('not-an-address');
+    const result = await serviceWith(getIdentity).getConsumerInfo('not-an-address');
 
     expect(result.isErr()).toBe(true);
-    expect(getValues).not.toHaveBeenCalled();
+    expect(getIdentity).not.toHaveBeenCalled();
   });
 });

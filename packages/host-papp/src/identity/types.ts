@@ -8,11 +8,7 @@ export type Credibility =
   | {
       type: 'Person';
       alias: `0x${string}`;
-      /**
-       * `null` when the chain record carries no readable timestamp. The descriptor types
-       * it as always present, but `getUnsafeApi` decodes against live runtime metadata,
-       * so the two can disagree — and a missing timestamp is not a fabricated `0`.
-       */
+      /** `null` when the chain record carries no readable timestamp. */
       lastUpdate: string | null;
     };
 
@@ -22,13 +18,10 @@ export type Identity = {
   liteUsername: string;
   credibility: Credibility;
   /**
-   * The account's chat encryption public key (32-byte X25519), unwrapped from the
-   * RFC-0004 container the chain stores it in. `null` when the record names a keypair
-   * type this SDK does not implement — the account is still usable for everything that
-   * does not need to encrypt to it.
+   * The account's 32-byte X25519 chat encryption key, unwrapped from its RFC-0004
+   * container. `null` for a keypair type this SDK does not implement.
    *
-   * Hex rather than `Uint8Array` because `Identity` is JSON round-tripped through the
-   * storage cache in `impl.ts`; a `Uint8Array` would come back as `{"0":…}`.
+   * Hex, not `Uint8Array`: `Identity` is JSON round-tripped through the storage cache.
    */
   identifierKey: `0x${string}` | null;
 };

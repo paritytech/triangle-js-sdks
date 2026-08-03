@@ -1,41 +1,29 @@
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
-import { Result, ResultAsync, err, ok, okAsync } from 'neverthrow';
+import { ResultAsync, okAsync } from 'neverthrow';
 import type { Observable } from 'rxjs';
 import { defer, distinctUntilChanged, filter, finalize, map, merge, shareReplay, takeUntil, tap, timer } from 'rxjs';
-
-import { toError } from '../helpers/utils.js';
 
 import type { Identity, IdentityAdapter, IdentityRepository } from './types.js';
 
 const WATCH_IDENTITY_INITIAL_TIMEOUT_MS = 15_000;
 
-// v2: records written before `identifierKey` existed would be served forever —
-// `getIdentity` only refetches when the cached value is null. Bump on every
-// `Identity` shape change, and add the retired prefix to LEGACY_CACHE_PREFIXES.
 function getCacheKey(accountId: string): string {
-  return `identity_v2_${accountId}`;
+  return `identity_${accountId}`;
 }
-
-const LEGACY_CACHE_PREFIXES = ['identity_'];
 
 /**
- * Writes the current record and drops the account's records under retired key versions —
- * nothing else would ever read them, and `StorageAdapter` has no way to enumerate keys, so
- * a bump that doesn't sweep here leaks one entry per account forever. Best-effort on both
- * counts: a cache write must never surface on the read path.
+ * An older-shape record reads as absent so the caller refetches — `getIdentity` only goes
+ * to chain on a `null` hit. Extend whenever `Identity` grows a field.
  */
-function writeCachedIdentity(storage: StorageAdapter, accountId: string, identity: Identity) {
-  for (const prefix of LEGACY_CACHE_PREFIXES) {
-    void storage.clear(`${prefix}${accountId}`);
-  }
-
-  return storage.write(getCacheKey(accountId), JSON.stringify(identity));
-}
+const REQUIRED_FIELDS = ['accountId', 'fullUsername', 'liteUsername', 'credibility', 'identifierKey'] as const;
 
 function parseIdentity(raw: string | null): Identity | null {
   if (!raw) return null;
+
   try {
-    return JSON.parse(raw) as Identity;
+    const parsed = JSON.parse(raw) as Identity;
+
+    return REQUIRED_FIELDS.every(field => field in parsed) ? parsed : null;
   } catch {
     return null;
   }
@@ -62,7 +50,7 @@ export function createIdentityRepository({
   storage: StorageAdapter;
   initialEmissionTimeoutMs?: number;
 }): IdentityRepository {
-  const cachedRequester = createCachedIdentityRequester(storage, getCacheKey);
+  const cachedRequester = createCachedIdentityRequester(storage);
 
   // Per-account de-dup: concurrent watchIdentity(acc) calls share one chain
   // subscription via the shared stream built below. The entry clears itself —
@@ -76,7 +64,7 @@ export function createIdentityRepository({
       tap(identity => {
         if (identity === null) return;
         // Best-effort write-through; failures must not surface on the read.
-        void writeCachedIdentity(storage, accountId, identity);
+        void storage.write(getCacheKey(accountId), JSON.stringify(identity));
       }),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
@@ -134,26 +122,16 @@ export function createIdentityRepository({
   };
 }
 
-function createCachedIdentityRequester(storage: StorageAdapter, getKey: (accountId: string) => string) {
+function createCachedIdentityRequester(storage: StorageAdapter) {
   function readSingleCacheRecord(accountId: string) {
-    return storage.read(getKey(accountId)).andThen<Result<Identity | null, Error>>(raw => {
-      if (!raw) {
-        return ok(null);
-      }
-
-      try {
-        return ok(JSON.parse(raw));
-      } catch (e) {
-        return err(toError(e));
-      }
-    });
+    return storage.read(getCacheKey(accountId)).map(parseIdentity);
   }
 
   function writeSingleCacheRecord(accountId: string, identity: Identity | null) {
     if (identity === null) {
       return okAsync<void>(undefined);
     }
-    return writeCachedIdentity(storage, accountId, identity);
+    return storage.write(getCacheKey(accountId), JSON.stringify(identity));
   }
 
   function readCache(accounts: string[]) {
