@@ -11,6 +11,10 @@
   "keywords": [
     "polkadot"
   ],
+  "scripts": {
+    "papi:fix": "node ../../scripts/fix-papi-descriptors.mjs .papi/descriptors/dist",
+    "papi:update": "papi update && npm run papi:fix"
+  },
   "main": "dist/index.js",
   "exports": {
     "./package.json": "./package.json",

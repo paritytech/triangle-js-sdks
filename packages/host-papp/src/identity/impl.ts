@@ -9,8 +9,27 @@ import type { Identity, IdentityAdapter, IdentityRepository } from './types.js';
 
 const WATCH_IDENTITY_INITIAL_TIMEOUT_MS = 15_000;
 
+// v2: records written before `identifierKey` existed would be served forever —
+// `getIdentity` only refetches when the cached value is null. Bump on every
+// `Identity` shape change, and add the retired prefix to LEGACY_CACHE_PREFIXES.
 function getCacheKey(accountId: string): string {
-  return `identity_${accountId}`;
+  return `identity_v2_${accountId}`;
+}
+
+const LEGACY_CACHE_PREFIXES = ['identity_'];
+
+/**
+ * Writes the current record and drops the account's records under retired key versions —
+ * nothing else would ever read them, and `StorageAdapter` has no way to enumerate keys, so
+ * a bump that doesn't sweep here leaks one entry per account forever. Best-effort on both
+ * counts: a cache write must never surface on the read path.
+ */
+function writeCachedIdentity(storage: StorageAdapter, accountId: string, identity: Identity) {
+  for (const prefix of LEGACY_CACHE_PREFIXES) {
+    void storage.clear(`${prefix}${accountId}`);
+  }
+
+  return storage.write(getCacheKey(accountId), JSON.stringify(identity));
 }
 
 function parseIdentity(raw: string | null): Identity | null {
@@ -57,7 +76,7 @@ export function createIdentityRepository({
       tap(identity => {
         if (identity === null) return;
         // Best-effort write-through; failures must not surface on the read.
-        void storage.write(getCacheKey(accountId), JSON.stringify(identity));
+        void writeCachedIdentity(storage, accountId, identity);
       }),
       shareReplay({ bufferSize: 1, refCount: true }),
     );
@@ -134,7 +153,7 @@ function createCachedIdentityRequester(storage: StorageAdapter, getKey: (account
     if (identity === null) {
       return okAsync<void>(undefined);
     }
-    return storage.write(getKey(accountId), JSON.stringify(identity));
+    return writeCachedIdentity(storage, accountId, identity);
   }
 
   function readCache(accounts: string[]) {

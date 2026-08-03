@@ -1,13 +1,18 @@
+import type { Identity } from '@novasamatech/host-papp';
+import { createIdentityRpcAdapter } from '@novasamatech/host-papp';
 import type { HexString } from '@novasamatech/scale';
 import { toHex } from '@novasamatech/scale';
 import type { LazyClient } from '@novasamatech/statement-store';
-import { AccountId } from '@polkadot-api/substrate-bindings';
 import type { ResultAsync } from 'neverthrow';
-import { errAsync, fromPromise } from 'neverthrow';
-
-import type { People_lite } from '../.papi/descriptors/dist/index.js';
+import { Result, errAsync, fromPromise } from 'neverthrow';
+import { AccountId } from 'polkadot-api';
 
 import { toError } from './helpers.js';
+
+// `Resources.Consumers` is read through host-papp's identity provider — one decoder for
+// the storage entry, one set of papi descriptors. The types are re-exported so this
+// package's public surface doesn't force callers to import host-papp for them.
+export type { Credibility, Identity } from '@novasamatech/host-papp';
 
 interface Config {
   identityEndpoint: string;
@@ -35,27 +40,17 @@ type SearchResponse = {
   updatedAt: string;
 }[];
 
-export type Credibility =
-  | {
-      type: 'Lite';
-    }
-  | {
-      type: 'Person';
-      alias: `0x${string}`;
-      lastUpdate: string;
-    };
-
-export type Identity = {
-  accountId: string;
-  fullUsername: string | null;
-  liteUsername: string;
-  credibility: Credibility;
-};
-
 export const createAccountService = (config: Config): AccountService => {
   const identityEndpoint = config.identityEndpoint.endsWith('/')
     ? config.identityEndpoint
     : `${config.identityEndpoint}/`;
+
+  const accountIdCodec = AccountId();
+  const identities = createIdentityRpcAdapter(config.client);
+
+  // `enc` throws on a malformed SS58 address. `getConsumerInfo` returns a `ResultAsync`,
+  // so that has to stay inside the Result instead of escaping as a synchronous throw.
+  const encodeAccountId = Result.fromThrowable((address: string) => toHex(accountIdCodec.enc(address)), toError);
 
   return {
     search(query, status) {
@@ -84,43 +79,10 @@ export const createAccountService = (config: Config): AccountService => {
       });
     },
     getConsumerInfo(address) {
-      const textDecoder = new TextDecoder();
-      const accountId = AccountId();
-      const client = config.client.getClient();
-      const api = client.getUnsafeApi<People_lite>();
-
-      const consumerInfo = fromPromise(api.query.Resources?.Consumers?.getValue(address), toError);
-
-      return consumerInfo.map<Identity | null>(typedRaw => {
-        if (!typedRaw) return null;
-
-        // Runtime metadata may expose fields in snake_case (V1) or
-        // camelCase (V2 multi-device). Read defensively.
-        const raw = typedRaw as unknown as Record<string, unknown> & typeof typedRaw;
-        const fullUsername =
-          (raw.full_username as Uint8Array | undefined) ?? (raw.fullUsername as Uint8Array | undefined);
-        const liteUsername =
-          (raw.lite_username as Uint8Array | undefined) ?? (raw.liteUsername as Uint8Array | undefined);
-
-        const credibility: Credibility =
-          raw.credibility.type === 'Lite'
-            ? {
-                type: 'Lite',
-              }
-            : {
-                type: 'Person',
-                alias: raw.credibility.value.alias as HexString,
-                lastUpdate: ((raw.credibility.value as Record<string, unknown>).last_update ??
-                  (raw.credibility.value as Record<string, unknown>).lastUpdate)!.toString(),
-              };
-
-        return {
-          accountId: toHex(accountId.enc(address)),
-          fullUsername: fullUsername ? textDecoder.decode(fullUsername) : null,
-          liteUsername: liteUsername ? textDecoder.decode(liteUsername) : '',
-          credibility: credibility,
-        };
-      });
+      // The provider keys identities by hex account id; callers pass SS58 here.
+      return encodeAccountId(address).asyncAndThen(accountId =>
+        identities.readIdentities([accountId]).map(byAccountId => byAccountId[accountId] ?? null),
+      );
     },
   };
 };

@@ -1,3 +1,27 @@
+## 0.9.2 (2026-08-03)
+
+### ⚠️ Breaking Changes
+
+- **host-chat / host-papp:** `Identity` and `Credibility` have a single owner. `host-chat` used to read `Resources.Consumers` and decode it itself; it now depends on `@novasamatech/host-papp` and reads through `createIdentityRpcAdapter`, newly exported from it. `host-chat` re-exports both types, so `createAccountService` callers need no import change — but `Credibility.lastUpdate` is now `string | null`, reporting a chain record with no readable timestamp as `null` instead of a fabricated `0`. `host-chat` no longer carries its own papi descriptors, so the two packages can no longer drift onto different runtime snapshots (they had: `host-chat` was pinned four weeks behind `host-papp` and still typed the removed `stmt_store_slots` field). See the [`Identity` section](./docs/migration/v0.9.md#identity-is-one-type-owned-by-host-papp) of the migration guide.
+- **product-bulletin:** `BulletinNetwork` gains a required `renewArgs` field (`'block-index' | 'entry'`) — only a concern if you declare your own network; the entries in `BulletinChain` carry it. A chain not listed in `BulletinChain` must now pass `renewArgs` to `createBulletinClient`, which throws without it rather than guess: a wrong guess produces no type or client-side error, only an extrinsic the chain rejects. Three of the four genesis hashes changed — `paseo` and `previewnet` were reset, and `popStable` moved off the retired pop3 testnet onto Paseo Bulletin Next (its name no longer describes its chain; renaming it was left out to avoid a second breaking rename in one release). See the [product-bulletin section](./docs/migration/v0.9.md#product-bulletin) of the migration guide.
+
+### 🚀 Features
+
+- **host-chat / host-papp:** `Identity.identifierKey` exposes an account's chat encryption public key — the 32-byte X25519 key unwrapped from the 65-byte RFC-0004 container the chain stores it in, as `0x`-prefixed hex, or `null` when the record names a keypair type this SDK does not implement. Hex rather than `Uint8Array` because `Identity` is JSON round-tripped through host-papp's storage cache. Available from both `accountService.getConsumerInfo` and host-papp's identity repository. See the [on-chain identifier key section](./docs/migration/v0.9.md#the-on-chain-identifier-key-is-still-65-bytes) of the migration guide.
+
+### 🩹 Fixes
+
+- **product-bulletin:** `TransactionStorage.renew` works against current Bulletin runtimes, which take an entry selector (`Position { block, index } | ContentHash`) where older ones took `{ block, index }`. `@parity/bulletin-sdk` 0.3.0 — the newest published — still emits the old form, so `createBulletinClient` rewrites the argument for chains recorded as `renewArgs: 'entry'`. Descriptors regenerated for all four networks: `paseo` and `popStable` repointed to live RPCs (`paseo-bulletin-rpc.polkadot.io` and `pop3-testnet.parity-lab.parity.io` are both gone), `westend` and `previewnet` refreshed in place.
+- **host-papp:** descriptors regenerated against Paseo People. The pinned `paseo-people-next-rpc.polkadot.io` no longer resolves; the `Resources.Consumers` shape is unchanged from the previous snapshot, but the surrounding pallet has moved on (statement-store slots replaced by allowances, friend-request storage and long-term-storage calls added).
+- **host-papp:** the identity storage cache key moved to `identity_v2_`. `getIdentity` only refetches when the cached value is `null`, so records cached before `identifierKey` existed would otherwise have been served without it forever. Writing a record now also clears the account's `identity_` entry — `StorageAdapter` cannot enumerate keys, so a bump that does not sweep leaks one unreachable record per account.
+- **host-chat:** `getConsumerInfo` reports a malformed SS58 address as an `err` instead of throwing synchronously out of a function that returns a `ResultAsync`.
+- **host-chat:** `@polkadot-api/substrate-bindings` was imported without being declared as a dependency; the import moves to `polkadot-api`, which is now declared.
+- **repo:** `scripts/fix-papi-descriptors.mjs` restores the `.js` extensions that polkadot-api 2.x drops from the generated `.d.ts` re-exports. Without it the descriptors do not resolve under `moduleResolution: nodenext` and every re-exported type silently vanishes — wired into `papi:update` in `host-papp` and `product-bulletin`, with the fixer also exposed as `papi:fix` so a scoped refresh (`npx papi update <key> && npm run papi:fix`) can skip entries whose RPC is unreachable.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.9.1 (2026-07-31)
 
 ### 🚀 Features

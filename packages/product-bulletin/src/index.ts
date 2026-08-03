@@ -1,7 +1,7 @@
 export type { BulletinDescriptor, CreateBulletinClientOptions } from './createBulletinClient.js';
 export { createBulletinClient } from './createBulletinClient.js';
 
-export type { BulletinNetwork } from './constants.js';
+export type { BulletinNetwork, RenewArgs } from './constants.js';
 export { BulletinChain } from './constants.js';
 
 export type {

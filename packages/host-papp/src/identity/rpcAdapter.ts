@@ -15,7 +15,25 @@ import type { Credibility, Identity, IdentityAdapter } from './types.js';
 // `Resources.Consumers` storage entry rather than restating the shape here.
 type RawConsumers = NonNullable<People_liteQueries['Resources']['Consumers']['Value']>;
 
-function decodeRawIdentity(
+/**
+ * `identifier_key` is the RFC-0004 container: 1-byte keypair type (`0x00` = X25519),
+ * 32-byte key, then 32 bytes of padding readers must ignore. The 65-byte width predates
+ * X25519 — it is what an uncompressed P-256 point occupied — so the field is still
+ * `SizedHex<65>` in runtime metadata. Any other keypair type is a peer on a curve we
+ * can't encrypt to: a normal condition, so `null` rather than an error.
+ *
+ * ponytail: slicing the hex is the whole codec for a one-variant enum. Reach for a scale
+ * codec if a second keypair type ever lands.
+ */
+function decodeIdentifierKey(raw: unknown): `0x${string}` | null {
+  if (typeof raw !== 'string') return null;
+
+  const key = raw.slice(4, 68);
+
+  return raw.startsWith('0x00') && key.length === 64 ? `0x${key}` : null;
+}
+
+export function decodeRawIdentity(
   accountId: string,
   raw: RawConsumers | undefined,
   textDecoder: TextDecoder,
@@ -28,7 +46,9 @@ function decodeRawIdentity(
       : {
           type: 'Person',
           alias: raw.credibility.value.alias as HexString,
-          lastUpdate: raw.credibility.value.last_update.toString(),
+          // The descriptor types this as always present, but `getUnsafeApi` decodes against
+          // live runtime metadata. Report a missing timestamp rather than inventing one.
+          lastUpdate: (raw.credibility.value.last_update as bigint | undefined)?.toString() ?? null,
         };
 
   return {
@@ -36,6 +56,7 @@ function decodeRawIdentity(
     fullUsername: raw.full_username ? textDecoder.decode(raw.full_username) : null,
     liteUsername: textDecoder.decode(raw.lite_username),
     credibility,
+    identifierKey: decodeIdentifierKey(raw.identifier_key),
   };
 }
 

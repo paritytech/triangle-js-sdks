@@ -1,5 +1,5 @@
 import { StorageDescriptor, PlainDescriptor, TxDescriptor, RuntimeDescriptor, Enum, ApisFromDef, QueryFromPalletsDef, TxFromPalletsDef, EventsFromPalletsDef, ErrorsFromPalletsDef, ConstFromPalletsDef, ViewFnsFromPalletsDef, SS58String, SizedHex, FixedSizeArray } from "polkadot-api";
-import type { I5sesotjlssv2d, Iffmde3ekjedi9, I4mddgoa69c0a2, Ia9ctkgrquvhdh, I95g6i7ilua7lq, Ieniouoqkq4icf, Phase, Ibgl04rn6nbfm6, I4q39t5hn830vp, I8re9183nrhr3n, I1v7jbnil3tjns, I8jgj1nhcr2dg8, Ifn6q3equiq9qi, Ia3sb0vgvovhtg, Iav8k1edbj86k7, Itom7fk49o0c9, I4i91h98n3cv1b, I4iumukclgj8ej, Iqnbvitf7a7l3, I48i407regf59r, I6r5cbv8ttrb09, Inofn0qqbjtb9, I1q8tnt1cluu5j, I8ds64oj6581v0, Ia7pdug7cdsg8g, I2sr2hoa6imct2, I9bin2jc70qt6q, TransactionPaymentReleases, Icj0tssrh6ika3, I8arc778cv9pqq, I3qklfjubrljqh, If9iqq7i64mur8, Iag3f1hum3p4c8, I4v5g6i7bmt06o, I4s6jkha20aoh0, I84bhscllvv07n, I78s05f59eoi8b, If2801grpltbp8, Ia2lhg7l2hilo3, Ifi4da1gej1fri, Ifvgo9568rpmqc, I82jm9g7pufuel, Ic5m5lp1oioo8r, I6cs1itejju2vv, Icgljjb6j82uhn, I9pvau8qut93lg, I5g2vv0ckl2m8b, Ifup3lg9ro8a0f, I5qfubnuvrnqn6, I8t3u2dv73ahbd, I7vlvrrl2pnbgk, Ie0rpl5bahldfk, XcmPalletVersionMigrationStage, I7e5oaj2qi4kl1, Ie849h3gncgvok, Iat62vud7hlod2, Ict03eedr8de9s, Ici7ejds60vj52, XcmVersionedLocation, Idh2ug6ou4a8og, Iejeo53sea6n4q, I53esa2ms463bk, Ib4jhb8tt3uung, Iag146hmjgqfgj, I8uo3fpd3bcc6f, I48e2fe747rjco, I9p9lq3rej5bhc, I8sp8i1c9u7kvv, I910puuahutflf, I4nfjdef0ibh44, I74af64m08r6as, Ic8ann3kre6vdm, I1j72qfgdejqsv, I60biiepd74113, I2skcsqibb3i2k, I4ekkp6f1d7a69, Ifpolrv9bn0ss8, Icq9999ubti4jr, I6vki5ip88t309, I5h2gdbrcdulu5, I4p5t2krb1gmvp, Id32895epm7otq, I14eopu9hl6hgk, Iaq1a4h34blh5u, Ieaqfchj8o5p3e, Ia11lg4mrmjqfg, Idevgv5mu1k9gt, Ic5ardbudan54b, I6n9krukma1mut, Ie6cl0ap8d265e, I9feps983hs1sf, I9jd27rnpm8ttv, I63ubv9qb76gl3, I2na29tt2afp0j, Ifip05kcrl65am, I644th47nna91b, I9u9nqhm3kqr8q, I191vhdj2skphj, Iavh3dqjok18o8, Ievlctk0hj2fed, Iehnjl0g9ebdqu, I1v8hffmq0a2s2, Idqtb21truteet, I6cpea5eggna34, Iesh4knl67dirc, Idrbto15rld189, I6lggg4mrl1u2s, I3nqube2n1nohj, Idodgrto60av5h, Id26d02t80vjh, I4009rejbekrdq, I81vbsdqasdsr1, I23bplm6qtgrpd, Ifopum5rctcidn, I9jea06984vfti, I8vqqii9cbfqng, Id77vvrgqmru2o, Ic66kva37scc9l, I1fa62uavcqia6, I7hvvp2oeegqa0, Ie3d56aup8po4r, I9lcj3313n9e9v, I3136o2hmi4al3, I4pact7n2e9a0i, Iff5ulsdvgntip, Iara29l6qkt9is, I2t447bb26t9i6, I831tj5voub6u0, I54g1hqjgru9ba, I2ccsdtloqt0h4, I766emmc9ccni0, I6sjgjftjavcbd, I2l7r05e3266s4, I5eoome1iv99mc, Ib55cg44k2chb5, I6msd8eb5ee1ee, I5b6v7o79lps5k, I4hus3s8lblmj7, Iff773s2hdisds, Ieenjgm8k62jr1, I183k62sm9tgqf, I83hq8olm7phlp, I29r7jgavo472s, Iepbsvlk3qceij, In7a38730s6qs, Ibtil0ss5munbk, I9s0ave7t0vnrk, I4fo08joqmcqnm, XcmV5Junctions, Iasb8k6ash5mjn, Idvob66qflhcgd, I7qcffr6se5g9, I8ofcg5rbj0g2c, I4adgbll7gku4i, I6pjjpfvhvcfru, I9pj91mj79qekl, I39uah9nss64h9, Ik64dknsq7k08, Ib51vk42m1po4n, Ial23jn8hp0aen, Ifpj261e8s63m3, Idcr6u6361oad9, I4ktuaksf5i1gk, I9bqtpv2ii35mp, I9j7pagd6d4bda, I2h9pmio37r7fb, Ibmr18suc9ikh9, I9iq22t0burs89, I5u8olqbbvfnvf, I5utcetro501ir, Iea5hvin03frku, I7t2thek61ghou, I61tdrsafr1vf3, Ibsk5g3rhm45pu, Icfoe9q8d4vs8f, Ibrfmvjrg4trnb, Iedih7t34maii9, I4e902qbfel1f1, Ie4met0joi8sv0, I1t8vq6a06ohhu, Icvt3pdunbinm7, I9ui3n41balr2q, I89sl7btgl24g2, I3u6g26k9kn96u, If1invp94rsjms, Ie5nc19gtiv5sv, Iald3dgvt1hjkb, Iurrhahet4gno, I5tamv2nk8bj8o, I8apq8e7c7qcpp, Id1e31ij0c35fv, Ic6vatc0h2tbq8, I72jcvr86rnvv8, I90c919drss29e, Ifccifqltb5obi, Iadtsfv699cq8b, Ialpmgmhr3gk5r, I4cbvqmqadhrea, I3sdol54kg5jaq, I8fougodaj6di6, I81vt5eq60l4b6, I3vh014cqgmrfd, Ia5cotcvi888ln, I21jsa919m88fd, Iegif7m3upfe1k, I9kt8c221c83ln, Ic76kfh5ebqkpl, Icscpmubum33bq, I21d2olof7eb60, Ibgm4rnf22lal1, Ie68np0vpihith, I9bnv6lu0crf1q, Iauhjqifrdklq7, Ie1uso9m8rt5cf, I40pqum1mu8qg3, I1r4c2ghbtvjuc, Icrfq6sihf9s7d, Idgkjnpm8ga334, Ie1rsmrsrog847, I39hqnpmrp1r81, I93ri1gd07v5fi, I7840qsg0nkgru, I2ajh25ofhvcua, Ideaemvoneh309, I3d9o9d7epp66v, I6lqh1vgb4mcja, Ice56905d72v4c, I8k3rnvpeeh4hv, I52hq8921se3sb, I54b3f8hqshk56, I6hk7temg1mga7, I2lbmfajhc5gdu, I2siheq6f2djrd, I2eb501t8s6hsq, Ianmuoljk2sk1u, Ilh4h42jvp82e, Ic6cqd9g0t65v0, I5sv83ib1q5mod, Ia9mkdf6l44shb, I9l2s4klu0831o, I2ctrt5nqb8o7c, I711qahikocb1c, I6o1er683vod1j, Id6gojh30v9ib2, Ibk29mtr51rukj, Id9uqtigc0il3v, Ic68lsi7chpv5k, Iek0boln8pgnko, I452bkd71b385t, Ie83f0p0ke1f4u, Ib9nmpn9ru9aeh, Ie5l999tf7t2te, I6b6ng21g2eap6, Ia5eqng70q48q6, I79nh52dspn15s, I6viutd279aov3, I6tuqjmsr5ahcq, I8k2cd3v73pgjh, Ia56ucs8f4gubv, Id1vp19i5a7adv, Ic01glfot2319, Ibi23t489qjaej, I6a7ia4g91p320, I7iebj213rflmh, I1c6o7t4005obp, I666bl2fqjkejo, I3sgg3ifcuhgsi, I2t4r3qi2bbfq5, In8qsbu1v3duv, I9cpejm8q1n41i, Icbccs0ug47ilf, I48li8do1boqsk, I8cj8rnq5f1nol, Idnsos6tvi9tt6, I95p7g3tmk59ap, Ibl1gaa0rn2c67, Id8vsjdockv55e, I4s48t49obgv40, I1b497vgt5ie3v, Ievhkup0angt51, Iagbfsso0n5e7i, I8dtsqbl6shss6, Ifpsbvfoe7erus, Isicv7jbqf8q2, Ic9lb0ksm6bqp9, I8ligieds2efci, Ib5qs0kka2gvvq, I49vkvcrq1mpqd, Icpk5dvoekngbe, Iepoo00jurbs3c, I6vn2ukq88hmrf, I2vuilbucl2tir, I2onutgm9avq0n, Iafscmv8tjf0ou, I4ov6e94l79mbg, Ib5ou59k6na5qv, I7qh4t1qniuepu, I6gk1lo90mp8d9, Iefam38o91ona9, Ifd8dbgpm7srdt, Ifbug00rch8etj, I28tfrqrmts741, I1i6t85s8phv1c, I5os021n9mtdcr, I66tl4phltl6bg, I4t3pgt4ilgpf6, Ifles5ioatcuip, Id2jcn0qee7h6f, Ijgrep2ca50rk, Iasnonvq8v9o5g, I6mk90q9np5nf3, Ichkkipipv6vbf, Ie0n67dnlcbpcf, I1bv5scdc27nbb, I12c2udla9t40g, I4eperb3q65q14, Idpufnltgsuodp, I8lare4sf457ul, I2gt0vglt3agsj, Idjiu7vp8ovdab, I4maqh2jefgv7u, Ibv24s7lkcbv1r, Iadkk9nq2cqqve, I5u969d5la0il0, I9cbgq5mcmbt3f, I4694teukj6drg, I8en8uvi5isgvj, Ibg509ejf21uui, I286qhrd3thf21, Iefn145htl05b6, I497d2v63rjmg, Icnkee0to4c5ac, I7ts20td7b1pmf, I7315hlp5liq47, Ic73rrpct6ckoa, Ib1hmb261fe7mh, I9jfggcqa8oi6c, I437snu8jbuaj2, Ic44opm4fbhp4r, Ia7k5rk3a67fgt, I94dejtmu6d72i, I3q0ci59rqeel6, Iferob091njnjq, I931cottvong90, Ibou4u1engb441, Id6nbvqoqdj4o2, I95iqep3b8snn9, Ia82mnkmeo2rhc, I682dmd1dh82o7, I1jm8m1rh9e20v, I855j4i3kr8ko1, I38icn8oj6uv8q, Idd7hd99u0ho0n, I100l07kaehdlp, I6gnbnvip5vvdi, Icv68aq8841478, Ic262ibdoec56a, Iflcfm9b6nlmdd, Ijrsf4mnp3eka, Id5fm4p8lj5qgi, I8tjvj9uq4b7hi, I3qt1hgg4djhgb, I4fooe9dun9o0t, I8vi83jdnuv7ad, I8td84k1e6i7l7, Ibthrs8djrs4ha, Iph9c4rn81ub2, Ier2cke86dqbr2, Iblesbqf0lfloi, Icqe266pmnr25o, I5hoiph0lqphp, I5k7oropl9ofc7, I48vagp1omigob, Ib5tst4ppem1g6, Ibn64edsrg3737, I83r9d02dh47j9, I22bm4d7re21j9, I3jnhifvaeuama, I8n1gia0lo42ok, I6gb0o7lqjfdjq, Idh36v6iegkmpq, I27hnueutmchbe, Iectm2em66uhao, I7q57goff3j72h, Ibe49veu9i9nro, I1rnkmiu7usb82, Iadvnek4gbu68j, Ibtugueatkkr9s, Id7k54q1ita2p5, I5k7edfft48vsq, Iaeqj2ebnvkjqe, I39t01nnod9109, I6v8sm60vvkmk7, I1qmtmbe5so8r3, Ih99m6ehpcar7, Idgorhsbgdq2ap, I9ubb2kqevnu6t, I2hq50pu2kdjpo, I9acqruh7322g2, I137t1cld92pod, I61d51nv4cou88, If8u5kl4h8070m, Ibmuil6p3vl83l, I7lul91g50ae87, Icl7nl1rfeog3i, Iasr6pj6shs0fl, I2uqmls7kcdnii, Idg69klialbkb8, I7r6b7145022pp, I30pg328m00nr3, Icmrn7bogp28cs, I7m9b5plj4h5ot, I9onhk772nfs4f, I3l6bnksrmt56r, Idh09k0l2pmdcg, I7uoiphbm0tj4r, I512p1n7qt24l8, I6s1nbislhk619, I3gghqnh2mj0is, I6iv852roh6t3h, I9oc2o6itbiopq, Ibslgga81p36aa, I1rvj4ubaplho0, Ia3uu7lqcc1q1i, I7crucfnonitkn, I7tmrp94r9sq4n, I66uqe1tndt513, I9m3mb6r2i2eeq, Idbn36j11p05sj, I12la7j60vkuj3, Iep27ialq4a7o7, Iasu5jvoqr43mv, I8ktnt89fcg3hj, I5qolde99acmd1, I8gtde5abn1g9a, I6fn8r3em1pi9r, I5rtkmhm2dng4u, Iquobi9ukq7tb, I4mj21qcksiuf3, I2ur0oeqg495j8, I8v2su1f60qoae, I1bhd210c3phjj, Iep1lmt6q3s6r3, I1fac16213rie2, Ifjt77oc391o43, Itvt1jsipv0lc, Ick3mveut33f44, I719lqkkbtikbl, Ie4intrc3n8jfu, I2rg5btjrsqec0, Ibdqerrooruuq9, I8u2ba9jeiu6q0, I7ieadb293k6b4, I86ooiomatht8n, I7v1eea9s3tjf6, Ifcon2ngg4leli, I7luomlm0cts8l, I53pb13fh9bdtb, I5eoknm3d4b0hp, I1267r4okm030g, I7v53d8lg25u6e, Ie732hi40q3bng, I4auq2rk2vmnof, I36d2sa03ne4gv, Id0mmcnagcakpt, I3fn79iu085nho, I1qepegjhn0439, I3g1h0napekm89, Ib4r095rdf5mqu, I816g8dafh3n9m, I5rguq5hs7ae5g, Id0n15ml7mlce1, I95dvhl27mlrti, I6mojmjujt2q9u, I3j43dj5855fif, I9m7e67l1rvair, I2fsu027d9jn8p, I1858d79avs8nu, I4dge44jia159s, I7uvflbq4g7rn, Icpl0grufrj09l, Ibi26id9j1t520, I8s2eo7q9t6vgf, Idscf6boak49q1, Iet3fv7oighgft, I6kmurc4thdo8g, Ieitag1fl7hkds, Ie060ubkeme5vs, I58bu3hm7657hm, Icc0fkkhtd78sc, I9vf1so75dnrom, I9hg8vptgbqai, I16m4f7hclkkad, I5dvnb65dm4f56, I2abip8j5bmg27, Ickpn0png35631, I3ns5kg6jo268n, I7hu7hl7r35nrm, Ia783as0f2ls27, I298u2lqese6h0, I4c20l83g9496a, I4gp88defd7an, Id113tpicu8sh3, I6ceb7pmur4hki, Ie2d9d2u1qa7ro, Iebdi09jg1ifvr, I5kek6hgenovr0, I91tbphb2dk7gn, I5509mqtnio180, Ifojd05k7ogo8n, I2h93i19beq4qk, I4lmgf1qe39res, Igvk3mrc51o9l, I37r4bdai8o9mp, Ifrvjscp9m1e73, Iamcee9e6bogsv, I2e1ek76m34991, I6fdggv3obvfs5, I6uvt8pub5nl1g, Ia9o5rqpv3sn2g, Iah53milao1ikg, I25h8dena9rh5c, If1co0pilmi7oq, Iae74gjak1qibn, I3escdojpj0551, I5r8t4iaend96p, I6052turo9tavh, I35p85j063s0il, Iemk0s5gdc9ruv, Ic6sunr27jf8hd, Ieuemnllefri8h, Iavc33atjrmdmp, I596b7bbfu4tap, I4arjljr6dpflb, Ia4n949ohqh8lm, I9vodnt2k1kha, I4ao1le27fcisl, Ih4ursllob8fg, Iaqet9jc3ihboe, Ic952bubvq4k7d, I2v50gu3s1aqk6, Iabpgqcjikia83, I4gil44d08grh, I7u915mvkdsb08, I36df3b03i92s9, If7uv525tdvv7a, I2an1fs2eiebjp, TransactionValidityTransactionSource, I9ask1o4tfvcvs, I4ph3d1eepnmr1, Icerf8h8pdu8ss, I6spmpef2c7svf, Iei2mvq0mjvt81, Iftvbctbo05fu4, XcmVersionedXcm, Ic0c3req3mlc1l, XcmVersionedAssetId, I7ocn4njqde3v5, Iek7ha36da9mf5, I3l05tjm1loph7, Ibtr2nt1h0uqqj, I903fknvm1u4c2, Ieh6nis3hdbtgi, Ic1d4u2opv3fst, Ie9sr1iqcg3cgm, I1mqgk2tmnn9i2, I6lr8sctk0bi4e, Id3vovj0ihlrsb, I1rmvc8k7ssl0, I4rnuci7kia2r1, I6k0juar2doko8, I6ul9o7lquu20t, Iffdld0va52cu6, I98dq16mf7vpj3, Ic3b9c1lrhkh77, Ib1rdh37tsufsr } from "./common-types.js";
+import type { I5sesotjlssv2d, Iffmde3ekjedi9, I4mddgoa69c0a2, I7i368q6u4lmdh, I95g6i7ilua7lq, Ieniouoqkq4icf, Phase, Ibgl04rn6nbfm6, I4q39t5hn830vp, I8re9183nrhr3n, I1v7jbnil3tjns, I8jgj1nhcr2dg8, Ifn6q3equiq9qi, Ia3sb0vgvovhtg, Iav8k1edbj86k7, Itom7fk49o0c9, I4i91h98n3cv1b, I4iumukclgj8ej, Iqnbvitf7a7l3, I48i407regf59r, I6r5cbv8ttrb09, Inofn0qqbjtb9, Iepbsvlk3qceij, I1q8tnt1cluu5j, I8ds64oj6581v0, Ia7pdug7cdsg8g, Iff83br6to6vp5, I9bin2jc70qt6q, TransactionPaymentReleases, I3qklfjubrljqh, If9iqq7i64mur8, Iag3f1hum3p4c8, I4v5g6i7bmt06o, I4s6jkha20aoh0, I84bhscllvv07n, I78s05f59eoi8b, If2801grpltbp8, Icj0tssrh6ika3, I8arc778cv9pqq, Ia2lhg7l2hilo3, Ifi4da1gej1fri, Ifvgo9568rpmqc, I82jm9g7pufuel, Ic5m5lp1oioo8r, I6cs1itejju2vv, Icgljjb6j82uhn, I9pvau8qut93lg, I5g2vv0ckl2m8b, Ifup3lg9ro8a0f, I5qfubnuvrnqn6, I8t3u2dv73ahbd, I7vlvrrl2pnbgk, Ie0rpl5bahldfk, XcmPalletVersionMigrationStage, I7e5oaj2qi4kl1, Ie849h3gncgvok, Iat62vud7hlod2, Ict03eedr8de9s, Ici7ejds60vj52, XcmVersionedLocation, Idh2ug6ou4a8og, Iejeo53sea6n4q, I53esa2ms463bk, Ib4jhb8tt3uung, Iag146hmjgqfgj, I8uo3fpd3bcc6f, I1qdpp5rr8t6nv, I9p9lq3rej5bhc, Ib1i64ek701lf6, I910puuahutflf, I4nfjdef0ibh44, I74af64m08r6as, Ic8ann3kre6vdm, I1j72qfgdejqsv, I60biiepd74113, Ifpolrv9bn0ss8, Icq9999ubti4jr, I6vki5ip88t309, I5h2gdbrcdulu5, I4p5t2krb1gmvp, Id32895epm7otq, I14eopu9hl6hgk, Iaq1a4h34blh5u, Ieaqfchj8o5p3e, Ia11lg4mrmjqfg, Idevgv5mu1k9gt, Ic5ardbudan54b, I6n9krukma1mut, Ie6cl0ap8d265e, I9feps983hs1sf, I9jd27rnpm8ttv, I63ubv9qb76gl3, I2na29tt2afp0j, Ifip05kcrl65am, I1mvbp74tfuinr, I9u9nqhm3kqr8q, I191vhdj2skphj, Iavh3dqjok18o8, Idm8j2k0kcll3q, I5uteah8rq8etm, I9sbfhir4aitej, I5rab7drti2f9h, I26np7pq4hc9kt, Idrbto15rld189, I6lggg4mrl1u2s, I3nqube2n1nohj, Idodgrto60av5h, Id26d02t80vjh, I4009rejbekrdq, I94nsao83dbuk9, I81vbsdqasdsr1, I23bplm6qtgrpd, Ifopum5rctcidn, I9jea06984vfti, I8vqqii9cbfqng, Id77vvrgqmru2o, Ic66kva37scc9l, I1fa62uavcqia6, I7hvvp2oeegqa0, Ie3d56aup8po4r, I9lcj3313n9e9v, I3136o2hmi4al3, I4pact7n2e9a0i, Iff5ulsdvgntip, Iara29l6qkt9is, I2t447bb26t9i6, I831tj5voub6u0, I54g1hqjgru9ba, I2ccsdtloqt0h4, I766emmc9ccni0, I6sjgjftjavcbd, I2l7r05e3266s4, I5eoome1iv99mc, Ib55cg44k2chb5, I6msd8eb5ee1ee, I5b6v7o79lps5k, I4hus3s8lblmj7, Iff773s2hdisds, Ieenjgm8k62jr1, I92h4q810prvth, Ieso6d402ilf6g, I6cunlo5qsnfm5, Id5m5ie1nmrke2, I58ai4tjcgea3g, Ibto3ou3o2r7sv, In7a38730s6qs, Ibtil0ss5munbk, I9s0ave7t0vnrk, I4fo08joqmcqnm, XcmV5Junctions, Iasb8k6ash5mjn, Idvob66qflhcgd, I7qcffr6se5g9, I8ofcg5rbj0g2c, I4adgbll7gku4i, I6pjjpfvhvcfru, I9pj91mj79qekl, I39uah9nss64h9, Ik64dknsq7k08, Ib51vk42m1po4n, Ial23jn8hp0aen, Ifpj261e8s63m3, Idcr6u6361oad9, Ibou4u1engb441, Id6nbvqoqdj4o2, I95iqep3b8snn9, I4ktuaksf5i1gk, I9bqtpv2ii35mp, I9j7pagd6d4bda, I2h9pmio37r7fb, Ibmr18suc9ikh9, I9iq22t0burs89, I5u8olqbbvfnvf, I5utcetro501ir, I7t2thek61ghou, I61tdrsafr1vf3, Ibsk5g3rhm45pu, Icfoe9q8d4vs8f, Ibrfmvjrg4trnb, Iedih7t34maii9, I4e902qbfel1f1, Ie4met0joi8sv0, I1t8vq6a06ohhu, Icvt3pdunbinm7, I9ui3n41balr2q, I89sl7btgl24g2, I3u6g26k9kn96u, If1invp94rsjms, Ie5nc19gtiv5sv, Iald3dgvt1hjkb, Iurrhahet4gno, I5tamv2nk8bj8o, I8apq8e7c7qcpp, Id1e31ij0c35fv, Ic6vatc0h2tbq8, I72jcvr86rnvv8, I90c919drss29e, Iea5hvin03frku, Ifccifqltb5obi, Iadtsfv699cq8b, Ialpmgmhr3gk5r, I4cbvqmqadhrea, I3sdol54kg5jaq, I8fougodaj6di6, I81vt5eq60l4b6, I3vh014cqgmrfd, Ia5cotcvi888ln, I21jsa919m88fd, Iegif7m3upfe1k, I9kt8c221c83ln, Ic76kfh5ebqkpl, Icscpmubum33bq, I21d2olof7eb60, Ibgm4rnf22lal1, Ie68np0vpihith, I9bnv6lu0crf1q, Iauhjqifrdklq7, Ie1uso9m8rt5cf, I40pqum1mu8qg3, I1r4c2ghbtvjuc, I8kmgv322d7a0t, I50bvs6v8cvm9b, Ialatvi99docrh, I8a33691hq5h84, I81io2feo613h3, Ibttvfhqip49e6, Ibbpdksgdscuat, Ideaemvoneh309, I3d9o9d7epp66v, I6lqh1vgb4mcja, I4vrh01prvotgd, I9gtcp0ur229rb, Iadsnfrnvi5gjr, Iekkhrdinb4r25, I2eb501t8s6hsq, Ianmuoljk2sk1u, Iclch72nc7pia1, Ic6cqd9g0t65v0, I5sv83ib1q5mod, Ia9mkdf6l44shb, I9l2s4klu0831o, I2ctrt5nqb8o7c, I711qahikocb1c, I6o1er683vod1j, Id6gojh30v9ib2, Ide1bahhh47lj9, Id9uqtigc0il3v, Ic68lsi7chpv5k, Iek0boln8pgnko, I452bkd71b385t, Ie83f0p0ke1f4u, Ib9nmpn9ru9aeh, Ie5l999tf7t2te, I865ar2evj8fov, I6viutd279aov3, I6tuqjmsr5ahcq, I8k2cd3v73pgjh, Ia56ucs8f4gubv, Id1vp19i5a7adv, Ic01glfot2319, Ibi23t489qjaej, I6a7ia4g91p320, I7iebj213rflmh, I1c6o7t4005obp, I666bl2fqjkejo, I3sgg3ifcuhgsi, I2t4r3qi2bbfq5, I79nh52dspn15s, I1kb7l7cim8dam, I9cpejm8q1n41i, Icbccs0ug47ilf, I48li8do1boqsk, I8cj8rnq5f1nol, Idnsos6tvi9tt6, I95p7g3tmk59ap, Ibl1gaa0rn2c67, Id8vsjdockv55e, I4s48t49obgv40, I1b497vgt5ie3v, I5vj4b1eolhu8i, If3trlhj4nhm3u, I8dtsqbl6shss6, Ifpsbvfoe7erus, I4mfip5i7mpjk2, Ic9lb0ksm6bqp9, I3qt1hgg4djhgb, I2254l15dgaup8, I7rcbn8l002fcc, Icpk5dvoekngbe, Iepoo00jurbs3c, I6vn2ukq88hmrf, Iea8e3kkhkfkdo, I2onutgm9avq0n, I4270jaa2l0rr6, Iafscmv8tjf0ou, I4ov6e94l79mbg, Ib5ou59k6na5qv, I7qh4t1qniuepu, Iddfuva7fle38r, Iefam38o91ona9, Ifd8dbgpm7srdt, Ifbug00rch8etj, I28tfrqrmts741, Ievhkup0angt51, I1i6t85s8phv1c, I5os021n9mtdcr, I66tl4phltl6bg, I4t3pgt4ilgpf6, Ifles5ioatcuip, Id2jcn0qee7h6f, Ijgrep2ca50rk, Iasnonvq8v9o5g, I6mk90q9np5nf3, Ichkkipipv6vbf, Ie0n67dnlcbpcf, I5fcgnt467okla, I3silg6bqaeqo8, I4eperb3q65q14, Ia8odrnpl6k4r6, I8lare4sf457ul, Idpufnltgsuodp, I2gt0vglt3agsj, Idjiu7vp8ovdab, I4maqh2jefgv7u, Ibv24s7lkcbv1r, Iadkk9nq2cqqve, I1b55a83kk37g4, Icdnv1iut1hln7, I8a919tojdi2qf, I8en8uvi5isgvj, Ibg509ejf21uui, I634921sber3t4, Id9tjv96cmemjl, I497d2v63rjmg, I22bm4d7re21j9, Icnkee0to4c5ac, I7ts20td7b1pmf, I7315hlp5liq47, Ic73rrpct6ckoa, Ib1hmb261fe7mh, I9jfggcqa8oi6c, I4h7nuietabku4, I7hni0vmjve0vn, Iaub50sqs4hhqk, I6r7odh9pc99fv, Ie9gieran6hmh7, Ib4o08d7u3o37d, I2l0pq1htsnh8g, Icg4lihlimlj9s, Icuc3bubd55bkj, Ie5m07j5sdjl2g, I8k3rnvpeeh4hv, I6et065lmj2gtf, Ia82mnkmeo2rhc, I6dq6jtlpu769k, I1jm8m1rh9e20v, I855j4i3kr8ko1, Ibe7mc72lufts8, Idd7hd99u0ho0n, I100l07kaehdlp, I6gnbnvip5vvdi, If1co0pilmi7oq, Iae74gjak1qibn, I3escdojpj0551, Icv68aq8841478, Ic262ibdoec56a, Iflcfm9b6nlmdd, Ijrsf4mnp3eka, Id5fm4p8lj5qgi, I8tjvj9uq4b7hi, I4fooe9dun9o0t, I4t941tu6n95pd, I7a812tlv1a711, I3osgdo4c94kio, Iph9c4rn81ub2, Ier2cke86dqbr2, Icqe266pmnr25o, I5hoiph0lqphp, I5k7oropl9ofc7, I48vagp1omigob, Ib5tst4ppem1g6, Ibn64edsrg3737, I83r9d02dh47j9, I3jnhifvaeuama, I8n1gia0lo42ok, I6gb0o7lqjfdjq, Idh36v6iegkmpq, I27hnueutmchbe, Iectm2em66uhao, I7q57goff3j72h, Ibe49veu9i9nro, I1rnkmiu7usb82, Iadvnek4gbu68j, Ibtugueatkkr9s, I5k7edfft48vsq, Iaeqj2ebnvkjqe, I6felmv64s40c4, Ia19q5nd942d8c, I39t01nnod9109, I6v8sm60vvkmk7, I1qmtmbe5so8r3, Ih99m6ehpcar7, Idgorhsbgdq2ap, I9ubb2kqevnu6t, I2hq50pu2kdjpo, I9acqruh7322g2, I137t1cld92pod, I61d51nv4cou88, If8u5kl4h8070m, Ibmuil6p3vl83l, I7lul91g50ae87, Icl7nl1rfeog3i, Iasr6pj6shs0fl, I2uqmls7kcdnii, Idg69klialbkb8, I7r6b7145022pp, I30pg328m00nr3, Icmrn7bogp28cs, I7m9b5plj4h5ot, I9onhk772nfs4f, I3l6bnksrmt56r, Idh09k0l2pmdcg, I7uoiphbm0tj4r, I512p1n7qt24l8, I6s1nbislhk619, I3gghqnh2mj0is, I6iv852roh6t3h, I9oc2o6itbiopq, Ibslgga81p36aa, I1rvj4ubaplho0, Ia3uu7lqcc1q1i, I7crucfnonitkn, I7tmrp94r9sq4n, Ifd1iadsrfatgf, Ibsrg07o34u087, Iboi95k6oheii9, Iaqbcdruj9fo2n, Iep27ialq4a7o7, Iasu5jvoqr43mv, I4ei7oag7cupld, I5qolde99acmd1, I8gtde5abn1g9a, Iemd4d7o8egfol, I4qjtstc5t6mdq, I2ur0oeqg495j8, I7b10hvivbp6sm, I1bhd210c3phjj, Iep1lmt6q3s6r3, I1fac16213rie2, Ifjt77oc391o43, Itvt1jsipv0lc, Ick3mveut33f44, I719lqkkbtikbl, Ie4intrc3n8jfu, I2rg5btjrsqec0, Ibdqerrooruuq9, I8u2ba9jeiu6q0, I7ieadb293k6b4, I53pb13fh9bdtb, I5eoknm3d4b0hp, I1267r4okm030g, I7v53d8lg25u6e, Ie732hi40q3bng, I4auq2rk2vmnof, I36d2sa03ne4gv, Id0mmcnagcakpt, I3fn79iu085nho, I1qepegjhn0439, I3g1h0napekm89, Ib4r095rdf5mqu, I816g8dafh3n9m, I5rguq5hs7ae5g, Id0n15ml7mlce1, I95dvhl27mlrti, I6mojmjujt2q9u, I3j43dj5855fif, I9m7e67l1rvair, I2fsu027d9jn8p, I1858d79avs8nu, I4dge44jia159s, I7uvflbq4g7rn, Icpl0grufrj09l, Ibi26id9j1t520, Irboug90jv3o0, I7thug0gvru5sl, I8s2eo7q9t6vgf, Ieitag1fl7hkds, Ie060ubkeme5vs, I58bu3hm7657hm, Icc0fkkhtd78sc, I9vf1so75dnrom, I9hg8vptgbqai, I16m4f7hclkkad, I5dvnb65dm4f56, I2abip8j5bmg27, Ickpn0png35631, I3ns5kg6jo268n, I7hu7hl7r35nrm, Ia783as0f2ls27, I298u2lqese6h0, I4c20l83g9496a, I4gp88defd7an, Id113tpicu8sh3, I6ceb7pmur4hki, Ie2d9d2u1qa7ro, Iebdi09jg1ifvr, I5kek6hgenovr0, I91tbphb2dk7gn, I5509mqtnio180, Ifojd05k7ogo8n, I2ccuul1t9pcs0, I4lmgf1qe39res, Igvk3mrc51o9l, I37r4bdai8o9mp, Ifrvjscp9m1e73, Iamcee9e6bogsv, I2e1ek76m34991, I50aksks5it5n0, Icc5o3lh1v2smd, I5srndmgodi29b, Idd6sihggmv1dq, I1obalebkt2h11, I2gbrv9jm3ucsu, I9pgrv71u9hf6c, Ib2kb4gr1v6eis, Ib52ld1ackp05u, I619o495nctj82, I9uehc80gsuos1, I5rtkmhm2dng4u, I5r8t4iaend96p, I9vodnt2k1kha, I4ao1le27fcisl, Ih4ursllob8fg, I6052turo9tavh, I35p85j063s0il, Iemk0s5gdc9ruv, I4ihpihsujp5nb, Ijtujq69eb376, Iavc33atjrmdmp, I596b7bbfu4tap, I4arjljr6dpflb, Ia4n949ohqh8lm, Iaqet9jc3ihboe, Ic952bubvq4k7d, I2v50gu3s1aqk6, Iabpgqcjikia83, Idpqrnnbdf862h, If7uv525tdvv7a, I2an1fs2eiebjp, TransactionValidityTransactionSource, I9ask1o4tfvcvs, I4ph3d1eepnmr1, Icerf8h8pdu8ss, I4gil44d08grh, I7u915mvkdsb08, I6spmpef2c7svf, Iei2mvq0mjvt81, Iftvbctbo05fu4, XcmVersionedXcm, Ic0c3req3mlc1l, XcmVersionedAssetId, I7ocn4njqde3v5, Iek7ha36da9mf5, I2vjn8o312puvk, Iegq33n3epfpgf, Id2985f3a6u3ib, Ieh6nis3hdbtgi, XcmVersionedAsset, Icujp6hmv35vbn, I4tjame31218k9, I5gif8vomct5i8, Ic1d4u2opv3fst, Ie9sr1iqcg3cgm, I1mqgk2tmnn9i2, I6lr8sctk0bi4e, I40k710moo3ghm, Id3vovj0ihlrsb, I6i9m7o2et1j4d, I4rnuci7kia2r1, I6k0juar2doko8, I9187oseptvbg4, Id5fnv3e135pfi, I7ohvr4mqgjtpu, I1aakk85jiarum, Ie5q72utgevbaq, I5qui0u525q0tn } from "./common-types.js";
 type AnonymousEnum<T extends {}> = T & {
     __anonymous: true;
 };
@@ -63,7 +63,7 @@ type IStorage = {
          * Events have a large in-memory size. Box the events to not go out-of-memory
          * just in case someone still reads them from within the runtime.
          */
-        Events: StorageDescriptor<[], Anonymize<Ia9ctkgrquvhdh>, false, never>;
+        Events: StorageDescriptor<[], Anonymize<I7i368q6u4lmdh>, false, never>;
         /**
          * The number of events in the `Events<T>` list.
          */
@@ -336,9 +336,24 @@ type IStorage = {
     };
     ParachainInfo: {
         /**
-
+        
          */
         ParachainId: StorageDescriptor<[], number, false, never>;
+    };
+    MultiBlockMigrations: {
+        /**
+         * The currently active migration to run and its cursor.
+         *
+         * `None` indicates that no migration is running.
+         */
+        Cursor: StorageDescriptor<[], Anonymize<Iepbsvlk3qceij>, true, never>;
+        /**
+         * Set of all successfully executed migrations.
+         *
+         * This is used as blacklist, to not re-execute migrations that have not been removed from the
+         * codebase yet. Governance can regularly clear this out via `clear_historic`.
+         */
+        Historic: StorageDescriptor<[Key: Uint8Array], null, true, never>;
     };
     Balances: {
         /**
@@ -392,7 +407,7 @@ type IStorage = {
         /**
          * Holds on account balances.
          */
-        Holds: StorageDescriptor<[Key: SS58String], Anonymize<I2sr2hoa6imct2>, false, never>;
+        Holds: StorageDescriptor<[Key: SS58String], Anonymize<Iff83br6to6vp5>, false, never>;
         /**
          * Freeze locks on account balances.
          */
@@ -400,11 +415,11 @@ type IStorage = {
     };
     TransactionPayment: {
         /**
-
+        
          */
         NextFeeMultiplier: StorageDescriptor<[], bigint, false, never>;
         /**
-
+        
          */
         StorageVersion: StorageDescriptor<[], TransactionPaymentReleases, false, never>;
         /**
@@ -413,12 +428,6 @@ type IStorage = {
          * Use `withdraw_txfee` and `remaining_txfee` to access from outside the crate.
          */
         TxPaymentCredit: StorageDescriptor<[], bigint, true, never>;
-    };
-    OriginRestriction: {
-        /**
-         * The current usage for each entity.
-         */
-        Usages: StorageDescriptor<[Key: Anonymize<I8arc778cv9pqq>], Anonymize<Icj0tssrh6ika3>, true, never>;
     };
     Assets: {
         /**
@@ -456,16 +465,6 @@ type IStorage = {
          */
         NextAssetId: StorageDescriptor<[], Anonymize<If9iqq7i64mur8>, true, never>;
     };
-    AssetsHolder: {
-        /**
-         * A map that stores holds applied on an account for a given AssetId.
-         */
-        Holds: StorageDescriptor<Anonymize<I4v5g6i7bmt06o>, Anonymize<I2sr2hoa6imct2>, false, never>;
-        /**
-         * A map that stores the current total balance on hold for every account on a given AssetId.
-         */
-        BalancesOnHold: StorageDescriptor<Anonymize<I4v5g6i7bmt06o>, bigint, true, never>;
-    };
     AssetRate: {
         /**
          * Maps an asset to its fixed point representation in the native balance.
@@ -473,6 +472,22 @@ type IStorage = {
          * E.g. `native_amount = asset_amount * ConversionRateToNative::<T>::get(asset_kind)`
          */
         ConversionRateToNative: StorageDescriptor<[Key: Anonymize<If9iqq7i64mur8>], bigint, true, never>;
+    };
+    AssetsHolder: {
+        /**
+         * A map that stores holds applied on an account for a given AssetId.
+         */
+        Holds: StorageDescriptor<Anonymize<I4v5g6i7bmt06o>, Anonymize<Iff83br6to6vp5>, false, never>;
+        /**
+         * A map that stores the current total balance on hold for every account on a given AssetId.
+         */
+        BalancesOnHold: StorageDescriptor<Anonymize<I4v5g6i7bmt06o>, bigint, true, never>;
+    };
+    OriginRestriction: {
+        /**
+         * The current usage for each entity.
+         */
+        Usages: StorageDescriptor<[Key: Anonymize<I8arc778cv9pqq>], Anonymize<Icj0tssrh6ika3>, true, never>;
     };
     Authorship: {
         /**
@@ -726,18 +741,12 @@ type IStorage = {
          */
         Multisigs: StorageDescriptor<Anonymize<I8uo3fpd3bcc6f>, Anonymize<Iag146hmjgqfgj>, true, never>;
     };
-    Sudo: {
-        /**
-         * The `AccountId` of the sudo key.
-         */
-        Key: StorageDescriptor<[], SS58String, true, never>;
-    };
     Proxy: {
         /**
          * The set of account proxies. Maps the account which has delegated to the accounts
          * which are being delegated to, together with the amount held on deposit.
          */
-        Proxies: StorageDescriptor<[Key: SS58String], Anonymize<I48e2fe747rjco>, false, never>;
+        Proxies: StorageDescriptor<[Key: SS58String], Anonymize<I1qdpp5rr8t6nv>, false, never>;
         /**
          * The announcements made by the proxy (key).
          */
@@ -750,7 +759,7 @@ type IStorage = {
          *
          * TWOX-NOTE: OK ― `AccountId` is a secure hash.
          */
-        IdentityOf: StorageDescriptor<[Key: SS58String], Anonymize<I8sp8i1c9u7kvv>, true, never>;
+        IdentityOf: StorageDescriptor<[Key: SS58String], Anonymize<Ib1i64ek701lf6>, true, never>;
         /**
          * Identifies the primary username of an account.
          */
@@ -790,9 +799,7 @@ type IStorage = {
         UsernameInfoOf: StorageDescriptor<[Key: Uint8Array], Anonymize<I1j72qfgdejqsv>, true, never>;
         /**
          * Usernames that an authority has granted, but that the account controller has not confirmed
-         * that they want it.
-         *
-         * Used primarily in cases where the `AccountId` cannot provide a signature
+         * that they want it. Used primarily in cases where the `AccountId` cannot provide a signature
          * because they are a pure proxy, multisig, etc. In order to confirm it, they should call
          * [accept_username](`Call::accept_username`).
          *
@@ -806,20 +813,6 @@ type IStorage = {
          * [remove_username](`Call::remove_username`) call.
          */
         UnbindingUsernames: StorageDescriptor<[Key: Uint8Array], number, true, never>;
-        /**
-         * The metadata associated with a person through their contextual alias for the purposes of
-         * registering identity information.
-         */
-        PersonIdentities: StorageDescriptor<[Key: SizedHex<32>], Anonymize<I2skcsqibb3i2k>, true, never>;
-        /**
-         * Reverse lookup of accounts controlled by a person through a contextual alias. All people
-         * that registered an identity must also associate an on-chain account to it.
-         */
-        AccountToAlias: StorageDescriptor<[Key: SS58String], SizedHex<32>, true, never>;
-        /**
-         * Stores pending reports of usernames.
-         */
-        PendingUsernameReports: StorageDescriptor<[Key: SizedHex<32>], Anonymize<I4ekkp6f1d7a69>, true, never>;
     };
     People: {
         /**
@@ -984,9 +977,18 @@ type IStorage = {
     };
     Game: {
         /**
-         * The overriden phase durations for the testnet.
+         * Phase-duration override set by [`Config::ManagerOrigin`] via
+         * `set_game_phases`. `None` means the chain falls back to
+         * `T::DefaultPhaseDurations`.
          */
-        TestnetStoredPhaseDurations: StorageDescriptor<[], Anonymize<I644th47nna91b>, true, never>;
+        StoredPhaseDurations: StorageDescriptor<[], Anonymize<I1mvbp74tfuinr>, true, never>;
+        /**
+         * The configured native balance held as deposit when an account player signs up.
+         *
+         * This value is only used for new deposit creations; existing active deposits
+         * retain the amount they were created with.
+         */
+        PlayDepositAmount: StorageDescriptor<[], bigint, false, never>;
         /**
          * All minted NFTs, keyed by owner and NFT hash. The value is a Unix-seconds
          * timestamp set whenever the entry is written: by the `report` extrinsic for a
@@ -1021,7 +1023,7 @@ type IStorage = {
          * Account-based player accounts in this storage and statement accounts in
          * [`StmtAccountToAlias`] must not overlap.
          */
-        Players: StorageDescriptor<[Key: Anonymize<Iavh3dqjok18o8>], Anonymize<Ievlctk0hj2fed>, true, never>;
+        Players: StorageDescriptor<[Key: Anonymize<Iavh3dqjok18o8>], Anonymize<Idm8j2k0kcll3q>, true, never>;
         /**
          * The current game index.
          */
@@ -1029,7 +1031,7 @@ type IStorage = {
         /**
          * The information for the next game or ongoing game.
          */
-        Game: StorageDescriptor<[], Anonymize<Iehnjl0g9ebdqu>, true, never>;
+        Game: StorageDescriptor<[], Anonymize<I5uteah8rq8etm>, true, never>;
         /**
          * The mapping from past games, identified by their game index, to the start timestamp, in
          * seconds since the UNIX epoch.
@@ -1037,19 +1039,14 @@ type IStorage = {
         GameHistory: StorageDescriptor<[Key: number], number, true, never>;
         /**
          * Entries of previously attended games of each player. Retained on `offboard`
-         * and `kickout` so an attended identity keeps passing the participant check
-         * in `claim_game_prize` at claim time. Bounded by `MaxAttendanceHistoryDepth`
-         * per player.
+         * and `kickout`. Bounded by `MaxAttendanceHistoryDepth` per player.
          */
         PlayerAttendanceHistory: StorageDescriptor<[Key: Anonymize<Iavh3dqjok18o8>], Anonymize<Icgljjb6j82uhn>, false, never>;
         /**
          * Count of confirmed attendees per game index. Incremented by
          * [`Pallet::note_attendance`] for every attendance entry, regardless of
          * whether the player is recorded as `AccountOrPerson::Person` or
-         * `AccountOrPerson::Account` — both are eligible to claim from the per-game
-         * prize pool via [`Pallet::claim_game_prize`]. Exposed for off-chain
-         * consumers (e.g. clients computing the airdrop `winner_ratio` for the next
-         * per-game pool); not read by any on-chain code.
+         * `AccountOrPerson::Account`. Exposed for off-chain consumers.
          */
         GameParticipantCount: StorageDescriptor<[Key: number], number, false, never>;
         /**
@@ -1069,9 +1066,9 @@ type IStorage = {
          */
         ShuffleNotRecognized: StorageDescriptor<Anonymize<I4p5t2krb1gmvp>, Anonymize<Iavh3dqjok18o8>, true, never>;
         /**
-
+        
          */
-        GameSchedules: StorageDescriptor<[], Anonymize<I1v8hffmq0a2s2>, false, never>;
+        GameSchedules: StorageDescriptor<[], Anonymize<I9sbfhir4aitej>, false, never>;
         /**
          * Number of invites available to distribute for an account.
          */
@@ -1111,39 +1108,40 @@ type IStorage = {
          * should be the same account used to interact with the statement store.
          */
         CommunicationIdentifiers: StorageDescriptor<[Key: SS58String], SizedHex<65>, true, never>;
-        /**
-         * Scratch card reward info for the current or most recently concluded game.
-         * Overwritten by `finalize_scratch_rewards` at game end. Cleared on game
-         * cancellation.
-         */
-        ScratchReward: StorageDescriptor<[], Anonymize<Idqtb21truteet>, true, never>;
-        /**
-         * Per-player scratch card eligibility state.
-         */
-        ScratchEligibilityMap: StorageDescriptor<[Key: Anonymize<Iavh3dqjok18o8>], Anonymize<I6cpea5eggna34>, true, never>;
-        /**
-         * Total number of scratch card successful claims across all games.
-         */
-        ScratchClaimedCount: StorageDescriptor<[], number, false, never>;
     };
     Score: {
         /**
          * The participants informations.
          */
-        Participants: StorageDescriptor<[Key: Anonymize<Iavh3dqjok18o8>], Anonymize<Iesh4knl67dirc>, true, never>;
+        Participants: StorageDescriptor<[Key: Anonymize<Iavh3dqjok18o8>], Anonymize<I5rab7drti2f9h>, true, never>;
         /**
          * The score threshold required to reach personhood.
          */
         PersonhoodThreshold: StorageDescriptor<[], number, false, never>;
+        /**
+         * Runtime-configurable schedule of personhood-threshold tiers, sorted by
+         * ascending `population_size_threshold`. Each tier specifies the score a
+         * participant must reach to be recognized as a person at that population
+         * level.
+         *
+         * Defaults to [`DefaultPersonhoodThresholdTiers`] until governance
+         * overrides it via [`Pallet::set_personhood_threshold_schedule`].
+         *
+         * A new schedule takes effect at the start of the next report session
+         * when `update_thresholds()` recalculates `PersonhoodThreshold`.
+         */
+        PersonhoodThresholdSchedule: StorageDescriptor<[], Anonymize<I26np7pq4hc9kt>, false, never>;
         /**
          * Runtime-configurable schedule of absence-grace tiers, sorted by ascending
          * population size threshold. Each tier specifies how many misses are
          * tolerated within recent games before a participant's personhood is
          * suspended.
          *
-         * When empty or unset, a hardcoded default schedule is used.
+         * Defaults to [`DefaultAbsenceGraceTiers`] until governance overrides it
+         * via [`Pallet::set_absence_grace_schedule`]. An empty schedule (set
+         * explicitly by governance) disables the grace period entirely.
          */
-        AbsenceGraceSchedule: StorageDescriptor<[], Anonymize<Idrbto15rld189>, true, never>;
+        AbsenceGraceSchedule: StorageDescriptor<[], Anonymize<Idrbto15rld189>, false, never>;
         /**
          * The currently active absence-grace ratio `(allowed_misses, window)`,
          * derived from `AbsenceGraceSchedule` and the current active-person count.
@@ -1204,9 +1202,20 @@ type IStorage = {
          */
         People: StorageDescriptor<[Key: bigint], Anonymize<I4009rejbekrdq>, true, never>;
     };
+    StorageInitialization: {
+        /**
+         * Current state of the initialization process in on_poll hook.
+         */
+        OnPollStatus: StorageDescriptor<[], Anonymize<I94nsao83dbuk9>, false, never>;
+        /**
+         * Block number when XCM transfer was initiated.
+         * Used to track transfer timeout.
+         */
+        XcmTransferInitiatedAt: StorageDescriptor<[], number, true, never>;
+    };
     PeopleLite: {
         /**
-
+        
          */
         LitePeople: StorageDescriptor<[Key: SS58String], Anonymize<I81vbsdqasdsr1>, true, never>;
         /**
@@ -1434,8 +1443,10 @@ type IStorage = {
         /**
          * Tracks whether a recycler collection exists for a given coin value.
          *
-         * All recycler collections are created eagerly during one-time `on_poll` initialization.
-         * [`RecyclerManager::ensure_collection_exists`] serves as a safety fallback.
+         * Recycler collections are normally created eagerly during one-time `on_poll`
+         * initialization after `UnderlyingAssetId` has been set.
+         * [`RecyclerManager::ensure_collection_exists`] remains the fallback for
+         * first-use or recovery paths when a collection is still missing.
          *
          * **WARNING**: Do not use this storage directly, use [`RecyclerManager`] type instead.
          *
@@ -1626,12 +1637,23 @@ type IStorage = {
          */
         PaidUnloadTokenNextRingToClean: StorageDescriptor<[Key: SizedHex<4>], number, true, never>;
         /**
-         * Whether the pallet account has been initialized.
+         * Whether the one-time pallet initialization has run.
          *
-         * We need to initialize the pallet account with minimum balance so that it can hold any
-         * amount of underlying asset even less than minimum balance.
+         * Set by [`Pallet::do_initialize`] once recycler collections are created and the pallet
+         * account has been ensured to hold the minimum balance of [`UnderlyingAssetId`].
+         * Initialization is gated on `UnderlyingAssetId` being set, so this stays unset until
+         * governance has called [`Pallet::set_underlying_asset_id`].
          */
         InitializePalletAccount: StorageDescriptor<[], null, true, never>;
+        /**
+         * The underlying asset id for the coins.
+         *
+         * Set once by [`Config::UnderlyingAssetIdManager`] via
+         * [`Pallet::set_underlying_asset_id`]. While unset, every coin/recycler operation that
+         * needs the underlying asset fails with [`Error::AssetIdNotSet`] (or
+         * [`CustomInvalidity::AssetIdNotSet`] in transaction extension validation).
+         */
+        UnderlyingAssetId: StorageDescriptor<[], Anonymize<If9iqq7i64mur8>, true, never>;
     };
     MembersNotifier: {
         /**
@@ -1688,75 +1710,64 @@ type IStorage = {
          */
         LastReplayTime: StorageDescriptor<Anonymize<I4p5t2krb1gmvp>, bigint, true, never>;
     };
-    StorageInitialization: {
-        /**
-         * Current state of the initialization process in on_poll hook.
-         */
-        OnPollStatus: StorageDescriptor<[], Anonymize<I183k62sm9tgqf>, false, never>;
-        /**
-         * Block number when XCM transfer was initiated.
-         * Used to track transfer timeout.
-         */
-        XcmTransferInitiatedAt: StorageDescriptor<[], number, true, never>;
-        /**
-         * Period index of the most recently opened recurring airdrop prize pool, where a
-         * "period" is a window of `AirdropPoolPeriod` seconds anchored at 12:00 UTC daily
-         * (see [`POOL_PERIOD_OFFSET`]). On each `on_poll` tick the scheduler computes the
-         * current period; if it exceeds this value, one pool is opened and this is bumped
-         * to the current period. A chain pause spanning multiple periods opens at most one
-         * pool on resume — missed periods are not back-filled.
-         */
-        LastAirdropPoolPeriod: StorageDescriptor<[], number, false, never>;
-        /**
-         * Whether on_poll airdrop scheduling is currently enabled. Set to `true` when the
-         * initialization sequence transitions into [`OnPollState::OpeningAirdropPools`];
-         * togglable thereafter via [`Pallet::set_airdrop_scheduling_enabled`].
-         */
-        AirdropSchedulingEnabled: StorageDescriptor<[], boolean, false, never>;
-    };
-    StorageInitializationLite: {
-        /**
-         * Current state of the initialization process in on_poll hook.
-         */
-        OnPollStatus: StorageDescriptor<[], Anonymize<I83hq8olm7phlp>, false, never>;
-    };
     Airdrop: {
         /**
-         * Counter that supplies [`PrizePool::id`] for the next pool opened.
+         * Registered airdrop events, keyed by their identifier.
          */
-        NextPrizePoolId: StorageDescriptor<[], number, false, never>;
+        Events: StorageDescriptor<[Key: SizedHex<32>], Anonymize<I92h4q810prvth>, true, never>;
         /**
-         * Currently-open prize pools, keyed by id. The associated counter (from
-         * [`CountedStorageMap`]) drives the `MAX_CONCURRENT_PRIZE_POOLS` cap and replaces a
-         * separate "active ids" mirror.
+         * Pending lifecycle actions for registered events, ordered by the timestamp at which the
+         * action should take place.
          */
-        PrizePools: StorageDescriptor<[Key: number], Anonymize<I29r7jgavo472s>, true, never>;
+        ActionSchedule: StorageDescriptor<Anonymize<Ieso6d402ilf6g>, null, true, never>;
         /**
-         * Counter for the related counted storage map
+         * Per-event participant registrations, keyed by 32-byte entropy slot
+         * in big-endian order under `Identity`.
          */
-        CounterForPrizePools: StorageDescriptor<[], number, false, never>;
+        Registrations: StorageDescriptor<Anonymize<Id5m5ie1nmrke2>, Anonymize<I6cunlo5qsnfm5>, true, never>;
         /**
-         * Per-pool record of which claimants have already claimed. Keyed on
-         * [`AccountOrPerson`] so the Person and Account claim paths share a single
-         * replay-guard: each identity (whichever it is) can claim at most once per
-         * pool.
+         * Winners for an event, keyed by the event identifier and their registration entry. This maps
+         * to the participant's ticket for offchain lookup purposes.
          */
-        PrizePoolClaims: StorageDescriptor<Anonymize<I6lggg4mrl1u2s>, null, true, never>;
+        Winners: StorageDescriptor<Anonymize<I58ai4tjcgea3g>, SizedHex<32>, true, never>;
+        /**
+         * Entropy seed captured at draw time, per event. This serves as a partition point in the
+         * participation ticket ordered list in order to pick winners.
+         */
+        EventEntropy: StorageDescriptor<[Key: SizedHex<32>], SizedHex<32>, true, never>;
+        /**
+         * Per-asset enablement gate. An asset is usable for scheduling events iff it is present in
+         * this map; the stored value is the amount the pallet transferred into its pot to keep the
+         * pot's asset account alive (the asset's ED at the time of enabling). `enable_asset` /
+         * `disable_asset` are the only ways to mutate this.
+         */
+        SupportedAssets: StorageDescriptor<[Key: Anonymize<If9iqq7i64mur8>], bigint, true, never>;
     };
-    MultiBlockMigrations: {
+    Honour: {
         /**
-         * The currently active migration to run and its cursor.
+         * Points that have been used by voters.
          *
-         * `None` indicates that no migration is running.
+         * Records in [`Points`] track used points to prevent double-spending and enforce rate-limiting
+         * based on the last usage time.
          */
-        Cursor: StorageDescriptor<[], Anonymize<Iepbsvlk3qceij>, true, never>;
+        Points: StorageDescriptor<[Key: SizedHex<32>], Anonymize<Ibto3ou3o2r7sv>, true, never>;
         /**
-         * Set of all successfully executed migrations.
+         * Votes that have been bestowed.
          *
-         * This is used as blacklist, to not re-execute migrations that have not been removed from the
-         * codebase yet. Governance can regularly clear this out via `clear_historic`.
+         * Prevents double-voting on the same subject by the same voter, as [`SubjectAlias`] is
+         * uniquely derived from [`SubjectId`] for each voter.
          */
-        Historic: StorageDescriptor<[Key: Uint8Array], null, true, never>;
+        Votes: StorageDescriptor<[Key: SizedHex<32>], null, true, never>;
+        /**
+         * Absolute honour score of a subject. Initialized to -1 to offset self-votes.
+         */
+        Tally: StorageDescriptor<[Key: SizedHex<32>], number, true, never>;
+    };
+    Sudo: {
+        /**
+         * The `AccountId` of the sudo key.
+         */
+        Key: StorageDescriptor<[], SS58String, true, never>;
     };
 };
 type ICalls = {
@@ -1846,7 +1857,7 @@ type ICalls = {
          */
         set_validation_data: TxDescriptor<Anonymize<Ial23jn8hp0aen>>;
         /**
-
+        
          */
         sudo_send_upward_message: TxDescriptor<Anonymize<Ifpj261e8s63m3>>;
     };
@@ -1873,6 +1884,40 @@ type ICalls = {
          * - 1 event handler `on_timestamp_set`. Must be `O(1)`.
          */
         set: TxDescriptor<Anonymize<Idcr6u6361oad9>>;
+    };
+    MultiBlockMigrations: {
+        /**
+         * Allows root to set a cursor to forcefully start, stop or forward the migration process.
+         *
+         * Should normally not be needed and is only in place as emergency measure. Note that
+         * restarting the migration process in this manner will not call the
+         * [`MigrationStatusHandler::started`] hook or emit an `UpgradeStarted` event.
+         */
+        force_set_cursor: TxDescriptor<Anonymize<Ibou4u1engb441>>;
+        /**
+         * Allows root to set an active cursor to forcefully start/forward the migration process.
+         *
+         * This is an edge-case version of [`Self::force_set_cursor`] that allows to set the
+         * `started_at` value to the next block number. Otherwise this would not be possible, since
+         * `force_set_cursor` takes an absolute block number. Setting `started_at` to `None`
+         * indicates that the current block number plus one should be used.
+         */
+        force_set_active_cursor: TxDescriptor<Anonymize<Id6nbvqoqdj4o2>>;
+        /**
+         * Forces the onboarding of the migrations.
+         *
+         * This process happens automatically on a runtime upgrade. It is in place as an emergency
+         * measurement. The cursor needs to be `None` for this to succeed.
+         */
+        force_onboard_mbms: TxDescriptor<undefined>;
+        /**
+         * Clears the `Historic` set.
+         *
+         * `map_cursor` must be set to the last value that was returned by the
+         * `HistoricCleared` event. The first time `None` can be used. `limit` must be chosen in a
+         * way that will result in a sensible weight.
+         */
+        clear_historic: TxDescriptor<Anonymize<I95iqep3b8snn9>>;
     };
     Balances: {
         /**
@@ -1958,13 +2003,6 @@ type ICalls = {
          * this `burn` operation will reduce total issuance by the amount _burned_.
          */
         burn: TxDescriptor<Anonymize<I5utcetro501ir>>;
-    };
-    OriginRestriction: {
-        /**
-         * Allow to clean usage associated with an entity when it is zero or when there is no
-         * longer any allowance for the origin.
-         */
-        clean_usage: TxDescriptor<Anonymize<Iea5hvin03frku>>;
     };
     Assets: {
         /**
@@ -2552,6 +2590,13 @@ type ICalls = {
          */
         remove: TxDescriptor<Anonymize<I90c919drss29e>>;
     };
+    OriginRestriction: {
+        /**
+         * Allow to clean usage associated with an entity when it is zero or when there is no
+         * longer any allowance for the origin.
+         */
+        clean_usage: TxDescriptor<Anonymize<Iea5hvin03frku>>;
+    };
     CollatorSelection: {
         /**
          * Set the list of invulnerable (fixed) collators. These collators must do some
@@ -2706,7 +2751,7 @@ type ICalls = {
     };
     PolkadotXcm: {
         /**
-
+        
          */
         send: TxDescriptor<Anonymize<Ia5cotcvi888ln>>;
         /**
@@ -3032,7 +3077,7 @@ type ICalls = {
          * and the error of the failed call. If all were successful, then the `BatchCompleted`
          * event is deposited.
          */
-        batch: TxDescriptor<Anonymize<Icrfq6sihf9s7d>>;
+        batch: TxDescriptor<Anonymize<I8kmgv322d7a0t>>;
         /**
          * Send a call through an indexed pseudonym of the sender.
          *
@@ -3048,7 +3093,7 @@ type ICalls = {
          *
          * The dispatch origin for this call must be _Signed_.
          */
-        as_derivative: TxDescriptor<Anonymize<Idgkjnpm8ga334>>;
+        as_derivative: TxDescriptor<Anonymize<I50bvs6v8cvm9b>>;
         /**
          * Send a batch of dispatch calls and atomically execute them.
          * The whole transaction will rollback and fail if any of the calls failed.
@@ -3064,7 +3109,7 @@ type ICalls = {
          * ## Complexity
          * - O(C) where C is the number of calls to be batched.
          */
-        batch_all: TxDescriptor<Anonymize<Icrfq6sihf9s7d>>;
+        batch_all: TxDescriptor<Anonymize<I8kmgv322d7a0t>>;
         /**
          * Dispatches a function call with a provided origin.
          *
@@ -3073,7 +3118,7 @@ type ICalls = {
          * ## Complexity
          * - O(1).
          */
-        dispatch_as: TxDescriptor<Anonymize<Ie1rsmrsrog847>>;
+        dispatch_as: TxDescriptor<Anonymize<Ialatvi99docrh>>;
         /**
          * Send a batch of dispatch calls.
          * Unlike `batch`, it allows errors and won't interrupt.
@@ -3089,7 +3134,7 @@ type ICalls = {
          * ## Complexity
          * - O(C) where C is the number of calls to be batched.
          */
-        force_batch: TxDescriptor<Anonymize<Icrfq6sihf9s7d>>;
+        force_batch: TxDescriptor<Anonymize<I8kmgv322d7a0t>>;
         /**
          * Dispatch a function call with a specified weight.
          *
@@ -3098,7 +3143,7 @@ type ICalls = {
          *
          * The dispatch origin for this call must be _Root_.
          */
-        with_weight: TxDescriptor<Anonymize<I39hqnpmrp1r81>>;
+        with_weight: TxDescriptor<Anonymize<I8a33691hq5h84>>;
         /**
          * Dispatch a fallback call in the event the main call fails to execute.
          * May be called from any origin except `None`.
@@ -3124,7 +3169,7 @@ type ICalls = {
          * - Some use cases might involve submitting a `batch` type call in either main, fallback
          * or both.
          */
-        if_else: TxDescriptor<Anonymize<I93ri1gd07v5fi>>;
+        if_else: TxDescriptor<Anonymize<I81io2feo613h3>>;
         /**
          * Dispatches a function call with a provided origin.
          *
@@ -3132,7 +3177,7 @@ type ICalls = {
          *
          * The dispatch origin for this call must be _Root_.
          */
-        dispatch_as_fallible: TxDescriptor<Anonymize<Ie1rsmrsrog847>>;
+        dispatch_as_fallible: TxDescriptor<Anonymize<Ialatvi99docrh>>;
     };
     Multisig: {
         /**
@@ -3149,7 +3194,7 @@ type ICalls = {
          * ## Complexity
          * O(Z + C) where Z is the length of the call and C its execution weight.
          */
-        as_multi_threshold_1: TxDescriptor<Anonymize<I7840qsg0nkgru>>;
+        as_multi_threshold_1: TxDescriptor<Anonymize<Ibttvfhqip49e6>>;
         /**
          * Register approval for a dispatch to be made from a deterministic composite account if
          * approved by a total of `threshold - 1` of `other_signatories`.
@@ -3194,7 +3239,7 @@ type ICalls = {
          * - Storage: inserts one item, value size bounded by `MaxSignatories`, with a deposit
          * taken for its lifetime of `DepositBase + threshold * DepositFactor`.
          */
-        as_multi: TxDescriptor<Anonymize<I2ajh25ofhvcua>>;
+        as_multi: TxDescriptor<Anonymize<Ibbpdksgdscuat>>;
         /**
          * Register approval for a dispatch to be made from a deterministic composite account if
          * approved by a total of `threshold - 1` of `other_signatories`.
@@ -3277,38 +3322,6 @@ type ICalls = {
          */
         poke_deposit: TxDescriptor<Anonymize<I6lqh1vgb4mcja>>;
     };
-    Sudo: {
-        /**
-         * Authenticates the sudo key and dispatches a function call with `Root` origin.
-         */
-        sudo: TxDescriptor<Anonymize<Ice56905d72v4c>>;
-        /**
-         * Authenticates the sudo key and dispatches a function call with `Root` origin.
-         * This function does not check the weight of the call, and instead allows the
-         * Sudo user to specify the weight of the call.
-         *
-         * The dispatch origin for this call must be _Signed_.
-         */
-        sudo_unchecked_weight: TxDescriptor<Anonymize<I39hqnpmrp1r81>>;
-        /**
-         * Authenticates the current sudo key and sets the given AccountId (`new`) as the new sudo
-         * key.
-         */
-        set_key: TxDescriptor<Anonymize<I8k3rnvpeeh4hv>>;
-        /**
-         * Authenticates the sudo key and dispatches a function call with `Signed` origin from
-         * a given account.
-         *
-         * The dispatch origin for this call must be _Signed_.
-         */
-        sudo_as: TxDescriptor<Anonymize<I52hq8921se3sb>>;
-        /**
-         * Permanently removes the sudo key.
-         *
-         * **This cannot be un-done.**
-         */
-        remove_key: TxDescriptor<undefined>;
-    };
     Proxy: {
         /**
          * Dispatch the given `call` from an account that the sender is authorised for through
@@ -3321,7 +3334,7 @@ type ICalls = {
          * - `force_proxy_type`: Specify the exact proxy type to be used and checked for this call.
          * - `call`: The call to be made by the `real` account.
          */
-        proxy: TxDescriptor<Anonymize<I54b3f8hqshk56>>;
+        proxy: TxDescriptor<Anonymize<I4vrh01prvotgd>>;
         /**
          * Register a proxy account for the sender that is able to make calls on its behalf.
          *
@@ -3333,7 +3346,7 @@ type ICalls = {
          * - `delay`: The announcement period required of the initial proxy. Will generally be
          * zero.
          */
-        add_proxy: TxDescriptor<Anonymize<I6hk7temg1mga7>>;
+        add_proxy: TxDescriptor<Anonymize<I9gtcp0ur229rb>>;
         /**
          * Unregister a proxy account for the sender.
          *
@@ -3343,7 +3356,7 @@ type ICalls = {
          * - `proxy`: The account that the `caller` would like to remove as a proxy.
          * - `proxy_type`: The permissions currently enabled for the removed proxy account.
          */
-        remove_proxy: TxDescriptor<Anonymize<I6hk7temg1mga7>>;
+        remove_proxy: TxDescriptor<Anonymize<I9gtcp0ur229rb>>;
         /**
          * Unregister all proxy accounts for the sender.
          *
@@ -3373,7 +3386,7 @@ type ICalls = {
          *
          * Fails if there are insufficient funds to pay for deposit.
          */
-        create_pure: TxDescriptor<Anonymize<I2lbmfajhc5gdu>>;
+        create_pure: TxDescriptor<Anonymize<Iadsnfrnvi5gjr>>;
         /**
          * Removes a previously spawned pure proxy.
          *
@@ -3392,7 +3405,7 @@ type ICalls = {
          * Fails with `NoPermission` in case the caller is not a previously created pure
          * account whose `create_pure` call has corresponding parameters.
          */
-        kill_pure: TxDescriptor<Anonymize<I2siheq6f2djrd>>;
+        kill_pure: TxDescriptor<Anonymize<Iekkhrdinb4r25>>;
         /**
          * Publish the hash of a proxy-call that will be made in the future.
          *
@@ -3450,7 +3463,7 @@ type ICalls = {
          * - `force_proxy_type`: Specify the exact proxy type to be used and checked for this call.
          * - `call`: The call to be made by the `real` account.
          */
-        proxy_announced: TxDescriptor<Anonymize<Ilh4h42jvp82e>>;
+        proxy_announced: TxDescriptor<Anonymize<Iclch72nc7pia1>>;
         /**
          * Poke / Adjust deposits made for proxies and announcements based on current values.
          * This can be used by accounts to possibly lower their locked amount.
@@ -3523,7 +3536,7 @@ type ICalls = {
          * - `max_fee`: The maximum fee that may be paid. This should just be auto-populated as:
          *
          * ```nocompile
-         * Self::registrars().get(reg_index).unwrap().fee
+         * Registrars::<T>::get().get(reg_index).unwrap().fee
          * ```
          *
          * Emits `JudgementRequested` if successful.
@@ -3589,7 +3602,7 @@ type ICalls = {
          *
          * Emits `JudgementGiven` if successful.
          */
-        provide_judgement: TxDescriptor<Anonymize<Ibk29mtr51rukj>>;
+        provide_judgement: TxDescriptor<Anonymize<Ide1bahhh47lj9>>;
         /**
          * Remove an account's identity and sub-account information and slash the deposits.
          *
@@ -3675,8 +3688,7 @@ type ICalls = {
         set_username_for: TxDescriptor<Anonymize<Ib9nmpn9ru9aeh>>;
         /**
          * Accept a given username that an `authority` granted. The call must include the full
-         * username, as in `username.suffix`. Authorities cannot grant usernames to people, only
-         * to regular accounts.
+         * username, as in `username.suffix`.
          */
         accept_username: TxDescriptor<Anonymize<Ie5l999tf7t2te>>;
         /**
@@ -3686,9 +3698,7 @@ type ICalls = {
          */
         remove_expired_approval: TxDescriptor<Anonymize<Ie5l999tf7t2te>>;
         /**
-         * Set a given username as the primary. The username should include the suffix. Only
-         * regular accounts can set their primary username, as people can only have one username,
-         * granted through a system allocation.
+         * Set a given username as the primary. The username should include the suffix.
          */
         set_primary_username: TxDescriptor<Anonymize<Ie5l999tf7t2te>>;
         /**
@@ -3707,64 +3717,6 @@ type ICalls = {
          * and slashes any deposit associated with it.
          */
         kill_username: TxDescriptor<Anonymize<Ie5l999tf7t2te>>;
-        /**
-         * Sets the username and on-chain account for a person, along with an empty identity which
-         * can only be populated using an oracle through the social credential verification system.
-         * The chosen username must be domainless.
-         *
-         * The sender must sign the alias using the key associated with the provided on-chain
-         * account to prove ownership.
-         *
-         * The dispatch origin for this call must be the contextual alias of the person and the
-         * sender must not have already registered their identity and username.
-         *
-         * Emits `PersonalIdentitySet` if successful.
-         */
-        set_personal_identity: TxDescriptor<Anonymize<I6b6ng21g2eap6>>;
-        /**
-         * Open a case for an oracle to judge a social credential of a person.
-         *
-         * The dispatch origin for this call must be the contextual alias of the person and the
-         * sender must have a registered identity.
-         *
-         * Emits `EvidenceSubmitted` if successful.
-         */
-        submit_personal_credential_evidence: TxDescriptor<Anonymize<Ia5eqng70q48q6>>;
-        /**
-         * Callback to enforce the judgement of a social credential. This is to be called only by
-         * the oracle that judged the case.
-         */
-        personal_credential_judged: TxDescriptor<Anonymize<I79nh52dspn15s>>;
-        /**
-         * Clear a person's identity info. The sender must pay a penalty through the associated
-         * alias account for removing the identity.
-         *
-         * The dispatch origin for this call must be the contextual alias of the person and the
-         * sender must have a registered identity.
-         *
-         * Emits `IdentityPersonalCleared` if successful.
-         */
-        clear_personal_identity: TxDescriptor<undefined>;
-        /**
-         * Report a username as invalid/offensive/wrong/anything else.
-         *
-         * The dispatch origin for this call must be a signed extrinsic.
-         *
-         * - `username`: The username to be reported.
-         */
-        report_username: TxDescriptor<Anonymize<Ie5l999tf7t2te>>;
-        /**
-         * Given judgement on a previously reported username either:
-         * 1. In case username was found valid:
-         * - slashes the amount deposited by the reporter,
-         * - does nothing to the identity behind the reported username,
-         * 2. In case username was found invalid:
-         * - returns the deposited funds to the reporter,
-         * - bans the identity behind the reported username.
-         * Serves as a callback used upon judgement request to the oracle.
-         * Must only be used by the statement oracle.
-         */
-        reported_username_judged: TxDescriptor<Anonymize<I79nh52dspn15s>>;
     };
     People: {
         /**
@@ -3773,7 +3725,7 @@ type ICalls = {
          * This is a call version of the transaction extension `AsPersonalAliasWithAccount`.
          * It is recommended to use the transaction extension instead when suitable.
          */
-        under_alias: TxDescriptor<Anonymize<Ice56905d72v4c>>;
+        under_alias: TxDescriptor<Anonymize<I865ar2evj8fov>>;
         /**
          * This transaction is refunded if successful and no alias was previously set.
          *
@@ -3846,7 +3798,7 @@ type ICalls = {
          *
          * Typically submitted by the OCW, but the dispatch does not trust
          * the caller. Each alias is re-validated via
-         * [`Self::ensure_alias_is_stale`]; those that are not stale are
+         * `Self::ensure_alias_is_stale`; those that are not stale are
          * skipped.
          *
          * At most [`MAX_BULK_CLEANUP`] aliases are processed per call.
@@ -3862,7 +3814,7 @@ type ICalls = {
          */
         vote: TxDescriptor<Anonymize<Ia56ucs8f4gubv>>;
         /**
-
+        
          */
         close_case: TxDescriptor<Anonymize<Id1vp19i5a7adv>>;
         /**
@@ -3872,11 +3824,11 @@ type ICalls = {
          */
         clean_vote: TxDescriptor<Anonymize<Ic01glfot2319>>;
         /**
-
+        
          */
         reap_case: TxDescriptor<Anonymize<Id1vp19i5a7adv>>;
         /**
-
+        
          */
         intervene: TxDescriptor<Anonymize<Ibi23t489qjaej>>;
         /**
@@ -3894,35 +3846,35 @@ type ICalls = {
          */
         claim_votes: TxDescriptor<Anonymize<I7iebj213rflmh>>;
         /**
-
+        
          */
         start_payout_round: TxDescriptor<undefined>;
         /**
-
+        
          */
         schedule_payout_rounds: TxDescriptor<Anonymize<I1c6o7t4005obp>>;
         /**
-
+        
          */
         remove_payout_schedule: TxDescriptor<Anonymize<I666bl2fqjkejo>>;
         /**
-
+        
          */
         claim_credit: TxDescriptor<undefined>;
         /**
-
+        
          */
         clean_points: TxDescriptor<Anonymize<I3sgg3ifcuhgsi>>;
         /**
-
+        
          */
         force_ripen_case: TxDescriptor<Anonymize<Id1vp19i5a7adv>>;
         /**
-
+        
          */
         touch_case: TxDescriptor<Anonymize<Id1vp19i5a7adv>>;
         /**
-
+        
          */
         clear_voting_penalty: TxDescriptor<undefined>;
         /**
@@ -3938,8 +3890,8 @@ type ICalls = {
          */
         apply: TxDescriptor<undefined>;
         /**
-         * - Open a judicial case to judge the `evidence`.
-         * - Calls Judicial/`JudgeStatement(POI_HASH, evidence)`
+         * - Open a Mob Rule case to judge the `evidence`.
+         * - Requests a judgement for the proof-of-ink evidence statement.
          * - Needs `SignedExtension` to avoid upfront requirement for fee if `judgements == 0`.
          * - If `judgements > 0`, then an additional fee should be charged into Treasury.
          */
@@ -3959,7 +3911,7 @@ type ICalls = {
          * * `proof_of_ownerhsip` - The signature of predefined prefix `"pop register using"`
          * concatenated with the sender account id.
          */
-        register_referred: TxDescriptor<Anonymize<In8qsbu1v3duv>>;
+        register_referred: TxDescriptor<Anonymize<I1kb7l7cim8dam>>;
         /**
          * - Gets a new `index`
          * - Puts an entry into `People`.
@@ -3976,9 +3928,9 @@ type ICalls = {
          * This call can pay two rewards to the same account for non-referred candidates.
          * The app is responsible for any additional privacy handling after transfer.
          */
-        register_non_referred: TxDescriptor<Anonymize<In8qsbu1v3duv>>;
+        register_non_referred: TxDescriptor<Anonymize<I1kb7l7cim8dam>>;
         /**
-
+        
          */
         reroll: TxDescriptor<undefined>;
         /**
@@ -3990,7 +3942,7 @@ type ICalls = {
          */
         commit: TxDescriptor<Anonymize<I9cpejm8q1n41i>>;
         /**
-
+        
          */
         allocate_full: TxDescriptor<undefined>;
         /**
@@ -4035,7 +3987,7 @@ type ICalls = {
          */
         cancel_referral_ticket: TxDescriptor<Anonymize<I95p7g3tmk59ap>>;
         /**
-
+        
          */
         register_successful_referral_reward: TxDescriptor<Anonymize<I6a7ia4g91p320>>;
         /**
@@ -4099,9 +4051,15 @@ type ICalls = {
          *
          * A game must be ongoing and in its registration phase.
          *
+         * `airdrop` optionally enters the player into this game's airdrop draw. Pass `None` to
+         * skip it. When `Some`, it is the player's VRF, which both seeds their draw slot and
+         * proves their identity path: the alias variant if the player is recognized (pallet-score
+         * `recognition` is `Recognized` or `ExternallyRecognized`), otherwise the account variant.
+         * See the documentation of [`AirdropVrf`] for more details.
+         *
          * The origin must be a signed by an account and use the `GameAsInvited` extension.
          */
-        sign_up_with_invite: TxDescriptor<Anonymize<Ievhkup0angt51>>;
+        sign_up_with_invite: TxDescriptor<Anonymize<I5vj4b1eolhu8i>>;
         /**
          * Sign up for the game using an account.
          *
@@ -4110,10 +4068,16 @@ type ICalls = {
          *
          * A game must be ongoing and in its registration phase.
          *
+         * `airdrop` optionally enters the player into this game's airdrop draw. Pass `None` to
+         * skip it. When `Some`, it is the player's VRF, which both seeds their draw slot and
+         * proves their identity path: the alias variant if the player is recognized (pallet-score
+         * `recognition` is `Recognized` or `ExternallyRecognized`), otherwise the account variant.
+         * See the documentation of [`AirdropVrf`] for more details.
+         *
          * The origin must be signed by an account, or, be signed by an account and use
          * `ScoreAsParticipant` extension.
          */
-        sign_up_with_account: TxDescriptor<Anonymize<Ievhkup0angt51>>;
+        sign_up_with_account: TxDescriptor<Anonymize<I5vj4b1eolhu8i>>;
         /**
          * Sign up for the game.
          *
@@ -4133,8 +4097,13 @@ type ICalls = {
          * the signature of the message `"pop:game:stmt_account_for_alias:"` concatenated to the
          * alias, and then hashed with `blake2_256` (blake2 256bit output). The base of the
          * message can be found in the constant: `proof_of_ownership_msg_base`.
+         * - `airdrop`: optionally enters the player into this game's airdrop draw, Pass `None` to
+         * skip it. When `Some`, it is the player's VRF, which both seeds their draw slot and
+         * proves their identity path: the alias VRF must be used for alias-based players given
+         * they are recognized in pallet-score participant information. See the documentation of
+         * `AirdropVrf` for more details.
          */
-        sign_up_with_alias: TxDescriptor<Anonymize<Iagbfsso0n5e7i>>;
+        sign_up_with_alias: TxDescriptor<Anonymize<If3trlhj4nhm3u>>;
         /**
          * After the game, send the full report.
          *
@@ -4206,46 +4175,30 @@ type ICalls = {
          * Schedules new games according to provided schedules.
          * Schedules must be in chronological order, and after the ongoing game (if there is any).
          */
-        schedule_games: TxDescriptor<Anonymize<Isicv7jbqf8q2>>;
+        schedule_games: TxDescriptor<Anonymize<I4mfip5i7mpjk2>>;
         /**
-
+        
          */
         remove_scheduled_game: TxDescriptor<Anonymize<Ic9lb0ksm6bqp9>>;
         /**
-         * Claim the scratch card reward (a.k.a. "star prize") for the current game.
-         *
-         * The caller must be a signed account or a participant/person origin whose game
-         * identity was eligible (attended + recognized) for the current scratch reward.
-         * The player's scratch hash must fall below the winner threshold, and each player
-         * may claim at most once across all games. Eligible players can claim only until
-         * the next game finishes; once that happens, the unclaimed reward is dropped.
-         *
-         * Per-game prize-pool airdrops are claimed via [`Self::claim_game_prize`]
-         * (which forwards into the airdrop pallet), not through this call.
-         *
-         * Parameters:
-         * - `origin`: a signed account, participant or person origin.
-         * - `beneficiary`: the account to receive the reward.
+         * Update the configured play deposit amount for future account signups.
          */
-        claim_reward: TxDescriptor<Anonymize<I8ligieds2efci>>;
+        set_play_deposit: TxDescriptor<Anonymize<I3qt1hgg4djhgb>>;
         /**
-         * Claim a prize from the recurring per-game prize pool opened by the
-         * airdrop pallet for `game_id`. The pool is identified by `pool_id`,
-         * which must be a `PrizeTarget::GameParticipants` pool.
+         * Claim a prize from the airdrop event scheduled for `game_index`.
          *
-         * The origin must be a signed account, a participant origin, or a
-         * person origin. The resolved [`AccountOrPerson`] identity must appear
-         * in [`PlayerAttendanceHistory`] for the pool's game; otherwise
-         * [`Error::NotParticipant`].
+         * Eligibility requires 2 conditions on the claimant to be recognized and have attended the
+         * game. In more details:
+         * * to be either recognized in pallet-score (`recognition.is_recognized()`) or to have
+         * reached the personhood score (`reached_personhood`),
+         * * AND for `game_index` to match the participant's `last_attended_game` — i.e. the most
+         * recent game the claimant actually attended must be exactly the game the airdrop is
+         * tied to. Subsequent game attendance overrides this information so the claim must be
+         * made before attending another game.
          *
-         * `proof` is a ring-membership proof that the caller is a lite person.
-         * It is verified by the airdrop pallet against the pool's context and
-         * `beneficiary` (so a captured proof cannot redirect the prize). The
-         * alias recovered from that verification drives the per-pool winner-hash
-         * check; the replay guard keys on the resolved identity from the origin
-         * (Account or Person), so each identity can claim at most once per pool.
+         * Claims against a cancelled game are rejected.
          */
-        claim_game_prize: TxDescriptor<Anonymize<Ib5qs0kka2gvvq>>;
+        claim_airdrop: TxDescriptor<Anonymize<I2254l15dgaup8>>;
         /**
          * Force start the shuffle before its normal start time.
          *
@@ -4259,15 +4212,26 @@ type ICalls = {
          */
         testnet_force_end_reporting: TxDescriptor<undefined>;
         /**
-         * Force set the game phase periods.
+         * Override the game phase durations.
          *
-         * This action can only be performed by the root origin and is only meant for testing.
+         * Restricted to [`Config::ManagerOrigin`] (or root). Until reset, all future
+         * game schedules use these phases instead of [`Config::DefaultPhaseDurations`].
+         * To revert, the manager re-issues the call with the desired explicit
+         * values — there is no separate clear extrinsic.
+         *
+         * Only callable while no game exists or the current game is still in its
+         * Registration phase; otherwise fails with [`Error::InvalidGameState`]. This
+         * prevents changing phase durations once players have committed to a game
+         * whose timing is already locked in.
          */
-        testnet_set_game_phases: TxDescriptor<Anonymize<I49vkvcrq1mpqd>>;
+        set_game_phases: TxDescriptor<Anonymize<I7rcbn8l002fcc>>;
         /**
-         * Kill the current game. Whatever the phase it is in.
+         * Kill the current game, regardless of which phase it is in.
+         *
+         * Restricted to [`Config::ManagerOrigin`] (or root). Intended as an emergency
+         * recovery lever when a game is stuck or its state has been corrupted.
          */
-        testnet_kill_current_game: TxDescriptor<undefined>;
+        kill_current_game: TxDescriptor<undefined>;
     };
     Score: {
         /**
@@ -4345,7 +4309,7 @@ type ICalls = {
          * Origin must be signed or a participant (signed extrinsic using ScoreAsParticipant
          * transaction extension).
          */
-        register: TxDescriptor<Anonymize<I2vuilbucl2tir>>;
+        register: TxDescriptor<Anonymize<Iea8e3kkhkfkdo>>;
         /**
          * Set the absence grace schedule.
          *
@@ -4363,6 +4327,25 @@ type ICalls = {
          * Called from `ManagerOrigin` or root.
          */
         set_absence_grace_schedule: TxDescriptor<Anonymize<I2onutgm9avq0n>>;
+        /**
+         * Set the personhood-threshold schedule.
+         *
+         * Tiers must be:
+         * - non-empty,
+         * - sorted ascending by `population_size_threshold`,
+         * - capped by a final tier with `population_size_threshold == u32::MAX`,
+         * - per-tier: `0 < score_threshold <= MAX_PERSONHOOD_THRESHOLD` (= 21),
+         * - have non-decreasing `score_threshold` across tiers.
+         *
+         * The new curve takes effect at the start of the next report session
+         * when `update_thresholds()` recalculates `PersonhoodThreshold`.
+         *
+         * Already-recognized participants are NOT retroactively suspended:
+         * the new bar only gates future score evaluations in `set_attendance`.
+         *
+         * Called from `ManagerOrigin` or root.
+         */
+        set_personhood_threshold_schedule: TxDescriptor<Anonymize<I4270jaa2l0rr6>>;
     };
     DummyDim: {
         /**
@@ -4456,11 +4439,11 @@ type ICalls = {
          * intent. More information on the signing payload generation available in
          * [types::LiteConsumerRegistrationParams::signing_payload].
          */
-        attest: TxDescriptor<Anonymize<I6gk1lo90mp8d9>>;
+        attest: TxDescriptor<Anonymize<Iddfuva7fle38r>>;
         /**
-
+        
          */
-        dispatch_as_signer: TxDescriptor<Anonymize<Ice56905d72v4c>>;
+        dispatch_as_signer: TxDescriptor<Anonymize<I865ar2evj8fov>>;
         /**
          * Set the account associated with a lite alias.
          *
@@ -4469,7 +4452,7 @@ type ICalls = {
          */
         set_alias_account: TxDescriptor<Anonymize<Iefam38o91ona9>>;
         /**
-
+        
          */
         unset_alias_account: TxDescriptor<undefined>;
     };
@@ -4654,17 +4637,27 @@ type ICalls = {
          * Build a ring root for a specific ring in a collection.
          *
          * Submitted by the OCW with a `to_include` snapshot from
-         * [`Self::should_build_ring`]. Leftovers from later onboarding are picked up
+         * [`Pallet::should_build_ring`]. Leftovers from later onboarding are picked up
          * on the next OCW tick, or by the member via [`Self::self_include`] when
          * cohort gating stalls onboarding.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
          */
-        build_ring_authorized: TxDescriptor<Anonymize<I1bv5scdc27nbb>>;
+        build_ring_authorized: TxDescriptor<Anonymize<I5fcgnt467okla>>;
         /**
          * Onboard members from the onboarding queue for a specific collection.
          *
          * Submitted by the offchain worker.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
          */
-        onboard_members_authorized: TxDescriptor<Anonymize<I12c2udla9t40g>>;
+        onboard_members_authorized: TxDescriptor<Anonymize<I3silg6bqaeqo8>>;
         /**
          * Merge the top two onboarding queue pages for a specific collection.
          *
@@ -4675,8 +4668,13 @@ type ICalls = {
          * Remove suspended keys from a specific ring in a collection.
          *
          * Submitted by the offchain worker.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
          */
-        remove_suspended_keys_authorized: TxDescriptor<Anonymize<Idpufnltgsuodp>>;
+        remove_suspended_keys_authorized: TxDescriptor<Anonymize<Ia8odrnpl6k4r6>>;
         /**
          * Delete a page for a specific ring in a collection.
          *
@@ -4739,7 +4737,7 @@ type ICalls = {
          * Split a coin into multiple coins.
          *
          * The origin must be a [Origin::Coin], which can be obtained from the transaction
-         * extension [AsCoinage].
+         * extension [`AsCoinage`](crate::extension::AsCoinage).
          *
          * The call is free and ages the resulting coins by one.
          *
@@ -4762,7 +4760,7 @@ type ICalls = {
          * Transfer a coin to another account.
          *
          * The origin must be a [Origin::Coin], which can be obtained from the transaction
-         * extension [AsCoinage].
+         * extension [`AsCoinage`](crate::extension::AsCoinage).
          *
          * The call is free and ages the resulting coin by one.
          *
@@ -4776,7 +4774,7 @@ type ICalls = {
          * Load coin into a recycler.
          *
          * The origin must be a [Origin::Coin], which can be obtained from the transaction
-         * extension [AsCoinage].
+         * extension [`AsCoinage`](crate::extension::AsCoinage).
          *
          * The call is free.
          *
@@ -4791,7 +4789,7 @@ type ICalls = {
          * `member_key`.
          * * The recycler collection for the coin's value must already exist
          */
-        load_recycler_with_coin: TxDescriptor<Anonymize<I5u969d5la0il0>>;
+        load_recycler_with_coin: TxDescriptor<Anonymize<I1b55a83kk37g4>>;
         /**
          * Load external asset into a recycler.
          *
@@ -4822,12 +4820,14 @@ type ICalls = {
          * * The `proof_of_ownership` must be a valid signature of the signer's account id by the
          * `member_key`.
          */
-        load_recycler_with_external_asset: TxDescriptor<Anonymize<I9cbgq5mcmbt3f>>;
+        load_recycler_with_external_asset: TxDescriptor<Anonymize<Icdnv1iut1hln7>>;
         /**
          * Load external asset into a recycler (infallible, validated unpaid variant).
          *
          * The origin must be [Origin::InfallibleUnpaidSigned], which can be obtained from the
-         * transaction extension variant [AsCoinage::InfallibleUnpaidSigned].
+         * transaction extension variant
+         * [`AsCoinageInfo::InfallibleUnpaidSigned`](crate::extension::AsCoinageInfo::InfallibleUnpaidSigned).
+         *
          *
          * The transaction extension validation phase must ensure:
          * - The `member_key` is valid and not already used in another recycler.
@@ -4842,14 +4842,16 @@ type ICalls = {
          *
          * The call is free.
          */
-        load_recycler_with_external_asset_unpaid: TxDescriptor<Anonymize<I9cbgq5mcmbt3f>>;
+        load_recycler_with_external_asset_unpaid: TxDescriptor<Anonymize<Icdnv1iut1hln7>>;
         /**
          * Batched variant of [`Self::load_recycler_with_external_asset_unpaid`].
          *
          * The origin must be [Origin::InfallibleUnpaidSigned], which can be obtained from the
-         * transaction extension variant [AsCoinage::InfallibleUnpaidSigned]. The extension
-         * validates each inner item and additionally checks within-batch member-key uniqueness
-         * and that the signer's balance covers the sum of all inner asset amounts.
+         * transaction extension variant
+         * [`AsCoinageInfo::InfallibleUnpaidSigned`](crate::extension::AsCoinageInfo::InfallibleUnpaidSigned).
+         * The extension validates each inner item and additionally checks within-batch
+         * member-key uniqueness and that the signer's balance covers the sum of all inner asset
+         * amounts.
          *
          * This call dispatches each inner load by re-running the same checks the extension
          * just performed (see [`RecyclerManager::load`]). The redundancy matches the defensive
@@ -4858,12 +4860,13 @@ type ICalls = {
          *
          * The call is free.
          */
-        load_recycler_with_external_asset_unpaid_batch: TxDescriptor<Anonymize<I4694teukj6drg>>;
+        load_recycler_with_external_asset_unpaid_batch: TxDescriptor<Anonymize<I8a919tojdi2qf>>;
         /**
          * Unload a recycler to mint a new coin.
          *
          * The origin must be a [Origin::UnloadToken] with `fee: UnloadFee::Prepaid`, which can be
-         * obtained from the transaction extension [AsCoinage] using `AsUnloadTokenPeople`,
+         * obtained from the transaction extension [`AsCoinage`](crate::extension::AsCoinage) using
+         * `AsUnloadTokenPeople`,
          * `AsUnloadTokenLitePeople`, or `AsUnloadTokenPaid` variants.
          *
          * This function allows a user to prove they own one or more coins in a recycler ring
@@ -4891,13 +4894,13 @@ type ICalls = {
          * Unload a recycler to withdraw the underlying external asset.
          *
          * The origin must be [Origin::UnloadToken], which can be obtained from the transaction
-         * extension [AsCoinage].
+         * extension [`AsCoinage`](crate::extension::AsCoinage).
          *
          * When `fee` is [UnloadFee::Prepaid] (via free or paid unload token), no fee is deducted.
          * When `fee` is [UnloadFee::FromOutput], the fee is deducted from the unloaded assets.
          *
          * This function allows a user to withdraw their coins back into the underlying
-         * asset (e.g., stablecoin).
+         * asset (e.g., an external asset).
          *
          * Parameters:
          * * `aliases`: the list of aliases corresponding to the member keys included in the
@@ -4918,7 +4921,7 @@ type ICalls = {
          * Pay the fee to register a member key for a paid unload token using a coin.
          *
          * The origin must be a [Origin::Coin], which can be obtained from the transaction
-         * extension [AsCoinage].
+         * extension [`AsCoinage`](crate::extension::AsCoinage).
          *
          * The coin is consumed. The fee is deducted from the coin's value and transferred to
          * [Config::FeeDestination]. The remaining value of the coin is destroyed.
@@ -4937,14 +4940,14 @@ type ICalls = {
          * * The `member_key` must be valid and not already used.
          * * The `proof_of_ownership` must be valid.
          */
-        pay_for_recycler_unload_fee_token_with_coin: TxDescriptor<Anonymize<I5u969d5la0il0>>;
+        pay_for_recycler_unload_fee_token_with_coin: TxDescriptor<Anonymize<I1b55a83kk37g4>>;
         /**
          * Pay the fee to register a member key for a paid unload token using the native currency.
          *
          * The origin must be Signed.
          *
          * This adds the `member_key` to a "paid unload token ring". Being part of this ring
-         * allows the user to later generate an anonymous `UnloadToken` to unload a recycler.
+         * allows the user to later generate an `UnloadToken` to unload a recycler.
          *
          * The fee is transferred from the caller to [Config::FeeDestination].
          *
@@ -4955,15 +4958,15 @@ type ICalls = {
          * * The `member_key` must be valid and not already used.
          * * The `proof_of_ownership` must be valid.
          */
-        pay_for_recycler_unload_fee_token_with_native: TxDescriptor<Anonymize<I5u969d5la0il0>>;
+        pay_for_recycler_unload_fee_token_with_native: TxDescriptor<Anonymize<I1b55a83kk37g4>>;
         /**
-         * Pay the fee to register a member key for a paid unload token using the underlying asset
-         * i.e. the stablecoin.
+         * Pay the fee to register a member key for a paid unload token using the underlying
+         * external asset.
          *
          * The origin must be Signed.
          *
          * This adds the `member_key` to a "paid unload token ring". Being part of this ring
-         * allows the user to later generate an anonymous `UnloadToken` to unload a recycler.
+         * allows the user to later generate an `UnloadToken` to unload a recycler.
          *
          * The fee is transferred from the caller to [Config::FeeDestination].
          *
@@ -4974,12 +4977,12 @@ type ICalls = {
          * * The `member_key` must be valid and not already used.
          * * The `proof_of_ownership` must be valid.
          */
-        pay_for_recycler_unload_fee_token_with_stable: TxDescriptor<Anonymize<I5u969d5la0il0>>;
+        pay_for_recycler_unload_fee_token_with_external_asset: TxDescriptor<Anonymize<I1b55a83kk37g4>>;
         /**
          * Unload a recycler into a mix of external asset and fresh vouchers.
          *
          * The origin must be [Origin::UnloadToken], which can be obtained from the transaction
-         * extension [AsCoinage].
+         * extension [`AsCoinage`](crate::extension::AsCoinage).
          *
          * This function allows a user to offboard part of the unloaded value into the underlying
          * asset while reminting the rest as fresh recycler vouchers.
@@ -5021,13 +5024,13 @@ type ICalls = {
          *
          * See [Self::unload_recyclers_into_external_asset_non_anonymous] for full documentation.
          */
-        unload_recycler_into_external_asset_non_anonymous: TxDescriptor<Anonymize<I286qhrd3thf21>>;
+        unload_recycler_into_external_asset_non_anonymous: TxDescriptor<Anonymize<I634921sber3t4>>;
         /**
          * Unload multiple recyclers to withdraw the underlying external asset (non-anonymous).
          *
-         * This is a non-anonymous version of [Self::unload_recyclers_into_external_asset]
-         * where the fee is paid explicitly by the signer rather than through the anonymous
-         * unload token ring, and for multiple recyclers.
+         * This is a signed-origin version of [`Self::unload_recycler_into_external_asset`]
+         * where the fee is paid explicitly by the signer rather than through the
+         * ring-authenticated unload token, and for multiple recyclers.
          *
          * The fee charged is one unload token fee per recycler (i.e., `inputs.len()`).
          *
@@ -5037,7 +5040,7 @@ type ICalls = {
          * that includes the signer. The proofs must correspond sequentially to the aliases in
          * `inputs`.
          * * `to`: the destination account for the asset.
-         * * `fee_currency`: whether to pay the fee in native currency or stable asset.
+         * * `fee_currency`: whether to pay the fee in native currency or external asset.
          *
          * Requirements:
          * * The origin must be Signed.
@@ -5046,7 +5049,7 @@ type ICalls = {
          * * `inputs` must not be empty and each element must contain at least one alias.
          * * The signer must have sufficient balance to pay the fee (one fee per recycler).
          */
-        unload_recyclers_into_external_asset_non_anonymous: TxDescriptor<Anonymize<Iefn145htl05b6>>;
+        unload_recyclers_into_external_asset_non_anonymous: TxDescriptor<Anonymize<Id9tjv96cmemjl>>;
         /**
          * Unload a recycler to mint multiple new coins (split).
          *
@@ -5098,7 +5101,8 @@ type ICalls = {
         /**
          * Directly offboard a fresh, 0-age coin into the underlying external asset.
          *
-         * The origin must be a [Origin::Coin], obtained through [AsCoinage] using `AsCoin`.
+         * The origin must be a [Origin::Coin], obtained through
+         * [`AsCoinage`](crate::extension::AsCoinage) using `AsCoin`.
          *
          * Because the coin must be fresh (`age == 0`), this call bypasses the
          * recycler/unload-token offboarding flow and releases the underlying asset directly.
@@ -5112,6 +5116,18 @@ type ICalls = {
          * * The coin value must be representable as underlying-asset amount.
          */
         direct_offboard_coin_into_external_asset: TxDescriptor<Anonymize<Iadkk9nq2cqqve>>;
+        /**
+         * Set the underlying asset id used by the pallet.
+         *
+         * The origin must satisfy [`Config::UnderlyingAssetIdManager`]. The setter is
+         * **single-use**: calling it again after the asset id has been set returns
+         * [`Error::AssetIdAlreadySet`]. Changing the underlying asset after coins exist would
+         * orphan the held balances of every in-flight coin, so the on-chain decision is
+         * intentionally one-shot.
+         *
+         * The asset id must already exist in [`Config::Fungibles`].
+         */
+        set_underlying_asset_id: TxDescriptor<Anonymize<I22bm4d7re21j9>>;
         /**
          * Clean up an expired recycler.
          *
@@ -5205,19 +5221,19 @@ type ICalls = {
          *
          * Authorized call submitted by the offchain worker.
          */
-        enqueue_updates: TxDescriptor<Anonymize<I437snu8jbuaj2>>;
+        enqueue_updates: TxDescriptor<Anonymize<I4h7nuietabku4>>;
         /**
          * Sends the current batch to a specific subscriber.
          *
          * Authorized maintenance call submitted by the offchain worker.
          */
-        send_batch: TxDescriptor<Anonymize<Ic44opm4fbhp4r>>;
+        send_batch: TxDescriptor<Anonymize<I7hni0vmjve0vn>>;
         /**
          * Sends one page of initialization data to a subscriber.
          *
          * Authorized maintenance call submitted by the offchain worker.
          */
-        send_init_page: TxDescriptor<Anonymize<Ia7k5rk3a67fgt>>;
+        send_init_page: TxDescriptor<Anonymize<Iaub50sqs4hhqk>>;
         /**
          * Abandons a stuck batch that exceeded `StuckBatchTimeout`.
          * Subscribers that did not receive the batch can recover via `request_replay`.
@@ -5225,91 +5241,165 @@ type ICalls = {
          * Authorized maintenance call submitted by the offchain worker when a batch has
          * been active longer than `StuckBatchTimeout`.
          */
-        abandon_stuck_batch: TxDescriptor<undefined>;
-    };
-    StorageInitialization: {
-        /**
-         * Enable or disable on_poll airdrop scheduling. While disabled the
-         * `OpeningAirdropPools` state remains active but opens no new pools.
-         * Re-enabling does not back-fill skipped periods: at most one pool is opened
-         * per period, and only for the current period.
-         */
-        set_airdrop_scheduling_enabled: TxDescriptor<Anonymize<I94dejtmu6d72i>>;
+        abandon_stuck_batch: TxDescriptor<Anonymize<I6r7odh9pc99fv>>;
     };
     Airdrop: {
         /**
-         * Open a new prize pool from which `num_prizes` aliases in the `target` population
-         * may claim a fixed `prize_value`.
+         * Schedule a new airdrop event. Origin must be `ManagerOrigin`. The prize allocation is
+         * held in the pallet's pot account. The pot is assumed to be pre-funded.
          *
-         * Origin must be `T::ManagerOrigin`. Other pallets can use
-         * [`AirdropApi::open_prize_pool`] (gated by `T::TraitCallerOrigin`).
+         * Cross-pallet callers should use the [`crate::types::Airdrop::schedule`] trait method
+         * instead, which debits a caller-supplied `source` account.
          */
-        open_prize_pool: TxDescriptor<Anonymize<I3q0ci59rqeel6>>;
+        schedule_event: TxDescriptor<Anonymize<Ie9gieran6hmh7>>;
         /**
-         * Claim a prize from a `PrizeTarget::People` pool by submitting a ring-
-         * membership proof directly.
-         *
-         * This is an authorized extrinsic: the proof itself is the authentication. The
-         * per-pool [`PrizePoolClaims`] storage is the replay guard — each alias may claim
-         * once per pool. The proof is bound to `beneficiary` (so a captured proof cannot
-         * redirect the prize) and to the pool's context (so a proof cannot be replayed on
-         * a different pool).
-         *
-         * `alias` is the value the proof verifies to; the authorize closure rejects
-         * `AliasMismatch` if it disagrees with the proof. The dispatch body trusts
-         * `alias` and skips a second verification — this is sound because the call is
-         * only reachable through `ensure_authorized`, which proves the authorize closure
-         * accepted.
-         *
-         * The proof's context is `context_for_pool_id(pool_id)`; the proof is verified
-         * against `PEOPLE_IDENTIFIER` (lite-people are not eligible). The pool's target
-         * must be `PrizeTarget::People`; `GameParticipants` pools are claimed via the
-         * game pallet, which forwards to [`AirdropApi::claim_game_prize`].
+         * Remove a previously scheduled event. The event must not have already
+         * started, otherwise this call will fail.
          */
-        claim_prize: TxDescriptor<Anonymize<Iferob091njnjq>>;
+        remove_scheduled_event: TxDescriptor<Anonymize<Ib4o08d7u3o37d>>;
         /**
-         * Close a prize pool early. Origin must be the pool's `dispatcher` or satisfy
-         * `T::ManagerOrigin`. Releases `prize_value * prizes_remaining` of held funds back
-         * to the airdrop pot and marks the pool expired-now so the on-poll cleanup loop
-         * drains `PrizePoolClaims` over multiple ticks. This keeps the extrinsic's weight
-         * bounded by `PrizePoolClearLimit` regardless of how many claims the pool
-         * accumulated.
+         * Enable an asset for use in airdrop events. The origin must be `ManagerOrigin` only.
+         *
+         * Transfers the asset's current minimum balance from `source` to the pallet's pot so the
+         * pot's asset account stays alive while events hold prize funds against it.
          */
-        close_prize_pool: TxDescriptor<Anonymize<I931cottvong90>>;
+        enable_asset: TxDescriptor<Anonymize<I2l0pq1htsnh8g>>;
+        /**
+         * Disable an asset previously enabled with `enable_asset`. Refunds the originally-funded
+         * amount from the pot to `beneficiary`. The origin must be `ManagerOrigin` only.
+         *
+         * The manager is responsible for ensuring no events still reference this asset before
+         * disabling, but this is safe since scheduling an event is permissioned.
+         */
+        disable_asset: TxDescriptor<Anonymize<Icg4lihlimlj9s>>;
+        /**
+         * OCW-driven: transition `Scheduled → Registering` when
+         * `registration_starts` is reached.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
+         */
+        start_registration_authorized: TxDescriptor<Anonymize<Icuc3bubd55bkj>>;
+        /**
+         * OCW-driven: at `draw_time`:
+         * - close registration
+         * - capture randomness
+         * - compute the target winner count
+         * - release the unused-slot prize allocation up-front
+         * - transition `Registering → DrawWinners`
+         *
+         * The draw itself is performed in batches by `draw_winners_authorized`.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
+         */
+        close_registration_authorized: TxDescriptor<Anonymize<Icuc3bubd55bkj>>;
+        /**
+         * OCW-driven: draw up to `DrawLimit` winners per call.
+         *
+         * After all the winners are drawn, the transition to `Claiming` is performed by the
+         * separate `close_drawing_authorized`.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
+         */
+        draw_winners_authorized: TxDescriptor<Anonymize<Icuc3bubd55bkj>>;
+        /**
+         * OCW-driven: once `draw_winners_authorized` has filled the winner set, transition the
+         * event from `DrawWinners` to `Claiming`.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
+         */
+        close_drawing_authorized: TxDescriptor<Anonymize<Icuc3bubd55bkj>>;
+        /**
+         * OCW-driven: at `end_time` close claiming and enter the first clean-up phase.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
+         */
+        close_claiming_authorized: TxDescriptor<Anonymize<Icuc3bubd55bkj>>;
+        /**
+         * OCW-driven: First step of clean-up is to clear up to `ClearLimit` entries from
+         * `Registrations`. When the storage is fully drained, transitions to `ClearingWinners`.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
+         */
+        clean_up_registrations_authorized: TxDescriptor<Anonymize<Icuc3bubd55bkj>>;
+        /**
+         * OCW-driven: Second step of clean-up is to clear up to `ClearLimit` entries from
+         * `Winners`. When the storage is fully drained, transitions to `Finalizing`.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
+         */
+        clean_up_winners_authorized: TxDescriptor<Anonymize<Icuc3bubd55bkj>>;
+        /**
+         * OCW-driven: Third step of clean-up is to release the unclaimed prize allocation and
+         * remove the event.
+         *
+         * `discriminator` is any `u32`; it lets the OCW send a different transaction when a
+         * previous one is banned by the pool because it was validated against a different state
+         * after a re-org. As the accepted transaction source is only local, it cannot be used to
+         * spam the pool.
+         */
+        finalize_authorized: TxDescriptor<Anonymize<Icuc3bubd55bkj>>;
     };
-    MultiBlockMigrations: {
+    Honour: {
         /**
-         * Allows root to set a cursor to forcefully start, stop or forward the migration process.
+         * Bestow a vote.
          *
-         * Should normally not be needed and is only in place as emergency measure. Note that
-         * restarting the migration process in this manner will not call the
-         * [`MigrationStatusHandler::started`] hook or emit an `UpgradeStarted` event.
+         * Accepts only the [`Origin::Voter`] origin, which is created by verifying a ring proof
+         * in the [`VoterAuth`](extension::VoterAuth) transaction extension.
          */
-        force_set_cursor: TxDescriptor<Anonymize<Ibou4u1engb441>>;
+        bestow: TxDescriptor<Anonymize<Ie5m07j5sdjl2g>>;
+    };
+    Sudo: {
         /**
-         * Allows root to set an active cursor to forcefully start/forward the migration process.
-         *
-         * This is an edge-case version of [`Self::force_set_cursor`] that allows to set the
-         * `started_at` value to the next block number. Otherwise this would not be possible, since
-         * `force_set_cursor` takes an absolute block number. Setting `started_at` to `None`
-         * indicates that the current block number plus one should be used.
+         * Authenticates the sudo key and dispatches a function call with `Root` origin.
          */
-        force_set_active_cursor: TxDescriptor<Anonymize<Id6nbvqoqdj4o2>>;
+        sudo: TxDescriptor<Anonymize<I865ar2evj8fov>>;
         /**
-         * Forces the onboarding of the migrations.
+         * Authenticates the sudo key and dispatches a function call with `Root` origin.
+         * This function does not check the weight of the call, and instead allows the
+         * Sudo user to specify the weight of the call.
          *
-         * This process happens automatically on a runtime upgrade. It is in place as an emergency
-         * measurement. The cursor needs to be `None` for this to succeed.
+         * The dispatch origin for this call must be _Signed_.
          */
-        force_onboard_mbms: TxDescriptor<undefined>;
+        sudo_unchecked_weight: TxDescriptor<Anonymize<I8a33691hq5h84>>;
         /**
-         * Clears the `Historic` set.
-         *
-         * `map_cursor` must be set to the last value that was returned by the
-         * `HistoricCleared` event. The first time `None` can be used. `limit` must be chosen in a
-         * way that will result in a sensible weight.
+         * Authenticates the current sudo key and sets the given AccountId (`new`) as the new sudo
+         * key.
          */
-        clear_historic: TxDescriptor<Anonymize<I95iqep3b8snn9>>;
+        set_key: TxDescriptor<Anonymize<I8k3rnvpeeh4hv>>;
+        /**
+         * Authenticates the sudo key and dispatches a function call with `Signed` origin from
+         * a given account.
+         *
+         * The dispatch origin for this call must be _Signed_.
+         */
+        sudo_as: TxDescriptor<Anonymize<I6et065lmj2gtf>>;
+        /**
+         * Permanently removes the sudo key.
+         *
+         * **This cannot be un-done.**
+         */
+        remove_key: TxDescriptor<undefined>;
     };
 };
 type IEvent = {
@@ -5321,7 +5411,7 @@ type IEvent = {
         /**
          * An extrinsic failed.
          */
-        ExtrinsicFailed: PlainDescriptor<Anonymize<I682dmd1dh82o7>>;
+        ExtrinsicFailed: PlainDescriptor<Anonymize<I6dq6jtlpu769k>>;
         /**
          * `:code` was updated to the code with the given hash.
          */
@@ -5345,7 +5435,7 @@ type IEvent = {
         /**
          * An invalid authorized upgrade was rejected while trying to apply it.
          */
-        RejectedInvalidAuthorizedUpgrade: PlainDescriptor<Anonymize<I38icn8oj6uv8q>>;
+        RejectedInvalidAuthorizedUpgrade: PlainDescriptor<Anonymize<Ibe7mc72lufts8>>;
     };
     ParachainSystem: {
         /**
@@ -5372,6 +5462,48 @@ type IEvent = {
          * An upward message was sent to the relay chain.
          */
         UpwardMessageSent: PlainDescriptor<Anonymize<I6gnbnvip5vvdi>>;
+    };
+    MultiBlockMigrations: {
+        /**
+         * A Runtime upgrade started.
+         *
+         * Its end is indicated by `UpgradeCompleted` or `UpgradeFailed`.
+         */
+        UpgradeStarted: PlainDescriptor<Anonymize<If1co0pilmi7oq>>;
+        /**
+         * The current runtime upgrade completed.
+         *
+         * This implies that all of its migrations completed successfully as well.
+         */
+        UpgradeCompleted: PlainDescriptor<undefined>;
+        /**
+         * Runtime upgrade failed.
+         *
+         * This is very bad and will require governance intervention.
+         */
+        UpgradeFailed: PlainDescriptor<undefined>;
+        /**
+         * A migration was skipped since it was already executed in the past.
+         */
+        MigrationSkipped: PlainDescriptor<Anonymize<I666bl2fqjkejo>>;
+        /**
+         * A migration progressed.
+         */
+        MigrationAdvanced: PlainDescriptor<Anonymize<Iae74gjak1qibn>>;
+        /**
+         * A Migration completed.
+         */
+        MigrationCompleted: PlainDescriptor<Anonymize<Iae74gjak1qibn>>;
+        /**
+         * A Migration failed.
+         *
+         * This implies that the whole upgrade failed and governance intervention is required.
+         */
+        MigrationFailed: PlainDescriptor<Anonymize<Iae74gjak1qibn>>;
+        /**
+         * The set of historical migrations has been cleared.
+         */
+        HistoricCleared: PlainDescriptor<Anonymize<I3escdojpj0551>>;
     };
     Balances: {
         /**
@@ -5475,23 +5607,23 @@ type IEvent = {
         /**
          * Some balance was placed on hold.
          */
-        Held: PlainDescriptor<Anonymize<I8vi83jdnuv7ad>>;
+        Held: PlainDescriptor<Anonymize<I4t941tu6n95pd>>;
         /**
          * Held balance was burned from an account.
          */
-        BurnedHeld: PlainDescriptor<Anonymize<I8vi83jdnuv7ad>>;
+        BurnedHeld: PlainDescriptor<Anonymize<I4t941tu6n95pd>>;
         /**
          * A transfer of `amount` on hold from `source` to `dest` was initiated.
          */
-        TransferOnHold: PlainDescriptor<Anonymize<I8td84k1e6i7l7>>;
+        TransferOnHold: PlainDescriptor<Anonymize<I7a812tlv1a711>>;
         /**
          * The `transferred` balance is placed on hold at the `dest` account.
          */
-        TransferAndHold: PlainDescriptor<Anonymize<Ibthrs8djrs4ha>>;
+        TransferAndHold: PlainDescriptor<Anonymize<I3osgdo4c94kio>>;
         /**
          * Some balance was released from hold.
          */
-        Released: PlainDescriptor<Anonymize<I8vi83jdnuv7ad>>;
+        Released: PlainDescriptor<Anonymize<I4t941tu6n95pd>>;
         /**
          * An unexpected/defensive event was triggered.
          */
@@ -5503,18 +5635,6 @@ type IEvent = {
          * has been paid by `who`.
          */
         TransactionFeePaid: PlainDescriptor<Anonymize<Ier2cke86dqbr2>>;
-    };
-    SkipFeelessPayment: {
-        /**
-         * A transaction fee was skipped.
-         */
-        FeeSkipped: PlainDescriptor<Anonymize<Iblesbqf0lfloi>>;
-    };
-    OriginRestriction: {
-        /**
-         * Usage for an entity is cleaned.
-         */
-        UsageCleaned: PlainDescriptor<Anonymize<Iea5hvin03frku>>;
     };
     Assets: {
         /**
@@ -5647,31 +5767,17 @@ type IEvent = {
          */
         BurnedDebt: PlainDescriptor<Anonymize<Ibtugueatkkr9s>>;
     };
-    AssetsHolder: {
-        /**
-         * `who`s balance on hold was increased by `amount`.
-         */
-        Held: PlainDescriptor<Anonymize<Id7k54q1ita2p5>>;
-        /**
-         * `who`s balance on hold was decreased by `amount`.
-         */
-        Released: PlainDescriptor<Anonymize<Id7k54q1ita2p5>>;
-        /**
-         * `who`s balance on hold was burned by `amount`.
-         */
-        Burned: PlainDescriptor<Anonymize<Id7k54q1ita2p5>>;
-    };
     AssetRate: {
         /**
-
+        
          */
         AssetRateCreated: PlainDescriptor<Anonymize<I72jcvr86rnvv8>>;
         /**
-
+        
          */
         AssetRateRemoved: PlainDescriptor<Anonymize<I90c919drss29e>>;
         /**
-
+        
          */
         AssetRateUpdated: PlainDescriptor<Anonymize<I5k7edfft48vsq>>;
     };
@@ -5681,6 +5787,32 @@ type IEvent = {
          * has been paid by `who` in an asset `asset_id`.
          */
         AssetTxFeePaid: PlainDescriptor<Anonymize<Iaeqj2ebnvkjqe>>;
+    };
+    AssetsHolder: {
+        /**
+         * `who`s balance on hold was increased by `amount`.
+         */
+        Held: PlainDescriptor<Anonymize<I6felmv64s40c4>>;
+        /**
+         * `who`s balance on hold was decreased by `amount`.
+         */
+        Released: PlainDescriptor<Anonymize<I6felmv64s40c4>>;
+        /**
+         * `who`s balance on hold was burned by `amount`.
+         */
+        Burned: PlainDescriptor<Anonymize<I6felmv64s40c4>>;
+    };
+    SkipFeelessPayment: {
+        /**
+         * A transaction fee was skipped.
+         */
+        FeeSkipped: PlainDescriptor<Anonymize<Ia19q5nd942d8c>>;
+    };
+    OriginRestriction: {
+        /**
+         * Usage for an entity is cleaned.
+         */
+        UsageCleaned: PlainDescriptor<Anonymize<Iea5hvin03frku>>;
     };
     CollatorSelection: {
         /**
@@ -5942,7 +6074,7 @@ type IEvent = {
          * Batch of dispatches did not complete fully. Index of first failing dispatch given, as
          * well as the error.
          */
-        BatchInterrupted: PlainDescriptor<Anonymize<I66uqe1tndt513>>;
+        BatchInterrupted: PlainDescriptor<Anonymize<Ifd1iadsrfatgf>>;
         /**
          * Batch of dispatches completed fully with no error.
          */
@@ -5958,11 +6090,11 @@ type IEvent = {
         /**
          * A single item within a Batch of dispatches has completed with error.
          */
-        ItemFailed: PlainDescriptor<Anonymize<I9m3mb6r2i2eeq>>;
+        ItemFailed: PlainDescriptor<Anonymize<Ibsrg07o34u087>>;
         /**
          * A call was dispatched.
          */
-        DispatchedAs: PlainDescriptor<Anonymize<Idbn36j11p05sj>>;
+        DispatchedAs: PlainDescriptor<Anonymize<Iboi95k6oheii9>>;
         /**
          * Main call was dispatched.
          */
@@ -5970,7 +6102,7 @@ type IEvent = {
         /**
          * The fallback call was dispatched.
          */
-        IfElseFallbackCalled: PlainDescriptor<Anonymize<I12la7j60vkuj3>>;
+        IfElseFallbackCalled: PlainDescriptor<Anonymize<Iaqbcdruj9fo2n>>;
     };
     Multisig: {
         /**
@@ -5984,7 +6116,7 @@ type IEvent = {
         /**
          * A multisig operation has been executed.
          */
-        MultisigExecuted: PlainDescriptor<Anonymize<I8ktnt89fcg3hj>>;
+        MultisigExecuted: PlainDescriptor<Anonymize<I4ei7oag7cupld>>;
         /**
          * A multisig operation has been cancelled.
          */
@@ -5994,38 +6126,20 @@ type IEvent = {
          */
         DepositPoked: PlainDescriptor<Anonymize<I8gtde5abn1g9a>>;
     };
-    Sudo: {
-        /**
-         * A sudo call just took place.
-         */
-        Sudid: PlainDescriptor<Anonymize<I6fn8r3em1pi9r>>;
-        /**
-         * The sudo key has been updated.
-         */
-        KeyChanged: PlainDescriptor<Anonymize<I5rtkmhm2dng4u>>;
-        /**
-         * The key was permanently removed.
-         */
-        KeyRemoved: PlainDescriptor<undefined>;
-        /**
-         * A [sudo_as](Pallet::sudo_as) call just took place.
-         */
-        SudoAsDone: PlainDescriptor<Anonymize<I6fn8r3em1pi9r>>;
-    };
     Proxy: {
         /**
          * A proxy was executed correctly, with the given.
          */
-        ProxyExecuted: PlainDescriptor<Anonymize<Idbn36j11p05sj>>;
+        ProxyExecuted: PlainDescriptor<Anonymize<Iboi95k6oheii9>>;
         /**
          * A pure account has been created by new proxy with given
          * disambiguation index and proxy type.
          */
-        PureCreated: PlainDescriptor<Anonymize<Iquobi9ukq7tb>>;
+        PureCreated: PlainDescriptor<Anonymize<Iemd4d7o8egfol>>;
         /**
          * A pure proxy was killed by its spawner.
          */
-        PureKilled: PlainDescriptor<Anonymize<I4mj21qcksiuf3>>;
+        PureKilled: PlainDescriptor<Anonymize<I4qjtstc5t6mdq>>;
         /**
          * An announcement was placed to make a call in the future.
          */
@@ -6033,11 +6147,11 @@ type IEvent = {
         /**
          * A proxy was added.
          */
-        ProxyAdded: PlainDescriptor<Anonymize<I8v2su1f60qoae>>;
+        ProxyAdded: PlainDescriptor<Anonymize<I7b10hvivbp6sm>>;
         /**
          * A proxy was removed.
          */
-        ProxyRemoved: PlainDescriptor<Anonymize<I8v2su1f60qoae>>;
+        ProxyRemoved: PlainDescriptor<Anonymize<I7b10hvivbp6sm>>;
         /**
          * A deposit stored for proxies or announcements was poked / updated.
          */
@@ -6134,46 +6248,6 @@ type IEvent = {
          * A username has been killed.
          */
         UsernameKilled: PlainDescriptor<Anonymize<Ie5l999tf7t2te>>;
-        /**
-         * A username has been reported.
-         */
-        UsernameReported: PlainDescriptor<Anonymize<I86ooiomatht8n>>;
-        /**
-         * An identity for a person has been set.
-         */
-        PersonalIdentitySet: PlainDescriptor<Anonymize<I7v1eea9s3tjf6>>;
-        /**
-         * Evidence for a credential has beed submitted by a person.
-         */
-        EvidenceSubmitted: PlainDescriptor<Anonymize<Ifcon2ngg4leli>>;
-        /**
-         * A credential was accepted for a person.
-         */
-        CredentialAccepted: PlainDescriptor<Anonymize<Ifcon2ngg4leli>>;
-        /**
-         * A credential was rejected for a person.
-         */
-        CredentialRejected: PlainDescriptor<Anonymize<Ifcon2ngg4leli>>;
-        /**
-         * Person was banned for sending contemptuous evidence.
-         */
-        PersonBanned: PlainDescriptor<Anonymize<Ifcon2ngg4leli>>;
-        /**
-         * A personal identity was cleared.
-         */
-        PersonalIdentityCleared: PlainDescriptor<Anonymize<Ifcon2ngg4leli>>;
-        /**
-         * A reported username was judged valid.
-         */
-        ReportedUsernameJudgedValid: PlainDescriptor<Anonymize<Ie5l999tf7t2te>>;
-        /**
-         * A reported username was judged invalid.
-         */
-        ReportedUsernameJudgedInvalid: PlainDescriptor<Anonymize<Ie5l999tf7t2te>>;
-        /**
-         * The judgment regarding a reported username was unclear or uncertain.
-         */
-        ReportedUsernameWeakOrUnclearJudgement: PlainDescriptor<Anonymize<I7luomlm0cts8l>>;
     };
     People: {
         /**
@@ -6225,7 +6299,7 @@ type IEvent = {
         /**
          * A callback was triggered from mob-rule.
          */
-        Callback: PlainDescriptor<Anonymize<Idbn36j11p05sj>>;
+        Callback: PlainDescriptor<Anonymize<Iboi95k6oheii9>>;
         /**
          * There was a codec error when trying to execute the callback.
          */
@@ -6293,11 +6367,11 @@ type IEvent = {
          */
         CandidateApplied: PlainDescriptor<Anonymize<I6v8sm60vvkmk7>>;
         /**
-         * Candidate opened a judicial case for their verification evidence.
+         * Candidate opened a Mob Rule case for their verification evidence.
          */
         JudgementRequested: PlainDescriptor<Anonymize<I6v8sm60vvkmk7>>;
         /**
-         * Oracle has provided the judgement for a judicial case.
+         * Oracle has provided the judgement for a Mob Rule case.
          */
         JudgementProvided: PlainDescriptor<Anonymize<I3g1h0napekm89>>;
         /**
@@ -6392,6 +6466,14 @@ type IEvent = {
          */
         GameEnded: PlainDescriptor<Anonymize<I666bl2fqjkejo>>;
         /**
+         * The current game was force-killed by [`Config::ManagerOrigin`].
+         */
+        GameKilled: PlainDescriptor<Anonymize<I666bl2fqjkejo>>;
+        /**
+         * The game phase durations were overridden by [`Config::ManagerOrigin`].
+         */
+        GamePhasesSet: PlainDescriptor<Anonymize<I7rcbn8l002fcc>>;
+        /**
          * A player signed up for the game.
          */
         SignedUp: PlainDescriptor<Anonymize<I7uvflbq4g7rn>>;
@@ -6440,21 +6522,21 @@ type IEvent = {
          */
         SomeInvitesRemoved: PlainDescriptor<Anonymize<I3j43dj5855fif>>;
         /**
-         * Scratch card rewards are available for the concluded game.
+         * The configured play deposit was updated.
          */
-        ScratchRewardAvailable: PlainDescriptor<Anonymize<I8s2eo7q9t6vgf>>;
+        PlayDepositSet: PlainDescriptor<Anonymize<I3qt1hgg4djhgb>>;
         /**
-         * A player successfully claimed a scratch card reward.
+         * An airdrop event was scheduled for the current game.
          */
-        ScratchRewardClaimed: PlainDescriptor<Anonymize<Idscf6boak49q1>>;
+        AirdropScheduled: PlainDescriptor<Anonymize<Irboug90jv3o0>>;
         /**
-         * A new game opened a recurring-prize pool in the airdrop pallet.
+         * The airdrop event for the current game failed to schedule.
          */
-        GamePrizePoolOpened: PlainDescriptor<Anonymize<Iet3fv7oighgft>>;
+        AirdropScheduleFailed: PlainDescriptor<Anonymize<I7thug0gvru5sl>>;
         /**
-         * `new_game` could not open its companion prize pool. The game still starts.
+         * Game `game_index` was cancelled.
          */
-        GamePrizePoolOpenFailed: PlainDescriptor<Anonymize<I6kmurc4thdo8g>>;
+        GameCancelled: PlainDescriptor<Anonymize<I8s2eo7q9t6vgf>>;
     };
     Score: {
         /**
@@ -6485,6 +6567,14 @@ type IEvent = {
          * A participant has cashed out score for points.
          */
         CashedOut: PlainDescriptor<Anonymize<I7uvflbq4g7rn>>;
+        /**
+         * The personhood-threshold schedule has been set.
+         */
+        PersonhoodThresholdScheduleSet: PlainDescriptor<undefined>;
+        /**
+         * The absence-grace schedule has been set.
+         */
+        AbsenceGraceScheduleSet: PlainDescriptor<undefined>;
     };
     DummyDim: {
         /**
@@ -6519,6 +6609,76 @@ type IEvent = {
          * The pallet disabled suspensions.
          */
         SuspensionsEnded: PlainDescriptor<undefined>;
+    };
+    StorageInitialization: {
+        /**
+         * The foreign asset was created and reserves were set.
+         */
+        AssetCreated: PlainDescriptor<undefined>;
+        /**
+         * An XCM funds transfer was sent to Asset Hub.
+         */
+        XcmFundsTransferSent: PlainDescriptor<undefined>;
+        /**
+         * The XCM transfer timed out and will be retried.
+         */
+        XcmFundsTransferTimedOut: PlainDescriptor<undefined>;
+        /**
+         * Transferred funds have been verified.
+         */
+        FundsVerified: PlainDescriptor<undefined>;
+        /**
+         * All pots have been funded.
+         */
+        PotsFunded: PlainDescriptor<undefined>;
+        /**
+         * People Lite attestation allowances have been set.
+         */
+        PeopleLiteAttestationAllowancesSet: PlainDescriptor<undefined>;
+        /**
+         * Mob Rule payout schedule has been set.
+         */
+        MobRulePayoutsScheduled: PlainDescriptor<undefined>;
+        /**
+         * Score payout schedule has been set.
+         */
+        ScorePayoutsScheduled: PlainDescriptor<undefined>;
+        /**
+         * The one-time on_poll initialization has completed.
+         */
+        OnPollInitializationCompleted: PlainDescriptor<undefined>;
+        /**
+         * Migration: initial people have been recognized.
+         */
+        MigrationPeopleRecognized: PlainDescriptor<undefined>;
+        /**
+         * Migration: onboarding size has been set.
+         */
+        MigrationOnboardingSizeSet: PlainDescriptor<undefined>;
+        /**
+         * Migration: Proof-of-Ink pallet has been initialized.
+         */
+        MigrationProofOfInkInitialized: PlainDescriptor<undefined>;
+        /**
+         * Migration: games have been scheduled.
+         */
+        MigrationGamesScheduled: PlainDescriptor<undefined>;
+        /**
+         * Migration: invites have been granted.
+         */
+        MigrationInvitesGranted: PlainDescriptor<undefined>;
+        /**
+         * Migration: Proof-of-Ink reimbursement values have been set.
+         */
+        MigrationReimbursementValuesSet: PlainDescriptor<undefined>;
+        /**
+         * Migration: People Lite attestation allowances have been set.
+         */
+        MigrationAttestationAllowancesSet: PlainDescriptor<undefined>;
+        /**
+         * Migration has completed and on_poll initialization has been triggered.
+         */
+        MigrationCompleted: PlainDescriptor<undefined>;
     };
     PeopleLite: {
         /**
@@ -6659,97 +6819,101 @@ type IEvent = {
     };
     Coinage: {
         /**
-
+        
          */
         CoinSplit: PlainDescriptor<Anonymize<I4c20l83g9496a>>;
         /**
-
+        
          */
         CoinTransferred: PlainDescriptor<Anonymize<I4gp88defd7an>>;
         /**
-
+        
          */
         RecyclerLoadedWithCoin: PlainDescriptor<Anonymize<Icnkee0to4c5ac>>;
         /**
-
+        
          */
         RecyclerLoadedWithExternalAsset: PlainDescriptor<Anonymize<Id113tpicu8sh3>>;
         /**
-
+        
          */
         RecyclerUnloadedIntoCoin: PlainDescriptor<Anonymize<I6ceb7pmur4hki>>;
         /**
-
+        
          */
         RecyclerUnloadedIntoExternalAsset: PlainDescriptor<Anonymize<Ie2d9d2u1qa7ro>>;
         /**
-
+        
          */
         RecyclerUnloadedIntoExternalAssetAndVouchers: PlainDescriptor<Anonymize<Iebdi09jg1ifvr>>;
         /**
-
+        
          */
         PaidUnloadTokenRegisteredWithCoin: PlainDescriptor<Anonymize<I5kek6hgenovr0>>;
         /**
-
+        
          */
         PaidUnloadTokenRegisteredWithNative: PlainDescriptor<Anonymize<I91tbphb2dk7gn>>;
         /**
-
+        
          */
-        PaidUnloadTokenRegisteredWithStable: PlainDescriptor<Anonymize<I91tbphb2dk7gn>>;
+        PaidUnloadTokenRegisteredWithExternalAsset: PlainDescriptor<Anonymize<I91tbphb2dk7gn>>;
         /**
-
+        
          */
         PeopleFreeUnloadTokenConsumed: PlainDescriptor<Anonymize<I7ts20td7b1pmf>>;
         /**
-
+        
          */
         LitePeopleFreeUnloadTokenConsumed: PlainDescriptor<Anonymize<I7ts20td7b1pmf>>;
         /**
-
+        
          */
         RecyclersUnloadedIntoCoin: PlainDescriptor<Anonymize<I5509mqtnio180>>;
         /**
-
+        
          */
         RecyclersUnloadedIntoExternalAsset: PlainDescriptor<Anonymize<Ifojd05k7ogo8n>>;
         /**
-
+        
          */
-        RecyclersUnloadedIntoExternalAssetNonAnonymous: PlainDescriptor<Anonymize<I2h93i19beq4qk>>;
+        RecyclersUnloadedIntoExternalAssetNonAnonymous: PlainDescriptor<Anonymize<I2ccuul1t9pcs0>>;
         /**
-
+        
          */
         RecyclerUnloadedIntoCoins: PlainDescriptor<Anonymize<I4c20l83g9496a>>;
         /**
-
+        
          */
         CoinOffboardedIntoExternalAsset: PlainDescriptor<Anonymize<I4lmgf1qe39res>>;
         /**
-
+        
          */
         RecyclerCleaned: PlainDescriptor<Anonymize<Igvk3mrc51o9l>>;
         /**
-
+        
          */
         ConsumedFreeTokensCleaned: PlainDescriptor<Anonymize<I7ts20td7b1pmf>>;
         /**
-
+        
          */
         PaidUnloadTokenRingCleaned: PlainDescriptor<Anonymize<I7315hlp5liq47>>;
         /**
-
+        
          */
         RecyclerDustCleaned: PlainDescriptor<undefined>;
         /**
-
+        
          */
         PaidUnloadTokenDustCleaned: PlainDescriptor<undefined>;
         /**
-
+        
          */
         ExpiredPaidUnloadTokenCollectionDeleted: PlainDescriptor<Anonymize<I7ts20td7b1pmf>>;
+        /**
+        
+         */
+        UnderlyingAssetIdSet: PlainDescriptor<Anonymize<I22bm4d7re21j9>>;
     };
     MembersNotifier: {
         /**
@@ -6777,167 +6941,103 @@ type IEvent = {
          */
         BatchAbandoned: PlainDescriptor<Anonymize<I2e1ek76m34991>>;
     };
-    StorageInitialization: {
-        /**
-         * The foreign asset was created and reserves were set.
-         */
-        AssetCreated: PlainDescriptor<undefined>;
-        /**
-         * An XCM funds transfer was sent to Asset Hub.
-         */
-        XcmFundsTransferSent: PlainDescriptor<undefined>;
-        /**
-         * The XCM transfer timed out and will be retried.
-         */
-        XcmFundsTransferTimedOut: PlainDescriptor<undefined>;
-        /**
-         * Transferred funds have been verified.
-         */
-        FundsVerified: PlainDescriptor<undefined>;
-        /**
-         * All pots have been funded.
-         */
-        PotsFunded: PlainDescriptor<undefined>;
-        /**
-         * Mob Rule payout schedule has been set.
-         */
-        MobRulePayoutsScheduled: PlainDescriptor<undefined>;
-        /**
-         * Score payout schedule has been set.
-         */
-        ScorePayoutsScheduled: PlainDescriptor<undefined>;
-        /**
-         * An airdrop prize pool has been opened by the on_poll scheduler.
-         */
-        AirdropPoolOpened: PlainDescriptor<Anonymize<I931cottvong90>>;
-        /**
-         * Airdrop scheduling was enabled or disabled via `set_airdrop_scheduling_enabled`.
-         */
-        AirdropSchedulingEnabledChanged: PlainDescriptor<Anonymize<I94dejtmu6d72i>>;
-        /**
-         * The one-time on_poll initialization has completed. Recurring airdrop prize
-         * pool opening continues afterward in `OpeningAirdropPools` while
-         * `AirdropSchedulingEnabled` is `true`.
-         */
-        OnPollInitializationCompleted: PlainDescriptor<undefined>;
-        /**
-         * Migration: initial people have been recognized.
-         */
-        MigrationPeopleRecognized: PlainDescriptor<undefined>;
-        /**
-         * Migration: onboarding size has been set.
-         */
-        MigrationOnboardingSizeSet: PlainDescriptor<undefined>;
-        /**
-         * Migration: Proof-of-Ink pallet has been initialized.
-         */
-        MigrationProofOfInkInitialized: PlainDescriptor<undefined>;
-        /**
-         * Migration: games have been scheduled.
-         */
-        MigrationGamesScheduled: PlainDescriptor<undefined>;
-        /**
-         * Migration: invites have been granted.
-         */
-        MigrationInvitesGranted: PlainDescriptor<undefined>;
-        /**
-         * Migration: Proof-of-Ink reimbursement values have been set.
-         */
-        MigrationReimbursementValuesSet: PlainDescriptor<undefined>;
-        /**
-         * Migration: People Lite attestation allowances have been set.
-         */
-        MigrationAttestationAllowancesSet: PlainDescriptor<undefined>;
-        /**
-         * Migration has completed and on_poll initialization has been triggered.
-         */
-        MigrationCompleted: PlainDescriptor<undefined>;
-    };
-    StorageInitializationLite: {
-        /**
-         * Attestation allowances have been set and initialization is complete.
-         */
-        InitializationCompleted: PlainDescriptor<undefined>;
-    };
     Airdrop: {
         /**
-         * A prize pool was opened.
+        
          */
-        PrizePoolOpened: PlainDescriptor<Anonymize<I6fdggv3obvfs5>>;
+        EventScheduled: PlainDescriptor<Anonymize<Ib4o08d7u3o37d>>;
         /**
-         * A prize was claimed from a prize pool. `claimant` is the identity that
-         * satisfied the pool's eligibility predicate — a Person alias for
-         * [`Call::claim_prize`] (verified-people pools), and whatever
-         * `AccountOrPerson` the game pallet supplied for game-pool claims via
-         * [`AirdropApi::claim_game_prize`].
+        
          */
-        PrizeClaimed: PlainDescriptor<Anonymize<I6uvt8pub5nl1g>>;
+        ScheduledEventRemoved: PlainDescriptor<Anonymize<Ib4o08d7u3o37d>>;
         /**
-         * A prize pool delivered its last prize. The pool stays in storage until
-         * `expires_at` so `PrizePoolClaims` keeps the replay window; further claim
-         * attempts return `Error::PrizePoolExhausted`.
+        
          */
-        AllPrizesClaimed: PlainDescriptor<Anonymize<Ia9o5rqpv3sn2g>>;
+        EventCancelled: PlainDescriptor<Anonymize<Ib4o08d7u3o37d>>;
         /**
-         * A prize pool reached `expires_at` and was cleaned up; remaining held funds were
-         * released.
+        
          */
-        PrizePoolExpired: PlainDescriptor<Anonymize<Iah53milao1ikg>>;
+        RegistrationStarted: PlainDescriptor<Anonymize<Ib4o08d7u3o37d>>;
         /**
-         * A prize pool was closed early by its dispatcher (or `ManagerOrigin`); remaining held
-         * funds were released.
+        
          */
-        PrizePoolClosed: PlainDescriptor<Anonymize<Iah53milao1ikg>>;
+        AliasRegistered: PlainDescriptor<Anonymize<I50aksks5it5n0>>;
         /**
-         * The slot was awarded but the immediate payout transfer failed (e.g. dusted
-         * beneficiary). The release+transfer was rolled back so the funds remain held
-         * on the pot, but `PrizePoolClaims` and `prizes_remaining` still reflect the
-         * claim — the slot is consumed without a recovery path. Emitted in addition
-         * to `PrizeClaimed`.
+        
          */
-        PrizeTransferFailed: PlainDescriptor<Anonymize<I25h8dena9rh5c>>;
+        AccountRegistered: PlainDescriptor<Anonymize<Icc5o3lh1v2smd>>;
+        /**
+        
+         */
+        DrawingWinners: PlainDescriptor<Anonymize<I5srndmgodi29b>>;
+        /**
+        
+         */
+        ClaimingStarted: PlainDescriptor<Anonymize<I5srndmgodi29b>>;
+        /**
+        
+         */
+        EventCanceled: PlainDescriptor<Anonymize<Ib4o08d7u3o37d>>;
+        /**
+        
+         */
+        PrizeClaimed: PlainDescriptor<Anonymize<Idd6sihggmv1dq>>;
+        /**
+        
+         */
+        ClearingRegistrations: PlainDescriptor<Anonymize<I1obalebkt2h11>>;
+        /**
+        
+         */
+        ClearingWinners: PlainDescriptor<Anonymize<Ib4o08d7u3o37d>>;
+        /**
+        
+         */
+        FinalizingEvent: PlainDescriptor<Anonymize<Ib4o08d7u3o37d>>;
+        /**
+        
+         */
+        EventCompleted: PlainDescriptor<Anonymize<Ib4o08d7u3o37d>>;
+        /**
+        
+         */
+        AssetEnabled: PlainDescriptor<Anonymize<I2gbrv9jm3ucsu>>;
+        /**
+        
+         */
+        AssetDisabled: PlainDescriptor<Anonymize<I9pgrv71u9hf6c>>;
     };
-    MultiBlockMigrations: {
+    Honour: {
         /**
-         * A Runtime upgrade started.
-         *
-         * Its end is indicated by `UpgradeCompleted` or `UpgradeFailed`.
+         * A subject was voted on with a previously unused point.
          */
-        UpgradeStarted: PlainDescriptor<Anonymize<If1co0pilmi7oq>>;
+        VoteCast: PlainDescriptor<Anonymize<Ib2kb4gr1v6eis>>;
         /**
-         * The current runtime upgrade completed.
-         *
-         * This implies that all of its migrations completed successfully as well.
+         * A point was redirected from one subject to another.
          */
-        UpgradeCompleted: PlainDescriptor<undefined>;
+        VoteReused: PlainDescriptor<Anonymize<Ib52ld1ackp05u>>;
         /**
-         * Runtime upgrade failed.
-         *
-         * This is very bad and will require governance intervention.
+         * The honour score of a subject has changed.
          */
-        UpgradeFailed: PlainDescriptor<undefined>;
+        HonourChanged: PlainDescriptor<Anonymize<I619o495nctj82>>;
+    };
+    Sudo: {
         /**
-         * A migration was skipped since it was already executed in the past.
+         * A sudo call just took place.
          */
-        MigrationSkipped: PlainDescriptor<Anonymize<I666bl2fqjkejo>>;
+        Sudid: PlainDescriptor<Anonymize<I9uehc80gsuos1>>;
         /**
-         * A migration progressed.
+         * The sudo key has been updated.
          */
-        MigrationAdvanced: PlainDescriptor<Anonymize<Iae74gjak1qibn>>;
+        KeyChanged: PlainDescriptor<Anonymize<I5rtkmhm2dng4u>>;
         /**
-         * A Migration completed.
+         * The key was permanently removed.
          */
-        MigrationCompleted: PlainDescriptor<Anonymize<Iae74gjak1qibn>>;
+        KeyRemoved: PlainDescriptor<undefined>;
         /**
-         * A Migration failed.
-         *
-         * This implies that the whole upgrade failed and governance intervention is required.
+         * A [sudo_as](Pallet::sudo_as) call just took place.
          */
-        MigrationFailed: PlainDescriptor<Anonymize<Iae74gjak1qibn>>;
-        /**
-         * The set of historical migrations has been cleared.
-         */
-        HistoricCleared: PlainDescriptor<Anonymize<I3escdojpj0551>>;
+        SudoAsDone: PlainDescriptor<Anonymize<I9uehc80gsuos1>>;
     };
 };
 type IError = {
@@ -7010,6 +7110,12 @@ type IError = {
          */
         NotScheduled: PlainDescriptor<undefined>;
     };
+    MultiBlockMigrations: {
+        /**
+         * The operation cannot complete since some MBMs are ongoing.
+         */
+        Ongoing: PlainDescriptor<undefined>;
+    };
     Balances: {
         /**
          * Vesting balance too high to send value.
@@ -7059,16 +7165,6 @@ type IError = {
          * The delta cannot be zero.
          */
         DeltaZero: PlainDescriptor<undefined>;
-    };
-    OriginRestriction: {
-        /**
-         * The origin has no usage tracked.
-         */
-        NoUsage: PlainDescriptor<undefined>;
-        /**
-         * The usage is not zero.
-         */
-        NotZero: PlainDescriptor<undefined>;
     };
     Assets: {
         /**
@@ -7171,12 +7267,6 @@ type IError = {
          */
         TooManyReserves: PlainDescriptor<undefined>;
     };
-    AssetsHolder: {
-        /**
-         * Number of holds on an account would exceed the count of `RuntimeHoldReason`.
-         */
-        TooManyHolds: PlainDescriptor<undefined>;
-    };
     AssetRate: {
         /**
          * The given asset ID is unknown.
@@ -7190,6 +7280,22 @@ type IError = {
          * Overflow ocurred when calculating the inverse rate.
          */
         Overflow: PlainDescriptor<undefined>;
+    };
+    AssetsHolder: {
+        /**
+         * Number of holds on an account would exceed the count of `RuntimeHoldReason`.
+         */
+        TooManyHolds: PlainDescriptor<undefined>;
+    };
+    OriginRestriction: {
+        /**
+         * The origin has no usage tracked.
+         */
+        NoUsage: PlainDescriptor<undefined>;
+        /**
+         * The usage is not zero.
+         */
+        NotZero: PlainDescriptor<undefined>;
     };
     CollatorSelection: {
         /**
@@ -7532,12 +7638,6 @@ type IError = {
          */
         AlreadyStored: PlainDescriptor<undefined>;
     };
-    Sudo: {
-        /**
-         * Sender must be the Sudo account.
-         */
-        RequireSudo: PlainDescriptor<undefined>;
-    };
     Proxy: {
         /**
          * There are too many proxies registered or too many announcements pending.
@@ -7577,10 +7677,6 @@ type IError = {
          * Too many subs-accounts.
          */
         TooManySubAccounts: PlainDescriptor<undefined>;
-        /**
-         * No alias found for an account.
-         */
-        NoAlias: PlainDescriptor<undefined>;
         /**
          * Account isn't found.
          */
@@ -7630,10 +7726,6 @@ type IError = {
          */
         AlreadyClaimed: PlainDescriptor<undefined>;
         /**
-         * Username has already been reported.
-         */
-        AlreadyReported: PlainDescriptor<undefined>;
-        /**
          * Sender is not a sub-account.
          */
         NotSub: PlainDescriptor<undefined>;
@@ -7682,10 +7774,6 @@ type IError = {
          */
         NoUsername: PlainDescriptor<undefined>;
         /**
-         * The reported username was not provided by the system.
-         */
-        NotSystemProvidedUsername: PlainDescriptor<undefined>;
-        /**
          * The username cannot be forcefully removed because it can still be accepted.
          */
         NotExpired: PlainDescriptor<undefined>;
@@ -7706,38 +7794,6 @@ type IError = {
          * trying to unbind a username provided by the system).
          */
         InsufficientPrivileges: PlainDescriptor<undefined>;
-        /**
-         * The context in which the alias was used is not supported.
-         */
-        BadContext: PlainDescriptor<undefined>;
-        /**
-         * No associated request for the judgement received.
-         */
-        UnexpectedJudgement: PlainDescriptor<undefined>;
-        /**
-         * The social credential is not supported by the configured identity information provider.
-         */
-        NotSupported: PlainDescriptor<undefined>;
-        /**
-         * The person is banned and cannot perform the operation.
-         */
-        Banned: PlainDescriptor<undefined>;
-        /**
-         * The person already has a personal identity associated with their alias.
-         */
-        AlreadyRegistered: PlainDescriptor<undefined>;
-        /**
-         * The list of judgements ongoing on a personal identity is full.
-         */
-        JudgementListFull: PlainDescriptor<undefined>;
-        /**
-         * The username has been reported too recently.
-         */
-        LastUsernameReportTooRecent: PlainDescriptor<undefined>;
-        /**
-         * The username has been reported and is undergoing validity judgement.
-         */
-        UsernameJudgementOngoing: PlainDescriptor<undefined>;
     };
     People: {
         /**
@@ -8244,35 +8300,22 @@ type IError = {
          */
         InvalidState: PlainDescriptor<undefined>;
         /**
-         * No concluded game with available scratch card rewards.
+         * `set_play_deposit`: the supplied amount must be non-zero.
          */
-        NoScratchReward: PlainDescriptor<undefined>;
+        InvalidPlayDeposit: PlainDescriptor<undefined>;
         /**
-         * The player is not eligible for the current scratch card reward.
+        
          */
-        NotEligible: PlainDescriptor<undefined>;
+        InvalidAirdropVrfVariantForAccount: PlainDescriptor<undefined>;
         /**
-         * The person did not win the scratch card for this game.
+        
          */
-        DidNotWin: PlainDescriptor<undefined>;
+        InvalidAirdropVrfVariantForRecognition: PlainDescriptor<undefined>;
         /**
-         * The alias has already claimed a scratch card reward.
+         * `claim_airdrop`: the claimant is not recognized in pallet-score, or their most recent
+         * attended game does not match the `game_index` of the airdrop.
          */
-        AlreadyClaimed: PlainDescriptor<undefined>;
-        /**
-         * The scratch card pot balance is zero.
-         */
-        ScratchPotEmpty: PlainDescriptor<undefined>;
-        /**
-         * `claim_game_prize`: `pool_id` is not a `GameParticipants` pool (or no
-         * such pool exists).
-         */
-        PoolNotForGame: PlainDescriptor<undefined>;
-        /**
-         * `claim_game_prize`: the resolved origin identity has no recorded
-         * attendance for the pool's game.
-         */
-        NotParticipant: PlainDescriptor<undefined>;
+        NotEligibleForAirdrop: PlainDescriptor<undefined>;
     };
     Score: {
         /**
@@ -8356,9 +8399,36 @@ type IError = {
          */
         AllowedMissesTooLarge: PlainDescriptor<undefined>;
         /**
-         * Tiers must be sorted by ascending `population_size_threshold`.
+         * Absence-grace tiers must be sorted by ascending `population_size_threshold`.
          */
-        ScheduleNotSorted: PlainDescriptor<undefined>;
+        AbsenceScheduleNotSorted: PlainDescriptor<undefined>;
+        /**
+         * The personhood-threshold schedule must contain at least one tier.
+         */
+        PersonhoodScheduleEmpty: PlainDescriptor<undefined>;
+        /**
+         * A personhood-threshold tier has `score_threshold == 0`.
+         */
+        PersonhoodScoreThresholdZero: PlainDescriptor<undefined>;
+        /**
+         * A personhood-threshold tier exceeds `MAX_PERSONHOOD_THRESHOLD`.
+         */
+        PersonhoodScoreThresholdTooLarge: PlainDescriptor<undefined>;
+        /**
+         * Personhood-threshold tiers must be sorted by ascending
+         * `population_size_threshold`.
+         */
+        PersonhoodScheduleNotSorted: PlainDescriptor<undefined>;
+        /**
+         * Personhood-threshold `score_threshold` values must be non-decreasing
+         * across tiers (a larger population must not have a lower bar).
+         */
+        PersonhoodScheduleNotMonotonic: PlainDescriptor<undefined>;
+        /**
+         * The last personhood-threshold tier must cover all populations
+         * (`population_size_threshold == u32::MAX`).
+         */
+        PersonhoodScheduleNotTotal: PlainDescriptor<undefined>;
     };
     DummyDim: {
         /**
@@ -8653,43 +8723,43 @@ type IError = {
     };
     Coinage: {
         /**
-
+        
          */
         MemberKeyAlreadyUsed: PlainDescriptor<undefined>;
         /**
-
+        
          */
         InvalidMemberKey: PlainDescriptor<undefined>;
         /**
-
+        
          */
         InternalError: PlainDescriptor<undefined>;
         /**
-
+        
          */
         RecyclerAlreadyUnloaded: PlainDescriptor<undefined>;
         /**
-
+        
          */
         InvalidConsolidation: PlainDescriptor<undefined>;
         /**
-
+        
          */
         ConsolidationTooBig: PlainDescriptor<undefined>;
         /**
-
+        
          */
         CoinValueTooBig: PlainDescriptor<undefined>;
         /**
-
+        
          */
         CoinValueTooSmall: PlainDescriptor<undefined>;
         /**
-
+        
          */
         CoinValueIsLessThanFee: PlainDescriptor<undefined>;
         /**
-
+        
          */
         CoinValueOutOfBound: PlainDescriptor<undefined>;
         /**
@@ -8698,35 +8768,35 @@ type IError = {
          */
         LossyCoinValueConversion: PlainDescriptor<undefined>;
         /**
-
+        
          */
         InvalidAliasProof: PlainDescriptor<undefined>;
         /**
-
+        
          */
         NoUnloadingRecycler: PlainDescriptor<undefined>;
         /**
-
+        
          */
         ProofAndAliasMismatch: PlainDescriptor<undefined>;
         /**
-
+        
          */
         NothingToBuild: PlainDescriptor<undefined>;
         /**
-
+        
          */
         TooManyRings: PlainDescriptor<undefined>;
         /**
-
+        
          */
         AddressAlreadyHasCoin: PlainDescriptor<undefined>;
         /**
-
+        
          */
         InvalidProofOfOwnership: PlainDescriptor<undefined>;
         /**
-
+        
          */
         EmptyInputs: PlainDescriptor<undefined>;
         /**
@@ -8746,7 +8816,7 @@ type IError = {
          */
         InvalidRecyclerRevision: PlainDescriptor<undefined>;
         /**
-
+        
          */
         InvalidSplit: PlainDescriptor<undefined>;
         /**
@@ -8754,7 +8824,7 @@ type IError = {
          */
         FreshCoinRequired: PlainDescriptor<undefined>;
         /**
-
+        
          */
         CannotConvertNativeToAsset: PlainDescriptor<undefined>;
         /**
@@ -8773,6 +8843,18 @@ type IError = {
          * The recycler collection does not exist and could not be created on-demand.
          */
         CannotCreateRecyclerCollection: PlainDescriptor<undefined>;
+        /**
+         * The underlying asset id has not been set yet.
+         */
+        AssetIdNotSet: PlainDescriptor<undefined>;
+        /**
+         * The underlying asset id has already been set and cannot be changed.
+         */
+        AssetIdAlreadySet: PlainDescriptor<undefined>;
+        /**
+         * The proposed underlying asset id does not exist in [`Config::Fungibles`].
+         */
+        UnknownAsset: PlainDescriptor<undefined>;
     };
     MembersNotifier: {
         /**
@@ -8830,72 +8912,105 @@ type IError = {
     };
     Airdrop: {
         /**
-         * The prize must be at least the asset's minimum balance.
+        
          */
-        PrizeMustBeMoreOrEqualToMinBalance: PlainDescriptor<undefined>;
+        PrizeBelowMinBalance: PlainDescriptor<undefined>;
         /**
-         * Validity exceeds `MaxValiditySeconds`.
+        
          */
-        ValidityTooLong: PlainDescriptor<undefined>;
+        NoWinnersConfigured: PlainDescriptor<undefined>;
         /**
-         * Validity is below `MinValiditySeconds`.
+        
          */
-        ValidityTooShort: PlainDescriptor<undefined>;
+        TooManyWinners: PlainDescriptor<undefined>;
         /**
-         * `num_prizes` must be greater than zero.
+        
          */
-        NoPrizes: PlainDescriptor<undefined>;
+        InvalidEventTimes: PlainDescriptor<undefined>;
         /**
-         * Funding account does not cover `prize_value * num_prizes`.
+        
          */
-        InsufficientFunds: PlainDescriptor<undefined>;
+        DuplicateEventId: PlainDescriptor<undefined>;
         /**
-         * `MAX_CONCURRENT_PRIZE_POOLS` is full.
+        
          */
-        TooManyConcurrentPrizePools: PlainDescriptor<undefined>;
+        NoScheduledEvent: PlainDescriptor<undefined>;
         /**
-         * `pool_id` is not in `PrizePools`.
+        
          */
-        NoSuchPrizePool: PlainDescriptor<undefined>;
+        UnknownEvent: PlainDescriptor<undefined>;
         /**
-         * Prize pool has expired (`now >= expires_at`).
+         * Operation requires a specific status the event isn't in.
          */
-        PrizePoolExpired: PlainDescriptor<undefined>;
+        WrongStatus: PlainDescriptor<undefined>;
         /**
-         * Prize pool has no remaining prizes.
+        
          */
-        PrizePoolExhausted: PlainDescriptor<undefined>;
+        NotAcceptingRegistrations: PlainDescriptor<undefined>;
         /**
-         * Caller's identity has already claimed from this pool.
+        
          */
-        AlreadyClaimed: PlainDescriptor<undefined>;
+        NotClaiming: PlainDescriptor<undefined>;
         /**
-         * Arithmetic overflow when computing the per-pool hold amount.
+         * Claim attempted after the event's `end_time`.
          */
-        PoolValueOverflow: PlainDescriptor<undefined>;
+        ClaimingWindowClosed: PlainDescriptor<undefined>;
         /**
-         * [`AirdropApi::claim_game_prize`] was called on a pool whose target is not
-         * `GameParticipants` (the trait method is for game pools only).
+        
          */
-        WrongTarget: PlainDescriptor<undefined>;
+        EntropySlotTaken: PlainDescriptor<undefined>;
         /**
-         * Claimant's winner-hash is not below the pool's threshold.
+        
          */
-        DidNotWin: PlainDescriptor<undefined>;
+        InvalidVrfProof: PlainDescriptor<undefined>;
         /**
-         * Ring-membership proof failed to verify against `PEOPLE_LITE_IDENTIFIER`.
+         * Supplied account id does not correspond to any sr25519 public key.
+         */
+        UnsupportedAccountKey: PlainDescriptor<undefined>;
+        /**
+        
+         */
+        InvalidMembershipProof: PlainDescriptor<undefined>;
+        /**
+        
+         */
+        NoSuchWinner: PlainDescriptor<undefined>;
+        /**
+        
+         */
+        ParticipantOverflow: PlainDescriptor<undefined>;
+        /**
+        
+         */
+        PrizeAllocationOverflow: PlainDescriptor<undefined>;
+        /**
+         * The prize asset has not been enabled via `enable_asset`.
+         */
+        AssetNotEnabled: PlainDescriptor<undefined>;
+        /**
+         * `enable_asset` was called for an asset that is already enabled.
+         */
+        AssetAlreadyEnabled: PlainDescriptor<undefined>;
+    };
+    Honour: {
+        /**
+         * Arithmetic error like over/underflow, division by zero or similar.
+         */
+        Arithmetic: PlainDescriptor<undefined>;
+        /**
+         * There is already a vote by the same voter for the same subject.
+         */
+        SubjectAlreadyVoted: PlainDescriptor<undefined>;
+        /**
+         * The provided ring proof failed verification.
          */
         InvalidProof: PlainDescriptor<undefined>;
-        /**
-         * Supplied `alias` does not match the alias the proof verifies to.
-         */
-        AliasMismatch: PlainDescriptor<undefined>;
     };
-    MultiBlockMigrations: {
+    Sudo: {
         /**
-         * The operation cannot complete since some MBMs are ongoing.
+         * Sender must be the Sudo account.
          */
-        Ongoing: PlainDescriptor<undefined>;
+        RequireSudo: PlainDescriptor<undefined>;
     };
 };
 type IConstants = {
@@ -8945,6 +9060,22 @@ type IConstants = {
          * period on default settings.
          */
         MinimumPeriod: PlainDescriptor<bigint>;
+    };
+    MultiBlockMigrations: {
+        /**
+         * The maximal length of an encoded cursor.
+         *
+         * A good default needs to selected such that no migration will ever have a cursor with MEL
+         * above this limit. This is statically checked in `integrity_test`.
+         */
+        CursorMaxLen: PlainDescriptor<number>;
+        /**
+         * The maximal length of an encoded identifier.
+         *
+         * A good default needs to selected such that no migration will ever have an identifier
+         * with MEL above this limit. This is statically checked in `integrity_test`.
+         */
+        IdentifierMaxLen: PlainDescriptor<number>;
     };
     Balances: {
         /**
@@ -9058,7 +9189,7 @@ type IConstants = {
          */
         MaxInvulnerables: PlainDescriptor<number>;
         /**
-
+        
          */
         KickThreshold: PlainDescriptor<number>;
         /**
@@ -9250,28 +9381,14 @@ type IConstants = {
          */
         SubAccountDeposit: PlainDescriptor<bigint>;
         /**
-         * The amount held on deposit per reported username.
-         */
-        UsernameReportDeposit: PlainDescriptor<bigint>;
-        /**
          * The maximum number of sub-accounts allowed per identified account.
          */
         MaxSubAccounts: PlainDescriptor<number>;
-        /**
-         * The number of blocks that have to pass between the last time a given username was
-         * reported and now in order to be able to report it again. In other words, it represents
-         * the username validity safety period.
-         */
-        UsernameReportTimeout: PlainDescriptor<number>;
         /**
          * Maximum number of registrars allowed in the system. Needed to bound the complexity
          * of, e.g., updating judgements.
          */
         MaxRegistrars: PlainDescriptor<number>;
-        /**
-         * Maximum number of judgements per personal identity allowed in the system.
-         */
-        MaxJudgements: PlainDescriptor<number>;
         /**
          * The number of blocks within which a username grant must be accepted.
          */
@@ -9289,20 +9406,6 @@ type IConstants = {
          * The maximum length of a username, including its suffix and any system-added delimiters.
          */
         MaxUsernameLength: PlainDescriptor<number>;
-        /**
-         * The minimum length of a username or suffix.
-         */
-        MinUsernameLength: PlainDescriptor<number>;
-        /**
-         * The fee that a person must pay through their associated on-chain account in order to
-         * remove their identity.
-         */
-        CredentialRemovalPenalty: PlainDescriptor<bigint>;
-        /**
-         * The context used for the proofs required to authenticate as a personal alias in
-         * identity.
-         */
-        identity_context: PlainDescriptor<SizedHex<32>>;
     };
     People: {
         /**
@@ -9416,6 +9519,12 @@ type IConstants = {
          * The maximum number of rounds in a game.
          *
          * Note: the actual number of rounds is configured per game.
+         *
+         * TODO: if this bound is raised meaningfully (e.g. above ~5) or when time allows,
+         * revisit the `process_players` and `report` benchmarks to add a `Linear<1, MaxRounds>`
+         * sweep. Currently they bench at fixed `MaxRounds` so games with fewer
+         * rounds overpay for per-round work.
+         * See <https://github.com/paritytech/individuality/issues/244>
          */
         MaxRounds: PlainDescriptor<number>;
         /**
@@ -9442,9 +9551,15 @@ type IConstants = {
          */
         NonPlayingKickoutTime: PlainDescriptor<number>;
         /**
-         * The durations of each game phase, in seconds.
+         * The default play deposit (native balance) used when [`PlayDepositAmount`] has never
+         * been explicitly configured.
          */
-        PhaseDurations: PlainDescriptor<Anonymize<I644th47nna91b>>;
+        DefaultPlayDeposit: PlainDescriptor<bigint>;
+        /**
+         * The default durations of each game phase, in seconds. Overridden at
+         * runtime via [`Pallet::set_game_phases`].
+         */
+        DefaultPhaseDurations: PlainDescriptor<Anonymize<I1mvbp74tfuinr>>;
         /**
          * The Maximum number of game schedules the pallet can store.
          */
@@ -9455,10 +9570,10 @@ type IConstants = {
          */
         MaxAttendanceHistoryDepth: PlainDescriptor<number>;
         /**
-         * Fixed reward amount per scratch card winner. The actual payout is
-         * `min(pot_balance, RewardPerWinner)`.
+         * Account that funds the per-game airdrop prize allocation
+         * (`max_winners × asset_amount` is transferred per scheduled game).
          */
-        RewardPerWinner: PlainDescriptor<bigint>;
+        AirdropSource: PlainDescriptor<SS58String>;
         /**
          * The base message of the proof of ownership of an account by an alias.
          *
@@ -9466,6 +9581,19 @@ type IConstants = {
          * `blake2_256` (blake2 with 256 bit output).
          */
         proof_of_ownership_msg_base: PlainDescriptor<SizedHex<32>>;
+        /**
+         * Maximum number of full early-attendance enactments a single `report` call can
+         * trigger: every unique co-player across all rounds, plus the reporter.
+         *
+         * Used both as the pre-dispatch overcharge bound on `report` and as the
+         * upper bound of its `Linear` benchmark component.
+         */
+        max_enactments: PlainDescriptor<number>;
+        /**
+         * The base string for the airdrop event ID derivation. The actual event ID is this base
+         * concatenated with the game index BE encoded.
+         */
+        airdrop_event_id_base: PlainDescriptor<SizedHex<28>>;
     };
     Score: {
         /**
@@ -9485,10 +9613,6 @@ type IConstants = {
          * pallet.
          */
         score_context: PlainDescriptor<SizedHex<32>>;
-        /**
-         * The number of points received when attending as a recognized person.
-         */
-        ubi_points: PlainDescriptor<number>;
     };
     PeopleLite: {
         /**
@@ -9552,6 +9676,13 @@ type IConstants = {
          * statement store allowance entry within the same period.
          */
         StmtStoreReplacementCooldown: PlainDescriptor<number>;
+        /**
+         * Extra time, in seconds, during which statement-store allowances from an ended period
+         * remain active before cleanup may revoke them.
+         *
+         * After this elapses, the allowances will eventually be cleaned by the OCW.
+         */
+        StmtStoreGraceWindow: PlainDescriptor<number>;
         /**
          * The Statement Store allowance for friend request statement registration.
          */
@@ -9681,10 +9812,6 @@ type IConstants = {
          */
         PaidUnloadTokenRingExponent: PlainDescriptor<Anonymize<Idvob66qflhcgd>>;
         /**
-         * The asset id of the underlying asset of the coins.
-         */
-        UnderlyingAssetId: PlainDescriptor<Anonymize<If9iqq7i64mur8>>;
-        /**
          * The unit of the underlying asset of the coins.
          */
         UnderlyingAssetUnit: PlainDescriptor<bigint>;
@@ -9807,46 +9934,62 @@ type IConstants = {
     };
     Airdrop: {
         /**
-         * Lower bound on a prize pool's `validity` (in seconds). A pool whose validity is
-         * below this is rejected with [`Error::ValidityTooShort`] — the floor exists so
-         * claimants have at least a minimum window in which to submit before the pool
-         * auto-cleans-up.
+         * Pallet id used to derive the prize pot account.
          */
-        MinValiditySeconds: PlainDescriptor<number>;
+        PalletId: PlainDescriptor<SizedHex<8>>;
         /**
-         * Upper bound on a prize pool's `validity` (in seconds). Bounds the lifetime of
-         * `PrizePoolClaims` entries for a single pool. Default chosen by the runtime;
-         * the spec recommends one week (`604_800`).
+         * Maximum number of registration entries processed per
+         * `clean_up_{registrations,winners}_authorized` invocation.
          */
-        MaxValiditySeconds: PlainDescriptor<number>;
+        ClearLimit: PlainDescriptor<number>;
         /**
-         * Maximum number of `PrizePoolClaims` entries to drop per `on_poll` tick when
-         * cleaning up an expired prize pool.
+         * Maximum number of winner slots inserted per `draw_winners_authorized` call.
          */
-        PrizePoolClearLimit: PlainDescriptor<number>;
+        DrawLimit: PlainDescriptor<number>;
         /**
-         * The account id for the airdrop pot.
+         * How frequently the offchain worker fires (in blocks).
+         */
+        OffchainWorkerInterval: PlainDescriptor<number>;
+        /**
+         * Account id of the prize pot.
          */
         airdrop_pot_id: PlainDescriptor<SS58String>;
     };
-    MultiBlockMigrations: {
+    Honour: {
         /**
-         * The maximal length of an encoded cursor.
-         *
-         * A good default needs to selected such that no migration will ever have a cursor with MEL
-         * above this limit. This is statically checked in `integrity_test`.
+         * Duration in seconds that must pass before a point can be reused.
          */
-        CursorMaxLen: PlainDescriptor<number>;
+        PointFreezeDuration: PlainDescriptor<bigint>;
         /**
-         * The maximal length of an encoded identifier.
-         *
-         * A good default needs to selected such that no migration will ever have an identifier
-         * with MEL above this limit. This is statically checked in `integrity_test`.
+         * Duration in seconds a `bestow` call remains valid after its `call_valid_from`.
          */
-        IdentifierMaxLen: PlainDescriptor<number>;
+        CallMortality: PlainDescriptor<bigint>;
     };
 };
 type IViewFns = {
+    MultiBlockMigrations: {
+        /**
+         * Returns the ongoing status of migrations.
+         */
+        ongoing_status: RuntimeDescriptor<[], Anonymize<I9vodnt2k1kha>>;
+        /**
+         * Returns progress information about the current migration, if any.
+         *
+         * This function provides detailed information about the current migration's progress,
+         * including the number of steps completed and the maximum allowed steps.
+         */
+        progress: RuntimeDescriptor<[], Anonymize<I4ao1le27fcisl>>;
+        /**
+         * Returns the storage prefixes affected by the current migration.
+         *
+         * Can be empty if the migration does not know or there are no prefixes.
+         */
+        affected_prefixes: RuntimeDescriptor<[], Anonymize<Itom7fk49o0c9>>;
+        /**
+         * Returns the comprehensive status of multi-block migrations.
+         */
+        status: RuntimeDescriptor<[], Anonymize<Ih4ursllob8fg>>;
+    };
     Assets: {
         /**
          * Provide the asset details for asset `id`.
@@ -9869,11 +10012,11 @@ type IViewFns = {
         /**
          * Check if a `RuntimeCall` is allowed for a given `ProxyType`.
          */
-        check_permissions: RuntimeDescriptor<[call: Anonymize<Ic6sunr27jf8hd>, proxy_type: Anonymize<Ieuemnllefri8h>], boolean>;
+        check_permissions: RuntimeDescriptor<[call: Anonymize<I4ihpihsujp5nb>, proxy_type: Anonymize<Ijtujq69eb376>], boolean>;
         /**
          * Check if one `ProxyType` is a subset of another `ProxyType`.
          */
-        is_superset: RuntimeDescriptor<[to_check: Anonymize<Ieuemnllefri8h>, against: Anonymize<Ieuemnllefri8h>], boolean>;
+        is_superset: RuntimeDescriptor<[to_check: Anonymize<Ijtujq69eb376>, against: Anonymize<Ijtujq69eb376>], boolean>;
     };
     Resources: {
         /**
@@ -9952,12 +10095,12 @@ type IViewFns = {
          */
         is_paid_token_member: RuntimeDescriptor<[member: SizedHex<32>], boolean>;
         /**
-         * Get the members of a recycler ring (the anonymity set).
+         * Get the members of a recycler ring.
          * Required to build the ring commitment (accumulator) for the proof.
          */
         get_recycler_members: RuntimeDescriptor<[value: number, index: number], Anonymize<Ic5m5lp1oioo8r>>;
         /**
-         * Get the members of a paid token ring (the anonymity set).
+         * Get the members of a paid token ring.
          * Required to build the ring commitment (accumulator) for the proof.
          */
         get_paid_token_ring_members: RuntimeDescriptor<[period: number, index: number], Anonymize<Ic5m5lp1oioo8r>>;
@@ -9987,29 +10130,6 @@ type IViewFns = {
          * `MinimumExponentForOutputUnloadFee`.
          */
         weight_for_unload_recycler_paying_using_output: RuntimeDescriptor<[], Anonymize<I4q39t5hn830vp>>;
-    };
-    MultiBlockMigrations: {
-        /**
-         * Returns the ongoing status of migrations.
-         */
-        ongoing_status: RuntimeDescriptor<[], Anonymize<I9vodnt2k1kha>>;
-        /**
-         * Returns progress information about the current migration, if any.
-         *
-         * This function provides detailed information about the current migration's progress,
-         * including the number of steps completed and the maximum allowed steps.
-         */
-        progress: RuntimeDescriptor<[], Anonymize<I4ao1le27fcisl>>;
-        /**
-         * Returns the storage prefixes affected by the current migration.
-         *
-         * Can be empty if the migration does not know or there are no prefixes.
-         */
-        affected_prefixes: RuntimeDescriptor<[], Anonymize<Itom7fk49o0c9>>;
-        /**
-         * Returns the comprehensive status of multi-block migrations.
-         */
-        status: RuntimeDescriptor<[], Anonymize<Ih4ursllob8fg>>;
     };
 };
 type IRuntimeCalls = {
@@ -10110,15 +10230,6 @@ type IRuntimeCalls = {
         metadata_versions: RuntimeDescriptor<[], Anonymize<Icgljjb6j82uhn>>;
     };
     /**
-     * Runtime API for executing view functions
-     */
-    RuntimeViewFunction: {
-        /**
-         * Execute a view function query.
-         */
-        execute_view_function: RuntimeDescriptor<[query_id: Anonymize<I4gil44d08grh>, input: Uint8Array], Anonymize<I7u915mvkdsb08>>;
-    };
-    /**
      * The `BlockBuilder` api trait that provides the required functionality for building a block.
      */
     BlockBuilder: {
@@ -10128,7 +10239,7 @@ type IRuntimeCalls = {
          * Returns an inclusion outcome which specifies if this extrinsic is included in
          * this block or not.
          */
-        apply_extrinsic: RuntimeDescriptor<[extrinsic: Uint8Array], Anonymize<I36df3b03i92s9>>;
+        apply_extrinsic: RuntimeDescriptor<[extrinsic: Uint8Array], Anonymize<Idpqrnnbdf862h>>;
         /**
          * Finish the current block.
          */
@@ -10190,6 +10301,15 @@ type IRuntimeCalls = {
         decode_session_keys: RuntimeDescriptor<[encoded: Uint8Array], Anonymize<Icerf8h8pdu8ss>>;
     };
     /**
+     * Runtime API for executing view functions
+     */
+    RuntimeViewFunction: {
+        /**
+         * Execute a view function query.
+         */
+        execute_view_function: RuntimeDescriptor<[query_id: Anonymize<I4gil44d08grh>, input: Uint8Array], Anonymize<I7u915mvkdsb08>>;
+    };
+    /**
      * The API to query account nonce.
      */
     AccountNonceApi: {
@@ -10199,38 +10319,38 @@ type IRuntimeCalls = {
         account_nonce: RuntimeDescriptor<[account: SS58String], number>;
     };
     /**
-
+    
      */
     TransactionPaymentApi: {
         /**
-
+        
          */
         query_info: RuntimeDescriptor<[uxt: Uint8Array, len: number], Anonymize<I6spmpef2c7svf>>;
         /**
-
+        
          */
         query_fee_details: RuntimeDescriptor<[uxt: Uint8Array, len: number], Anonymize<Iei2mvq0mjvt81>>;
         /**
-
+        
          */
         query_weight_to_fee: RuntimeDescriptor<[weight: Anonymize<I4q39t5hn830vp>], bigint>;
         /**
-
+        
          */
         query_length_to_fee: RuntimeDescriptor<[length: number], bigint>;
     };
     /**
-
+    
      */
     TransactionPaymentCallApi: {
         /**
          * Query information of a dispatch class, weight, and fee of a given encoded `Call`.
          */
-        query_call_info: RuntimeDescriptor<[call: Anonymize<Ic6sunr27jf8hd>, len: number], Anonymize<I6spmpef2c7svf>>;
+        query_call_info: RuntimeDescriptor<[call: Anonymize<I4ihpihsujp5nb>, len: number], Anonymize<I6spmpef2c7svf>>;
         /**
          * Query fee details of a given encoded `Call`.
          */
-        query_call_fee_details: RuntimeDescriptor<[call: Anonymize<Ic6sunr27jf8hd>, len: number], Anonymize<Iei2mvq0mjvt81>>;
+        query_call_fee_details: RuntimeDescriptor<[call: Anonymize<I4ihpihsujp5nb>, len: number], Anonymize<Iei2mvq0mjvt81>>;
         /**
          * Query the output of the current `WeightToFee` given some input.
          */
@@ -10308,11 +10428,11 @@ type IRuntimeCalls = {
         /**
          * Dry run call V2.
          */
-        dry_run_call: RuntimeDescriptor<[origin: Anonymize<I3l05tjm1loph7>, call: Anonymize<Ic6sunr27jf8hd>, result_xcms_version: number], Anonymize<Ibtr2nt1h0uqqj>>;
+        dry_run_call: RuntimeDescriptor<[origin: Anonymize<I2vjn8o312puvk>, call: Anonymize<I4ihpihsujp5nb>, result_xcms_version: number], Anonymize<Iegq33n3epfpgf>>;
         /**
          * Dry run XCM program
          */
-        dry_run_xcm: RuntimeDescriptor<[origin_location: XcmVersionedLocation, xcm: XcmVersionedXcm], Anonymize<I903fknvm1u4c2>>;
+        dry_run_xcm: RuntimeDescriptor<[origin_location: XcmVersionedLocation, xcm: XcmVersionedXcm], Anonymize<Id2985f3a6u3ib>>;
     };
     /**
      * API for useful conversions between XCM `Location` and `AccountId`.
@@ -10322,6 +10442,65 @@ type IRuntimeCalls = {
          * Converts `Location` to `AccountId`.
          */
         convert_location: RuntimeDescriptor<[location: XcmVersionedLocation], Anonymize<Ieh6nis3hdbtgi>>;
+    };
+    /**
+     * API for querying trusted reserves and trusted teleporters.
+     */
+    TrustedQueryApi: {
+        /**
+         * Returns if the location is a trusted reserve for the asset.
+         *
+         * # Arguments
+         * * `asset`: `VersionedAsset`.
+         * * `location`: `VersionedLocation`.
+         */
+        is_trusted_reserve: RuntimeDescriptor<[asset: XcmVersionedAsset, location: XcmVersionedLocation], Anonymize<Icujp6hmv35vbn>>;
+        /**
+         * Returns if the asset can be teleported to the location.
+         *
+         * # Arguments
+         * * `asset`: `VersionedAsset`.
+         * * `location`: `VersionedLocation`.
+         */
+        is_trusted_teleporter: RuntimeDescriptor<[asset: XcmVersionedAsset, location: XcmVersionedLocation], Anonymize<Icujp6hmv35vbn>>;
+    };
+    /**
+     * API for querying XCM authorized aliases
+     */
+    AuthorizedAliasersApi: {
+        /**
+         * Returns locations allowed to alias into and act as `target`.
+         */
+        authorized_aliasers: RuntimeDescriptor<[target: XcmVersionedLocation], Anonymize<I4tjame31218k9>>;
+        /**
+         * Returns whether `origin` is allowed to alias into and act as `target`.
+         */
+        is_authorized_alias: RuntimeDescriptor<[origin: XcmVersionedLocation, target: XcmVersionedLocation], Anonymize<I5gif8vomct5i8>>;
+    };
+    /**
+     * Runtime api to collect information about a collation.
+     *
+     * Version history:
+     * - Version 2: Changed [`Self::collect_collation_info`] signature
+     * - Version 3: Signals to the node to use version 1 of [`ParachainBlockData`].
+     */
+    CollectCollationInfo: {
+        /**
+         * Collect information about a collation.
+         *
+         * The given `header` is the header of the built block for that
+         * we are collecting the collation info for.
+         */
+        collect_collation_info: RuntimeDescriptor<[header: Anonymize<Ic952bubvq4k7d>], Anonymize<Ic1d4u2opv3fst>>;
+    };
+    /**
+     * Runtime api used to access general info about a parachain runtime.
+     */
+    GetParachainInfo: {
+        /**
+         * Retrieve the parachain id used for runtime.
+         */
+        parachain_id: RuntimeDescriptor<[], number>;
     };
     /**
      * The API to query the rewards for mob credit.
@@ -10351,22 +10530,6 @@ type IRuntimeCalls = {
          * Returns the deposit necessary to play a game.
          */
         play_deposit: RuntimeDescriptor<[], bigint>;
-    };
-    /**
-     * Runtime api to collect information about a collation.
-     *
-     * Version history:
-     * - Version 2: Changed [`Self::collect_collation_info`] signature
-     * - Version 3: Signals to the node to use version 1 of [`ParachainBlockData`].
-     */
-    CollectCollationInfo: {
-        /**
-         * Collect information about a collation.
-         *
-         * The given `header` is the header of the built block for that
-         * we are collecting the collation info for.
-         */
-        collect_collation_info: RuntimeDescriptor<[header: Anonymize<Ic952bubvq4k7d>], Anonymize<Ic1d4u2opv3fst>>;
     };
     /**
      * API to interact with `RuntimeGenesisConfig` for the runtime
@@ -10411,14 +10574,17 @@ type IRuntimeCalls = {
         preset_names: RuntimeDescriptor<[], Anonymize<I6lr8sctk0bi4e>>;
     };
 };
-export type People_liteDispatchError = Anonymize<Ib1rdh37tsufsr>;
+export type People_liteDispatchError = Anonymize<I5qui0u525q0tn>;
 type IAsset = PlainDescriptor<Anonymize<If9iqq7i64mur8>>;
 export type People_liteExtensions = {
+    "AuthorizeValueTransfer": {
+        value: Anonymize<I40k710moo3ghm>;
+    };
     "VerifyMultiSignature": {
         value: Anonymize<Id3vovj0ihlrsb>;
     };
     "AsPerson": {
-        value: Anonymize<I1rmvc8k7ssl0>;
+        value: Anonymize<I6i9m7o2et1j4d>;
     };
     "AsProofOfInkParticipant": {
         value: Anonymize<I4rnuci7kia2r1>;
@@ -10430,16 +10596,19 @@ export type People_liteExtensions = {
         value: Anonymize<I6k0juar2doko8>;
     };
     "PeopleLiteAuth": {
-        value: Anonymize<I6ul9o7lquu20t>;
+        value: Anonymize<I9187oseptvbg4>;
     };
     "AsMember": {
-        value: Anonymize<Iffdld0va52cu6>;
+        value: Anonymize<Id5fnv3e135pfi>;
     };
     "AsCoinage": {
-        value: Anonymize<I98dq16mf7vpj3>;
+        value: Anonymize<I7ohvr4mqgjtpu>;
     };
     "AsResources": {
-        value: Anonymize<Ic3b9c1lrhkh77>;
+        value: Anonymize<I1aakk85jiarum>;
+    };
+    "HonourAuth": {
+        value: Anonymize<Ie5q72utgevbaq>;
     };
     "RestrictOrigins": {
         value: boolean;
@@ -10473,7 +10642,7 @@ export type People_liteEvents = EventsFromPalletsDef<PalletsTypedef>;
 export type People_liteErrors = ErrorsFromPalletsDef<PalletsTypedef>;
 export type People_liteConstants = ConstFromPalletsDef<PalletsTypedef>;
 export type People_liteViewFns = ViewFnsFromPalletsDef<PalletsTypedef>;
-export type People_liteCallData = Anonymize<Ic6sunr27jf8hd> & {
+export type People_liteCallData = Anonymize<I4ihpihsujp5nb> & {
     value: {
         type: string;
     };
@@ -10484,12 +10653,13 @@ type AllInteractions = {
         ParachainSystem: ['BlockWeightMode', 'PreviousCoreCount', 'UnincludedSegment', 'AggregatedUnincludedSegment', 'PendingValidationCode', 'NewValidationCode', 'ValidationData', 'DidSetValidationCode', 'LastRelayChainBlockNumber', 'UpgradeRestrictionSignal', 'UpgradeGoAhead', 'RelayStateProof', 'RelevantMessagingState', 'HostConfiguration', 'LastDmqMqcHead', 'LastHrmpMqcHeads', 'ProcessedDownwardMessages', 'LastProcessedDownwardMessage', 'HrmpWatermark', 'LastProcessedHrmpMessage', 'HrmpOutboundMessages', 'UpwardMessages', 'PendingUpwardMessages', 'PendingUpwardSignals', 'PendingApprovedPeer', 'UpwardDeliveryFeeFactor', 'AnnouncedHrmpMessagesPerCandidate', 'ReservedXcmpWeightOverride', 'ReservedDmpWeightOverride', 'CustomValidationHeadData', 'PoVMessagesTracker'];
         Timestamp: ['Now', 'DidUpdate'];
         ParachainInfo: ['ParachainId'];
+        MultiBlockMigrations: ['Cursor', 'Historic'];
         Balances: ['TotalIssuance', 'InactiveIssuance', 'Account', 'Locks', 'Reserves', 'Holds', 'Freezes'];
         TransactionPayment: ['NextFeeMultiplier', 'StorageVersion', 'TxPaymentCredit'];
-        OriginRestriction: ['Usages'];
         Assets: ['Asset', 'Account', 'Approvals', 'Metadata', 'Reserves', 'NextAssetId'];
-        AssetsHolder: ['Holds', 'BalancesOnHold'];
         AssetRate: ['ConversionRateToNative'];
+        AssetsHolder: ['Holds', 'BalancesOnHold'];
+        OriginRestriction: ['Usages'];
         Authorship: ['Author'];
         CollatorSelection: ['Invulnerables', 'CandidateList', 'LastAuthoredBlock', 'DesiredCandidates', 'CandidacyBond'];
         Session: ['Validators', 'CurrentIndex', 'QueuedChanged', 'QueuedKeys', 'DisabledValidators', 'NextKeys', 'KeyOwner', 'ExternallySetKeys'];
@@ -10499,34 +10669,34 @@ type AllInteractions = {
         PolkadotXcm: ['QueryCounter', 'Queries', 'AssetTraps', 'SafeXcmVersion', 'SupportedVersion', 'VersionNotifiers', 'VersionNotifyTargets', 'VersionDiscoveryQueue', 'CurrentMigration', 'RemoteLockedFungibles', 'LockedFungibles', 'XcmExecutionSuspended', 'ShouldRecordXcm', 'RecordedXcm', 'AuthorizedAliases'];
         MessageQueue: ['BookStateFor', 'ServiceHead', 'Pages'];
         Multisig: ['Multisigs'];
-        Sudo: ['Key'];
         Proxy: ['Proxies', 'Announcements'];
-        Identity: ['IdentityOf', 'UsernameOf', 'SuperOf', 'SubsOf', 'Registrars', 'AuthorityOf', 'UsernameInfoOf', 'PendingUsernames', 'UnbindingUsernames', 'PersonIdentities', 'AccountToAlias', 'PendingUsernameReports'];
+        Identity: ['IdentityOf', 'UsernameOf', 'SuperOf', 'SubsOf', 'Registrars', 'AuthorityOf', 'UsernameInfoOf', 'PendingUsernames', 'UnbindingUsernames'];
         People: ['Keys', 'CounterForKeys', 'People', 'AliasToAccount', 'AccountToAlias', 'AccountToPersonalId', 'NextPersonalId', 'PeopleCollectionCreated', 'ReservedPersonalId'];
         MobRule: ['Credits', 'VotingPenalties', 'VotingPoints', 'Votes', 'CaseCount', 'OpenCases', 'RipeCases', 'DoneCases', 'AccumulatedPoints', 'PayoutDistribution', 'RoundSchedules', 'ActiveSince'];
         ProofOfInk: ['Candidates', 'People', 'ReferralTickets', 'DesignFamilies', 'CommittedDesigns', 'AllocationCount', 'Configuration', 'AvailableInvites', 'PendingInvites', 'ReferrerReimbursementValues', 'ReferredReimbursementValues'];
-        Game: ['TestnetStoredPhaseDurations', 'Nfts', 'NftCandidates', 'ArchivedPlayers', 'Players', 'GameIndex', 'Game', 'GameHistory', 'PlayerAttendanceHistory', 'GameParticipantCount', 'IndexToPlayer', 'PlayerToIndex', 'ShuffleRecognized', 'ShuffleNotRecognized', 'GameSchedules', 'AvailableInvites', 'PendingInvites', 'AliasToStmtAccount', 'StmtAccountToAlias', 'CommunicationIdentifiers', 'ScratchReward', 'ScratchEligibilityMap', 'ScratchClaimedCount'];
-        Score: ['Participants', 'PersonhoodThreshold', 'AbsenceGraceSchedule', 'AbsenceGraceRatio', 'CurrentRoundPoints', 'CurrentRoundIndex', 'RoundsPointsForParticipant', 'RoundPayouts', 'RoundPlanning', 'RoundSchedules'];
+        Game: ['StoredPhaseDurations', 'PlayDepositAmount', 'Nfts', 'NftCandidates', 'ArchivedPlayers', 'Players', 'GameIndex', 'Game', 'GameHistory', 'PlayerAttendanceHistory', 'GameParticipantCount', 'IndexToPlayer', 'PlayerToIndex', 'ShuffleRecognized', 'ShuffleNotRecognized', 'GameSchedules', 'AvailableInvites', 'PendingInvites', 'AliasToStmtAccount', 'StmtAccountToAlias', 'CommunicationIdentifiers'];
+        Score: ['Participants', 'PersonhoodThreshold', 'PersonhoodThresholdSchedule', 'AbsenceGraceSchedule', 'AbsenceGraceRatio', 'CurrentRoundPoints', 'CurrentRoundIndex', 'RoundsPointsForParticipant', 'RoundPayouts', 'RoundPlanning', 'RoundSchedules'];
         DummyDim: ['ReservedIds', 'People'];
+        StorageInitialization: ['OnPollStatus', 'XcmTransferInitiatedAt'];
         PeopleLite: ['LitePeople', 'AliasToAccount', 'AccountToAlias', 'LitePeopleCollectionCreated', 'AttestationAllowance'];
         Resources: ['Consumers', 'StatementStoreAllowances', 'StmtStoreAllowanceByAccount', 'FriendRequestRegistrationByAlias', 'FriendRequestAliasByAccount', 'SpentLongTermStorageAliases', 'UsernameOwnerOf', 'AccountOfAlias', 'UsernameReservationDuration', 'UsernameReservationQueue', 'ReservationOf'];
         ChunksManager: ['Chunks', 'ChunkPageHashes'];
         Members: ['Collections', 'SuspendedCollections', 'IdentifiersOf', 'Root', 'OldRoots', 'CurrentRingIndex', 'OnboardingSize', 'RingKeys', 'RingKeysStatus', 'PendingSuspensions', 'ActiveMembers', 'Members', 'RingsState', 'StaleRings', 'QueuePageIndices', 'OnboardingQueue', 'RingDeletionQueue'];
-        Coinage: ['CoinsByOwner', 'LockedCoins', 'TotalValueOfDestroyedCoins', 'ConsumedFreeUnloadTokens', 'RecyclerCollectionCreated', 'RecyclersLastRemovedRingIndex', 'RecyclersCoinToRecycler', 'RecyclersUnloaded', 'RecyclersDusting', 'PaidUnloadTokenMembers', 'PaidUnloadTokenConsumed', 'PaidTokenCollectionsCreated', 'PaidUnloadTokenDusting', 'PaidUnloadTokenNextRingToClean', 'InitializePalletAccount'];
+        Coinage: ['CoinsByOwner', 'LockedCoins', 'TotalValueOfDestroyedCoins', 'ConsumedFreeUnloadTokens', 'RecyclerCollectionCreated', 'RecyclersLastRemovedRingIndex', 'RecyclersCoinToRecycler', 'RecyclersUnloaded', 'RecyclersDusting', 'PaidUnloadTokenMembers', 'PaidUnloadTokenConsumed', 'PaidTokenCollectionsCreated', 'PaidUnloadTokenDusting', 'PaidUnloadTokenNextRingToClean', 'InitializePalletAccount', 'UnderlyingAssetId'];
         MembersNotifier: ['Subscribers', 'CounterForSubscribers', 'SealedBatchSequence', 'PageState', 'PendingUpdates', 'PageUpdatesCount', 'PendingInit', 'CounterForPendingInit', 'SealedBatchIndices', 'CurrentBatch', 'SubscribersWithCurrentBatch', 'LastReplayTime'];
-        StorageInitialization: ['OnPollStatus', 'XcmTransferInitiatedAt', 'LastAirdropPoolPeriod', 'AirdropSchedulingEnabled'];
-        StorageInitializationLite: ['OnPollStatus'];
-        Airdrop: ['NextPrizePoolId', 'PrizePools', 'CounterForPrizePools', 'PrizePoolClaims'];
-        MultiBlockMigrations: ['Cursor', 'Historic'];
+        Airdrop: ['Events', 'ActionSchedule', 'Registrations', 'Winners', 'EventEntropy', 'SupportedAssets'];
+        Honour: ['Points', 'Votes', 'Tally'];
+        Sudo: ['Key'];
     };
     tx: {
         System: ['remark', 'set_heap_pages', 'set_code', 'set_code_without_checks', 'set_storage', 'kill_storage', 'kill_prefix', 'remark_with_event', 'authorize_upgrade', 'authorize_upgrade_without_checks', 'apply_authorized_upgrade'];
         ParachainSystem: ['set_validation_data', 'sudo_send_upward_message'];
         Timestamp: ['set'];
+        MultiBlockMigrations: ['force_set_cursor', 'force_set_active_cursor', 'force_onboard_mbms', 'clear_historic'];
         Balances: ['transfer_allow_death', 'force_transfer', 'transfer_keep_alive', 'transfer_all', 'force_unreserve', 'upgrade_accounts', 'force_set_balance', 'force_adjust_total_issuance', 'burn'];
-        OriginRestriction: ['clean_usage'];
         Assets: ['create', 'force_create', 'start_destroy', 'destroy_accounts', 'destroy_approvals', 'finish_destroy', 'mint', 'burn', 'transfer', 'transfer_keep_alive', 'force_transfer', 'freeze', 'thaw', 'freeze_asset', 'thaw_asset', 'transfer_ownership', 'set_team', 'set_metadata', 'clear_metadata', 'force_set_metadata', 'force_clear_metadata', 'force_asset_status', 'approve_transfer', 'cancel_approval', 'force_cancel_approval', 'transfer_approved', 'touch', 'refund', 'set_min_balance', 'touch_other', 'refund_other', 'block', 'transfer_all', 'set_reserves'];
         AssetRate: ['create', 'update', 'remove'];
+        OriginRestriction: ['clean_usage'];
         CollatorSelection: ['set_invulnerables', 'set_desired_candidates', 'set_candidacy_bond', 'register_as_candidate', 'leave_intent', 'add_invulnerable', 'remove_invulnerable', 'update_bond', 'take_candidate_slot'];
         Session: ['set_keys', 'purge_keys'];
         XcmpQueue: ['suspend_xcm_execution', 'resume_xcm_execution', 'update_suspend_threshold', 'update_drop_threshold', 'update_resume_threshold'];
@@ -10534,36 +10704,36 @@ type AllInteractions = {
         MessageQueue: ['reap_page', 'execute_overweight'];
         Utility: ['batch', 'as_derivative', 'batch_all', 'dispatch_as', 'force_batch', 'with_weight', 'if_else', 'dispatch_as_fallible'];
         Multisig: ['as_multi_threshold_1', 'as_multi', 'approve_as_multi', 'cancel_as_multi', 'poke_deposit'];
-        Sudo: ['sudo', 'sudo_unchecked_weight', 'set_key', 'sudo_as', 'remove_key'];
         Proxy: ['proxy', 'add_proxy', 'remove_proxy', 'remove_proxies', 'create_pure', 'kill_pure', 'announce', 'remove_announcement', 'reject_announcement', 'proxy_announced', 'poke_deposit'];
-        Identity: ['add_registrar', 'set_identity', 'set_subs', 'clear_identity', 'request_judgement', 'cancel_request', 'set_fee', 'set_account_id', 'set_fields', 'provide_judgement', 'kill_identity', 'add_sub', 'rename_sub', 'remove_sub', 'quit_sub', 'add_username_authority', 'remove_username_authority', 'set_username_for', 'accept_username', 'remove_expired_approval', 'set_primary_username', 'unbind_username', 'remove_username', 'kill_username', 'set_personal_identity', 'submit_personal_credential_evidence', 'personal_credential_judged', 'clear_personal_identity', 'report_username', 'reported_username_judged'];
+        Identity: ['add_registrar', 'set_identity', 'set_subs', 'clear_identity', 'request_judgement', 'cancel_request', 'set_fee', 'set_account_id', 'set_fields', 'provide_judgement', 'kill_identity', 'add_sub', 'rename_sub', 'remove_sub', 'quit_sub', 'add_username_authority', 'remove_username_authority', 'set_username_for', 'accept_username', 'remove_expired_approval', 'set_primary_username', 'unbind_username', 'remove_username', 'kill_username'];
         People: ['under_alias', 'set_alias_account', 'unset_alias_account', 'force_recognize_personhood', 'set_personal_id_account', 'unset_personal_id_account', 'create_people_collection', 'clean_up_stale_aliases'];
         MobRule: ['vote', 'close_case', 'clean_vote', 'reap_case', 'intervene', 'claim_vote', 'payout_rewards', 'claim_votes', 'start_payout_round', 'schedule_payout_rounds', 'remove_payout_schedule', 'claim_credit', 'clean_points', 'force_ripen_case', 'touch_case', 'clear_voting_penalty', 'clean_vote_signed'];
         ProofOfInk: ['apply', 'submit_evidence', 'judged', 'register_referred', 'register_non_referred', 'reroll', 'commit', 'allocate_full', 'timeout', 'flakeout', 'apply_with_signature', 'apply_with_invitation', 'add_design_family', 'set_referral_ticket', 'cancel_referral_ticket', 'register_successful_referral_reward', 'grant_invites', 'remove_available_and_pending_invites', 'set_invite_ticket', 'cancel_invite_ticket', 'set_configuration', 'set_reimbursement_values'];
-        Game: ['sign_up_with_invite', 'sign_up_with_account', 'sign_up_with_alias', 'report', 'offboard', 'kickout', 'grant_invites', 'remove_available_and_pending_invites', 'set_invite_ticket', 'cancel_invite_ticket', 'schedule_games', 'remove_scheduled_game', 'claim_reward', 'claim_game_prize', 'testnet_force_start_shuffle', 'testnet_force_end_reporting', 'testnet_set_game_phases', 'testnet_kill_current_game'];
-        Score: ['schedule_payout_rounds', 'remove_payout_schedule', 'transition_round', 'operate_payout_round', 'cash_out', 'redeem_credit', 'register', 'set_absence_grace_schedule'];
+        Game: ['sign_up_with_invite', 'sign_up_with_account', 'sign_up_with_alias', 'report', 'offboard', 'kickout', 'grant_invites', 'remove_available_and_pending_invites', 'set_invite_ticket', 'cancel_invite_ticket', 'schedule_games', 'remove_scheduled_game', 'set_play_deposit', 'claim_airdrop', 'testnet_force_start_shuffle', 'testnet_force_end_reporting', 'set_game_phases', 'kill_current_game'];
+        Score: ['schedule_payout_rounds', 'remove_payout_schedule', 'transition_round', 'operate_payout_round', 'cash_out', 'redeem_credit', 'register', 'set_absence_grace_schedule', 'set_personhood_threshold_schedule'];
         DummyDim: ['reserve_ids', 'renew_id_reservation', 'cancel_id_reservation', 'recognize_personhood', 'suspend_personhood', 'resume_personhood', 'start_mutation_session', 'end_mutation_session'];
         PeopleLite: ['increase_attestation_allowance', 'clear_attestation_allowance', 'attest', 'dispatch_as_signer', 'set_alias_account', 'unset_alias_account'];
         Resources: ['register_lite_person', 'register_person', 'touch_person_authorization', 'remove_expired_username_reservation', 'update_identifier_key', 'set_username_reservation_duration', 'demote_auth_expired', 'set_friend_request_statement_account_for_sequence', 'clear_expired_friend_request_sequence', 'set_statement_store_account', 'clear_expired_stmt_store_allowances', 'claim_long_term_storage', 'clear_expired_long_term_storage_aliases'];
         ChunksManager: ['add_chunks', 'set_chunk_page_hashes'];
         Members: ['merge_rings', 'set_onboarding_size', 'self_include', 'build_ring_authorized', 'onboard_members_authorized', 'merge_queue_pages_authorized', 'remove_suspended_keys_authorized', 'delete_ring_page_authorized', 'enqueue_ring_deletion_authorized', 'delete_onboarding_queue_page_authorized', 'finalize_collection_deletion_authorized', 'mark_ring_stale_authorized', 'clean_up_old_roots_authorized'];
-        Coinage: ['split', 'transfer', 'load_recycler_with_coin', 'load_recycler_with_external_asset', 'load_recycler_with_external_asset_unpaid', 'load_recycler_with_external_asset_unpaid_batch', 'unload_recycler_into_coin', 'unload_recycler_into_external_asset', 'pay_for_recycler_unload_fee_token_with_coin', 'pay_for_recycler_unload_fee_token_with_native', 'pay_for_recycler_unload_fee_token_with_stable', 'unload_recycler_into_external_asset_and_vouchers', 'unload_recycler_into_external_asset_non_anonymous', 'unload_recyclers_into_external_asset_non_anonymous', 'unload_recycler_into_coins', 'direct_offboard_coin_into_external_asset', 'clean_recycler', 'clean_consumed_free_token', 'clean_paid_unload_token_ring', 'clean_recycler_dust', 'clean_paid_unload_token_dust', 'delete_expired_paid_unload_token_collection'];
+        Coinage: ['split', 'transfer', 'load_recycler_with_coin', 'load_recycler_with_external_asset', 'load_recycler_with_external_asset_unpaid', 'load_recycler_with_external_asset_unpaid_batch', 'unload_recycler_into_coin', 'unload_recycler_into_external_asset', 'pay_for_recycler_unload_fee_token_with_coin', 'pay_for_recycler_unload_fee_token_with_native', 'pay_for_recycler_unload_fee_token_with_external_asset', 'unload_recycler_into_external_asset_and_vouchers', 'unload_recycler_into_external_asset_non_anonymous', 'unload_recyclers_into_external_asset_non_anonymous', 'unload_recycler_into_coins', 'direct_offboard_coin_into_external_asset', 'set_underlying_asset_id', 'clean_recycler', 'clean_consumed_free_token', 'clean_paid_unload_token_ring', 'clean_recycler_dust', 'clean_paid_unload_token_dust', 'delete_expired_paid_unload_token_collection'];
         MembersNotifier: ['subscribe', 'unsubscribe', 'request_replay', 'enqueue_updates', 'send_batch', 'send_init_page', 'abandon_stuck_batch'];
-        StorageInitialization: ['set_airdrop_scheduling_enabled'];
-        Airdrop: ['open_prize_pool', 'claim_prize', 'close_prize_pool'];
-        MultiBlockMigrations: ['force_set_cursor', 'force_set_active_cursor', 'force_onboard_mbms', 'clear_historic'];
+        Airdrop: ['schedule_event', 'remove_scheduled_event', 'enable_asset', 'disable_asset', 'start_registration_authorized', 'close_registration_authorized', 'draw_winners_authorized', 'close_drawing_authorized', 'close_claiming_authorized', 'clean_up_registrations_authorized', 'clean_up_winners_authorized', 'finalize_authorized'];
+        Honour: ['bestow'];
+        Sudo: ['sudo', 'sudo_unchecked_weight', 'set_key', 'sudo_as', 'remove_key'];
     };
     events: {
         System: ['ExtrinsicSuccess', 'ExtrinsicFailed', 'CodeUpdated', 'NewAccount', 'KilledAccount', 'Remarked', 'UpgradeAuthorized', 'RejectedInvalidAuthorizedUpgrade'];
         ParachainSystem: ['ValidationFunctionStored', 'ValidationFunctionApplied', 'ValidationFunctionDiscarded', 'DownwardMessagesReceived', 'DownwardMessagesProcessed', 'UpwardMessageSent'];
+        MultiBlockMigrations: ['UpgradeStarted', 'UpgradeCompleted', 'UpgradeFailed', 'MigrationSkipped', 'MigrationAdvanced', 'MigrationCompleted', 'MigrationFailed', 'HistoricCleared'];
         Balances: ['Endowed', 'DustLost', 'Transfer', 'BalanceSet', 'Reserved', 'Unreserved', 'ReserveRepatriated', 'Deposit', 'Withdraw', 'Slashed', 'Minted', 'MintedCredit', 'Burned', 'BurnedDebt', 'Suspended', 'Restored', 'Upgraded', 'Issued', 'Rescinded', 'Locked', 'Unlocked', 'Frozen', 'Thawed', 'TotalIssuanceForced', 'Held', 'BurnedHeld', 'TransferOnHold', 'TransferAndHold', 'Released', 'Unexpected'];
         TransactionPayment: ['TransactionFeePaid'];
-        SkipFeelessPayment: ['FeeSkipped'];
-        OriginRestriction: ['UsageCleaned'];
         Assets: ['Created', 'Issued', 'Transferred', 'Burned', 'TeamChanged', 'OwnerChanged', 'Frozen', 'Thawed', 'AssetFrozen', 'AssetThawed', 'AccountsDestroyed', 'ApprovalsDestroyed', 'DestructionStarted', 'Destroyed', 'ForceCreated', 'MetadataSet', 'MetadataCleared', 'ApprovedTransfer', 'ApprovalCancelled', 'TransferredApproved', 'AssetStatusChanged', 'AssetMinBalanceChanged', 'Touched', 'Blocked', 'Deposited', 'Withdrawn', 'ReservesUpdated', 'ReservesRemoved', 'IssuedCredit', 'BurnedCredit', 'IssuedDebt', 'BurnedDebt'];
-        AssetsHolder: ['Held', 'Released', 'Burned'];
         AssetRate: ['AssetRateCreated', 'AssetRateRemoved', 'AssetRateUpdated'];
         AssetTxPayment: ['AssetTxFeePaid'];
+        AssetsHolder: ['Held', 'Released', 'Burned'];
+        SkipFeelessPayment: ['FeeSkipped'];
+        OriginRestriction: ['UsageCleaned'];
         CollatorSelection: ['NewInvulnerables', 'InvulnerableAdded', 'InvulnerableRemoved', 'NewDesiredCandidates', 'NewCandidacyBond', 'CandidateAdded', 'CandidateBondUpdated', 'CandidateRemoved', 'CandidateReplaced', 'InvalidInvulnerableSkipped'];
         Session: ['NewSession', 'NewQueued', 'ValidatorDisabled', 'ValidatorReenabled'];
         XcmpQueue: ['XcmpMessageSent'];
@@ -10572,34 +10742,34 @@ type AllInteractions = {
         MessageQueue: ['ProcessingFailed', 'Processed', 'OverweightEnqueued', 'PageReaped'];
         Utility: ['BatchInterrupted', 'BatchCompleted', 'BatchCompletedWithErrors', 'ItemCompleted', 'ItemFailed', 'DispatchedAs', 'IfElseMainSuccess', 'IfElseFallbackCalled'];
         Multisig: ['NewMultisig', 'MultisigApproval', 'MultisigExecuted', 'MultisigCancelled', 'DepositPoked'];
-        Sudo: ['Sudid', 'KeyChanged', 'KeyRemoved', 'SudoAsDone'];
         Proxy: ['ProxyExecuted', 'PureCreated', 'PureKilled', 'Announced', 'ProxyAdded', 'ProxyRemoved', 'DepositPoked'];
-        Identity: ['IdentitySet', 'IdentityCleared', 'IdentityKilled', 'JudgementRequested', 'JudgementUnrequested', 'JudgementGiven', 'RegistrarAdded', 'SubIdentityAdded', 'SubIdentitiesSet', 'SubIdentityRenamed', 'SubIdentityRemoved', 'SubIdentityRevoked', 'AuthorityAdded', 'AuthorityRemoved', 'UsernameSet', 'UsernameQueued', 'PreapprovalExpired', 'PrimaryUsernameSet', 'DanglingUsernameRemoved', 'UsernameUnbound', 'UsernameRemoved', 'UsernameKilled', 'UsernameReported', 'PersonalIdentitySet', 'EvidenceSubmitted', 'CredentialAccepted', 'CredentialRejected', 'PersonBanned', 'PersonalIdentityCleared', 'ReportedUsernameJudgedValid', 'ReportedUsernameJudgedInvalid', 'ReportedUsernameWeakOrUnclearJudgement'];
+        Identity: ['IdentitySet', 'IdentityCleared', 'IdentityKilled', 'JudgementRequested', 'JudgementUnrequested', 'JudgementGiven', 'RegistrarAdded', 'SubIdentityAdded', 'SubIdentitiesSet', 'SubIdentityRenamed', 'SubIdentityRemoved', 'SubIdentityRevoked', 'AuthorityAdded', 'AuthorityRemoved', 'UsernameSet', 'UsernameQueued', 'PreapprovalExpired', 'PrimaryUsernameSet', 'DanglingUsernameRemoved', 'UsernameUnbound', 'UsernameRemoved', 'UsernameKilled'];
         People: ['PersonhoodRecognized', 'PersonOnboarding', 'AliasDispatched', 'AliasAccountSet', 'AliasAccountUnset', 'PersonalIdAccountSet', 'PersonalIdAccountUnset', 'CollectionCreated', 'ForcePersonhoodRecognized', 'AliasCleanedUp'];
         MobRule: ['CaseCreated', 'Callback', 'CallbackError', 'CaseClosed', 'Voted', 'VoteCleaned', 'CaseRemoved', 'CaseIntervened', 'VotesClaimed', 'RewardPayout', 'PayoutRoundStarted', 'PayoutRoundsScheduled', 'PayoutScheduleRemoved', 'CreditClaimed', 'PointsCleaned', 'CaseTouched', 'VotingPenaltyCleared'];
         ProofOfInk: ['CandidateApplied', 'JudgementRequested', 'JudgementProvided', 'RetryGranted', 'PersonRegistered', 'CandidateReferred', 'Rerolled', 'DesignCommitted', 'FullyAllocated', 'TimedOut', 'FlakedOut', 'TicketReferred', 'TicketCancelled', 'TicketApplied', 'FamilyAdded', 'AllInvitesRemoved', 'SomeInvitesRemoved', 'InvitedCandidateApplied', 'ReferralVoucherRegistered', 'InvitesGranted', 'InviteTicketSet', 'InviteTicketCancelled', 'ConfigurationSet'];
-        Game: ['NewGame', 'GameEnded', 'SignedUp', 'ReportSubmitted', 'Offboarded', 'KickedOut', 'InvitesGranted', 'InviteTicketSet', 'InviteTicketCancelled', 'GamesScheduled', 'ScheduledGameRemoved', 'StmtUsageRemoved', 'AllInvitesRemoved', 'SomeInvitesRemoved', 'ScratchRewardAvailable', 'ScratchRewardClaimed', 'GamePrizePoolOpened', 'GamePrizePoolOpenFailed'];
-        Score: ['CreditClaimed', 'PersonhoodRecognized', 'PayoutRoundsScheduled', 'PayoutScheduleRemoved', 'RoundTransitioned', 'PayoutRoundOperated', 'CashedOut'];
+        Game: ['NewGame', 'GameEnded', 'GameKilled', 'GamePhasesSet', 'SignedUp', 'ReportSubmitted', 'Offboarded', 'KickedOut', 'InvitesGranted', 'InviteTicketSet', 'InviteTicketCancelled', 'GamesScheduled', 'ScheduledGameRemoved', 'StmtUsageRemoved', 'AllInvitesRemoved', 'SomeInvitesRemoved', 'PlayDepositSet', 'AirdropScheduled', 'AirdropScheduleFailed', 'GameCancelled'];
+        Score: ['CreditClaimed', 'PersonhoodRecognized', 'PayoutRoundsScheduled', 'PayoutScheduleRemoved', 'RoundTransitioned', 'PayoutRoundOperated', 'CashedOut', 'PersonhoodThresholdScheduleSet', 'AbsenceGraceScheduleSet'];
         DummyDim: ['IdsReserved', 'IdRenewed', 'IdUnreserved', 'PeopleRegistered', 'PeopleSuspended', 'PersonhoodResumed', 'SuspensionsStarted', 'SuspensionsEnded'];
+        StorageInitialization: ['AssetCreated', 'XcmFundsTransferSent', 'XcmFundsTransferTimedOut', 'FundsVerified', 'PotsFunded', 'PeopleLiteAttestationAllowancesSet', 'MobRulePayoutsScheduled', 'ScorePayoutsScheduled', 'OnPollInitializationCompleted', 'MigrationPeopleRecognized', 'MigrationOnboardingSizeSet', 'MigrationProofOfInkInitialized', 'MigrationGamesScheduled', 'MigrationInvitesGranted', 'MigrationReimbursementValuesSet', 'MigrationAttestationAllowancesSet', 'MigrationCompleted'];
         PeopleLite: ['AllAttestationAllowanceCleared', 'AttestationAllowanceIncreased', 'PersonAttested', 'ConsumerRegistered', 'AliasAccountSet', 'AliasAccountUnset'];
         Resources: ['PersonRegistered', 'LitePersonRegistered', 'FriendRequestStmtUsageSet', 'FriendRequestStmtUsageRemoved', 'PersonAuthorizationTouched', 'ExpiredUsernameReservationRemoved', 'IdentifierKeyUpdated', 'UsernameReservationDurationSet', 'StmtStoreAllowanceSet', 'StmtStoreAllowancesCleared', 'PersonDemoted', 'LongTermStorageClaimed', 'LongTermStorageAllocationFailed', 'LongTermStorageAliasesCleared'];
         ChunksManager: ['ChunkPageHashesInitialized', 'ChunksAdded'];
         Members: ['MemberAdded', 'MemberRemoved', 'CollectionMarkedForDeletion', 'CollectionDeleted', 'RingBuilt', 'MembersOnboarded', 'RingsMerged', 'OnboardingSizeSet', 'MemberSelfIncluded', 'OldRootCleanedUp'];
-        Coinage: ['CoinSplit', 'CoinTransferred', 'RecyclerLoadedWithCoin', 'RecyclerLoadedWithExternalAsset', 'RecyclerUnloadedIntoCoin', 'RecyclerUnloadedIntoExternalAsset', 'RecyclerUnloadedIntoExternalAssetAndVouchers', 'PaidUnloadTokenRegisteredWithCoin', 'PaidUnloadTokenRegisteredWithNative', 'PaidUnloadTokenRegisteredWithStable', 'PeopleFreeUnloadTokenConsumed', 'LitePeopleFreeUnloadTokenConsumed', 'RecyclersUnloadedIntoCoin', 'RecyclersUnloadedIntoExternalAsset', 'RecyclersUnloadedIntoExternalAssetNonAnonymous', 'RecyclerUnloadedIntoCoins', 'CoinOffboardedIntoExternalAsset', 'RecyclerCleaned', 'ConsumedFreeTokensCleaned', 'PaidUnloadTokenRingCleaned', 'RecyclerDustCleaned', 'PaidUnloadTokenDustCleaned', 'ExpiredPaidUnloadTokenCollectionDeleted'];
+        Coinage: ['CoinSplit', 'CoinTransferred', 'RecyclerLoadedWithCoin', 'RecyclerLoadedWithExternalAsset', 'RecyclerUnloadedIntoCoin', 'RecyclerUnloadedIntoExternalAsset', 'RecyclerUnloadedIntoExternalAssetAndVouchers', 'PaidUnloadTokenRegisteredWithCoin', 'PaidUnloadTokenRegisteredWithNative', 'PaidUnloadTokenRegisteredWithExternalAsset', 'PeopleFreeUnloadTokenConsumed', 'LitePeopleFreeUnloadTokenConsumed', 'RecyclersUnloadedIntoCoin', 'RecyclersUnloadedIntoExternalAsset', 'RecyclersUnloadedIntoExternalAssetNonAnonymous', 'RecyclerUnloadedIntoCoins', 'CoinOffboardedIntoExternalAsset', 'RecyclerCleaned', 'ConsumedFreeTokensCleaned', 'PaidUnloadTokenRingCleaned', 'RecyclerDustCleaned', 'PaidUnloadTokenDustCleaned', 'ExpiredPaidUnloadTokenCollectionDeleted', 'UnderlyingAssetIdSet'];
         MembersNotifier: ['Subscribed', 'Unsubscribed', 'UpdatesSent', 'UpdateSendFailed', 'ReplayRequested', 'BatchAbandoned'];
-        StorageInitialization: ['AssetCreated', 'XcmFundsTransferSent', 'XcmFundsTransferTimedOut', 'FundsVerified', 'PotsFunded', 'MobRulePayoutsScheduled', 'ScorePayoutsScheduled', 'AirdropPoolOpened', 'AirdropSchedulingEnabledChanged', 'OnPollInitializationCompleted', 'MigrationPeopleRecognized', 'MigrationOnboardingSizeSet', 'MigrationProofOfInkInitialized', 'MigrationGamesScheduled', 'MigrationInvitesGranted', 'MigrationReimbursementValuesSet', 'MigrationAttestationAllowancesSet', 'MigrationCompleted'];
-        StorageInitializationLite: ['InitializationCompleted'];
-        Airdrop: ['PrizePoolOpened', 'PrizeClaimed', 'AllPrizesClaimed', 'PrizePoolExpired', 'PrizePoolClosed', 'PrizeTransferFailed'];
-        MultiBlockMigrations: ['UpgradeStarted', 'UpgradeCompleted', 'UpgradeFailed', 'MigrationSkipped', 'MigrationAdvanced', 'MigrationCompleted', 'MigrationFailed', 'HistoricCleared'];
+        Airdrop: ['EventScheduled', 'ScheduledEventRemoved', 'EventCancelled', 'RegistrationStarted', 'AliasRegistered', 'AccountRegistered', 'DrawingWinners', 'ClaimingStarted', 'EventCanceled', 'PrizeClaimed', 'ClearingRegistrations', 'ClearingWinners', 'FinalizingEvent', 'EventCompleted', 'AssetEnabled', 'AssetDisabled'];
+        Honour: ['VoteCast', 'VoteReused', 'HonourChanged'];
+        Sudo: ['Sudid', 'KeyChanged', 'KeyRemoved', 'SudoAsDone'];
     };
     errors: {
         System: ['InvalidSpecName', 'SpecVersionNeedsToIncrease', 'FailedToExtractRuntimeVersion', 'NonDefaultComposite', 'NonZeroRefCount', 'CallFiltered', 'MultiBlockMigrationsOngoing', 'NothingAuthorized', 'Unauthorized'];
         ParachainSystem: ['OverlappingUpgrades', 'ProhibitedByPolkadot', 'TooBig', 'ValidationDataNotAvailable', 'HostConfigurationNotAvailable', 'NotScheduled'];
+        MultiBlockMigrations: ['Ongoing'];
         Balances: ['VestingBalance', 'LiquidityRestrictions', 'InsufficientBalance', 'ExistentialDeposit', 'Expendability', 'ExistingVestingSchedule', 'DeadAccount', 'TooManyReserves', 'TooManyHolds', 'TooManyFreezes', 'IssuanceDeactivated', 'DeltaZero'];
-        OriginRestriction: ['NoUsage', 'NotZero'];
         Assets: ['BalanceLow', 'NoAccount', 'NoPermission', 'Unknown', 'Frozen', 'InUse', 'BadWitness', 'MinBalanceZero', 'UnavailableConsumer', 'BadMetadata', 'Unapproved', 'WouldDie', 'AlreadyExists', 'NoDeposit', 'WouldBurn', 'LiveAsset', 'AssetNotLive', 'IncorrectStatus', 'NotFrozen', 'CallbackFailed', 'BadAssetId', 'ContainsFreezes', 'ContainsHolds', 'TooManyReserves'];
-        AssetsHolder: ['TooManyHolds'];
         AssetRate: ['UnknownAssetKind', 'AlreadyExists', 'Overflow'];
+        AssetsHolder: ['TooManyHolds'];
+        OriginRestriction: ['NoUsage', 'NotZero'];
         CollatorSelection: ['TooManyCandidates', 'TooFewEligibleCollators', 'AlreadyCandidate', 'NotCandidate', 'TooManyInvulnerables', 'AlreadyInvulnerable', 'NotInvulnerable', 'NoAssociatedValidatorId', 'ValidatorNotRegistered', 'InsertToCandidateListFailed', 'RemoveFromCandidateListFailed', 'DepositTooLow', 'UpdateCandidateListFailed', 'InsufficientBond', 'TargetIsNotCandidate', 'IdenticalDeposit', 'InvalidUnreserve'];
         Session: ['InvalidProof', 'NoAssociatedValidatorId', 'DuplicatedKey', 'NoKeys', 'NoAccount'];
         XcmpQueue: ['BadQueueConfig', 'AlreadySuspended', 'AlreadyResumed', 'TooManyActiveOutboundChannels', 'TooBig'];
@@ -10607,28 +10777,29 @@ type AllInteractions = {
         MessageQueue: ['NotReapable', 'NoPage', 'NoMessage', 'AlreadyProcessed', 'Queued', 'InsufficientWeight', 'TemporarilyUnprocessable', 'QueuePaused', 'RecursiveDisallowed'];
         Utility: ['TooManyCalls'];
         Multisig: ['MinimumThreshold', 'AlreadyApproved', 'NoApprovalsNeeded', 'TooFewSignatories', 'TooManySignatories', 'SignatoriesOutOfOrder', 'SenderInSignatories', 'NotFound', 'NotOwner', 'NoTimepoint', 'WrongTimepoint', 'UnexpectedTimepoint', 'MaxWeightTooLow', 'AlreadyStored'];
-        Sudo: ['RequireSudo'];
         Proxy: ['TooMany', 'NotFound', 'NotProxy', 'Unproxyable', 'Duplicate', 'NoPermission', 'Unannounced', 'NoSelfProxy'];
-        Identity: ['TooManySubAccounts', 'NoAlias', 'NotFound', 'NotNamed', 'EmptyIndex', 'FeeChanged', 'NoIdentity', 'StickyJudgement', 'JudgementGiven', 'InvalidJudgement', 'InvalidIndex', 'InvalidTarget', 'TooManyRegistrars', 'AlreadyClaimed', 'AlreadyReported', 'NotSub', 'NotOwned', 'JudgementForDifferentIdentity', 'JudgementPaymentFailed', 'InvalidSuffix', 'NotUsernameAuthority', 'NoAllocation', 'InvalidSignature', 'RequiresSignature', 'InvalidUsername', 'UsernameTaken', 'NoUsername', 'NotSystemProvidedUsername', 'NotExpired', 'TooEarly', 'NotUnbinding', 'AlreadyUnbinding', 'InsufficientPrivileges', 'BadContext', 'UnexpectedJudgement', 'NotSupported', 'Banned', 'AlreadyRegistered', 'JudgementListFull', 'LastUsernameReportTooRecent', 'UsernameJudgementOngoing'];
+        Identity: ['TooManySubAccounts', 'NotFound', 'NotNamed', 'EmptyIndex', 'FeeChanged', 'NoIdentity', 'StickyJudgement', 'JudgementGiven', 'InvalidJudgement', 'InvalidIndex', 'InvalidTarget', 'TooManyRegistrars', 'AlreadyClaimed', 'NotSub', 'NotOwned', 'JudgementForDifferentIdentity', 'JudgementPaymentFailed', 'InvalidSuffix', 'NotUsernameAuthority', 'NoAllocation', 'InvalidSignature', 'RequiresSignature', 'InvalidUsername', 'UsernameTaken', 'NoUsername', 'NotExpired', 'TooEarly', 'NotUnbinding', 'AlreadyUnbinding', 'InsufficientPrivileges'];
         People: ['NotPerson', 'NoKey', 'InvalidContext', 'InvalidAccount', 'AccountInUse', 'InvalidProof', 'InvalidSignature', 'NoMembers', 'Incomplete', 'StillFresh', 'TooManyMembers', 'KeyAlreadyInUse', 'KeyNotFound', 'CouldNotPush', 'SameKey', 'PersonalIdNotReserved', 'PersonalIdReservationCannotRenew', 'PersonalIdNotReservedOrNotRecognized', 'InvalidRing', 'SuspensionsPending', 'RingAboveMergeThreshold', 'InvalidSuspensions', 'NoMutationSession', 'CouldNotStartMutationSession', 'SuspensionSessionInProgress', 'AliasNotStale', 'TimeOutOfRange', 'AliasAccountAlreadySet', 'NotSuspended', 'Suspended', 'InvalidKeyMigration', 'KeyAlreadySuspended', 'InvalidOnboardingSize', 'InvalidMemberKey', 'PeopleCollectionAlreadyExists', 'AliasMismatch', 'NoStaleAliases'];
         MobRule: ['NoSuchCase', 'NoSuchVote', 'NotOpen', 'NotRipe', 'NotDone', 'CodecError', 'DispatchError', 'Recent', 'NoCredit', 'NoReward', 'NoPoints', 'TooManyClaims', 'NoPayout', 'ArithmeticOverflow', 'TooManySchedules', 'NoSchedule', 'NoPenalty', 'Early', 'UnderPenalty', 'CaseExpirationDisabled'];
         ProofOfInk: ['InProgress', 'NoReferral', 'BadContext', 'UnexpectedJudgement', 'NoArgs', 'NotApplied', 'NotSelected', 'NotProven', 'AlreadyStarted', 'OutOfRange', 'AlreadyTaken', 'NoMoreReferrals', 'TooEarly', 'DesignInvalid', 'DesignTaken', 'BadParent', 'BadFamily', 'WrongFamily', 'IndexTooBig', 'Busy', 'Banned', 'Improbable', 'IdReserved', 'IdUsed', 'InvalidTicket', 'NoTicket', 'NotAuthorized', 'NotPerson', 'ReferredCandidate', 'NotReferredCandidate', 'NoRewardToRegister', 'RewardToRegister', 'NoInviter', 'InvalidSignature', 'NoInvites', 'AlreadyInvited', 'NoReferrer', 'NotPoiPerson', 'InvalidProofOfOwnership', 'InvalidReimbursementValues'];
-        Game: ['GameOngoing', 'NoRegistration', 'OutdatedGameSetup', 'InvalidGameSetup', 'InvalidReport', 'NoGame', 'NoReporting', 'NotRegistered', 'AlreadyRegistered', 'ReportAlreadySent', 'Early', 'NotKickablePlayer', 'NoArchivedPlayer', 'NoTicket', 'NoInvites', 'AlreadyInvited', 'NotAccountPlayer', 'UseInviteButAlreadyPlaying', 'TooManyGameSchedules', 'NoSuchGameScheduled', 'InvalidStatementAccountSignature', 'StatementAccountAlreadyInUse', 'InternalErrorInvalidState', 'InvalidGameState', 'NoPlayer', 'CannotOffboardWhileRegisteredForGame', 'InvalidState', 'NoScratchReward', 'NotEligible', 'DidNotWin', 'AlreadyClaimed', 'ScratchPotEmpty', 'PoolNotForGame', 'NotParticipant'];
-        Score: ['NotPerson', 'HasNotReachedPersonhood', 'NoReward', 'NoScore', 'NoSchedule', 'TooManySchedules', 'Recognized', 'CashOutCooldown', 'RoundOnGoingOrNoSchedule', 'NoRound', 'BadOriginNotPersonNotSigned', 'BadOriginNotPersonNotSignedNotAccountParticipant', 'BadOriginNotSignedNotAccountParticipant', 'AlreadyParticipating', 'KeyMustBeProvided', 'KeyMustNotBeProvided', 'HasReachedPersonhood', 'InvalidProofOfOwnership', 'WindowTooLarge', 'AllowedMissesTooLarge', 'ScheduleNotSorted'];
+        Game: ['GameOngoing', 'NoRegistration', 'OutdatedGameSetup', 'InvalidGameSetup', 'InvalidReport', 'NoGame', 'NoReporting', 'NotRegistered', 'AlreadyRegistered', 'ReportAlreadySent', 'Early', 'NotKickablePlayer', 'NoArchivedPlayer', 'NoTicket', 'NoInvites', 'AlreadyInvited', 'NotAccountPlayer', 'UseInviteButAlreadyPlaying', 'TooManyGameSchedules', 'NoSuchGameScheduled', 'InvalidStatementAccountSignature', 'StatementAccountAlreadyInUse', 'InternalErrorInvalidState', 'InvalidGameState', 'NoPlayer', 'CannotOffboardWhileRegisteredForGame', 'InvalidState', 'InvalidPlayDeposit', 'InvalidAirdropVrfVariantForAccount', 'InvalidAirdropVrfVariantForRecognition', 'NotEligibleForAirdrop'];
+        Score: ['NotPerson', 'HasNotReachedPersonhood', 'NoReward', 'NoScore', 'NoSchedule', 'TooManySchedules', 'Recognized', 'CashOutCooldown', 'RoundOnGoingOrNoSchedule', 'NoRound', 'BadOriginNotPersonNotSigned', 'BadOriginNotPersonNotSignedNotAccountParticipant', 'BadOriginNotSignedNotAccountParticipant', 'AlreadyParticipating', 'KeyMustBeProvided', 'KeyMustNotBeProvided', 'HasReachedPersonhood', 'InvalidProofOfOwnership', 'WindowTooLarge', 'AllowedMissesTooLarge', 'AbsenceScheduleNotSorted', 'PersonhoodScheduleEmpty', 'PersonhoodScoreThresholdZero', 'PersonhoodScoreThresholdTooLarge', 'PersonhoodScheduleNotSorted', 'PersonhoodScheduleNotMonotonic', 'PersonhoodScheduleNotTotal'];
         DummyDim: ['NotPerson', 'NotSuspended', 'NotReserved', 'TooManyPeople'];
         PeopleLite: ['NoAttestationAllowance', 'InvalidAttestationSignature', 'InvalidProofOfOwnership', 'AlreadyRegistered', 'KeyAlreadyInUse', 'AccountInUse', 'AliasAccountAlreadySet', 'AliasAccountNotSet', 'CallBlockOutOfRange', 'InvalidAliasContext', 'LitePeopleCollectionNotCreated'];
         Resources: ['InvalidUsername', 'UsernameTaken', 'AlreadyRegistered', 'InvalidProofOfOwnership', 'NotRegistered', 'NotFullPerson', 'TouchNotReady', 'NoReservation', 'NotReservationHolder', 'UsernameReservationTaken', 'ReservationFresh', 'NoLinkedIdentity', 'AlreadyLinked', 'PersonAuthNotExpired', 'AlreadyDemoted', 'QueueFull', 'NotInQueue', 'AlreadyHasReservation', 'InvalidFriendRequestSequence', 'InvalidFriendRequestPeriod', 'FriendRequestRegistrationNotExpired', 'FriendRequestRegistrationAlreadyExists', 'StmtStoreReplacementTooEarly', 'LongTermStorageCleanupLimitExceeded'];
         ChunksManager: ['ChunkNotFound', 'InvalidChunks', 'InvalidChunkRange'];
         Members: ['NotMember', 'NoRoot', 'InvalidProof', 'Incomplete', 'TooManyMembers', 'KeyAlreadyInUse', 'KeyNotFound', 'CouldNotPush', 'InvalidRing', 'SuspensionsPending', 'RingAboveMergeThreshold', 'InvalidSuspensions', 'NoRemovalSession', 'CouldNotStartRemovalSession', 'RemovalSessionInProgress', 'KeyAlreadySuspended', 'InvalidOnboardingSize', 'InvalidMemberKey', 'CollectionNotFound', 'CollectionAlreadyExists', 'TooManyCollections', 'InvalidRingSizeForFlexible', 'InvalidRingExponent', 'PrematureOnboarding', 'CollectionMarkedForDeletion', 'NotCollectionOwner', 'NotOnboarding', 'NothingToBuild'];
-        Coinage: ['MemberKeyAlreadyUsed', 'InvalidMemberKey', 'InternalError', 'RecyclerAlreadyUnloaded', 'InvalidConsolidation', 'ConsolidationTooBig', 'CoinValueTooBig', 'CoinValueTooSmall', 'CoinValueIsLessThanFee', 'CoinValueOutOfBound', 'LossyCoinValueConversion', 'InvalidAliasProof', 'NoUnloadingRecycler', 'ProofAndAliasMismatch', 'NothingToBuild', 'TooManyRings', 'AddressAlreadyHasCoin', 'InvalidProofOfOwnership', 'EmptyInputs', 'RecyclerMismatch', 'InsufficientUnloadForFee', 'AliasNotPremarked', 'InvalidRecyclerRevision', 'InvalidSplit', 'FreshCoinRequired', 'CannotConvertNativeToAsset', 'MaxFeeNotAllowedForPrepaid', 'MaxFeeExceedsInput', 'InvalidMaxFee', 'CannotCreateRecyclerCollection'];
+        Coinage: ['MemberKeyAlreadyUsed', 'InvalidMemberKey', 'InternalError', 'RecyclerAlreadyUnloaded', 'InvalidConsolidation', 'ConsolidationTooBig', 'CoinValueTooBig', 'CoinValueTooSmall', 'CoinValueIsLessThanFee', 'CoinValueOutOfBound', 'LossyCoinValueConversion', 'InvalidAliasProof', 'NoUnloadingRecycler', 'ProofAndAliasMismatch', 'NothingToBuild', 'TooManyRings', 'AddressAlreadyHasCoin', 'InvalidProofOfOwnership', 'EmptyInputs', 'RecyclerMismatch', 'InsufficientUnloadForFee', 'AliasNotPremarked', 'InvalidRecyclerRevision', 'InvalidSplit', 'FreshCoinRequired', 'CannotConvertNativeToAsset', 'MaxFeeNotAllowedForPrepaid', 'MaxFeeExceedsInput', 'InvalidMaxFee', 'CannotCreateRecyclerCollection', 'AssetIdNotSet', 'AssetIdAlreadySet', 'UnknownAsset'];
         MembersNotifier: ['SubscriberNotFound', 'AlreadySubscribed', 'TooManySubscribers', 'InvalidCollectionsList', 'TooManyUpdates', 'XcmSendFailed', 'NotSubscribedToCollection', 'InvalidRingIndex', 'ExceedsChannelCapacity', 'NoBatchActive', 'NoPendingInit', 'ReplayCooldownActive', 'EmptyRingIndices'];
-        Airdrop: ['PrizeMustBeMoreOrEqualToMinBalance', 'ValidityTooLong', 'ValidityTooShort', 'NoPrizes', 'InsufficientFunds', 'TooManyConcurrentPrizePools', 'NoSuchPrizePool', 'PrizePoolExpired', 'PrizePoolExhausted', 'AlreadyClaimed', 'PoolValueOverflow', 'WrongTarget', 'DidNotWin', 'InvalidProof', 'AliasMismatch'];
-        MultiBlockMigrations: ['Ongoing'];
+        Airdrop: ['PrizeBelowMinBalance', 'NoWinnersConfigured', 'TooManyWinners', 'InvalidEventTimes', 'DuplicateEventId', 'NoScheduledEvent', 'UnknownEvent', 'WrongStatus', 'NotAcceptingRegistrations', 'NotClaiming', 'ClaimingWindowClosed', 'EntropySlotTaken', 'InvalidVrfProof', 'UnsupportedAccountKey', 'InvalidMembershipProof', 'NoSuchWinner', 'ParticipantOverflow', 'PrizeAllocationOverflow', 'AssetNotEnabled', 'AssetAlreadyEnabled'];
+        Honour: ['Arithmetic', 'SubjectAlreadyVoted', 'InvalidProof'];
+        Sudo: ['RequireSudo'];
     };
     constants: {
         System: ['BlockWeights', 'BlockLength', 'BlockHashCount', 'DbWeight', 'Version', 'SS58Prefix'];
         ParachainSystem: ['SelfParaId'];
         Timestamp: ['MinimumPeriod'];
+        MultiBlockMigrations: ['CursorMaxLen', 'IdentifierMaxLen'];
         Balances: ['ExistentialDeposit', 'MaxLocks', 'MaxReserves', 'MaxFreezes'];
         TransactionPayment: ['OperationalFeeMultiplier'];
         Assets: ['RemoveItemsLimit', 'AssetDeposit', 'AssetAccountDeposit', 'MetadataDepositBase', 'MetadataDepositPerByte', 'ApprovalDeposit', 'StringLimit'];
@@ -10641,27 +10812,27 @@ type AllInteractions = {
         Utility: ['batched_calls_limit'];
         Multisig: ['DepositBase', 'DepositFactor', 'MaxSignatories'];
         Proxy: ['ProxyDepositBase', 'ProxyDepositFactor', 'MaxProxies', 'MaxPending', 'AnnouncementDepositBase', 'AnnouncementDepositFactor'];
-        Identity: ['BasicDeposit', 'ByteDeposit', 'UsernameDeposit', 'SubAccountDeposit', 'UsernameReportDeposit', 'MaxSubAccounts', 'UsernameReportTimeout', 'MaxRegistrars', 'MaxJudgements', 'PendingUsernameExpiration', 'UsernameGracePeriod', 'MaxSuffixLength', 'MaxUsernameLength', 'MinUsernameLength', 'CredentialRemovalPenalty', 'identity_context'];
+        Identity: ['BasicDeposit', 'ByteDeposit', 'UsernameDeposit', 'SubAccountDeposit', 'MaxSubAccounts', 'MaxRegistrars', 'PendingUsernameExpiration', 'UsernameGracePeriod', 'MaxSuffixLength', 'MaxUsernameLength'];
         People: ['RingExponent', 'OnboardingQueuePageSize', 'StaleAliasCleanupInterval', 'account_setup_time_tolerance'];
         MobRule: ['CurrencyLocationInfo', 'MaxVoteClaimDuration', 'MinCaseDuration', 'MaxVotingDuration', 'MinTurnoutNominal', 'MinTurnoutPercentage', 'VotingPenaltyDuration', 'MaxVotesClaimable', 'OffchainWorkInterval', 'CleanVotesBatchSize', 'VotesOpenForClaimsDuration', 'MinimumVoterThreshold', 'mob_rule_pot_id', 'mob_rule_context'];
         ProofOfInk: ['MaxActiveReferrals', 'PotId', 'proof_of_ink_pot_id'];
-        Game: ['MaxRounds', 'MaxGroupSize', 'MinGroupSize', 'NonPlayingKickoutTime', 'PhaseDurations', 'MaxGameSchedules', 'MaxAttendanceHistoryDepth', 'RewardPerWinner', 'proof_of_ownership_msg_base'];
-        Score: ['CurrencyLocationInfo', 'OffchainWorkInterval', 'score_pot_id', 'score_context', 'ubi_points'];
+        Game: ['MaxRounds', 'MaxGroupSize', 'MinGroupSize', 'NonPlayingKickoutTime', 'DefaultPlayDeposit', 'DefaultPhaseDurations', 'MaxGameSchedules', 'MaxAttendanceHistoryDepth', 'AirdropSource', 'proof_of_ownership_msg_base', 'max_enactments', 'airdrop_event_id_base'];
+        Score: ['CurrencyLocationInfo', 'OffchainWorkInterval', 'score_pot_id', 'score_context'];
         PeopleLite: ['LiteRingExponent', 'LiteOnboardingSize', 'account_setup_block_tolerance'];
-        Resources: ['MaxUsernameLength', 'MinUsernameLength', 'PersonAuthDuration', 'MinPersonAuthUpdateInterval', 'MaxReservationQueueLength', 'AccountsApiAllowance', 'StmtStoreSlotsPerPeriod', 'LiteStmtStoreSlotsPerPeriod', 'StmtStoreCleanupLimit', 'StmtStoreReplacementCooldown', 'FriendRequestAllowance', 'FriendRequestSlotsPerPeriod', 'LiteFriendRequestSlotsPerPeriod', 'FriendRequestPeriodDuration', 'FriendRequestGraceWindow', 'FriendRequestRetentionDuration', 'OffchainWorkerInterval', 'LongTermStoragePeriodDuration', 'LongTermStorageClaimsPerPeriod', 'LongTermStorageGraceWindow', 'LongTermStorageCleanupLimit'];
+        Resources: ['MaxUsernameLength', 'MinUsernameLength', 'PersonAuthDuration', 'MinPersonAuthUpdateInterval', 'MaxReservationQueueLength', 'AccountsApiAllowance', 'StmtStoreSlotsPerPeriod', 'LiteStmtStoreSlotsPerPeriod', 'StmtStoreCleanupLimit', 'StmtStoreReplacementCooldown', 'StmtStoreGraceWindow', 'FriendRequestAllowance', 'FriendRequestSlotsPerPeriod', 'LiteFriendRequestSlotsPerPeriod', 'FriendRequestPeriodDuration', 'FriendRequestGraceWindow', 'FriendRequestRetentionDuration', 'OffchainWorkerInterval', 'LongTermStoragePeriodDuration', 'LongTermStorageClaimsPerPeriod', 'LongTermStorageGraceWindow', 'LongTermStorageCleanupLimit'];
         ChunksManager: ['PageSize'];
         Members: ['MaxCollections', 'OnboardingQueuePageSize', 'MaxFlexibleRingExponent', 'RingBuildingMemberLimit', 'OldRootRetentionDuration', 'OffchainWorkerInterval'];
-        Coinage: ['RecyclerRingExponent', 'PaidUnloadTokenRingExponent', 'UnderlyingAssetId', 'UnderlyingAssetUnit', 'MinimumExponent', 'MaximumExponent', 'MinimumExponentForOutputUnloadFee', 'MaxSplitOutputs', 'MaxConsolidation', 'MaxBatchUnpaidLoad', 'UnloadTokenTimePeriodPeopleLitePeople', 'UnloadTokenAllowancePerTimePeriodForPeople', 'UnloadTokenAllowancePerTimePeriodForLitePeople', 'MaxFreeUnloadTokensPerTimePeriod', 'OffchainWorkerInterval', 'CoinFailureLockPeriod', 'pallet_account'];
+        Coinage: ['RecyclerRingExponent', 'PaidUnloadTokenRingExponent', 'UnderlyingAssetUnit', 'MinimumExponent', 'MaximumExponent', 'MinimumExponentForOutputUnloadFee', 'MaxSplitOutputs', 'MaxConsolidation', 'MaxBatchUnpaidLoad', 'UnloadTokenTimePeriodPeopleLitePeople', 'UnloadTokenAllowancePerTimePeriodForPeople', 'UnloadTokenAllowancePerTimePeriodForLitePeople', 'MaxFreeUnloadTokensPerTimePeriod', 'OffchainWorkerInterval', 'CoinFailureLockPeriod', 'pallet_account'];
         MembersNotifier: ['MaxSubscribers', 'MaxUpdatesPerBatch', 'MaxCollectionsPerSubscriber', 'MaxCollections', 'UpdateTriggerBlocks', 'UpdateTriggerThreshold', 'RequestReplayRemoteWeight', 'OffchainWorkerInterval', 'StuckBatchTimeout', 'ReplayCooldownSeconds'];
-        Airdrop: ['MinValiditySeconds', 'MaxValiditySeconds', 'PrizePoolClearLimit', 'airdrop_pot_id'];
-        MultiBlockMigrations: ['CursorMaxLen', 'IdentifierMaxLen'];
+        Airdrop: ['PalletId', 'ClearLimit', 'DrawLimit', 'OffchainWorkerInterval', 'airdrop_pot_id'];
+        Honour: ['PointFreezeDuration', 'CallMortality'];
     };
     viewFns: {
+        MultiBlockMigrations: ['ongoing_status', 'progress', 'affected_prefixes', 'status'];
         Assets: ['asset_details', 'balance_of', 'get_metadata', 'get_reserves_data'];
         Proxy: ['check_permissions', 'is_superset'];
         Resources: ['current_stmt_store_period', 'stmt_store_slot_context_for', 'friend_request_context_for'];
         Coinage: ['get_free_unload_token_info', 'get_recycler_ring_status', 'get_recycler_ring_revision', 'get_paid_token_ring_status', 'get_paid_token_ring_revision', 'get_paid_unload_token_fee_in_asset', 'get_paid_unload_token_fee_in_native', 'get_coin_by_owner', 'get_coin_lock_until', 'get_recycler_member_info', 'is_paid_token_member', 'get_recycler_members', 'get_paid_token_ring_members', 'is_recycler_alias_unloaded', 'is_paid_token_alias_consumed', 'is_free_token_alias_consumed', 'weight_for_unload_recycler_paying_using_output'];
-        MultiBlockMigrations: ['ongoing_status', 'progress', 'affected_prefixes', 'status'];
     };
     apis: {
         AuraApi: ['slot_duration', 'authorities'];
@@ -10669,21 +10840,24 @@ type AllInteractions = {
         AuraUnincludedSegmentApi: ['can_build_upon'];
         Core: ['version', 'execute_block', 'initialize_block'];
         Metadata: ['metadata', 'metadata_at_version', 'metadata_versions'];
-        RuntimeViewFunction: ['execute_view_function'];
         BlockBuilder: ['apply_extrinsic', 'finalize_block', 'inherent_extrinsics', 'check_inherents'];
         TaggedTransactionQueue: ['validate_transaction'];
         OffchainWorkerApi: ['offchain_worker'];
         SessionKeys: ['generate_session_keys', 'decode_session_keys'];
+        RuntimeViewFunction: ['execute_view_function'];
         AccountNonceApi: ['account_nonce'];
         TransactionPaymentApi: ['query_info', 'query_fee_details', 'query_weight_to_fee', 'query_length_to_fee'];
         TransactionPaymentCallApi: ['query_call_info', 'query_call_fee_details', 'query_weight_to_fee', 'query_length_to_fee'];
         XcmPaymentApi: ['query_acceptable_payment_assets', 'query_xcm_weight', 'query_weight_to_asset_fee', 'query_delivery_fees'];
         DryRunApi: ['dry_run_call', 'dry_run_xcm'];
         LocationToAccountApi: ['convert_location'];
+        TrustedQueryApi: ['is_trusted_reserve', 'is_trusted_teleporter'];
+        AuthorizedAliasersApi: ['authorized_aliasers', 'is_authorized_alias'];
+        CollectCollationInfo: ['collect_collation_info'];
+        GetParachainInfo: ['parachain_id'];
         MobRuleApi: ['voted_on'];
         ProofOfInkApi: ['candidacy_deposit'];
         PalletGameApi: ['play_deposit'];
-        CollectCollationInfo: ['collect_collation_info'];
         GenesisBuilder: ['build_state', 'get_preset', 'preset_names'];
     };
 };
