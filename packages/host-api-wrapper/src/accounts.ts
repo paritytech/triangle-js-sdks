@@ -6,6 +6,9 @@ import type {
   LegacyAccount as LegacyAccountCodec,
   ProductAccountId as ProductAccountIdCodec,
   ProductAccountTransaction,
+  RegisteredRingVrfKey as RegisteredRingVrfKeyCodec,
+  RingVrfKeyDisclosure as RingVrfKeyDisclosureCodec,
+  RingVrfKeyHandle as RingVrfKeyHandleCodec,
   Subscription,
   Transport,
   VrfTranscriptItem as VrfTranscriptItemCodec,
@@ -14,10 +17,13 @@ import {
   CreateProofErr,
   GetAliasErr,
   GetUserIdErr,
+  ListRingVrfKeysErr,
   LoginErr,
   ProductProofContext,
+  RegisterRingVrfKeyErr,
   RequestCredentialsErr,
   RingLocation,
+  RingVrfSignErr,
   SignVrfErr,
   SigningPayload,
   SigningPayloadWithoutAccount,
@@ -59,6 +65,35 @@ export type ProductAccount = {
  * product account's.
  */
 export type ProofContext = [productId: string, suffix: AccountSelector];
+
+/**
+ * Public name of a registered ring VRF key (RFC-0024).
+ *
+ * Deliberately kept in wire form: the index is the owning product's
+ * implementation detail, so a handle obtained from {@link
+ * createAccountsProvider}'s `listRingVrfKeys` must be passed through opaquely.
+ * **Never hardcode another product's index** — select by declared ring instead;
+ * hardcoding breaks the moment the owner rotates or adds a key. Use
+ * {@link ringVrfKeyHandle} to name a key your own product owns.
+ */
+export type RingVrfKeyHandle = CodecType<typeof RingVrfKeyHandleCodec>;
+
+/** A ring VRF key registry entry (RFC-0024). */
+export type RegisteredRingVrfKey = CodecType<typeof RegisteredRingVrfKeyCodec>;
+
+/** How much of a registry entry to ask for: `'Anonymized'` or `'PublicKey'` (RFC-0024). */
+export type RingVrfKeyDisclosure = CodecType<typeof RingVrfKeyDisclosureCodec>;
+
+/**
+ * Builds a {@link RingVrfKeyHandle} for a key inside `owner`'s ring VRF domain.
+ *
+ * Intended for naming your *own* keys — the ones you passed to
+ * `registerRingVrfKey`. For a foreign key, take the handle from
+ * `listRingVrfKeys` instead of constructing one.
+ */
+export function ringVrfKeyHandle(owner: string, index: AccountSelector): RingVrfKeyHandle {
+  return [owner, derivationIndexOf(index)];
+}
 
 export type LegacyAccount = CodecType<typeof LegacyAccountCodec>;
 
@@ -113,9 +148,69 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
-    getContextualAlias(context: ProofContext, ring: CodecType<typeof RingLocation>) {
+    /**
+     * Registers a ring VRF key this product owns, declaring the ring it is
+     * intended for (RFC-0024).
+     *
+     * Ownership is the calling product, never a parameter, so this is
+     * permissionless and prompt-free. Registering the same `index` for another
+     * `ring` extends the existing entry rather than creating a second one.
+     *
+     * Registration declares *intent*, not membership: it says "this is the key
+     * I will use for that ring", not "the user is a person". Membership is
+     * still discovered only by attempting a proof.
+     */
+    registerRingVrfKey(index: AccountSelector, ring: CodecType<typeof RingLocation>) {
       return hostApi
-        .accountGetAlias(enumValue('v1', [toProofContext(context), ring]))
+        .accountRegisterRingVrfKey(enumValue('v1', [derivationIndexOf(index), ring]))
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new RegisterRingVrfKeyErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
+    },
+
+    /**
+     * Lists the ring VRF registry entries owned by `owner` — this product or
+     * another one (RFC-0024).
+     *
+     * Listing your own keys is permissionless; a foreign `owner` needs a grant
+     * or produces a user prompt. `'PublicKey'` disclosure additionally returns
+     * the member public key, which is linkable across every ring it appears in
+     * and so is permissioned cross-product.
+     *
+     * Select the entry you want by the rings it declares, never by index.
+     */
+    listRingVrfKeys(owner: string, disclosure: RingVrfKeyDisclosure = 'Anonymized') {
+      return hostApi
+        .accountListRingVrfKeys(enumValue('v1', [owner, disclosure]))
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new ListRingVrfKeysErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
+    },
+
+    /**
+     * Reads the contextual alias `keyHandle` resolves to under `context` in `ring`
+     * (RFC-0004, amended by RFC-0024).
+     *
+     * `ring` stays explicit even though the handle carries its declared rings,
+     * because a key may be registered for several and the caller must say which
+     * the alias is against; the host fails with `KeyNotInRing` otherwise.
+     *
+     * Check `ringRevision` on each use of the resulting alias and renew when it
+     * has moved — nothing else watches for it.
+     */
+    getContextualAlias(keyHandle: RingVrfKeyHandle, context: ProofContext, ring: CodecType<typeof RingLocation>) {
+      return hostApi
+        .accountGetAlias(enumValue('v1', [keyHandle, toProofContext(context), ring]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -137,9 +232,23 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           return err(new RequestCredentialsErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
-    createRingVRFProof(context: ProofContext, ring: CodecType<typeof RingLocation>, message: Uint8Array) {
+    /**
+     * Produces an anonymous ring VRF proof with `keyHandle` under `context` in
+     * `ring` (RFC-0004, amended by RFC-0024).
+     *
+     * A proof is a bearer token for its context's alias, so a *foreign*
+     * `keyHandle` is admitted only when the owning product allowlisted this one
+     * in its manifest — there is no user-prompt fallback, and the host returns
+     * `NotAllowlisted` otherwise.
+     */
+    createRingVRFProof(
+      keyHandle: RingVrfKeyHandle,
+      context: ProofContext,
+      ring: CodecType<typeof RingLocation>,
+      message: Uint8Array,
+    ) {
       return hostApi
-        .accountCreateProof(enumValue('v1', [toProofContext(context), ring, message]))
+        .accountCreateProof(enumValue('v1', [keyHandle, toProofContext(context), ring, message]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -147,6 +256,31 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
           }
           // @ts-expect-error response.tag is never here
           return err(new CreateProofErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
+    },
+
+    /**
+     * Signs `message` with the ring VRF member key itself, producing an ordinary
+     * signature rather than an anonymous ring proof (RFC-0024).
+     *
+     * Takes no context and no ring: it derives no alias and proves no
+     * membership. A verifier needs the member public key, so the signature is
+     * **linkable** to every other use of that key — including every ring the key
+     * is a member of.
+     *
+     * Like `createRingVRFProof`, a foreign `keyHandle` requires the owner's
+     * manifest allowlist and has no prompt fallback.
+     */
+    ringVrfSign(keyHandle: RingVrfKeyHandle, message: Uint8Array) {
+      return hostApi
+        .accountRingVrfSign(enumValue('v1', [keyHandle, message]))
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new RingVrfSignErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
         });
     },
 

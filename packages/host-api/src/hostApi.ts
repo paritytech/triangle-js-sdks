@@ -9,8 +9,11 @@ import {
   CreateProofErr,
   GetAliasErr,
   GetUserIdErr,
+  ListRingVrfKeysErr,
   LoginErr,
+  RegisterRingVrfKeyErr,
   RequestCredentialsErr,
+  RingVrfSignErr,
   SignVrfErr,
 } from './protocol/v1/accounts.js';
 import { ChatBotRegistrationErr, ChatMessagePostingErr, ChatRoomRegistrationErr } from './protocol/v1/chat.js';
@@ -201,6 +204,27 @@ export function createHostApi(transport: Transport): HostApi {
       return makeRequest(transport.request('host_account_sign_vrf', payload), reason => ({
         tag: payload.tag,
         value: new SignVrfErr.Unknown({ reason }),
+      }));
+    },
+
+    accountRegisterRingVrfKey(payload) {
+      return makeRequest(transport.request('host_account_register_ring_vrf_key', payload), reason => ({
+        tag: payload.tag,
+        value: new RegisterRingVrfKeyErr.Unknown({ reason }),
+      }));
+    },
+
+    accountListRingVrfKeys(payload) {
+      return makeRequest(transport.request('host_account_list_ring_vrf_keys', payload), reason => ({
+        tag: payload.tag,
+        value: new ListRingVrfKeysErr.Unknown({ reason }),
+      }));
+    },
+
+    accountRingVrfSign(payload) {
+      return makeRequest(transport.request('host_account_ring_vrf_sign', payload), reason => ({
+        tag: payload.tag,
+        value: new RingVrfSignErr.Unknown({ reason }),
       }));
     },
 

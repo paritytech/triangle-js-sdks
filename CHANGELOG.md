@@ -1,3 +1,20 @@
+## 0.9.3 (2026-08-05)
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-container / host-api-wrapper:** ring VRF member keys are explicit and product-owned (RFC-0024). RFC-0004's host member-key selection contract is deleted — the host no longer defines a PoP collection, infers correspondence between a `RingLocation` and a key, or falls back to the PoP key. `accounts.getContextualAlias` / `accounts.createRingVRFProof` (and `handleAccountGetAlias` / `handleAccountCreateProof`) take a `keyHandle` as their first argument, naming a slot in the owning product's ring VRF domain rather than the sr25519 product account at the same `(product, index)`. `ring` stays a separate argument because a key may be registered for several; hosts must verify it appears among the handle's declared rings. `CreateProofErr` gains `KeyNotRegistered`, `KeyNotInRing` and `NotAllowlisted`, and `GetAliasErr` gains the first two, inserted before `Rejected` — so the wire discriminants of `Rejected` and `Unknown` shift and hosts and products must be upgraded together. See the [proofs and aliases section](./docs/migration/v0.9.md#proofs-and-aliases-take-an-explicit-key-handle) of the migration guide.
+- **host-papp:** `UserSession.getRingVrfAlias` and `createRingVrfProof` take a `keyHandle` after `callingProductId`, and the corresponding `RingVrfAliasRequest` / `RingVrfProofRequest` codecs gain that field. `AllocatedResource.AutoSigning` gains `ringVrfDomainEntropy` alongside `productRootPrivateKey`, letting a host derive the member secret of a *registered* key locally — a host MUST NOT derive one for a `(product, index)` pair absent from its registry. See the [host-papp section](./docs/migration/v0.9.md#host-papp-usersession-and-autosigning) of the migration guide.
+
+### 🚀 Features
+
+- **host-api / host-container / host-api-wrapper:** ring VRF key registry (RFC-0024). `accounts.registerRingVrfKey(index, ring)` registers a key the calling product owns — permissionless, since ownership is the calling product id and never a parameter — and is idempotent: registering the same index for another ring extends the entry. `accounts.listRingVrfKeys(owner, disclosure?)` discovers a product's entries by anonymized handle, with `'PublicKey'` disclosure permissioned cross-product because a member public key is linkable across every ring it appears in. `accounts.ringVrfSign(keyHandle, message)` signs with the member key itself instead of proving membership anonymously, so it takes neither a context nor a ring. Container handlers: `handleAccountRegisterRingVrfKey`, `handleAccountListRingVrfKeys`, `handleAccountRingVrfSign`. Consumers must select keys by declared `RingLocation` and treat the handle as opaque — the index is the owner's implementation detail.
+- **host-api / host-container:** cross-product proofs and signatures are gated on the owner's manifest allowlist, with **no user-prompt fallback** (`NotAllowlisted`). A proof is a bearer token for its context's alias and a signature is a bearer token for the key, and neither can be constrained by inspecting an opaque `message` — so consenting to one is not meaningful consent, and only the key's owner is positioned to evaluate the risk. Foreign `get_account_alias` / `get_account` are unaffected, and `create_transaction` is unchanged. See the [permission model](./docs/migration/v0.9.md#cross-product-key-use-is-gated-on-the-owners-allowlist).
+- **host-papp:** `UserSession.registerRingVrfKey`, `listRingVrfKeys` and `ringVrfSign` forward the registry and signing requests to the paired Account Holder, which is the authoritative registry. Three new `RemoteMessage` pairs, appended so every existing variant index is unchanged.
+
+### ❤️ Thank You
+
+- @valentunn
+
 ## 0.9.2 (2026-08-03)
 
 ### ⚠️ Breaking Changes

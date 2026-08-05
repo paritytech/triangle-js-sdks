@@ -21,6 +21,7 @@ import {
   GenericError,
   GetAliasErr,
   GetUserIdErr,
+  ListRingVrfKeysErr,
   LoginErr,
   NavigateToErr,
   PaymentBalanceErr,
@@ -29,9 +30,11 @@ import {
   PaymentTopUpErr,
   PreimageSubmitErr,
   PushNotificationError,
+  RegisterRingVrfKeyErr,
   RemotePermission,
   RequestCredentialsErr,
   ResourceAllocationErr,
+  RingVrfSignErr,
   SignVrfErr,
   SigningErr,
   StatementProofErr,
@@ -332,6 +335,22 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     () => new SignVrfErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
+  // ring VRF key registry slots (RFC-0024)
+  const handleAccountRegisterRingVrfKeySlot = makeNotImplementedSlot(
+    'host_account_register_ring_vrf_key',
+    () => new RegisterRingVrfKeyErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
+  const handleAccountListRingVrfKeysSlot = makeNotImplementedSlot(
+    'host_account_list_ring_vrf_keys',
+    () => new ListRingVrfKeysErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
+  const handleAccountRingVrfSignSlot = makeNotImplementedSlot(
+    'host_account_ring_vrf_sign',
+    () => new RingVrfSignErr.Unknown({ reason: NOT_IMPLEMENTED }),
+  );
+
   // entropy derivation slot
   const handleDeriveEntropySlot = makeNotImplementedSlot(
     'host_derive_entropy',
@@ -627,6 +646,30 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       return handleV1Request(
         handleAccountSignVrfSlot,
         () => new SignVrfErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handleAccountRegisterRingVrfKey(handler) {
+      return handleV1Request(
+        handleAccountRegisterRingVrfKeySlot,
+        () => new RegisterRingVrfKeyErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handleAccountListRingVrfKeys(handler) {
+      return handleV1Request(
+        handleAccountListRingVrfKeysSlot,
+        () => new ListRingVrfKeysErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
+        handler,
+      );
+    },
+
+    handleAccountRingVrfSign(handler) {
+      return handleV1Request(
+        handleAccountRingVrfSignSlot,
+        () => new RingVrfSignErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
         handler,
       );
     },
