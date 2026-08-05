@@ -1,4 +1,14 @@
-import { ContextualAlias, ProductProofContext, RingLocation, RingVrfProof, VrfSignature } from '@novasamatech/host-api';
+import {
+  ContextualAlias,
+  DerivationIndex,
+  ProductProofContext,
+  RegisteredRingVrfKey,
+  RingLocation,
+  RingVrfKeyDisclosure,
+  RingVrfKeyHandle,
+  RingVrfProof,
+  VrfSignature,
+} from '@novasamatech/host-api';
 import { enumValue } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createSession } from '@novasamatech/statement-store';
@@ -129,15 +139,48 @@ export type UserSession = StoredUserSession & {
   createTransactionLegacy(payload: CreateTransactionLegacyRequest): ResultAsync<Uint8Array, Error>;
   getRingVrfAlias(
     callingProductId: string,
+    keyHandle: CodecType<typeof RingVrfKeyHandle>,
     context: CodecType<typeof ProductProofContext>,
     ring: CodecType<typeof RingLocation>,
   ): ResultAsync<CodecType<typeof ContextualAlias>, Error>;
   createRingVrfProof(
     callingProductId: string,
+    keyHandle: CodecType<typeof RingVrfKeyHandle>,
     context: CodecType<typeof ProductProofContext>,
     ring: CodecType<typeof RingLocation>,
     message: Uint8Array,
   ): ResultAsync<CodecType<typeof RingVrfProof>, Error>;
+  /**
+   * Signs `message` with the ring VRF member key itself (RFC-0024).
+   *
+   * Unlike {@link createRingVrfProof} this is not anonymous: the result is
+   * verified against the member public key and is linkable to every other use
+   * of that key.
+   */
+  ringVrfSign(
+    callingProductId: string,
+    keyHandle: CodecType<typeof RingVrfKeyHandle>,
+    message: Uint8Array,
+  ): ResultAsync<Uint8Array, Error>;
+  /**
+   * Registers a ring VRF key owned by `callingProductId` against `ring`,
+   * returning the member public key (RFC-0024).
+   *
+   * The Account Holder is the authoritative registry, so registration always
+   * reaches it. Idempotent — re-registering an index for an additional ring
+   * extends the existing entry.
+   */
+  registerRingVrfKey(
+    callingProductId: string,
+    index: CodecType<typeof DerivationIndex>,
+    ring: CodecType<typeof RingLocation>,
+  ): ResultAsync<Uint8Array, Error>;
+  /** Lists the ring VRF registry entries owned by `owner` (RFC-0024). */
+  listRingVrfKeys(
+    callingProductId: string,
+    owner: string,
+    disclosure: CodecType<typeof RingVrfKeyDisclosure>,
+  ): ResultAsync<CodecType<typeof RegisteredRingVrfKey>[], Error>;
   /**
    * Fetches the sr25519 public key of `//product//{productId}` (RFC-0022).
    *
@@ -366,13 +409,14 @@ export function createUserSession({
       });
     },
 
-    getRingVrfAlias(callingProductId, context, ring) {
+    getRingVrfAlias(callingProductId, keyHandle, context, ring) {
       return enqueue(() => {
         const messageId = nanoid();
         const data = enumValue(
           'v1',
           enumValue('RingVrfAliasRequest', {
             callingProductId,
+            keyHandle,
             context,
             ring,
           }),
@@ -402,13 +446,14 @@ export function createUserSession({
       });
     },
 
-    createRingVrfProof(callingProductId, context, ring, message) {
+    createRingVrfProof(callingProductId, keyHandle, context, ring, message) {
       return enqueue(() => {
         const messageId = nanoid();
         const data = enumValue(
           'v1',
           enumValue('RingVrfProofRequest', {
             callingProductId,
+            keyHandle,
             context,
             ring,
             message,
@@ -436,6 +481,87 @@ export function createUserSession({
           messageId,
           userSession.id,
         );
+      });
+    },
+
+    ringVrfSign(callingProductId, keyHandle, message) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue('v1', enumValue('RingVrfSignRequest', { callingProductId, keyHandle, message }));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+
+        const responseFilter = (incoming: RemoteMessage) => {
+          if (
+            incoming.data.tag === 'v1' &&
+            incoming.data.value.tag === 'RingVrfSignResponse' &&
+            incoming.data.value.value.respondingTo === messageId
+          ) {
+            return incoming.data.value.value.payload;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(result =>
+          result.success ? ok(result.value) : err(result.value),
+        );
+
+        return withHostActionTrace(withQueueTimeout(inner, 'ringVrfSign'), messageId, userSession.id);
+      });
+    },
+
+    registerRingVrfKey(callingProductId, index, ring) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue('v1', enumValue('RegisterRingVrfKeyRequest', { callingProductId, index, ring }));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+
+        const responseFilter = (incoming: RemoteMessage) => {
+          if (
+            incoming.data.tag === 'v1' &&
+            incoming.data.value.tag === 'RegisterRingVrfKeyResponse' &&
+            incoming.data.value.value.respondingTo === messageId
+          ) {
+            return incoming.data.value.value.payload;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(result =>
+          result.success ? ok(result.value) : err(result.value),
+        );
+
+        return withHostActionTrace(withQueueTimeout(inner, 'registerRingVrfKey'), messageId, userSession.id);
+      });
+    },
+
+    listRingVrfKeys(callingProductId, owner, disclosure) {
+      return enqueue(() => {
+        const messageId = nanoid();
+        const data = enumValue('v1', enumValue('ListRingVrfKeysRequest', { callingProductId, owner, disclosure }));
+        emitHostAction(messageId, actionKindFromMessageData(data), userSession.id);
+
+        const responseFilter = (incoming: RemoteMessage) => {
+          if (
+            incoming.data.tag === 'v1' &&
+            incoming.data.value.tag === 'ListRingVrfKeysResponse' &&
+            incoming.data.value.value.respondingTo === messageId
+          ) {
+            return incoming.data.value.value.payload;
+          }
+        };
+
+        const request = session.request(RemoteMessageCodec, { messageId, data });
+        const reply = session.waitForRequestMessage(RemoteMessageCodec, responseFilter);
+
+        const inner = awaitReplyOrAckFailure(request, reply).andThen(result =>
+          result.success ? ok(result.value) : err(result.value),
+        );
+
+        return withHostActionTrace(withQueueTimeout(inner, 'listRingVrfKeys'), messageId, userSession.id);
       });
     },
 

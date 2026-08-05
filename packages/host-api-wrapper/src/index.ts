@@ -37,9 +37,12 @@ export type {
   LegacyAccount,
   ProductAccount,
   ProofContext,
+  RegisteredRingVrfKey,
+  RingVrfKeyDisclosure,
+  RingVrfKeyHandle,
   VrfTranscriptItem,
 } from './accounts.js';
-export { accounts, createAccountsProvider } from './accounts.js';
+export { accounts, createAccountsProvider, ringVrfKeyHandle } from './accounts.js';
 
 export type { ThemeMode } from './theme.js';
 export { createThemeProvider } from './theme.js';

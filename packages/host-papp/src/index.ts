@@ -31,7 +31,15 @@ export type {
   RingVrfAliasResponse,
   RingVrfProofRequest,
   RingVrfProofResponse,
+  RingVrfSignRequest,
+  RingVrfSignResponse,
 } from './sso/sessionManager/scale/ringVrf.js';
+export type {
+  ListRingVrfKeysRequest,
+  ListRingVrfKeysResponse,
+  RegisterRingVrfKeyRequest,
+  RegisterRingVrfKeyResponse,
+} from './sso/sessionManager/scale/ringVrfKeys.js';
 export type { SignVrfErr, SignVrfRequest, SignVrfResponse } from './sso/sessionManager/scale/signVrf.js';
 export type {
   CreateTransactionLegacyRequest,

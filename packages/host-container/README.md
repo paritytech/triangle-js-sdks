@@ -241,15 +241,90 @@ container.handleAccountGet(async ([dotnsId, derivationIndex], { ok, err }) => {
 });
 ```
 
-### handleAccountGetAlias
+### handleAccountRegisterRingVrfKey
 
-`context` is `[productId, suffix]`, where `suffix` is the same selector as an
-account's derivation index and expands to the same 32-byte value (RFC 0022), so
-the alias ↔ account mapping is the identity on it.
+A product registers a ring VRF key it owns against the ring it intends it for
+(RFC-0024). Ownership is the calling product id and is never a parameter, so this
+needs no capability gate and no prompt. Registration is idempotent — registering
+an already-registered `index` for an additional `ring` extends that entry rather
+than creating a second one — and it declares *intent*, not membership, so it must
+never be treated as a personhood oracle.
+
+Registration always reaches the Account Holder, which is the authoritative
+registry, but need not block on it: with the product's ring VRF domain entropy
+the host can answer immediately and mirror the registration fire-and-forget.
+
+> A host MUST NOT derive a member secret for a `(product, index)` pair absent
+> from its registry. Domain entropy makes derivation unconditional arithmetic —
+> only registration brings a key into existence.
 
 ```ts
-container.handleAccountGetAlias(async ([context, ring], { ok, err }) => {
-  const alias = await getContextualAlias(context, ring);
+container.handleAccountRegisterRingVrfKey(async ([index, ring], { ok, err }) => {
+  if (!isConnected()) {
+    return err(new RegisterRingVrfKeyErr.NotConnected());
+  }
+  if (!(await isKnownRing(ring))) {
+    return err(new RegisterRingVrfKeyErr.RingNotFound());
+  }
+  // `productId` comes from the container's own context — never from the caller.
+  return ok(await registry.register(productId, index, ring));
+});
+```
+
+On a successful registration, match `ring` against the well-known ring table
+(People, People-Lite) by structural equality and record the handle as the
+corresponding person key — that is what replaces a compiled-in key selection for
+the host's own personhood-dependent features. If two products register for the
+same well-known ring, do **not** pick silently: resolve to the product the user
+designated as their personhood provider (defaulting to the first registrar), so a
+second product cannot displace the first.
+
+### handleAccountListRingVrfKeys
+
+Answer from the registry snapshot when it is current. Listing the caller's own
+keys is permissionless; a foreign `owner` needs a grant or a prompt, and
+`'PublicKey'` disclosure is separately permissioned because a member public key
+is linkable across every ring it appears in. Omit `publicKey` under
+`'Anonymized'`.
+
+```ts
+container.handleAccountListRingVrfKeys(async ([owner, disclosure], { ok, err }) => {
+  if (owner !== productId && !(await hasGrantFor(productId, owner))) {
+    return err(new ListRingVrfKeysErr.Rejected());
+  }
+  const entries = await registry.list(owner);
+  return ok(
+    entries.map(entry => ({
+      handle: entry.handle,
+      rings: entry.rings,
+      publicKey: disclosure === 'PublicKey' ? entry.publicKey : undefined,
+    })),
+  );
+});
+```
+
+### handleAccountGetAlias
+
+`keyHandle` names the ring VRF key explicitly (RFC-0024) — the host no longer
+defines a PoP collection, infers correspondence, or falls back to a compiled-in
+key. `context` is `[productId, suffix]`, where `suffix` is the same selector as
+an account's derivation index and expands to the same 32-byte value (RFC 0022),
+so the alias ↔ account mapping is the identity on it.
+
+`ring` stays a separate argument because a key may be registered for several;
+verify it appears among the handle's declared rings and return `KeyNotInRing`
+otherwise, and `KeyNotRegistered` when the handle has no entry at all.
+
+```ts
+container.handleAccountGetAlias(async ([keyHandle, context, ring], { ok, err }) => {
+  const entry = await registry.lookup(keyHandle);
+  if (!entry) {
+    return err(new GetAliasErr.KeyNotRegistered());
+  }
+  if (!entry.rings.some(declared => sameRing(declared, ring))) {
+    return err(new GetAliasErr.KeyNotInRing());
+  }
+  const alias = await getContextualAlias(entry, context, ring);
   if (alias) {
     return ok({ context: alias.context, alias: alias.alias });
   }
@@ -257,19 +332,64 @@ container.handleAccountGetAlias(async ([context, ring], { ok, err }) => {
 });
 ```
 
+Reading an alias authorizes nothing, so a foreign `keyHandle` here is governed by
+the ordinary grant-or-prompt model — unlike `handleAccountCreateProof` below.
+
 ### handleAccountCreateProof
 
+Same handle checks as `handleAccountGetAlias`, plus the allowlist gate. A proof is
+a **bearer token for its context's alias**, and `message` is opaque — for an
+extrinsic it is a hash of the inherited implication — so nothing at call time can
+tell what the result will authorize. A host MUST therefore reject a foreign
+`keyHandle` unless the key's owning product allowlisted the caller in its
+manifest, and MUST NOT offer a user prompt as a fallback: consenting to an opaque
+message is not meaningful consent, and only the key's owner is positioned to
+evaluate the risk.
+
 ```ts
-container.handleAccountCreateProof(async ([context, ring, message], { ok, err }) => {
-  const selected = await selectMemberKey(ring);
-  if (!selected) {
-    return err(new CreateProofErr.RingNotFound());
+container.handleAccountCreateProof(async ([keyHandle, context, ring, message], { ok, err }) => {
+  const [owner] = keyHandle;
+  const entry = await registry.lookup(keyHandle);
+  if (!entry) {
+    return err(new CreateProofErr.KeyNotRegistered());
   }
-  if (!selected.isMemberOfRing) {
+  // The owner's manifest allowlist is the ONLY authorization here — no prompt.
+  if (owner !== productId && !(await ownerAllowlists(owner, productId))) {
+    return err(new CreateProofErr.NotAllowlisted());
+  }
+  if (!entry.rings.some(declared => sameRing(declared, ring))) {
+    return err(new CreateProofErr.KeyNotInRing());
+  }
+  if (!(await isMemberOfRing(entry, ring))) {
     return err(new CreateProofErr.NotMember());
   }
-  const { proof, contextualAlias, ringIndex, ringRevision } = await createRingProof(selected, context, ring, message);
+  const { proof, contextualAlias, ringIndex, ringRevision } = await createRingProof(entry, context, ring, message);
   return ok({ proof, contextualAlias, ringIndex, ringRevision });
+});
+```
+
+### handleAccountRingVrfSign
+
+Signs with the member key itself instead of producing an anonymous ring proof
+(RFC-0024). It carries no context and no ring, so there is nothing to scope what
+the signature is good for — it is the wider version of the bearer-token problem
+above, gated by the same allowlist with the same no-prompt rule. The result is
+verified against the member public key and is linkable to every other use of that
+key.
+
+```ts
+container.handleAccountRingVrfSign(async ([keyHandle, message], { ok, err }) => {
+  if (!isConnected()) {
+    return err(new RingVrfSignErr.NotConnected());
+  }
+  const [owner] = keyHandle;
+  if (!(await registry.lookup(keyHandle))) {
+    return err(new RingVrfSignErr.KeyNotRegistered());
+  }
+  if (owner !== productId && !(await ownerAllowlists(owner, productId))) {
+    return err(new RingVrfSignErr.NotAllowlisted());
+  }
+  return ok(await signWithMemberKey(keyHandle, message));
 });
 ```
 

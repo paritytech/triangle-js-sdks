@@ -30,6 +30,17 @@ export const ApAllocatedResourceCodec = Enum({
     // `Sr25519PrivateKey ++ Sr25519Nonce` (64 bytes): the full expanded secret
     // needed to sign and soft-derive `/{index}` below the product root.
     productRootPrivateKey: Bytes(),
+    // RFC-0024: entropy of the `//{productId}` node of the ring VRF tree, which
+    // is disjoint from the sr25519 product-account tree above. It lets the Host
+    // derive the member secret of a *registered* key locally — the second
+    // motivation being that a headless Account Holder execution context may not
+    // fit a ring VRF proof inside its ~30 s / ~24 MB budget.
+    //
+    // Derivation from this entropy is unconditional arithmetic: nothing about
+    // holding it distinguishes a meaningful index from a meaningless one, so the
+    // registry supplies that distinction. A Host MUST NOT derive a member secret
+    // for a `(product, index)` pair absent from its registry.
+    ringVrfDomainEntropy: Bytes(),
   }),
 });
 
