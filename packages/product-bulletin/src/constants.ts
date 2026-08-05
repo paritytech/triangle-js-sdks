@@ -20,15 +20,17 @@ export const BulletinChain = {
     descriptor: bulletin_westend,
   },
   paseo: {
-    genesisHash: '0x744960c32e3a3df5440e1ecd4d34096f1ce2230d7016a5ada8a765d5a622b4ea',
+    genesisHash: '0xe101f0fa4627d29a257645e02be86d80378fea1a2bf8fa6a918d150ebc760a59',
     descriptor: bulletin_paseo,
   },
+  // Repointed off the retired pop3 testnet onto Paseo Bulletin Next; the key name no
+  // longer describes the chain, kept to avoid a rename on top of the genesis change.
   popStable: {
-    genesisHash: '0x6fdf4baff0328ddaca1812e6d2f8f26afc439e6e0a339c0094d17013f8da246d',
+    genesisHash: '0x8cfe6717dc4becfda2e13c488a1e2061ff2dfee96e7d031157f72d36716c0a22',
     descriptor: bulletin_pop_stable,
   },
   previewnet: {
-    genesisHash: '0x1c28cc48ee21f4f6dd2712c68c9a416f19cd518cbfe205e70e4d9dd007278fca',
+    genesisHash: '0x2778b1c94c4362e49a54be57d3056bc714f3712e4486625312704ffb74eb973d',
     descriptor: bulletin_previewnet,
   },
 } as const satisfies Record<string, BulletinNetwork>;

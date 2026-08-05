@@ -35,4 +35,11 @@ describe('Bytes', () => {
 
     expect(() => codec.enc(new Uint8Array([1, 2, 3]))).toThrow(/too long/);
   });
+
+  // scale-ts hands back whatever the stream had left, which reads as a legitimate value.
+  it('should throw when fewer than the fixed size bytes are available to decode', () => {
+    const codec = Bytes(4);
+
+    expect(() => codec.dec(new Uint8Array([1, 2]))).toThrow(/expected 4/);
+  });
 });

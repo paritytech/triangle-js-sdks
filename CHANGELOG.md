@@ -11,6 +11,48 @@
 - **host-api / host-container:** cross-product proofs and signatures are gated on the owner's manifest allowlist, with **no user-prompt fallback** (`NotAllowlisted`). A proof is a bearer token for its context's alias and a signature is a bearer token for the key, and neither can be constrained by inspecting an opaque `message` — so consenting to one is not meaningful consent, and only the key's owner is positioned to evaluate the risk. Foreign `get_account_alias` / `get_account` are unaffected, and `create_transaction` is unchanged. See the [permission model](./docs/migration/v0.10.md#cross-product-key-use-is-gated-on-the-owners-allowlist).
 - **host-papp:** `UserSession.registerRingVrfKey`, `listRingVrfKeys` and `ringVrfSign` forward the registry and signing requests to the paired Account Holder, which is the authoritative registry. Three new `RemoteMessage` pairs, appended so every existing variant index is unchanged.
 
+## 0.9.2 (2026-08-03)
+
+### ⚠️ Breaking Changes
+
+- **host-chat:** `createAccountService` takes an identity repository instead of a `LazyClient` — `{ identityEndpoint, identity }`. Pass `papp.identity`, or build one with the newly exported `createIdentityRepository`. `Credibility.lastUpdate` is now `string | null`. See the [`Identity` section](./docs/migration/v0.9.md#identity-is-one-type-owned-by-host-papp) of the migration guide.
+- **product-bulletin:** three of the four `BulletinChain` genesis hashes changed — `paseo` and `previewnet` were reset, `popStable` moved onto Paseo Bulletin Next. See the [product-bulletin section](./docs/migration/v0.9.md#product-bulletin) of the migration guide.
+
+### 🚀 Features
+
+- **host-chat / host-papp:** `Identity.identifierKey` — an account's chat encryption public key, the 32-byte X25519 key unwrapped from its 65-byte RFC-0004 container as hex, or `null` for a keypair type this SDK does not implement. See the [migration guide](./docs/migration/v0.9.md#the-on-chain-identifier-key-is-still-65-bytes).
+
+### 🩹 Fixes
+
+- **host-chat / host-papp:** one `Resources.Consumers` reader instead of two. `host-chat` no longer carries its own papi descriptors, so the packages cannot drift onto different runtime snapshots — they already had.
+- **host-chat:** `getConsumerInfo` returns an `err` for a malformed SS58 address instead of throwing out of a function that returns a `ResultAsync`.
+- **host-chat:** `@polkadot-api/substrate-bindings` was imported without being declared; the import moves to `polkadot-api`, which is now a dependency.
+- **host-papp:** a cached identity missing any field of the current `Identity` now reads as a miss and is refetched. `getIdentity` only goes to chain on a `null` hit, so a record written before `identifierKey` existed would otherwise have been served without it forever.
+- **host-papp / product-bulletin:** papi descriptors regenerated — several pinned RPCs no longer resolve.
+- **repo:** `scripts/fix-papi-descriptors.mjs` restores the `.js` extensions polkadot-api 2.x drops from generated `.d.ts` re-exports, without which nothing resolves under `nodenext`. Wired into `papi:update`, and exposed as `papi:fix` for a scoped refresh.
+
+### ⚠️ Known Issues
+
+- **product-bulletin:** `renew` is broken on every network except `westend` — current runtimes take an entry selector where `@parity/bulletin-sdk` 0.3.0 (the newest published) still sends `{ block, index }`. It compiles and fails only when the chain rejects the extrinsic; `store` and chunked upload are unaffected. See the [migration guide](./docs/migration/v0.9.md#known-issue-renew).
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
+## 0.9.1 (2026-07-31)
+
+### 🚀 Features
+
+- **statement-store:** multi-device sessions (mds.md). `createMultiDeviceSession` addresses one statement to every device a peer runs and listens on one topic per peer device, driven by an observable `PeerRoster`. `StatementData` gains `multiRequest` / `multiResponse` variants (appended — indices 2 and 3, existing ones unchanged), each carrying a one-shot AEAD key wrapped per recipient device via X25519. `createSession` and the single-device wire format are untouched. Newly exported: `createMultiDeviceSession`, `MultiDeviceSessionParams`, `SessionParams`, `createEnvelope`, `DeviceTarget`, `Envelope`, `PeerRoster`, `createRequestChannel`, `createResponseChannel`. See the [multi-device sessions section](./docs/migration/v0.9.md#multi-device-sessions-statement-store) of the migration guide.
+
+### 🩹 Fixes
+
+- **host-chat:** `Platform` gains `iOSVoIP` (ordinal 2), emitted by iOS PApp for VoIP push tokens — without it any envelope carrying one failed to decode with `Unknown status index: 2`.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev @johnthecat
+
 ## 0.9.0 (2026-07-29)
 
 ### ⚠️ Breaking Changes
