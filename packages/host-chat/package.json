@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-chat",
   "type": "module",
-  "version": "0.9.2",
+  "version": "0.9.3",
   "description": "Host statement store chat integration",
   "license": "Apache-2.0",
   "repository": {
@@ -37,10 +37,10 @@
     "README.md"
   ],
   "dependencies": {
-    "@novasamatech/host-papp": "0.9.2",
-    "@novasamatech/scale": "0.9.2",
-    "@novasamatech/statement-store": "0.9.2",
-    "@novasamatech/storage-adapter": "0.9.2",
+    "@novasamatech/host-papp": "0.9.3",
+    "@novasamatech/scale": "0.9.3",
+    "@novasamatech/statement-store": "0.9.3",
+    "@novasamatech/storage-adapter": "0.9.3",
     "nanoid": "6.0.0",
     "neverthrow": "^8.2.0",
     "polkadot-api": ">=2"
