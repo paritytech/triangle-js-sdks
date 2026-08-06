@@ -23,6 +23,7 @@
   ],
   "dependencies": {
     "@novasamatech/scale": "0.9.4",
+    "@parity/truapi": "0.7.0",
     "nanoevents": "10.0.0",
     "nanoid": "6.0.0",
     "neverthrow": "^8.2.0",
