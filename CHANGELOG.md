@@ -1,3 +1,20 @@
+## 0.9.4 (2026-08-07)
+
+### 🚀 Features
+
+- **host-papp:** `sessions.forget(sessionId)` tears a session down by id alone, without notifying the peer — for hosts discarding local state on their own terms. `disconnect` remains the user-initiated logout.
+- **host-papp:** `sso.resetDeviceIdentity()` discards the persisted device keypair and the processed-handshake marker stored with it, so the next pairing runs on a new topic with a new key — which makes any cached on-chain `HandshakeSuccess` undecryptable. It is a no-op for hosts supplying their own `deviceIdentity` factory, and a pairing already in flight keeps the old identity.
+
+### 🩹 Fixes
+
+- **host-papp:** ending a session now drops everything it persists — the session-list entry, the encrypted per-session secrets, the allowance slot keys and the processed-message dedup log. Previously only the list entry was removed, so a host that signed a user out was left holding their key material with no SDK API to clear it. All three teardown paths (`disconnect`, a peer-initiated `Disconnected`, and `forget`) go through the same purge.
+- **host-papp:** `disconnect` no longer aborts when the peer cannot be notified. Offline, without an allowance or against an unreachable peer, the failed `Disconnected` submit used to abort the teardown before any local state was cleared; it is now best-effort and the local purge always runs.
+- **host-papp:** the throwaway `UserSession` built to send the `Disconnected` message is disposed once the send settles, instead of leaving its init-retry timer firing against a session that was just purged.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev
+
 ## 0.9.3 (2026-08-05)
 
 ### ⚠️ Breaking Changes
