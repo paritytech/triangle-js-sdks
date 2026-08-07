@@ -38,6 +38,7 @@ export type DeviceIdentityStore = {
   loadOrCreate(): ResultAsync<DeviceIdentity, Error>;
   readLastProcessedHandshakeStatement(): ResultAsync<string | null, Error>;
   writeLastProcessedHandshakeStatement(hex: string): ResultAsync<void, Error>;
+  reset(): ResultAsync<void, Error>;
 };
 
 export function createDeviceIdentityStore(salt: string, storage: StorageAdapter): DeviceIdentityStore {
@@ -93,6 +94,9 @@ export function createDeviceIdentityStore(salt: string, storage: StorageAdapter)
         }
         return write({ ...existing, lastProcessedHandshakeStatement: hex });
       });
+    },
+    reset() {
+      return storage.clear(KEY);
     },
   };
 }

@@ -1,14 +1,13 @@
 import { x25519 } from '@noble/curves/ed25519.js';
-import type { Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
-import { createEncryption } from '@novasamatech/statement-store';
-import { okAsync } from 'neverthrow';
+import { createEncryption, createInMemoryStatementStore } from '@novasamatech/statement-store';
 import { firstValueFrom, lastValueFrom, take, toArray } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 
 import { EncryptedHandshakeResponseV2, VersionedHandshakeResponse } from '../src/sso/auth/scale/handshakeV2.js';
 import type { DeviceIdentityForPairing } from '../src/sso/auth/v2/service.js';
 import { startPairingV2 } from '../src/sso/auth/v2/service.js';
-import { computePairingTopic } from '../src/sso/auth/v2/topic.js';
+
+import { publishPairingResponse } from './peerSession.js';
 
 const ecdh = (priv: Uint8Array, pub: Uint8Array): Uint8Array => x25519.getSharedSecret(priv, pub);
 
@@ -34,38 +33,20 @@ const wrapInnerResponse = (
   return { encrypted: result.value, tmpKey };
 };
 
-const buildStatement = (device: DeviceIdentityForPairing, innerBytes: Uint8Array): Statement => {
-  const envelope = wrapInnerResponse(device, innerBytes);
-  return {
-    data: VersionedHandshakeResponse.enc({ tag: 'V2', value: envelope }),
-  };
-};
+const responseBytes = (device: DeviceIdentityForPairing, innerBytes: Uint8Array): Uint8Array =>
+  VersionedHandshakeResponse.enc({ tag: 'V2', value: wrapInnerResponse(device, innerBytes) });
 
-type FakeAdapter = StatementStoreAdapter & { emit: (statements: Statement[]) => void; lastFilter?: unknown };
-
-const makeFakeStore = (): FakeAdapter => {
-  let cb: ((page: { statements: Statement[]; isComplete: boolean }) => unknown) | null = null;
-  const adapter: FakeAdapter = {
-    queryStatements: vi.fn().mockReturnValue(okAsync([])),
-    submitStatement: vi.fn(),
-    subscribeStatements: vi.fn((filter, callback) => {
-      adapter.lastFilter = filter;
-      cb = callback;
-      return () => {
-        cb = null;
-      };
-    }),
-    emit: stmts => {
-      cb?.({ statements: stmts, isComplete: false });
-    },
-  };
-  return adapter;
-};
+// Publish on `device`'s pairing topic, encrypted to `recipient` — the same
+// device, unless the test is checking that foreign statements get dropped.
+const makePublisher =
+  (store: ReturnType<typeof createInMemoryStatementStore>, device: DeviceIdentityForPairing) =>
+  (innerBytes: Uint8Array, recipient = device) =>
+    publishPairingResponse(store, device, responseBytes(recipient, innerBytes));
 
 describe('startPairingV2', () => {
   it('exposes a polkadotapp:// pairing deeplink as qrPayload', () => {
     const device = buildDeviceIdentity();
-    const store = makeFakeStore();
+    const store = createInMemoryStatementStore();
 
     const pairing = startPairingV2({
       statementStore: store,
@@ -77,9 +58,9 @@ describe('startPairingV2', () => {
     pairing.abort();
   });
 
-  it('subscribes to the device pairing topic on startup', () => {
+  it('subscribes to the device pairing topic on startup', async () => {
     const device = buildDeviceIdentity();
-    const store = makeFakeStore();
+    const store = createInMemoryStatementStore();
 
     const pairing = startPairingV2({
       statementStore: store,
@@ -87,14 +68,26 @@ describe('startPairingV2', () => {
       metadata: {},
     });
 
-    const expectedTopic = computePairingTopic(device.statementAccountPublicKey, device.encryptionPublicKey);
-    expect(store.lastFilter).toEqual({ matchAll: [expectedTopic] });
+    expect(store.activeSubscriptions()).toBe(1);
+
+    // Same response, published on another device's pairing topic: an over-broad
+    // subscription would pick it up, a correctly scoped one never sees it.
+    const onStatementProcessed = vi.fn();
+    const elsewhere = buildDeviceIdentity();
+    await publishPairingResponse(
+      store,
+      elsewhere,
+      responseBytes(device, EncryptedHandshakeResponseV2.enc({ tag: 'Failed', value: 'wrong topic' })),
+    );
+
+    expect(onStatementProcessed).not.toHaveBeenCalled();
+    expect((await firstValueFrom(pairing.state$)).tag).toBe('Submitted');
     pairing.abort();
   });
 
   it('starts in Submitted state', async () => {
     const device = buildDeviceIdentity();
-    const store = makeFakeStore();
+    const store = createInMemoryStatementStore();
     const pairing = startPairingV2({ statementStore: store, deviceIdentity: device, metadata: {} });
 
     const first = await firstValueFrom(pairing.state$);
@@ -104,7 +97,8 @@ describe('startPairingV2', () => {
 
   it('transitions Submitted → Pending → Success on the canonical response sequence', async () => {
     const device = buildDeviceIdentity();
-    const store = makeFakeStore();
+    const store = createInMemoryStatementStore();
+    const publish = makePublisher(store, device);
     const persistOnSuccess = vi.fn().mockResolvedValue(undefined);
     const pairing = startPairingV2({
       statementStore: store,
@@ -120,7 +114,7 @@ describe('startPairingV2', () => {
       tag: 'Pending',
       value: { tag: 'AllowanceAllocation', value: undefined },
     });
-    store.emit([buildStatement(device, pendingBytes)]);
+    await publish(pendingBytes);
 
     const successBytes = EncryptedHandshakeResponseV2.enc({
       tag: 'Success',
@@ -133,7 +127,7 @@ describe('startPairingV2', () => {
         rootEntropySource: new Uint8Array(32).fill(0x07),
       },
     });
-    store.emit([buildStatement(device, successBytes)]);
+    await publish(successBytes);
 
     const states = await collected;
     expect(states.map(s => s.tag)).toEqual(['Submitted', 'Pending', 'Success']);
@@ -144,14 +138,15 @@ describe('startPairingV2', () => {
 
   it('transitions to Failed on a Failed inner response', async () => {
     const device = buildDeviceIdentity();
-    const store = makeFakeStore();
+    const store = createInMemoryStatementStore();
+    const publish = makePublisher(store, device);
     const pairing = startPairingV2({ statementStore: store, deviceIdentity: device, metadata: {} });
 
     const states$ = pairing.state$.pipe(take(2), toArray());
     const collected = lastValueFrom(states$);
 
     const failedBytes = EncryptedHandshakeResponseV2.enc({ tag: 'Failed', value: 'duplicate' });
-    store.emit([buildStatement(device, failedBytes)]);
+    await publish(failedBytes);
 
     const states = await collected;
     expect(states.map(s => s.tag)).toEqual(['Submitted', 'Failed']);
@@ -161,8 +156,17 @@ describe('startPairingV2', () => {
 
   it('drops statements that cannot be decrypted (wrong recipient or tampered)', async () => {
     const device = buildDeviceIdentity();
-    const store = makeFakeStore();
-    const pairing = startPairingV2({ statementStore: store, deviceIdentity: device, metadata: {} });
+    const store = createInMemoryStatementStore();
+    const publish = makePublisher(store, device);
+    // Proves the statement reached the service: without it, "still Submitted"
+    // is equally true of a statement that never arrived at all.
+    const onStatementProcessed = vi.fn();
+    const pairing = startPairingV2({
+      statementStore: store,
+      deviceIdentity: device,
+      metadata: {},
+      onStatementProcessed,
+    });
 
     // Statement encrypted to a different device
     const otherDevice = buildDeviceIdentity();
@@ -170,17 +174,16 @@ describe('startPairingV2', () => {
       tag: 'Failed',
       value: 'should be dropped',
     });
-    store.emit([buildStatement(otherDevice, innerBytes)]);
+    await publish(innerBytes, otherDevice);
 
-    // Should still be in Submitted (no transition)
-    const state = await firstValueFrom(pairing.state$);
-    expect(state.tag).toBe('Submitted');
+    expect(onStatementProcessed).toHaveBeenCalledOnce();
+    expect((await firstValueFrom(pairing.state$)).tag).toBe('Submitted');
     pairing.abort();
   });
 
   it('abort() is idempotent and tears down cleanly', () => {
     const device = buildDeviceIdentity();
-    const store = makeFakeStore();
+    const store = createInMemoryStatementStore();
     const pairing = startPairingV2({ statementStore: store, deviceIdentity: device, metadata: {} });
 
     expect(() => pairing.abort()).not.toThrow();

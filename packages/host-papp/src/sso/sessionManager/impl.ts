@@ -1,7 +1,7 @@
 import type { StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createEncryption } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
-import { okAsync } from 'neverthrow';
+import { ResultAsync, okAsync } from 'neverthrow';
 
 import { emitHostPappDebugMessage } from '../../debugBus.js';
 import { createState } from '../../helpers/state.js';
@@ -13,7 +13,7 @@ import type { UserSecretRepository } from '../userSecretRepository.js';
 import type { StoredUserSession, UserSessionRepository } from '../userSessionRepository.js';
 
 import type { UserSession } from './userSession.js';
-import { createUserSession } from './userSession.js';
+import { createUserSession, processedMessagesKey } from './userSession.js';
 
 export type SsoSessionManager = ReturnType<typeof createSsoSessionManager>;
 
@@ -42,9 +42,19 @@ export function createSsoSessionManager({
     sessionUnsubscribes.delete(id);
   };
 
-  const disconnect = (session: StoredUserSession) => {
-    return ssoSessionRepository.filter(s => s.id !== session.id).map(() => undefined);
-  };
+  // The session-list write goes first: it is what notifies the subscription
+  // above to unsubscribe and dispose the live session.
+  const purgeSession = (sessionId: string) =>
+    ssoSessionRepository
+      .filter(s => s.id !== sessionId)
+      .andThen(() =>
+        ResultAsync.combine([
+          userSecretRepository.clear(sessionId),
+          allowanceRepository.clearSession(sessionId),
+          storage.clear(processedMessagesKey(sessionId)),
+        ]),
+      )
+      .map(() => undefined);
 
   ssoSessionRepository.subscribe(userSessions => {
     const activeSessions = localSessions.read();
@@ -80,7 +90,7 @@ export function createSsoSessionManager({
           case 'v1': {
             switch (message.data.value.tag) {
               case 'Disconnected':
-                return disconnect(userSession).map(() => true);
+                return purgeSession(userSession.id).map(() => false);
             }
           }
         }
@@ -135,9 +145,20 @@ export function createSsoSessionManager({
 
       return session
         .sendDisconnectMessage()
-        .andThen(() => disconnect(userSession))
-        .andThen(() => userSecretRepository.clear(userSession.id))
-        .andThen(() => allowanceRepository.clearSession(userSession.id));
+        .orElse(error => {
+          console.warn('[host-papp] disconnect: peer notification failed, tearing down locally anyway', error);
+
+          return okAsync(undefined);
+        })
+        .andTee(() => session.dispose())
+        .andThen(() => purgeSession(userSession.id));
+    },
+
+    /**
+     * Teardown by id alone, without notifying the peer.
+     * */
+    forget(sessionId: string) {
+      return purgeSession(sessionId);
     },
 
     dispose() {

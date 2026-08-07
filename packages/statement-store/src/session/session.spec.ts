@@ -10,14 +10,17 @@ import { describe, expect, it, vi } from 'vitest';
 import { createInMemoryStatementStore } from '../adapter/inMemory.js';
 import type { StatementStoreAdapter, StatementsPage } from '../adapter/types.js';
 import { AccountFullError, ExpiryTooLowError } from '../adapter/types.js';
+import { createSr25519Secret } from '../crypto.js';
 import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount } from '../model/sessionAccount.js';
 
 import { STATEMENT_OVERHEAD } from './core.js';
 import type { Encryption } from './encyption.js';
+import { createEncryption } from './encyption.js';
 import { DecodingError, UnknownError } from './error.js';
 import { StatementData } from './scale/statementData.js';
 import { createSession } from './session.js';
 import type { StatementProver } from './statementProver.js';
+import { createSr25519Prover } from './statementProver.js';
 
 // Real signature work belongs in statementProver tests; this stub stamps a
 // non-empty proof so submitted statements are well-formed.
@@ -174,13 +177,18 @@ const remoteB = createRemoteSessionAccount(createAccountId(new Uint8Array(32).fi
 const RemoteMsg = Struct({ id: str, kind: str, respondingTo: str, body: str });
 const requestMsg = (id: string): CodecType<typeof RemoteMsg> => ({ id, kind: 'request', respondingTo: '', body: id });
 
+// Real crypto on both halves: the pairwise secret is shared, so what one side
+// encrypts and signs the other actually decrypts and verifies.
+const PAIRWISE_SECRET = new Uint8Array(32).fill(0x5a);
+const realProver = () => createSr25519Prover(createSr25519Secret(new Uint8Array(32).fill(0x5b)));
+
 function makeHost(adapter: StatementStoreAdapter) {
   return createSession({
     localAccount: localA,
     remoteAccount: remoteB,
     statementStore: adapter,
-    encryption: mockEncryption(),
-    prover: mockProver,
+    encryption: createEncryption(PAIRWISE_SECRET),
+    prover: realProver(),
     sessionKey: SHARED_KEY,
   });
 }
@@ -189,8 +197,8 @@ function makeMobile(adapter: StatementStoreAdapter) {
     localAccount: localB,
     remoteAccount: remoteA,
     statementStore: adapter,
-    encryption: mockEncryption(),
-    prover: mockProver,
+    encryption: createEncryption(PAIRWISE_SECRET),
+    prover: realProver(),
     sessionKey: SHARED_KEY,
   });
 }
@@ -1101,7 +1109,7 @@ describe('session', () => {
 
       const requests = store
         .currentStatements()
-        .map(s => StatementData.dec(s.data!))
+        .map(s => StatementData.dec(createEncryption(PAIRWISE_SECRET).decrypt(s.data!)._unsafeUnwrap()))
         .filter(d => d.tag === 'request');
       expect(requests.some(d => d.tag === 'request' && d.value.data.length > 0)).toBe(false);
       expect(requests.some(d => d.tag === 'request' && d.value.data.length === 0)).toBe(true);
