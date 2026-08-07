@@ -1,32 +1,27 @@
 import { enumValue } from '@novasamatech/scale';
 import type { StatementStoreAdapter } from '@novasamatech/statement-store';
-import {
-  createAccountId,
-  createEncryption,
-  createInMemoryStatementStore,
-  createSession,
-  createSr25519Prover,
-  createSr25519Secret,
-} from '@novasamatech/statement-store';
+import { createInMemoryStatementStore } from '@novasamatech/statement-store';
 import { createMemoryAdapter } from '@novasamatech/storage-adapter';
-import { errAsync, okAsync } from 'neverthrow';
-import { EMPTY } from 'rxjs';
 import { describe, expect, it } from 'vitest';
 
-import type { EncrSecret, SsSecret } from '../src/crypto.js';
 import { onHostPappDebugMessage } from '../src/debugBus.js';
 import type { HostPappDebugEvent } from '../src/debugTypes.js';
 import { createIdentityRepository } from '../src/identity/impl.js';
-import type { IdentityAdapter } from '../src/identity/types.js';
 import { createAllowanceRepository } from '../src/sso/allowance/repository.js';
 import { createSsoSessionManager } from '../src/sso/sessionManager/impl.js';
-import { RemoteMessageCodec } from '../src/sso/sessionManager/scale/remoteMessage.js';
 import { processedMessagesKey } from '../src/sso/sessionManager/userSession.js';
 import { createUserSecretRepository } from '../src/sso/userSecretRepository.js';
 import type { StoredUserSession } from '../src/sso/userSessionRepository.js';
 import { createUserSessionRepository } from '../src/sso/userSessionRepository.js';
 
-const flush = () => new Promise(resolve => setImmediate(resolve));
+import {
+  createPeerSession,
+  createUnwritableStatementStore,
+  flush,
+  inertIdentityAdapter,
+  makeSecrets,
+  makeStoredUserSession,
+} from './peerSession.js';
 
 // Everything is real except the identity chain adapter, which these lifecycle
 // tests never reach.
@@ -36,11 +31,7 @@ function buildHarness(statementStore: StatementStoreAdapter = createInMemoryStat
   const ssoSessionRepository = createUserSessionRepository(storage);
   const userSecretRepository = createUserSecretRepository('session-manager-test', storage);
   const allowanceRepository = createAllowanceRepository('session-manager-test', storage);
-  const identityAdapter: IdentityAdapter = {
-    readIdentities: () => okAsync({}),
-    watchIdentity: () => EMPTY,
-  };
-  const identityRepository = createIdentityRepository({ adapter: identityAdapter, storage });
+  const identityRepository = createIdentityRepository({ adapter: inertIdentityAdapter, storage });
 
   const manager = createSsoSessionManager({
     ssoSessionRepository,
@@ -67,39 +58,6 @@ function buildHarness(statementStore: StatementStoreAdapter = createInMemoryStat
 
 type SessionHarness = ReturnType<typeof buildHarness>;
 
-function makeStoredUserSession(id: string): StoredUserSession {
-  // Key material from the id, so distinct sessions derive distinct channels.
-  const seed = id.charCodeAt(id.length - 1);
-  const bytes = (length: number) => new Uint8Array(length).fill(seed);
-  return {
-    id,
-    localAccount: { accountId: createAccountId(bytes(32)), pin: undefined },
-    // Must differ from the local id: the two derive the outgoing and incoming
-    // topics, and equal ids collapse them into one channel.
-    remoteAccount: {
-      accountId: createAccountId(new Uint8Array(32).fill(seed + 1)),
-      publicKey: bytes(32),
-      pin: undefined,
-    },
-    rootAccountId: createAccountId(bytes(32)),
-    identityAccountId: createAccountId(bytes(32)),
-    identityChatPublicKey: bytes(32),
-    ssoEncPubKey: bytes(32),
-    rootEntropySource: bytes(32),
-    deviceEncPubKey: bytes(32),
-  };
-}
-
-// `ssSecret` must be a real expanded sr25519 secret — random 32 bytes trap in
-// the schnorrkel wasm.
-function makeSecrets(seed: Uint8Array) {
-  return {
-    ssSecret: createSr25519Secret(seed) as SsSecret,
-    encrSecret: seed as EncrSecret,
-    identityChatPrivateKey: seed,
-  };
-}
-
 // Every per-session blob the SDK persists, so a teardown that misses one shows
 // up as a leftover key.
 async function seedSessionStorage(harness: SessionHarness, session: StoredUserSession) {
@@ -122,40 +80,6 @@ async function readSessionStorage(harness: SessionHarness, sessionId: string) {
 }
 
 const PURGED = { sessions: [], secrets: null, allowance: null, processed: null };
-
-// The peer half of `session`: local and remote swapped over the same store, so
-// a submit lands on the topic the host listens on.
-function createPeerSession(statementStore: StatementStoreAdapter, session: StoredUserSession) {
-  const peer = createSession({
-    localAccount: { accountId: session.remoteAccount.accountId, pin: session.remoteAccount.pin },
-    remoteAccount: { ...session.localAccount, publicKey: session.remoteAccount.publicKey },
-    statementStore,
-    encryption: createEncryption(session.remoteAccount.publicKey),
-    // Statements carry their signer in the proof, so any secret proves them.
-    prover: createSr25519Prover(createSr25519Secret(new Uint8Array(32).fill(11))),
-    sessionKey: session.remoteAccount.publicKey,
-  });
-
-  return {
-    // Not `request`: the host tears the session down on Disconnected, so
-    // waiting for its ACK would wait forever.
-    sendDisconnected: (messageId: string) =>
-      peer.submitRequestMessage(RemoteMessageCodec, {
-        messageId,
-        data: enumValue('v1', enumValue('Disconnected', undefined)),
-      }),
-    dispose: () => peer.dispose(),
-  };
-}
-
-// Offline / no allowance / unreachable peer.
-function createUnwritableStatementStore(): StatementStoreAdapter {
-  return {
-    queryStatements: () => okAsync([]),
-    subscribeStatements: () => () => undefined,
-    submitStatement: () => errAsync(new Error('submit rejected')),
-  };
-}
 
 function captureEvents() {
   const events: HostPappDebugEvent[] = [];
@@ -212,7 +136,7 @@ describe('createSsoSessionManager teardown', () => {
     await seedSessionStorage(harness, session);
     const peer = createPeerSession(harness.statementStore, session);
 
-    await peer.sendDisconnected('peer-disconnect');
+    await peer.send('peer-disconnect', enumValue('Disconnected', undefined));
     await flush();
 
     expect(await readSessionStorage(harness, session.id)).toStrictEqual(PURGED);

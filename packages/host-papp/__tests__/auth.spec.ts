@@ -1,7 +1,7 @@
 import { x25519 } from '@noble/curves/ed25519.js';
-import type { Statement, StatementStoreAdapter } from '@novasamatech/statement-store';
-import { createEncryption } from '@novasamatech/statement-store';
-import { okAsync } from 'neverthrow';
+import { createEncryption, createInMemoryStatementStore } from '@novasamatech/statement-store';
+import type { StorageAdapter } from '@novasamatech/storage-adapter';
+import { createMemoryAdapter } from '@novasamatech/storage-adapter';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { onHostPappDebugMessage } from '../src/debugBus.js';
@@ -9,9 +9,11 @@ import type { HostPappDebugEvent } from '../src/debugTypes.js';
 import { createAuth } from '../src/sso/auth/impl.js';
 import { HandshakeSuccessV2, VersionedHandshakeResponse } from '../src/sso/auth/scale/handshakeV2.js';
 import type { DeviceIdentityForPairing } from '../src/sso/auth/v2/service.js';
-import type { DeviceIdentityStore } from '../src/sso/deviceIdentityStore.js';
-import type { UserSecretRepository } from '../src/sso/userSecretRepository.js';
-import type { UserSessionRepository } from '../src/sso/userSessionRepository.js';
+import { createDeviceIdentityStore } from '../src/sso/deviceIdentityStore.js';
+import { createUserSecretRepository } from '../src/sso/userSecretRepository.js';
+import { createUserSessionRepository } from '../src/sso/userSessionRepository.js';
+
+import { publishPairingResponse } from './peerSession.js';
 
 const DEVICE_ENC_PRIV = new Uint8Array(32).fill(0x22);
 const DEVICE_ENC_PUB = x25519.getPublicKey(DEVICE_ENC_PRIV);
@@ -34,21 +36,22 @@ const makeDeviceIdentity = (): DeviceIdentityForPairing => ({
   encryptionPrivateKey: DEVICE_ENC_PRIV,
 });
 
-const stubDeviceIdentityStore = (): DeviceIdentityStore =>
-  ({
-    loadOrCreate: vi.fn(() => okAsync({ ...makeDeviceIdentity(), statementAccountSecret: DEVICE_STMT_SECRET })),
-    readLastProcessedHandshakeStatement: vi.fn(() => okAsync(null)),
-    writeLastProcessedHandshakeStatement: vi.fn(() => okAsync(undefined)),
-  }) as unknown as DeviceIdentityStore;
+// The real store, with `loadOrCreate` spied so the fallback test can see it was
+// consulted. It generates its own keypair on first call, like production.
+const spiedDeviceIdentityStore = (storage: StorageAdapter) => {
+  const store = createDeviceIdentityStore('auth-test', storage);
 
-const wrapSuccessBody = (inner: Uint8Array): Statement => {
+  return { ...store, loadOrCreate: vi.fn(store.loadOrCreate) };
+};
+
+const wrapSuccessBody = (inner: Uint8Array, recipientEncPub = DEVICE_ENC_PUB): Uint8Array => {
   const successEnvelope = new Uint8Array(inner.length + 1);
   successEnvelope[0] = 1;
   successEnvelope.set(inner, 1);
 
   const tmpPriv = new Uint8Array(32).fill(0x77);
   const tmpPub = x25519.getPublicKey(tmpPriv);
-  const shared = x25519.getSharedSecret(tmpPriv, DEVICE_ENC_PUB);
+  const shared = x25519.getSharedSecret(tmpPriv, recipientEncPub);
   const enc = createEncryption(shared as never);
   const encrypted = enc.encrypt(successEnvelope)._unsafeUnwrap();
 
@@ -57,13 +60,10 @@ const wrapSuccessBody = (inner: Uint8Array): Statement => {
     value: { encrypted, tmpKey: tmpPub },
   });
 
-  return {
-    data: statementData,
-    proof: { type: 'sr25519', value: { signature: '0x' + '00'.repeat(64), signer: PEER_STMT_ACCT_HEX } },
-  } as Statement;
+  return statementData;
 };
 
-const buildSuccessStatement = (): Statement =>
+const buildSuccessResponse = (recipientEncPub = DEVICE_ENC_PUB): Uint8Array =>
   wrapSuccessBody(
     HandshakeSuccessV2.enc({
       identityAccountId: IDENTITY_ACCT,
@@ -73,24 +73,16 @@ const buildSuccessStatement = (): Statement =>
       deviceEncPubKey: DEVICE_ENC_PUB,
       rootEntropySource: ROOT_ENTROPY_SOURCE,
     }),
+    recipientEncPub,
   );
 
-type Deliver = (page: { statements: Statement[]; isComplete: boolean }) => void;
-
 const buildHarness = (overrides: { onAuthSuccess?: () => Promise<void> } = {}) => {
-  let deliver: Deliver | null = null;
-  const unsubscribe = vi.fn();
-  const subscribeStatements = vi.fn((_filter: unknown, onPage: Deliver) => {
-    deliver = onPage;
-    return unsubscribe;
-  });
-  const queryStatements = vi.fn(() => okAsync([]));
+  const statementStore = createInMemoryStatementStore();
 
-  const statementStore = { subscribeStatements, queryStatements } as unknown as StatementStoreAdapter;
-
-  const ssoSessionRepository = { add: vi.fn(() => okAsync(undefined)) } as unknown as UserSessionRepository;
-  const userSecretRepository = { write: vi.fn(() => okAsync(undefined)) } as unknown as UserSecretRepository;
-  const deviceIdentityStore = stubDeviceIdentityStore();
+  const storage = createMemoryAdapter();
+  const ssoSessionRepository = createUserSessionRepository(storage);
+  const userSecretRepository = createUserSecretRepository('auth-test', storage);
+  const deviceIdentityStore = spiedDeviceIdentityStore(storage);
 
   const auth = createAuth({
     hostMetadata: { hostName: 'Test Host' },
@@ -104,18 +96,15 @@ const buildHarness = (overrides: { onAuthSuccess?: () => Promise<void> } = {}) =
 
   return {
     auth,
-    subscribeStatements,
-    queryStatements,
-    unsubscribe,
+    statementStore,
     ssoSessionRepository,
     userSecretRepository,
     deviceIdentityStore,
     async waitForSubscription() {
-      await vi.waitFor(() => expect(subscribeStatements).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(statementStore.activeSubscriptions()).toBe(1));
     },
-    deliver(statements: Statement[]) {
-      if (!deliver) throw new Error('subscribeStatements not yet called');
-      deliver({ statements, isComplete: true });
+    deliver(data: Uint8Array) {
+      return publishPairingResponse(statementStore, makeDeviceIdentity(), data, { signer: PEER_STMT_ACCT_HEX });
     },
   };
 };
@@ -140,7 +129,7 @@ describe('createAuth', () => {
       const harness = buildHarness();
       const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      harness.deliver([buildSuccessStatement()]);
+      await harness.deliver(buildSuccessResponse());
 
       const result = await promise;
       await expect(result).toBeOk();
@@ -151,12 +140,10 @@ describe('createAuth', () => {
       expect(session!.remoteAccount.publicKey).toEqual(EXPECTED_SHARED_SECRET);
       expect(session!.ssoEncPubKey).toEqual(SSO_ENC_PUB);
       expect(session!.rootEntropySource).toEqual(ROOT_ENTROPY_SOURCE);
-      expect(harness.ssoSessionRepository.add).toHaveBeenCalledOnce();
-      expect(harness.userSecretRepository.write).toHaveBeenCalledOnce();
-      const secretsCall = (harness.userSecretRepository.write as ReturnType<typeof vi.fn>).mock.calls[0];
-      expect(secretsCall?.[1]).toMatchObject({
-        identityChatPrivateKey: IDENTITY_CHAT_PRIV,
-      });
+      await expect(harness.ssoSessionRepository.read()).toBeOkWith([session]);
+      await expect(harness.userSecretRepository.read(session!.id)).toBeOkWith(
+        expect.objectContaining({ identityChatPrivateKey: IDENTITY_CHAT_PRIV }),
+      );
     });
 
     it('emits pairingStatus transitions: none -> initial -> pairing(deeplink) -> finished(session)', async () => {
@@ -166,7 +153,7 @@ describe('createAuth', () => {
 
       const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      harness.deliver([buildSuccessStatement()]);
+      await harness.deliver(buildSuccessResponse());
       await promise;
 
       const steps = observed.map(s => s.step);
@@ -185,7 +172,7 @@ describe('createAuth', () => {
 
       const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      harness.deliver([buildSuccessStatement()]);
+      await harness.deliver(buildSuccessResponse());
       const result = await promise;
 
       await expect(result).toBeOk();
@@ -206,7 +193,7 @@ describe('createAuth', () => {
 
       const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      harness.deliver([buildSuccessStatement()]);
+      await harness.deliver(buildSuccessResponse());
 
       const result = await promise;
       await expect(result).toBeErr();
@@ -218,27 +205,22 @@ describe('createAuth', () => {
   describe('authenticate (error paths)', () => {
     it('publishes pairingError on a Failed inner response', async () => {
       const harness = buildHarness();
-      const failedStatement: Statement = {
-        data: VersionedHandshakeResponse.enc({
-          tag: 'V2',
-          value: (() => {
-            const enc = createEncryption(
-              x25519.getSharedSecret(new Uint8Array(32).fill(0x66), DEVICE_ENC_PUB) as never,
-            );
-            // Failed body = enum index 2 + SCALE-compact length (8 << 2 = 0x20) + "declined"
-            const failedPayload = new Uint8Array([2, 0x20, 0x64, 0x65, 0x63, 0x6c, 0x69, 0x6e, 0x65, 0x64]);
-            return {
-              encrypted: enc.encrypt(failedPayload)._unsafeUnwrap(),
-              tmpKey: x25519.getPublicKey(new Uint8Array(32).fill(0x66)),
-            };
-          })(),
-        }),
-        proof: { type: 'sr25519', value: { signature: '0x' + '00'.repeat(64), signer: PEER_STMT_ACCT_HEX } },
-      } as Statement;
+      const failedResponse = VersionedHandshakeResponse.enc({
+        tag: 'V2',
+        value: (() => {
+          const enc = createEncryption(x25519.getSharedSecret(new Uint8Array(32).fill(0x66), DEVICE_ENC_PUB) as never);
+          // Failed body = enum index 2 + SCALE-compact length (8 << 2 = 0x20) + "declined"
+          const failedPayload = new Uint8Array([2, 0x20, 0x64, 0x65, 0x63, 0x6c, 0x69, 0x6e, 0x65, 0x64]);
+          return {
+            encrypted: enc.encrypt(failedPayload)._unsafeUnwrap(),
+            tmpKey: x25519.getPublicKey(new Uint8Array(32).fill(0x66)),
+          };
+        })(),
+      });
 
       const promise = harness.auth.authenticate();
       await harness.waitForSubscription();
-      harness.deliver([failedStatement]);
+      await harness.deliver(failedResponse);
 
       const result = await promise;
       await expect(result).toBeErr();
@@ -267,7 +249,7 @@ describe('createAuth', () => {
 
       const second = harness.auth.authenticate();
       expect(second).not.toBe(first);
-      await vi.waitFor(() => expect(harness.subscribeStatements).toHaveBeenCalledTimes(2));
+      await harness.waitForSubscription();
       harness.auth.abortAuthentication();
       await second;
     });
@@ -281,17 +263,11 @@ describe('createAuth', () => {
 
   describe('default deviceIdentity', () => {
     it('falls back to deviceIdentityStore.loadOrCreate when no deviceIdentity factory is provided', async () => {
-      let deliver: Deliver | null = null;
-      const unsubscribe = vi.fn();
-      const subscribeStatements = vi.fn((_filter: unknown, onPage: Deliver) => {
-        deliver = onPage;
-        return unsubscribe;
-      });
-      const queryStatements = vi.fn(() => okAsync([]));
-      const statementStore = { subscribeStatements, queryStatements } as unknown as StatementStoreAdapter;
-      const ssoSessionRepository = { add: vi.fn(() => okAsync(undefined)) } as unknown as UserSessionRepository;
-      const userSecretRepository = { write: vi.fn(() => okAsync(undefined)) } as unknown as UserSecretRepository;
-      const deviceIdentityStore = stubDeviceIdentityStore();
+      const statementStore = createInMemoryStatementStore();
+      const storage = createMemoryAdapter();
+      const ssoSessionRepository = createUserSessionRepository(storage);
+      const userSecretRepository = createUserSecretRepository('auth-test', storage);
+      const deviceIdentityStore = spiedDeviceIdentityStore(storage);
 
       const auth = createAuth({
         deviceIdentityStore,
@@ -301,10 +277,19 @@ describe('createAuth', () => {
       });
 
       const promise = auth.authenticate();
-      await vi.waitFor(() => expect(subscribeStatements).toHaveBeenCalledTimes(1));
+      await vi.waitFor(() => expect(statementStore.activeSubscriptions()).toBe(1));
+
       expect(deviceIdentityStore.loadOrCreate).toHaveBeenCalledOnce();
-      if (deliver) (deliver as Deliver)({ statements: [buildSuccessStatement()], isComplete: true });
-      await promise;
+
+      // Answer on the topic derived from the identity the STORE generated, and
+      // encrypted to its key: pairing only completes if `createAuth` actually
+      // used what `loadOrCreate` returned rather than a keypair of its own.
+      const device = (await deviceIdentityStore.loadOrCreate())._unsafeUnwrap();
+      await publishPairingResponse(statementStore, device, buildSuccessResponse(device.encryptionPublicKey), {
+        signer: PEER_STMT_ACCT_HEX,
+      });
+
+      await expect(promise).toBeOk();
     });
   });
 
@@ -335,7 +320,7 @@ describe('createAuth', () => {
       try {
         const promise = harness.auth.authenticate();
         await harness.waitForSubscription();
-        harness.deliver([buildSuccessStatement()]);
+        await harness.deliver(buildSuccessResponse());
         const result = await promise;
         await expect(result).toBeOk();
 
