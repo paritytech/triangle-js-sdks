@@ -3,6 +3,7 @@
 ### 🚀 Features
 
 - **host-papp:** `sessions.forget(sessionId)` tears a session down by id alone, without notifying the peer — for hosts discarding local state on their own terms. `disconnect` remains the user-initiated logout.
+- **host-substrate-chain-connection:** `ChainConnectionConfig.createClient` overrides polkadot-api's `createClient`, defaulting to it. An injection point for tests and for wrapping client construction; polkadot-api is imported either way.
 - **host-papp:** `sso.resetDeviceIdentity()` discards the persisted device keypair and the processed-handshake marker stored with it, so the next pairing runs on a new topic with a new key — which makes any cached on-chain `HandshakeSuccess` undecryptable. It is a no-op for hosts supplying their own `deviceIdentity` factory, and a pairing already in flight keeps the old identity.
 
 ### 🩹 Fixes

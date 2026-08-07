@@ -86,6 +86,7 @@ function createChainConnection<C extends ChainConfig, T = PolkadotClient>(
 |---|---|---|
 | `createProvider` | `(chain: C, onStatusChanged: (status: ConnectionStatus) => void) => JsonRpcProvider` | Factory for the underlying JSON-RPC transport. Called once per chain. Use `onStatusChanged` to feed connection status back into the pool. |
 | `clientOptions` | `(chain: C) => ClientOptions` | Optional. Returns [polkadot-api client options](https://papi.how/) - typically metadata cache hooks (`getMetadata` / `setMetadata`). |
+| `createClient` | `typeof createClient` | Optional. Overrides polkadot-api's `createClient`. Defaults to it; an injection point for tests and for wrapping client construction. |
 | `resolve` | `(chain: C, client: PolkadotClient) => Promise<T>` | Optional. Transforms the raw `PolkadotClient` into your app's API type. The result is cached per chain. If omitted, `T` defaults to `PolkadotClient`. |
 | `destroyDelay` | `number` | Optional. Milliseconds to wait before destroying a connection after the last caller releases. Defaults to `0` (destroy immediately). Useful to avoid reconnect churn when callers release and re-acquire in quick succession. |
 

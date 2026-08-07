@@ -11,6 +11,8 @@ import { isPausable } from './wsProvider.js';
 export type ChainConnectionConfig<C extends ChainConfig, T = PolkadotClient> = {
   createProvider(chain: C, onStatusChanged: (status: ConnectionStatus) => void): JsonRpcProvider;
   clientOptions?(chain: C): Parameters<typeof createClient>[1];
+  /** Defaults to polkadot-api's `createClient`. An injection point for tests and for wrapping client construction — polkadot-api is imported either way. */
+  createClient?: typeof createClient;
   resolve?(chain: C, client: PolkadotClient): Promise<T>;
   destroyDelay?: number;
 };
@@ -34,6 +36,7 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
   resolve,
   clientOptions,
   createProvider,
+  createClient: makeClient = createClient,
   destroyDelay = 0,
 }: ChainConnectionConfig<C, T>): ChainConnection<C, T> => {
   const connections = createConnectionManager();
@@ -59,7 +62,7 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
 
     const rootProvider = createProvider(chain, status => connections.update(chain.genesisHash, status));
     const branchedProvider = createBranchedProvider(rootProvider);
-    const client = createClient(branchedProvider.branch(), clientOptions?.(chain));
+    const client = makeClient(branchedProvider.branch(), clientOptions?.(chain));
 
     const pooled: PooledClient = { client, provider: branchedProvider, rootProvider };
     existingClients.set(chain.genesisHash, pooled);

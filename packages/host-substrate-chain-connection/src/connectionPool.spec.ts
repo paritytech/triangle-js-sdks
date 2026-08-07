@@ -5,11 +5,20 @@ import type { ChainConnectionConfig } from './connectionPool.js';
 import { createChainConnection } from './connectionPool.js';
 import type { ChainConfig, ConnectionStatus } from './types.js';
 
-vi.mock('polkadot-api', () => ({
-  createClient: vi.fn((_provider: JsonRpcProvider, _options?: unknown) => createMockClient()),
-}));
+// An in-memory stand-in for polkadot-api's `createClient`: one client object per
+// call, each counting its own `destroy()`.
+const createClientFactory = () => {
+  const clients: { destroyed: number }[] = [];
 
-const createMockClient = (): PolkadotClient => ({ destroy: vi.fn() }) as unknown as PolkadotClient;
+  const factory = ((_provider: JsonRpcProvider, _options?: unknown) => {
+    const client = { destroyed: 0 };
+    clients.push(client);
+
+    return { destroy: () => client.destroyed++ } as unknown as PolkadotClient;
+  }) as ChainConnectionConfig<ChainConfig>['createClient'];
+
+  return { createClient: factory, last: () => clients[clients.length - 1]! };
+};
 
 const createMockProvider = () => {
   const send = vi.fn();
@@ -31,13 +40,15 @@ const testChain = (id: string): ChainConfig => ({ genesisHash: id });
 
 const createTestConnection = (overrides?: Partial<ChainConnectionConfig<ChainConfig>>) => {
   const mockProvider = createMockProvider();
+  const clientFactory = createClientFactory();
 
   const connection = createChainConnection<ChainConfig>({
     createProvider: () => mockProvider.provider,
+    createClient: clientFactory.createClient,
     ...overrides,
   });
 
-  return { connection, mockProvider };
+  return { connection, mockProvider, clients: clientFactory };
 };
 
 describe('createChainConnection', () => {
@@ -186,36 +197,24 @@ describe('createChainConnection', () => {
 
   describe('lockApi — connection lifecycle', () => {
     it('destroys client synchronously when last lock is released (no destroyDelay)', async () => {
-      const destroyFn = vi.fn();
-      vi.mocked(await import('polkadot-api')).createClient.mockReturnValueOnce({
-        getBestBlocks: vi.fn().mockResolvedValue([]),
-        destroy: destroyFn,
-      } as unknown as PolkadotClient);
-
-      const { connection } = createTestConnection();
+      const { connection, clients } = createTestConnection();
       const { unlock } = await connection.lockApi(testChain('a'));
 
       unlock();
-      expect(destroyFn).toHaveBeenCalledOnce();
+      expect(clients.last().destroyed).toBe(1);
     });
 
     it('does not destroy while any lock is still held', async () => {
-      const destroyFn = vi.fn();
-      vi.mocked(await import('polkadot-api')).createClient.mockReturnValueOnce({
-        getBestBlocks: vi.fn().mockResolvedValue([]),
-        destroy: destroyFn,
-      } as unknown as PolkadotClient);
-
-      const { connection } = createTestConnection();
+      const { connection, clients } = createTestConnection();
       const chain = testChain('a');
       const { unlock: u1 } = await connection.lockApi(chain);
       const { unlock: u2 } = await connection.lockApi(chain);
 
       u1();
-      expect(destroyFn).not.toHaveBeenCalled();
+      expect(clients.last().destroyed).toBe(0);
 
       u2();
-      expect(destroyFn).toHaveBeenCalledOnce();
+      expect(clients.last().destroyed).toBe(1);
     });
 
     describe('with destroyDelay', () => {
@@ -227,30 +226,18 @@ describe('createChainConnection', () => {
       });
 
       it('defers destruction by destroyDelay ms', async () => {
-        const destroyFn = vi.fn();
-        vi.mocked(await import('polkadot-api')).createClient.mockReturnValueOnce({
-          getBestBlocks: vi.fn().mockResolvedValue([]),
-          destroy: destroyFn,
-        } as unknown as PolkadotClient);
-
-        const { connection } = createTestConnection({ destroyDelay: 1000 });
+        const { connection, clients } = createTestConnection({ destroyDelay: 1000 });
         const { unlock } = await connection.lockApi(testChain('a'));
 
         unlock();
-        expect(destroyFn).not.toHaveBeenCalled();
+        expect(clients.last().destroyed).toBe(0);
 
         vi.advanceTimersByTime(1000);
-        expect(destroyFn).toHaveBeenCalledOnce();
+        expect(clients.last().destroyed).toBe(1);
       });
 
       it('cancels destruction timer when connection is re-acquired before delay elapses', async () => {
-        const destroyFn = vi.fn();
-        vi.mocked(await import('polkadot-api')).createClient.mockReturnValueOnce({
-          getBestBlocks: vi.fn().mockResolvedValue([]),
-          destroy: destroyFn,
-        } as unknown as PolkadotClient);
-
-        const { connection } = createTestConnection({ destroyDelay: 1000 });
+        const { connection, clients } = createTestConnection({ destroyDelay: 1000 });
         const chain = testChain('a');
 
         const { api: api1, unlock: u1 } = await connection.lockApi(chain);
@@ -260,7 +247,7 @@ describe('createChainConnection', () => {
         const { api: api2, unlock: u2 } = await connection.lockApi(chain);
 
         vi.advanceTimersByTime(1000);
-        expect(destroyFn).not.toHaveBeenCalled();
+        expect(clients.last().destroyed).toBe(0);
         expect(api1).toBe(api2);
 
         u2();
@@ -287,6 +274,7 @@ describe('createChainConnection', () => {
 
       const connection = createChainConnection<ChainConfig>({
         createProvider: chain => providerByChain[chain.genesisHash]!,
+        createClient: createClientFactory().createClient,
       });
 
       const { unlock: u1 } = await connection.lockApi(testChain('a'));
@@ -304,7 +292,10 @@ describe('createChainConnection', () => {
     it('calls resume on every pausable provider', async () => {
       const chainA = createPausableMockProvider();
 
-      const connection = createChainConnection<ChainConfig>({ createProvider: () => chainA.provider });
+      const connection = createChainConnection<ChainConfig>({
+        createProvider: () => chainA.provider,
+        createClient: createClientFactory().createClient,
+      });
       const { unlock } = await connection.lockApi(testChain('a'));
 
       connection.pauseAll();
@@ -320,6 +311,7 @@ describe('createChainConnection', () => {
       const pausable = createPausableMockProvider();
       const connection = createChainConnection<ChainConfig>({
         createProvider: c => (c.genesisHash === 'b' ? pausable.provider : createMockProvider().provider),
+        createClient: createClientFactory().createClient,
       });
       await connection.lockApi(testChain('a'));
       await connection.lockApi(testChain('b'));
@@ -335,6 +327,7 @@ describe('createChainConnection', () => {
       const chainA = createPausableMockProvider();
       const connection = createChainConnection<ChainConfig>({
         createProvider: () => chainA.provider,
+        createClient: createClientFactory().createClient,
         destroyDelay: 0,
       });
 
