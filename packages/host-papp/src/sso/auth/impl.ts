@@ -223,6 +223,18 @@ export function createAuth({
       authResult = null;
       pairingStatus.reset();
     },
+
+    /**
+     * Discard the persisted device keypair and the processed-handshake marker
+     * stored with it, so the next pairing runs on a new topic with a new key —
+     * which makes any cached on-chain HandshakeSuccess undecryptable.
+     *
+     * No-op for hosts supplying their own `deviceIdentity` factory, and a
+     * pairing already in flight keeps the old identity.
+     */
+    resetDeviceIdentity() {
+      return deviceIdentityStore.reset();
+    },
   };
 
   function persistAndNotify(

@@ -1,9 +1,9 @@
+import { toHex } from '@novasamatech/scale';
 import type { Encryption, StatementProver, StatementStoreAdapter } from '@novasamatech/statement-store';
 import { createAccountId } from '@novasamatech/statement-store';
 import type { StorageAdapter } from '@novasamatech/storage-adapter';
 import { createMemoryAdapter } from '@novasamatech/storage-adapter';
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
-import { toHex } from 'polkadot-api/utils';
 import { EMPTY } from 'rxjs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -46,13 +46,12 @@ import { createIdentityRepository } from '../src/identity/impl.js';
 import type { Identity, IdentityAdapter, IdentityRepository } from '../src/identity/types.js';
 import type { AllowanceRepository } from '../src/sso/allowance/index.js';
 import { createAllowanceRepository } from '../src/sso/allowance/index.js';
-import { createUserSession } from '../src/sso/sessionManager/userSession.js';
+import { createUserSession, processedMessagesKey } from '../src/sso/sessionManager/userSession.js';
 import type { StoredUserSession } from '../src/sso/userSessionRepository.js';
 
 const SESSION_ID = 'user-session-1';
 const IDENTITY_ACCOUNT_ID = new Uint8Array(32).fill(7);
-// Storage key the wrapper uses for its processed-message dedup set (see userSession.ts).
-const PROCESSED_KEY = `sso_processed_${SESSION_ID}`;
+const PROCESSED_KEY = processedMessagesKey(SESSION_ID);
 
 // An identity chain adapter with nothing on it: the repository wrapping it is
 // real, so lookups just resolve to null.
@@ -155,6 +154,7 @@ describe('createUserSession getIdentity', () => {
     fullUsername: null,
     liteUsername: 'alice',
     credibility: { type: 'Lite' },
+    identifierKey: toHex(IDENTITY_ACCOUNT_ID),
   };
 
   it('looks up the session identity account (hex) and forwards the result', async () => {

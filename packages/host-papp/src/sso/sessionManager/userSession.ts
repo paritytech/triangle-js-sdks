@@ -48,6 +48,9 @@ const QUEUE_TASK_TIMEOUT_MS = 240_000;
 // Mobile SSO statements allow 500 KiB total; keep headroom for statement/session overhead.
 const MAX_SSO_REQUEST_SIZE = 498 * 1024;
 
+// Per-session dedup log of already-handled peer message ids.
+export const processedMessagesKey = (sessionId: string) => `sso_processed_${sessionId}`;
+
 function withQueueTimeout<T>(resultAsync: ResultAsync<T, Error>, label: string): ResultAsync<T, Error> {
   const timeoutPromise = new Promise<Result<T, Error>>(resolve =>
     setTimeout(() => resolve(err(new Error(`${label} timed out — queue freed`))), QUEUE_TASK_TIMEOUT_MS),
@@ -237,7 +240,7 @@ export function createUserSession({
 
   const processedMessages = fieldListView<string>({
     storage,
-    key: `sso_processed_${userSession.id}`,
+    key: processedMessagesKey(userSession.id),
     from: JSON.parse,
     to: JSON.stringify,
   });
