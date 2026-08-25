@@ -5,8 +5,8 @@ import { createClient } from 'polkadot-api';
 import { createBranchedProvider } from './branchedProvider.js';
 import { createConnectionManager } from './connectionManager.js';
 import { createRefCounter } from './refCounter.js';
+import { createRestartableProvider } from './restartableProvider.js';
 import type { ChainConfig, ConnectionStatus, PooledClient } from './types.js';
-import { isPausable } from './wsProvider.js';
 
 export type ChainConnectionConfig<C extends ChainConfig, T = PolkadotClient> = {
   createProvider(chain: C, onStatusChanged: (status: ConnectionStatus) => void): JsonRpcProvider;
@@ -30,6 +30,18 @@ export type ChainConnection<C extends ChainConfig, T = PolkadotClient> = {
    */
   pauseAll(): void;
   resumeAll(): void;
+  /**
+   * Rebuild the transport of the chains named by `genesisHashes`, or of every
+   * chain currently held when it is omitted. `createProvider` runs again, so a
+   * host that picks its transport from settings (a light client versus RPC
+   * nodes, say) applies the new choice here.
+   *
+   * Pooled clients, resolved apis and refcounts all survive: consumers keep the
+   * references they already hold and see the same interruption a dropped socket
+   * would have caused. A chain the pool is not currently connected to is
+   * skipped — it will pick the new transport up when it is next acquired.
+   */
+  reconnect(genesisHashes?: readonly string[]): void;
 };
 
 export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>({
@@ -60,7 +72,17 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     const existing = existingClients.get(chain.genesisHash);
     if (existing) return existing;
 
-    const rootProvider = createProvider(chain, status => connections.update(chain.genesisHash, status));
+    // A provider replaced by `reconnect` can still report a trailing
+    // `disconnected` while its successor is already connecting, so status is
+    // scoped to the generation that produced it and stale updates are dropped.
+    let generation = 0;
+    const rootProvider = createRestartableProvider(() => {
+      const current = ++generation;
+
+      return createProvider(chain, status => {
+        if (current === generation) connections.update(chain.genesisHash, status);
+      });
+    });
     const branchedProvider = createBranchedProvider(rootProvider);
     const client = makeClient(branchedProvider.branch(), clientOptions?.(chain));
 
@@ -192,13 +214,21 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
 
     pauseAll() {
       for (const { rootProvider } of existingClients.values()) {
-        if (isPausable(rootProvider)) rootProvider.pause();
+        rootProvider.pause();
       }
     },
 
     resumeAll() {
       for (const { rootProvider } of existingClients.values()) {
-        if (isPausable(rootProvider)) rootProvider.resume();
+        rootProvider.resume();
+      }
+    },
+
+    reconnect(genesisHashes) {
+      for (const [genesisHash, { rootProvider }] of existingClients) {
+        if (genesisHashes && !genesisHashes.includes(genesisHash)) continue;
+
+        rootProvider.restart();
       }
     },
   };
