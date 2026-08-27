@@ -124,6 +124,7 @@ export type Container = {
     'v1',
     HostApiProtocol['host_account_connection_status_subscribe']
   >;
+  handleLocaleSubscribe: InferHandler<'v1', HostApiProtocol['host_locale_subscribe']>;
   handleThemeSubscribe: InferHandler<'v1', HostApiProtocol['host_theme_subscribe']>;
   handleAccountGet: InferHandler<'v1', HostApiProtocol['host_account_get']>;
   handleAccountGetAlias: InferHandler<'v1', HostApiProtocol['host_account_get_alias']>;

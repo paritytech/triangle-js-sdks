@@ -44,6 +44,8 @@ export type {
 } from './accounts.js';
 export { accounts, createAccountsProvider, ringVrfKeyHandle } from './accounts.js';
 
+export type { Locale } from './locale.js';
+export { createLocaleProvider } from './locale.js';
 export type { ThemeMode } from './theme.js';
 export { createThemeProvider } from './theme.js';
 

@@ -412,6 +412,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   // subscription slots — default interrupts on next microtask so that
   // the caller has a chance to register an onInterrupt listener first
   const handleThemeSubscribeSlot = makeInterruptSlot('host_theme_subscribe', () => enumValue('v1', undefined));
+  const handleLocaleSubscribeSlot = makeInterruptSlot('host_locale_subscribe', () => enumValue('v1', undefined));
   const handleLocalStorageSubscribeSlot = makeInterruptSlot('host_local_storage_subscribe', () =>
     enumValue('v1', undefined),
   );
@@ -489,6 +490,10 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
     handleLocalStorageClear(handler) {
       return handleV1Request(handleLocalStorageClearSlot, handler);
+    },
+
+    handleLocaleSubscribe(handler) {
+      return handleV1Subscription(handleLocaleSubscribeSlot, handler);
     },
 
     handleThemeSubscribe(handler) {

@@ -103,6 +103,10 @@ export function createHostApi(transport: Transport): HostApi {
       return transport.subscribe('host_theme_subscribe', args, callback);
     },
 
+    localeSubscribe(args, callback) {
+      return transport.subscribe('host_locale_subscribe', args, callback);
+    },
+
     devicePermission(payload) {
       return makeRequest(transport.request('host_device_permission', payload), reason => ({
         tag: payload.tag,

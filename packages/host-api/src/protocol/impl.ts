@@ -123,6 +123,7 @@ import {
   StorageWriteV1_request,
   StorageWriteV1_response,
 } from './v1/localStorage.js';
+import { LocaleSubscribeV1_interrupt, LocaleSubscribeV1_receive, LocaleSubscribeV1_start } from './v1/locale.js';
 import { NavigateToV1_request, NavigateToV1_response } from './v1/navigation.js';
 import {
   PushNotificationCancelV1_request,
@@ -586,5 +587,9 @@ export const hostApiProtocol = {
 
   host_worker_end_operation: versionedRequest(indexer.request(), {
     v1: [WorkerEndOperationV1_request, WorkerEndOperationV1_response],
+  }),
+
+  host_locale_subscribe: versionedSubscription(indexer.subscription(), {
+    v1: [LocaleSubscribeV1_start, LocaleSubscribeV1_receive, LocaleSubscribeV1_interrupt],
   }),
 } as const;
