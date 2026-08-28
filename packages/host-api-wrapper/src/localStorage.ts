@@ -1,3 +1,4 @@
+import type { Subscription } from '@novasamatech/host-api';
 import { createHostApi, enumValue } from '@novasamatech/host-api';
 
 import { resultToPromise, unwrapVersionedResult } from './helpers.js';
@@ -27,6 +28,19 @@ export const createLocalStorage = (transport = sandboxTransport) => {
     );
   }
 
+  function subscribeBytes(key: string, callback: (value: Uint8Array | undefined) => void): Subscription<void> {
+    const subscriber = hostApi.localStorageSubscribe(enumValue(supportedVersion, { key }), item => {
+      if (item.tag === supportedVersion) {
+        callback(item.value.value);
+      }
+    });
+
+    return {
+      unsubscribe: subscriber.unsubscribe,
+      onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
+    };
+  }
+
   return {
     async clear(key: string) {
       return clearKey(key);
@@ -50,6 +64,19 @@ export const createLocalStorage = (transport = sandboxTransport) => {
     },
     async writeJSON(key: string, value: unknown) {
       return writeBytes(key, textEncoder.encode(JSON.stringify(value)));
+    },
+    // Emits the current value immediately, then on every later write or clear
+    // of the key. `undefined` means the key was cleared or is absent.
+    subscribeBytes(key: string, callback: (value: Uint8Array | undefined) => void): Subscription<void> {
+      return subscribeBytes(key, callback);
+    },
+    subscribeString(key: string, callback: (value: string | undefined) => void): Subscription<void> {
+      return subscribeBytes(key, bytes => callback(bytes === undefined ? undefined : textDecoder.decode(bytes)));
+    },
+    subscribeJSON(key: string, callback: (value: unknown) => void): Subscription<void> {
+      return subscribeBytes(key, bytes =>
+        callback(bytes === undefined || bytes.length === 0 ? undefined : JSON.parse(textDecoder.decode(bytes))),
+      );
     },
   };
 };

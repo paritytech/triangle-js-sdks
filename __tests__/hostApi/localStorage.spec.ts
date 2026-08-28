@@ -5,7 +5,11 @@ import { createContainer } from '@novasamatech/host-container';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
+
+// eslint-disable-next-line @typescript-eslint/no-empty-function
+function noop() {}
 
 function setup() {
   const providers = createHostApiProviders();
@@ -206,6 +210,38 @@ describe('Host API: LocalStorage', () => {
         ok: expect.any(Function),
         err: expect.any(Function),
       });
+    });
+  });
+
+  describe('subscribe', () => {
+    it('delivers the current value, each change, and a clear', async () => {
+      const { container, localStorage } = setup();
+
+      container.handleLocalStorageSubscribe((_key, send) => {
+        send({ value: new Uint8Array([1, 2, 3]) });
+        send({ value: new Uint8Array([4]) });
+        send({ value: undefined });
+        return noop;
+      });
+
+      const received: (Uint8Array | undefined)[] = [];
+      localStorage.subscribeBytes('funding', value => received.push(value));
+
+      await delay(50);
+
+      expect(received).toEqual([new Uint8Array([1, 2, 3]), new Uint8Array([4]), undefined]);
+    });
+
+    it('subscribes with the requested key as the start payload', async () => {
+      const { container, localStorage } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handleLocalStorageSubscribe>>(() => noop);
+      container.handleLocalStorageSubscribe(handler);
+
+      localStorage.subscribeBytes('the-key', noop);
+
+      await delay(50);
+
+      expect(handler).toHaveBeenCalledWith({ key: 'the-key' }, expect.anything(), expect.anything());
     });
   });
 });

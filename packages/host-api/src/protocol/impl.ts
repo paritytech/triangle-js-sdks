@@ -1,7 +1,9 @@
 import type { EnumCodec } from '@novasamatech/scale';
 import { Enum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
+import { _void } from 'scale-ts';
 
+import { interruptError } from './callError.js';
 import {
   AccountConnectionStatusV1_interrupt,
   AccountConnectionStatusV1_receive,
@@ -45,6 +47,8 @@ import {
   ChainHeadStorageV1_response,
   ChainHeadUnpinV1_request,
   ChainHeadUnpinV1_response,
+  ChainInfoV1_request,
+  ChainInfoV1_response,
   ChainSpecChainNameV1_request,
   ChainSpecChainNameV1_response,
   ChainSpecGenesisHashV1_request,
@@ -74,6 +78,31 @@ import {
   ChatRegisterBotV1_response,
 } from './v1/chat.js';
 import {
+  CoinPaymentCreateChequeV1_request,
+  CoinPaymentCreateChequeV1_response,
+  CoinPaymentCreatePurseV1_request,
+  CoinPaymentCreatePurseV1_response,
+  CoinPaymentCreateReceivableV1_request,
+  CoinPaymentCreateReceivableV1_response,
+  CoinPaymentDeletePurseV1_interrupt,
+  CoinPaymentDeletePurseV1_receive,
+  CoinPaymentDeletePurseV1_start,
+  CoinPaymentDepositV1_interrupt,
+  CoinPaymentDepositV1_receive,
+  CoinPaymentDepositV1_start,
+  CoinPaymentListenForPaymentV1_interrupt,
+  CoinPaymentListenForPaymentV1_receive,
+  CoinPaymentListenForPaymentV1_start,
+  CoinPaymentQueryPurseV1_request,
+  CoinPaymentQueryPurseV1_response,
+  CoinPaymentRebalancePurseV1_interrupt,
+  CoinPaymentRebalancePurseV1_receive,
+  CoinPaymentRebalancePurseV1_start,
+  CoinPaymentRefundV1_interrupt,
+  CoinPaymentRefundV1_receive,
+  CoinPaymentRefundV1_start,
+} from './v1/coinPayment.js';
+import {
   CreateTransactionV1_request,
   CreateTransactionV1_response,
   CreateTransactionWithLegacyAccountV1_request,
@@ -88,6 +117,9 @@ import {
   StorageClearV1_response,
   StorageReadV1_request,
   StorageReadV1_response,
+  StorageSubscribeV1_interrupt,
+  StorageSubscribeV1_receive,
+  StorageSubscribeV1_start,
   StorageWriteV1_request,
   StorageWriteV1_response,
 } from './v1/localStorage.js';
@@ -141,6 +173,12 @@ import {
   StatementStoreSubscribeV1_start,
 } from './v1/statementStore.js';
 import { ThemeSubscribeV1_interrupt, ThemeSubscribeV1_receive, ThemeSubscribeV1_start } from './v1/theme.js';
+import {
+  WorkerBeginOperationV1_request,
+  WorkerBeginOperationV1_response,
+  WorkerEndOperationV1_request,
+  WorkerEndOperationV1_response,
+} from './v1/worker.js';
 
 // helpers
 
@@ -194,6 +232,18 @@ const versionedRequest = <const EnumValues extends VersionedRequestArguments>(
   };
 };
 
+// Applies the transport-level `CallError` envelope to each typed interrupt
+// codec (leaving `_void` interrupts, which carry no payload, untouched). The
+// wrapped codec decodes back to the plain domain reason, so the static
+// interrupt type is unchanged; only the wire bytes gain the `CallError` layer.
+const wrapInterrupts = <V extends VersionedSubscriptionArguments>(values: V): V =>
+  Object.fromEntries(
+    Object.entries(values).map(([key, [start, receive, interrupt]]) => [
+      key,
+      [start, receive, interrupt === _void ? interrupt : (interruptError(interrupt) as Codec<any>)],
+    ]),
+  ) as V;
+
 const versionedSubscription = <const EnumValues extends VersionedSubscriptionArguments>(
   index: number,
   values: EnumValues,
@@ -203,7 +253,7 @@ const versionedSubscription = <const EnumValues extends VersionedSubscriptionArg
     index,
     start: enumFromArg(values, 0),
     receive: enumFromArg(values, 1),
-    interrupt: enumFromArg(values, 2),
+    interrupt: enumFromArg(wrapInterrupts(values), 2),
   };
 };
 
@@ -455,16 +505,62 @@ export const hostApiProtocol = {
     v1: [PushNotificationCancelV1_request, PushNotificationCancelV1_response],
   }),
 
-  // Prefix 28 skips indices 136-163, reserved upstream by the truapi coin-payment
-  // methods this SDK does not implement, so `sign_vrf` lands on its specified
-  // `request_id = 164` (RFC-0023).
-  host_account_sign_vrf: versionedRequest(indexer.request(28), {
+  // RFC 0017 CoinPayment — ids 136-163. Kept in wire order and directly before
+  // `sign_vrf` so the running index fills 136-163 and `sign_vrf` lands on its
+  // specified `request_id = 164` (RFC-0023) without a skip.
+  host_coin_payment_create_purse: versionedRequest(indexer.request(), {
+    v1: [CoinPaymentCreatePurseV1_request, CoinPaymentCreatePurseV1_response],
+  }),
+
+  host_coin_payment_query_purse: versionedRequest(indexer.request(), {
+    v1: [CoinPaymentQueryPurseV1_request, CoinPaymentQueryPurseV1_response],
+  }),
+
+  host_coin_payment_rebalance_purse: versionedSubscription(indexer.subscription(), {
+    v1: [CoinPaymentRebalancePurseV1_start, CoinPaymentRebalancePurseV1_receive, CoinPaymentRebalancePurseV1_interrupt],
+  }),
+
+  host_coin_payment_delete_purse: versionedSubscription(indexer.subscription(), {
+    v1: [CoinPaymentDeletePurseV1_start, CoinPaymentDeletePurseV1_receive, CoinPaymentDeletePurseV1_interrupt],
+  }),
+
+  host_coin_payment_create_receivable: versionedRequest(indexer.request(), {
+    v1: [CoinPaymentCreateReceivableV1_request, CoinPaymentCreateReceivableV1_response],
+  }),
+
+  host_coin_payment_create_cheque: versionedRequest(indexer.request(), {
+    v1: [CoinPaymentCreateChequeV1_request, CoinPaymentCreateChequeV1_response],
+  }),
+
+  host_coin_payment_deposit: versionedSubscription(indexer.subscription(), {
+    v1: [CoinPaymentDepositV1_start, CoinPaymentDepositV1_receive, CoinPaymentDepositV1_interrupt],
+  }),
+
+  host_coin_payment_refund: versionedSubscription(indexer.subscription(), {
+    v1: [CoinPaymentRefundV1_start, CoinPaymentRefundV1_receive, CoinPaymentRefundV1_interrupt],
+  }),
+
+  host_coin_payment_listen_for_payment: versionedSubscription(indexer.subscription(), {
+    v1: [
+      CoinPaymentListenForPaymentV1_start,
+      CoinPaymentListenForPaymentV1_receive,
+      CoinPaymentListenForPaymentV1_interrupt,
+    ],
+  }),
+
+  host_account_sign_vrf: versionedRequest(indexer.request(), {
     v1: [AccountSignVrfV1_request, AccountSignVrfV1_response],
   }),
 
-  // RFC-0024 — explicit ring VRF key management. Appended so every index above
-  // stays stable; `create_proof` / `get_alias` changed shape in place instead,
-  // since a key handle is now mandatory there.
+  // Resolves a logical chain role (relay, asset hub, ...) to its network and
+  // genesis hash. truapi places it at `request_id = 166`, between `sign_vrf`
+  // and the ring-VRF block, so it must keep this position to hold that id.
+  remote_chain_get_chain_info: versionedRequest(indexer.request(), {
+    v1: [ChainInfoV1_request, ChainInfoV1_response],
+  }),
+
+  // RFC-0024 — explicit ring VRF key management. `create_proof` / `get_alias`
+  // changed shape in place instead, since a key handle is now mandatory there.
   host_account_register_ring_vrf_key: versionedRequest(indexer.request(), {
     v1: [AccountRegisterRingVrfKeyV1_request, AccountRegisterRingVrfKeyV1_response],
   }),
@@ -475,5 +571,20 @@ export const hostApiProtocol = {
 
   host_account_ring_vrf_sign: versionedRequest(indexer.request(), {
     v1: [AccountRingVrfSignV1_request, AccountRingVrfSignV1_response],
+  }),
+
+  // truapi places localStorage.subscribe at start_id = 174, which the running
+  // index reaches naturally once every preceding method is in place.
+  host_local_storage_subscribe: versionedSubscription(indexer.subscription(), {
+    v1: [StorageSubscribeV1_start, StorageSubscribeV1_receive, StorageSubscribeV1_interrupt],
+  }),
+
+  // Worker background-operation keep-alive (truapi request_id 178 / 180).
+  host_worker_begin_operation: versionedRequest(indexer.request(), {
+    v1: [WorkerBeginOperationV1_request, WorkerBeginOperationV1_response],
+  }),
+
+  host_worker_end_operation: versionedRequest(indexer.request(), {
+    v1: [WorkerEndOperationV1_request, WorkerEndOperationV1_response],
   }),
 } as const;

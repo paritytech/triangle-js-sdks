@@ -1,5 +1,5 @@
 import type { HexString, Transport } from '@novasamatech/host-api';
-import { createHostApi, enumValue, unwrapResultOrThrow } from '@novasamatech/host-api';
+import { createHostApi, enumValue, isCallErrorFailure, unwrapResultOrThrow } from '@novasamatech/host-api';
 import { getSyncProvider } from '@polkadot-api/json-rpc-provider-proxy';
 import type { JsonRpcProvider } from 'polkadot-api';
 
@@ -426,6 +426,7 @@ export function createPapiProvider(
         .then(payload => {
           switch (payload.tag) {
             case 'v1': {
+              if (isCallErrorFailure(payload.value)) return false;
               return unwrapResultOrThrow(payload.value, e => new Error(e.payload.reason));
             }
             default:

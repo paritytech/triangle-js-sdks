@@ -1,7 +1,8 @@
 import { Bytes, Enum, ErrEnum, Status } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
-import { Option, Result, Struct, Vector, _void, str, u64 } from 'scale-ts';
+import { Option, Struct, Vector, _void, str, u64 } from 'scale-ts';
 
+import { CallResult } from '../callError.js';
 import { GenericErr } from '../commonCodecs.js';
 
 import type { CustomRendererNodeType } from './customRenderer.js';
@@ -27,7 +28,7 @@ export const ChatRoomRegistrationResult = Struct({
 });
 
 export const ChatCreateRoomV1_request = ChatRoomRequest;
-export const ChatCreateRoomV1_response = Result(ChatRoomRegistrationResult, ChatRoomRegistrationErr);
+export const ChatCreateRoomV1_response = CallResult(ChatRoomRegistrationResult, ChatRoomRegistrationErr);
 
 // register as a bot
 
@@ -49,7 +50,7 @@ export const ChatBotRegistrationResult = Struct({
 });
 
 export const ChatRegisterBotV1_request = ChatBotRequest;
-export const ChatRegisterBotV1_response = Result(ChatBotRegistrationResult, ChatBotRegistrationErr);
+export const ChatRegisterBotV1_response = CallResult(ChatBotRegistrationResult, ChatBotRegistrationErr);
 
 // receiving rooms
 
@@ -131,7 +132,7 @@ export const ChatPostMessageV1_request = Struct({
   roomId: str,
   payload: ChatMessageContent,
 });
-export const ChatPostMessageV1_response = Result(ChatPostMessageResult, ChatMessagePostingErr);
+export const ChatPostMessageV1_response = CallResult(ChatPostMessageResult, ChatMessagePostingErr);
 
 // receiving a message
 

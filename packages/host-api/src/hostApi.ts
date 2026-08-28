@@ -3,6 +3,8 @@ import { errAsync, fromPromise, okAsync } from 'neverthrow';
 import type { Codec, CodecType } from 'scale-ts';
 
 import { extractErrorMessage } from './helpers.js';
+import type { CallErrorTransportFailure } from './protocol/callError.js';
+import { CALL_ERROR_FAILURE } from './protocol/callError.js';
 import { GenericError } from './protocol/commonCodecs.js';
 import type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './protocol/impl.js';
 import {
@@ -16,7 +18,9 @@ import {
   RingVrfSignErr,
   SignVrfErr,
 } from './protocol/v1/accounts.js';
+import { ChainInfoErr } from './protocol/v1/chainInteraction.js';
 import { ChatBotRegistrationErr, ChatMessagePostingErr, ChatRoomRegistrationErr } from './protocol/v1/chat.js';
+import { CoinPaymentErr } from './protocol/v1/coinPayment.js';
 import { CreateTransactionErr } from './protocol/v1/createTransaction.js';
 import { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
 import { HandshakeErr } from './protocol/v1/handshake.js';
@@ -28,6 +32,7 @@ import { PreimageSubmitErr } from './protocol/v1/preimage.js';
 import { ResourceAllocationErr } from './protocol/v1/resourceAllocation.js';
 import { SigningErr } from './protocol/v1/sign.js';
 import { StatementProofErr } from './protocol/v1/statementStore.js';
+import { WorkerErr } from './protocol/v1/worker.js';
 import type { Subscription, Transport } from './types.js';
 
 type SnakeToCamelCase<S extends string> = S extends `${infer T}_${infer U}`
@@ -158,6 +163,24 @@ export function createHostApi(transport: Transport): HostApi {
       return makeRequest(transport.request('host_local_storage_clear', payload), reason => ({
         tag: payload.tag,
         value: new StorageErr.Unknown({ reason }),
+      }));
+    },
+
+    localStorageSubscribe(args, callback) {
+      return transport.subscribe('host_local_storage_subscribe', args, callback);
+    },
+
+    workerBeginOperation(payload) {
+      return makeRequest(transport.request('host_worker_begin_operation', payload), reason => ({
+        tag: payload.tag,
+        value: new WorkerErr.Unknown({ reason }),
+      }));
+    },
+
+    workerEndOperation(payload) {
+      return makeRequest(transport.request('host_worker_end_operation', payload), reason => ({
+        tag: payload.tag,
+        value: new WorkerErr.Unknown({ reason }),
       }));
     },
 
@@ -375,6 +398,56 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
+    // coin payment (RFC 0017)
+
+    coinPaymentCreatePurse(payload) {
+      return makeRequest(transport.request('host_coin_payment_create_purse', payload), () => ({
+        tag: payload.tag,
+        value: new CoinPaymentErr.Internal(),
+      }));
+    },
+
+    coinPaymentQueryPurse(payload) {
+      return makeRequest(transport.request('host_coin_payment_query_purse', payload), () => ({
+        tag: payload.tag,
+        value: new CoinPaymentErr.Internal(),
+      }));
+    },
+
+    coinPaymentRebalancePurse(args, callback) {
+      return transport.subscribe('host_coin_payment_rebalance_purse', args, callback);
+    },
+
+    coinPaymentDeletePurse(args, callback) {
+      return transport.subscribe('host_coin_payment_delete_purse', args, callback);
+    },
+
+    coinPaymentCreateReceivable(payload) {
+      return makeRequest(transport.request('host_coin_payment_create_receivable', payload), () => ({
+        tag: payload.tag,
+        value: new CoinPaymentErr.Internal(),
+      }));
+    },
+
+    coinPaymentCreateCheque(payload) {
+      return makeRequest(transport.request('host_coin_payment_create_cheque', payload), () => ({
+        tag: payload.tag,
+        value: new CoinPaymentErr.Internal(),
+      }));
+    },
+
+    coinPaymentDeposit(args, callback) {
+      return transport.subscribe('host_coin_payment_deposit', args, callback);
+    },
+
+    coinPaymentRefund(args, callback) {
+      return transport.subscribe('host_coin_payment_refund', args, callback);
+    },
+
+    coinPaymentListenForPayment(args, callback) {
+      return transport.subscribe('host_coin_payment_listen_for_payment', args, callback);
+    },
+
     // chain interaction
 
     chainHeadFollowSubscribe(args, callback) {
@@ -430,6 +503,13 @@ export function createHostApi(transport: Transport): HostApi {
       }));
     },
 
+    chainGetChainInfo(payload) {
+      return makeRequest(transport.request('remote_chain_get_chain_info', payload), reason => ({
+        tag: payload.tag,
+        value: new ChainInfoErr.Unknown({ reason }),
+      }));
+    },
+
     chainSpecGenesisHash(payload) {
       return makeRequest(transport.request('remote_chain_spec_genesis_hash', payload), reason => ({
         tag: payload.tag,
@@ -467,15 +547,37 @@ export function createHostApi(transport: Transport): HostApi {
   };
 }
 
+/** Human-readable reason for a transport-level `CallError`, for the domain fallback. */
+function describeCallErrorFailure(failure: CallErrorTransportFailure): string {
+  switch (failure.tag) {
+    case 'Denied':
+      return 'call denied by host';
+    case 'Unsupported':
+      return 'method unsupported by host';
+    case 'MalformedFrame':
+      return `malformed frame: ${failure.value.reason}`;
+    case 'HostFailure':
+      return `host failure: ${failure.value.reason}`;
+  }
+}
+
+type CallErrorMarker = { [CALL_ERROR_FAILURE]: CallErrorTransportFailure };
+
 function makeRequest<Tag extends string, R extends { success: boolean; value: unknown }>(
-  promise: Promise<{ tag: Tag; value: R }>,
+  promise: Promise<{ tag: Tag; value: R | CallErrorMarker }>,
   mapErr: (e: string) => { tag: Tag; value: Extract<R, { success: false }>['value'] },
 ): ResultAsync<
   { tag: Tag; value: Extract<R, { success: true }>['value'] },
   { tag: Tag; value: Extract<R, { success: false }>['value'] }
 > {
   return fromPromise(promise, e => mapErr(extractErrorMessage(e))).andThen(r => {
-    if (r.value.success) return okAsync({ tag: r.tag, value: r.value.value });
-    return errAsync({ tag: r.tag, value: r.value.value });
+    const value = r.value;
+    // A transport-level CallError carries no domain answer; fold it into the
+    // method's domain error so products keep a single error type.
+    if (CALL_ERROR_FAILURE in value) {
+      return errAsync(mapErr(describeCallErrorFailure(value[CALL_ERROR_FAILURE])));
+    }
+    if (value.success) return okAsync({ tag: r.tag, value: value.value });
+    return errAsync({ tag: r.tag, value: value.value });
   });
 }

@@ -1,6 +1,7 @@
 import { ErrEnum } from '@novasamatech/scale';
-import { Result, _void, u8 } from 'scale-ts';
+import { _void, u8 } from 'scale-ts';
 
+import { CallResult } from '../callError.js';
 import { GenericErr } from '../commonCodecs.js';
 
 export const HandshakeErr = ErrEnum('HandshakeErr', {
@@ -13,4 +14,4 @@ export const HandshakeErr = ErrEnum('HandshakeErr', {
  * HandshakeV1_request = 1 - SCALE codec
  */
 export const HandshakeV1_request = u8;
-export const HandshakeV1_response = Result(_void, HandshakeErr);
+export const HandshakeV1_response = CallResult(_void, HandshakeErr);

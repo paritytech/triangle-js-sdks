@@ -1,6 +1,7 @@
 import { Enum, ErrEnum } from '@novasamatech/scale';
-import { Result, Vector, _void } from 'scale-ts';
+import { Vector, _void } from 'scale-ts';
 
+import { CallResult } from '../callError.js';
 import { GenericErr } from '../commonCodecs.js';
 
 import { DerivationIndex } from './accounts.js';
@@ -32,4 +33,4 @@ export const ResourceAllocationErr = ErrEnum('ResourceAllocationErr', {
 // host_request_resource_allocation
 
 export const RequestResourceAllocationV1_request = Vector(AllocatableResource);
-export const RequestResourceAllocationV1_response = Result(Vector(AllocationOutcome), ResourceAllocationErr);
+export const RequestResourceAllocationV1_response = CallResult(Vector(AllocationOutcome), ResourceAllocationErr);

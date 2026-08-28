@@ -49,6 +49,11 @@ export { createThemeProvider } from './theme.js';
 
 export { createLocalStorage, hostLocalStorage } from './localStorage.js';
 
+export { createWorker, hostWorker } from './worker.js';
+
+export type { Cheque, ClearingStatus, PaymentDelivery, PurseInfo, Receivable } from './coinPayment.js';
+export { createCoinPayment, hostCoinPayment } from './coinPayment.js';
+
 export type { NotificationId, PushNotificationInput } from './notification.js';
 export { createNotificationManager, notificationManager } from './notification.js';
 

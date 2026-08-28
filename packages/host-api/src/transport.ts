@@ -3,7 +3,8 @@ import { createNanoEvents } from 'nanoevents';
 import type { CodecType } from 'scale-ts';
 
 import { HANDSHAKE_INTERVAL, HANDSHAKE_TIMEOUT, SCALE_CODEC_PROTOCOL_ID } from './constants.js';
-import { composeAction, createRequestId, delay, promiseWithResolvers } from './helpers.js';
+import { composeAction, createRequestId, delay, extractErrorMessage, promiseWithResolvers } from './helpers.js';
+import { CALL_ERROR_FAILURE } from './protocol/callError.js';
 import type {
   ComposeMessageAction,
   MessageAction,
@@ -289,6 +290,16 @@ export function createTransport(provider: Provider): Transport {
           },
           (error: unknown) => {
             provider.logger.error(`handleRequest: handler for "${method}" rejected`, error);
+            // Answer a transport-level CallError so the caller sees a failed
+            // request rather than a hung promise. Domain errors are the
+            // handler's job; this is the fallback when the handler itself threw.
+            const failure = enumValue('v1', {
+              [CALL_ERROR_FAILURE]: { tag: 'HostFailure' as const, value: { reason: extractErrorMessage(error) } },
+            });
+            const responseMessage = enumValue(responseAction, failure) as never as PickMessagePayload<
+              ComposeMessageAction<Method, 'response'>
+            >;
+            transport.postMessage(requestId, responseMessage);
           },
         );
       });
@@ -350,7 +361,11 @@ export function createTransport(provider: Provider): Transport {
             const subscription = activeSubscriptions.get(subscriptionKey);
             if (subscription) {
               for (const listener of subscription.listeners) {
-                listener.call(data.value);
+                try {
+                  listener.call(data.value);
+                } catch (e) {
+                  provider.logger.error(`subscription "${method}" listener threw`, e);
+                }
               }
             }
           }

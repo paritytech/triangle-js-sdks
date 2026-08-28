@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { HexString } from '@novasamatech/host-api';
-import { createHostApi, createTransport, enumValue } from '@novasamatech/host-api';
+import { createHostApi, createTransport, enumValue, hostApiProtocol } from '@novasamatech/host-api';
 import { WellKnownChain, createPapiProvider } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
 
@@ -1065,6 +1065,32 @@ describe('Host API: Chain Interaction', () => {
 
       // Should not receive any messages since feature is not supported
       expect(receivedMessages).toEqual([]);
+    });
+  });
+
+  describe('getChainInfo', () => {
+    it('is pinned to the wire index the truapi spec assigns it', () => {
+      // truapi specifies `#[wire(request_id = 166)]`, between `sign_vrf` and the
+      // ring-VRF block. A table reorder would silently move it and break
+      // compatibility with non-JS hosts.
+      expect(hostApiProtocol.remote_chain_get_chain_info.index).toBe(166);
+    });
+
+    it('resolves a chain identifier to its network and genesis hash', async () => {
+      const providers = createHostApiProviders();
+      const container = createContainer(providers.host);
+      const hostApi = createHostApi(createTransport(providers.sdk));
+      const genesisHash = `0x${'ab'.repeat(32)}` as HexString;
+
+      container.handleChainGetChainInfo(({ chain }, { ok }) => ok({ network: 'paseo', chain, genesisHash }));
+
+      const result = await hostApi.chainGetChainInfo(enumValue('v1', { chain: 'AssetHub' }));
+
+      expect(result.isOk()).toBe(true);
+      expect(result._unsafeUnwrap()).toEqual({
+        tag: 'v1',
+        value: { network: 'paseo', chain: 'AssetHub', genesisHash },
+      });
     });
   });
 });

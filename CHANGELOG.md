@@ -1,3 +1,20 @@
+## 0.10.0 (2026-08-27)
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-container / host-api-wrapper:** every response and subscription interrupt now rides truapi's `CallError<D>` envelope on the wire, so 0.10 is wire-incompatible with 0.9 and host and product must upgrade together. A transport or host failure (denied, unsupported, malformed frame, host failure) decodes to a `CALL_ERROR_FAILURE`-marked value that the wrapper folds into the method's domain error; new exports `isCallErrorFailure`, `CALL_ERROR_FAILURE` and `CallErrorTransportFailure` let raw consumers spot it. The container now emits these itself: `Unsupported` for a method with no registered handler, and `MalformedFrame` for a request that does not decode, in place of a business `Unknown` error. See the [migration guide](./docs/migration/v0.10.md#the-callerror-transport-envelope).
+
+### 🚀 Features
+
+- **host-api / host-container / host-api-wrapper:** coin payment (RFC 0017). `createCoinPayment` opens firewalled purses, mints receivables and cheques, and streams clearing status for rebalance, delete, deposit, refund and listen. Fills protocol ids 136-163, removing the manual index skip that reserved them.
+- **host-api / host-container / host-api-wrapper:** worker keep-alive. `createWorker().beginOperation(label?)` and `endOperation(id)` keep a product's worker running while a background task is open, so it finishes after the surface goes away. `endOperation` is idempotent.
+- **host-api / host-container / host-api-wrapper:** local storage subscribe. `subscribeBytes` / `subscribeString` / `subscribeJSON` emit the current value immediately, then on every later write or clear; `undefined` means the key is absent.
+- **host-api / host-container:** `chainGetChainInfo` resolves a logical chain role (`Relay`, `AssetHub`, `People`, `Bulletin`) to its network name and genesis hash, with the new `ChainIdentifier` and `ChainInfoErr` codecs.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev
+
 ## 0.9.4 (2026-08-07)
 
 ### 🚀 Features
