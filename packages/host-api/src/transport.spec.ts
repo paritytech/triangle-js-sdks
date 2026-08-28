@@ -80,6 +80,31 @@ describe('transport', () => {
       expect(s1Handler).toHaveBeenCalledTimes(1);
       expect(s2Handler).toHaveBeenCalledTimes(2);
     });
+
+    it('isolates a throwing subscriber so siblings on the same subscription still receive', () => {
+      const providers = createProviders();
+      const events = createNanoEvents<{ push: VoidFunction }>();
+
+      const host = createTransport(providers.host);
+      const sdk = createTransport(providers.sdk);
+
+      host.handleSubscription('host_account_connection_status_subscribe', (_, send) =>
+        events.on('push', () => send({ tag: 'v1', value: 'connected' })),
+      );
+
+      const throwing = vi.fn(() => {
+        throw new Error('subscriber boom');
+      });
+      const healthy = vi.fn();
+      sdk.subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, throwing);
+      sdk.subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, healthy);
+
+      // A throw in the first subscriber must neither escape the dispatch nor
+      // starve the second subscriber on the same subscription.
+      expect(() => events.emit('push')).not.toThrow();
+      expect(throwing).toHaveBeenCalledTimes(1);
+      expect(healthy).toHaveBeenCalledTimes(1);
+    });
   });
 
   describe('debug hook', () => {

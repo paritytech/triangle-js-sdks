@@ -1,6 +1,7 @@
 import { ErrEnum } from '@novasamatech/scale';
-import { Result, _void, str } from 'scale-ts';
+import { _void, str } from 'scale-ts';
 
+import { CallResult } from '../callError.js';
 import { GenericErr } from '../commonCodecs.js';
 
 export const NavigateToErr = ErrEnum('NavigateToErr', {
@@ -9,4 +10,4 @@ export const NavigateToErr = ErrEnum('NavigateToErr', {
 });
 
 export const NavigateToV1_request = str;
-export const NavigateToV1_response = Result(_void, NavigateToErr);
+export const NavigateToV1_response = CallResult(_void, NavigateToErr);

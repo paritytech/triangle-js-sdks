@@ -1,4 +1,5 @@
 import type {
+  CallErrorTransportFailure,
   CodecType,
   ConnectionStatus,
   HexString,
@@ -11,36 +12,18 @@ import type {
   VersionedProtocolSubscription,
 } from '@novasamatech/host-api';
 import {
-  ChatBotRegistrationErr,
-  ChatMessagePostingErr,
-  ChatRoomRegistrationErr,
-  CreateProofErr,
-  CreateTransactionErr,
-  DeriveEntropyErr,
+  CALL_ERROR_FAILURE,
+  CoinPaymentErr,
   DevicePermission,
   GenericError,
-  GetAliasErr,
-  GetUserIdErr,
-  ListRingVrfKeysErr,
-  LoginErr,
-  NavigateToErr,
   PaymentBalanceErr,
-  PaymentRequestErr,
   PaymentStatusErr,
-  PaymentTopUpErr,
   PreimageSubmitErr,
   PushNotificationError,
-  RegisterRingVrfKeyErr,
   RemotePermission,
-  RequestCredentialsErr,
-  ResourceAllocationErr,
-  RingVrfSignErr,
-  SignVrfErr,
-  SigningErr,
-  StatementProofErr,
-  StorageErr,
   createTransport,
   enumValue,
+  isCallErrorFailure,
   isEnumVariant,
   resultErr,
   resultOk,
@@ -58,9 +41,33 @@ import type {
   UnwrapErrorResponse,
 } from './types.js';
 
-const UNSUPPORTED_MESSAGE_FORMAT_ERROR = 'Unsupported message format';
+// Reason attached to a `MalformedFrame` transport failure when an incoming
+// request does not decode to the expected v1 shape.
+const MALFORMED_FRAME_REASON = 'request did not decode to a supported version';
 
-const NOT_IMPLEMENTED = 'Not implemented';
+// Transport-level `CallError` envelopes, riding the same envelope the transport
+// uses for a thrown handler (`HostFailure`). The host answers `Unsupported` when
+// no handler is registered for a method, and `MalformedFrame` when a request
+// does not decode. `host-api-wrapper` folds both into the method's own error
+// type, so products keep a single error to handle.
+const UNSUPPORTED = enumValue('v1', {
+  [CALL_ERROR_FAILURE]: { tag: 'Unsupported' } as CallErrorTransportFailure,
+});
+const MALFORMED_FRAME = enumValue('v1', {
+  [CALL_ERROR_FAILURE]: {
+    tag: 'MalformedFrame',
+    value: { reason: MALFORMED_FRAME_REASON },
+  } as CallErrorTransportFailure,
+});
+
+// Cast helpers: the transport encodes these envelopes for any method's response
+// codec, but TypeScript can't verify that against a generic `Method` here.
+function unsupportedResponse<Method extends HostApiMethod>(): Awaited<ReturnType<RequestHandler<Method>>> {
+  return UNSUPPORTED as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+}
+function malformedFrameResponse<Method extends HostApiMethod>(): Awaited<ReturnType<RequestHandler<Method>>> {
+  return MALFORMED_FRAME as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+}
 
 type RequestSlot<Method extends HostApiMethod> = {
   update(handler: RequestHandler<Method>): VoidFunction;
@@ -72,14 +79,16 @@ type SubscriptionSlot<Method extends HostApiMethod> = {
   makeDefaultInterrupt(): InterruptPayloadFor<HostApiProtocol[Method]>;
 };
 
-type ErrorResponse<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
-  Call extends VersionedProtocolRequest ? UnwrapErrorResponse<'v1', CodecValue<Call['response']>> : never;
-
 type InterruptPayloadFor<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
   Call extends VersionedProtocolSubscription ? CodecValue<Call['interrupt']> : never;
 
 type ContainerRequestHandlerGuard<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
   Call extends VersionedProtocolRequest ? ContainerRequestHandler<'v1', Call> : never;
+
+// Error response used by the permission-gated slots for a denied call (a
+// business "no", distinct from `Unsupported`).
+type ErrorResponse<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
+  Call extends VersionedProtocolRequest ? UnwrapErrorResponse<'v1', CodecValue<Call['response']>> : never;
 
 function guardVersion<const Enum extends { tag: string; value: unknown }, const Tag extends Enum['tag'], const Err>(
   value: Enum | undefined,
@@ -158,14 +167,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     };
   }
 
-  function makeNotImplementedSlot<const Method extends HostApiMethod>(
-    method: Method,
-    makeError: () => ErrorResponse<HostApiProtocol[Method]>,
-  ): RequestSlot<Method> {
-    // Cast needed: async () returns a fixed v1 error shape that TypeScript can't verify
-    // matches the generic Method's response type without evaluating template literal types.
-    const handler: RequestHandler<Method> = async () =>
-      enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+  // A method with no registered handler answers `Unsupported`.
+  function makeUnsupportedSlot<const Method extends HostApiMethod>(method: Method): RequestSlot<Method> {
+    const handler: RequestHandler<Method> = async () => unsupportedResponse<Method>();
     return makeRequestSlot(method, handler);
   }
 
@@ -190,17 +194,23 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     permissionVariant: CodecType<typeof RemotePermission>['tag'],
     makeError: () => ErrorResponse<HostApiProtocol[Method]>,
   ): RequestSlot<Method> {
-    const defaultHandler: RequestHandler<Method> = async () =>
-      enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+    // No registered handler → the method is unsupported.
+    const defaultHandler: RequestHandler<Method> = async () => unsupportedResponse<Method>();
     let current = defaultHandler;
     let version = 0;
 
     transport.handleRequest(method, async params => {
+      // No registered handler → the method is unsupported. Answer that before
+      // the permission gate: an unimplemented method must not ask for a grant.
+      if (current === defaultHandler) {
+        return unsupportedResponse<Method>();
+      }
       const permissionResponse = await handleRemotePermissionSlot.call(
         enumValue('v1', enumValue(permissionVariant as never, undefined)),
       );
       const permissionGranted =
         isEnumVariant(permissionResponse, 'v1') &&
+        !isCallErrorFailure(permissionResponse.value) &&
         permissionResponse.value.success === true &&
         permissionResponse.value.value === true;
       if (!permissionGranted) {
@@ -228,15 +238,21 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     permissionVariant: CodecType<typeof DevicePermission>,
     makeError: () => ErrorResponse<HostApiProtocol[Method]>,
   ): RequestSlot<Method> {
-    const defaultHandler: RequestHandler<Method> = async () =>
-      enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+    // No registered handler → the method is unsupported.
+    const defaultHandler: RequestHandler<Method> = async () => unsupportedResponse<Method>();
     let current = defaultHandler;
     let version = 0;
 
     transport.handleRequest(method, async params => {
+      // No registered handler → the method is unsupported. Answer that before
+      // the permission gate: an unimplemented method must not ask for a grant.
+      if (current === defaultHandler) {
+        return unsupportedResponse<Method>();
+      }
       const permissionResponse = await handleDevicePermissionSlot.call(enumValue('v1', permissionVariant));
       const permissionGranted =
         isEnumVariant(permissionResponse, 'v1') &&
+        !isCallErrorFailure(permissionResponse.value) &&
         permissionResponse.value.success === true &&
         permissionResponse.value.value === true;
       if (!permissionGranted) {
@@ -261,18 +277,22 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
   function handleV1Request<const Method extends HostApiMethod>(
     slot: RequestSlot<Method>,
-    makeError: () => ErrorResponse<HostApiProtocol[Method]>,
     handler: ContainerRequestHandlerGuard<HostApiProtocol[Method]>,
   ): VoidFunction {
     init();
     const version = 'v1' as const;
     return slot.update(async params => {
-      const error = makeError();
-      return guardVersion(params, version, error)
-        .asyncMap(async p => await handler(p as never, { ok: okAsync<any>, err: errAsync<never, any> }))
-        .andThen(r => r.map(v => enumValue(version, resultOk(v))))
-        .orElse(r => ok(enumValue(version, resultErr(r))))
-        .unwrapOr(enumValue(version, resultErr(error))) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+      const parsed = guardVersion(params, version, null);
+      // A request that does not decode to the expected version is a
+      // `MalformedFrame` transport failure, not a domain error.
+      if (parsed.isErr()) {
+        return malformedFrameResponse<Method>();
+      }
+      const result = await handler(parsed.value as never, { ok: okAsync<any>, err: errAsync<never, any> });
+      return result.match(
+        v => enumValue(version, resultOk(v)),
+        e => enumValue(version, resultErr(e)),
+      ) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
     });
   }
 
@@ -300,199 +320,101 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   }
 
   // account slots
-  const handleGetUserIdSlot = makeNotImplementedSlot(
-    'host_get_user_id',
-    () => new GetUserIdErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleRequestLoginSlot = makeNotImplementedSlot(
-    'host_request_login',
-    () => new LoginErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleAccountGetSlot = makeNotImplementedSlot(
-    'host_account_get',
-    () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleAccountGetAliasSlot = makeNotImplementedSlot(
-    'host_account_get_alias',
-    () => new GetAliasErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleGetLegacyAccountsSlot = makeNotImplementedSlot(
-    'host_get_legacy_accounts',
-    () => new RequestCredentialsErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleAccountCreateProofSlot = makeNotImplementedSlot(
-    'host_account_create_proof',
-    () => new CreateProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleAccountSignVrfSlot = makeNotImplementedSlot(
-    'host_account_sign_vrf',
-    () => new SignVrfErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  const handleGetUserIdSlot = makeUnsupportedSlot('host_get_user_id');
+  const handleRequestLoginSlot = makeUnsupportedSlot('host_request_login');
+  const handleAccountGetSlot = makeUnsupportedSlot('host_account_get');
+  const handleAccountGetAliasSlot = makeUnsupportedSlot('host_account_get_alias');
+  const handleGetLegacyAccountsSlot = makeUnsupportedSlot('host_get_legacy_accounts');
+  const handleAccountCreateProofSlot = makeUnsupportedSlot('host_account_create_proof');
+  const handleAccountSignVrfSlot = makeUnsupportedSlot('host_account_sign_vrf');
 
   // ring VRF key registry slots (RFC-0024)
-  const handleAccountRegisterRingVrfKeySlot = makeNotImplementedSlot(
-    'host_account_register_ring_vrf_key',
-    () => new RegisterRingVrfKeyErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  const handleAccountRegisterRingVrfKeySlot = makeUnsupportedSlot('host_account_register_ring_vrf_key');
+  const handleAccountListRingVrfKeysSlot = makeUnsupportedSlot('host_account_list_ring_vrf_keys');
+  const handleAccountRingVrfSignSlot = makeUnsupportedSlot('host_account_ring_vrf_sign');
 
-  const handleAccountListRingVrfKeysSlot = makeNotImplementedSlot(
-    'host_account_list_ring_vrf_keys',
-    () => new ListRingVrfKeysErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleAccountRingVrfSignSlot = makeNotImplementedSlot(
-    'host_account_ring_vrf_sign',
-    () => new RingVrfSignErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  // chain info slot
+  const handleChainGetChainInfoSlot = makeUnsupportedSlot('remote_chain_get_chain_info');
 
   // entropy derivation slot
-  const handleDeriveEntropySlot = makeNotImplementedSlot(
-    'host_derive_entropy',
-    () => new DeriveEntropyErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  const handleDeriveEntropySlot = makeUnsupportedSlot('host_derive_entropy');
 
   // storage slots
-  const handleLocalStorageReadSlot = makeNotImplementedSlot(
-    'host_local_storage_read',
-    () => new StorageErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  const handleLocalStorageReadSlot = makeUnsupportedSlot('host_local_storage_read');
+  const handleLocalStorageWriteSlot = makeUnsupportedSlot('host_local_storage_write');
+  const handleLocalStorageClearSlot = makeUnsupportedSlot('host_local_storage_clear');
 
-  const handleLocalStorageWriteSlot = makeNotImplementedSlot(
-    'host_local_storage_write',
-    () => new StorageErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleLocalStorageClearSlot = makeNotImplementedSlot(
-    'host_local_storage_clear',
-    () => new StorageErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  // worker slots
+  const handleWorkerBeginOperationSlot = makeUnsupportedSlot('host_worker_begin_operation');
+  const handleWorkerEndOperationSlot = makeUnsupportedSlot('host_worker_end_operation');
 
   // signing slots
-  const handleSignRawSlot = makeNotImplementedSlot(
-    'host_sign_raw',
-    () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleSignPayloadSlot = makeNotImplementedSlot(
-    'host_sign_payload',
-    () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleSignRawWithLegacyAccountSlot = makeNotImplementedSlot(
-    'host_sign_raw_with_legacy_account',
-    () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleSignPayloadWithLegacyAccountSlot = makeNotImplementedSlot(
-    'host_sign_payload_with_legacy_account',
-    () => new SigningErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleCreateTransactionSlot = makeNotImplementedSlot(
-    'host_create_transaction',
-    () => new CreateTransactionErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleCreateTransactionWithLegacyAccountSlot = makeNotImplementedSlot(
+  const handleSignRawSlot = makeUnsupportedSlot('host_sign_raw');
+  const handleSignPayloadSlot = makeUnsupportedSlot('host_sign_payload');
+  const handleSignRawWithLegacyAccountSlot = makeUnsupportedSlot('host_sign_raw_with_legacy_account');
+  const handleSignPayloadWithLegacyAccountSlot = makeUnsupportedSlot('host_sign_payload_with_legacy_account');
+  const handleCreateTransactionSlot = makeUnsupportedSlot('host_create_transaction');
+  const handleCreateTransactionWithLegacyAccountSlot = makeUnsupportedSlot(
     'host_create_transaction_with_legacy_account',
-    () => new CreateTransactionErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
-  const handleFeatureSupportedSlot = makeNotImplementedSlot(
-    'host_feature_supported',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleDevicePermissionSlot = makeNotImplementedSlot(
-    'host_device_permission',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleRemotePermissionSlot = makeNotImplementedSlot(
-    'remote_permission',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
-  );
+  const handleFeatureSupportedSlot = makeUnsupportedSlot('host_feature_supported');
+  const handleDevicePermissionSlot = makeUnsupportedSlot('host_device_permission');
+  const handleRemotePermissionSlot = makeUnsupportedSlot('remote_permission');
 
   const handlePushNotificationSlot = makeDevicePermissionGatedRequestSlot(
     'host_push_notification',
     'Notifications',
-    () => new PushNotificationError.Unknown({ reason: NOT_IMPLEMENTED }),
+    () => new PushNotificationError.Unknown({ reason: 'Notifications permission denied' }),
   );
 
   const handlePushNotificationCancelSlot = makeDevicePermissionGatedRequestSlot(
     'host_push_notification_cancel',
     'Notifications',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
+    () => new GenericError({ reason: 'Notifications permission denied' }),
   );
 
-  const handleNavigateToSlot = makeNotImplementedSlot(
-    'host_navigate_to',
-    () => new NavigateToErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleChatCreateRoomSlot = makeNotImplementedSlot(
-    'host_chat_create_room',
-    () => new ChatRoomRegistrationErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleChatBotRegistrationSlot = makeNotImplementedSlot(
-    'host_chat_register_bot',
-    () => new ChatBotRegistrationErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleChatPostMessageSlot = makeNotImplementedSlot(
-    'host_chat_post_message',
-    () => new ChatMessagePostingErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  const handleNavigateToSlot = makeUnsupportedSlot('host_navigate_to');
+  const handleChatCreateRoomSlot = makeUnsupportedSlot('host_chat_create_room');
+  const handleChatBotRegistrationSlot = makeUnsupportedSlot('host_chat_register_bot');
+  const handleChatPostMessageSlot = makeUnsupportedSlot('host_chat_post_message');
 
   const handleStatementStoreSubmitSlot = makePermissionGatedRequestSlot(
     'remote_statement_store_submit',
     'StatementSubmit',
-    () => new GenericError({ reason: NOT_IMPLEMENTED }),
+    () => new GenericError({ reason: 'StatementSubmit permission denied' }),
   );
 
-  const handleStatementStoreCreateProofSlot = makeNotImplementedSlot(
-    'remote_statement_store_create_proof',
-    () => new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handleStatementStoreCreateProofAuthorizedSlot = makeNotImplementedSlot(
+  const handleStatementStoreCreateProofSlot = makeUnsupportedSlot('remote_statement_store_create_proof');
+  const handleStatementStoreCreateProofAuthorizedSlot = makeUnsupportedSlot(
     'remote_statement_store_create_proof_authorized',
-    () => new StatementProofErr.Unknown({ reason: NOT_IMPLEMENTED }),
   );
 
   const handlePreimageSubmitSlot = makePermissionGatedRequestSlot(
     'remote_preimage_submit',
     'PreimageSubmit',
-    () => new PreimageSubmitErr.Unknown({ reason: NOT_IMPLEMENTED }),
+    () => new PreimageSubmitErr.Unknown({ reason: 'PreimageSubmit permission denied' }),
   );
 
   // payment request slots
-  const handlePaymentTopUpSlot = makeNotImplementedSlot(
-    'host_payment_top_up',
-    () => new PaymentTopUpErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
-
-  const handlePaymentRequestSlot = makeNotImplementedSlot(
-    'host_payment_request',
-    () => new PaymentRequestErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  const handlePaymentTopUpSlot = makeUnsupportedSlot('host_payment_top_up');
+  const handlePaymentRequestSlot = makeUnsupportedSlot('host_payment_request');
 
   // resource allocation slot
-  const handleRequestResourceAllocationSlot = makeNotImplementedSlot(
-    'host_request_resource_allocation',
-    () => new ResourceAllocationErr.Unknown({ reason: NOT_IMPLEMENTED }),
-  );
+  const handleRequestResourceAllocationSlot = makeUnsupportedSlot('host_request_resource_allocation');
+
+  // coin payment request slots
+  const handleCoinPaymentCreatePurseSlot = makeUnsupportedSlot('host_coin_payment_create_purse');
+  const handleCoinPaymentQueryPurseSlot = makeUnsupportedSlot('host_coin_payment_query_purse');
+  const handleCoinPaymentCreateReceivableSlot = makeUnsupportedSlot('host_coin_payment_create_receivable');
+  const handleCoinPaymentCreateChequeSlot = makeUnsupportedSlot('host_coin_payment_create_cheque');
 
   // subscription slots — default interrupts on next microtask so that
   // the caller has a chance to register an onInterrupt listener first
   const handleThemeSubscribeSlot = makeInterruptSlot('host_theme_subscribe', () => enumValue('v1', undefined));
+  const handleLocalStorageSubscribeSlot = makeInterruptSlot('host_local_storage_subscribe', () =>
+    enumValue('v1', undefined),
+  );
   const handleAccountConnectionStatusSubscribeSlot = makeInterruptSlot('host_account_connection_status_subscribe', () =>
     enumValue('v1', undefined),
   );
@@ -507,111 +429,90 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     enumValue('v1', undefined),
   );
   const handlePaymentBalanceSubscribeSlot = makeInterruptSlot('host_payment_balance_subscribe', () =>
-    enumValue('v1', new PaymentBalanceErr.Unknown({ reason: NOT_IMPLEMENTED })),
+    enumValue('v1', new PaymentBalanceErr.Unknown({ reason: 'Not implemented' })),
   );
   const handlePaymentStatusSubscribeSlot = makeInterruptSlot('host_payment_status_subscribe', () =>
-    enumValue('v1', new PaymentStatusErr.Unknown({ reason: NOT_IMPLEMENTED })),
+    enumValue('v1', new PaymentStatusErr.Unknown({ reason: 'Not implemented' })),
+  );
+  const handleCoinPaymentRebalancePurseSlot = makeInterruptSlot('host_coin_payment_rebalance_purse', () =>
+    enumValue('v1', new CoinPaymentErr.Internal()),
+  );
+  const handleCoinPaymentDeletePurseSlot = makeInterruptSlot('host_coin_payment_delete_purse', () =>
+    enumValue('v1', new CoinPaymentErr.Internal()),
+  );
+  const handleCoinPaymentDepositSlot = makeInterruptSlot('host_coin_payment_deposit', () =>
+    enumValue('v1', new CoinPaymentErr.Internal()),
+  );
+  const handleCoinPaymentRefundSlot = makeInterruptSlot('host_coin_payment_refund', () =>
+    enumValue('v1', new CoinPaymentErr.Internal()),
+  );
+  const handleCoinPaymentListenForPaymentSlot = makeInterruptSlot('host_coin_payment_listen_for_payment', () =>
+    enumValue('v1', new CoinPaymentErr.Internal()),
   );
 
   return {
     handleFeatureSupported(handler) {
-      return handleV1Request(
-        handleFeatureSupportedSlot,
-        () => new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleFeatureSupportedSlot, handler);
     },
 
     handleDevicePermission(handler) {
-      return handleV1Request(
-        handleDevicePermissionSlot,
-        () => new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleDevicePermissionSlot, handler);
     },
 
     handlePermission(handler) {
-      return handleV1Request(
-        handleRemotePermissionSlot,
-        () => new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleRemotePermissionSlot, handler);
     },
 
     handlePushNotification(handler) {
-      return handleV1Request(
-        handlePushNotificationSlot,
-        () => new PushNotificationError.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handlePushNotificationSlot, handler);
     },
 
     handlePushNotificationCancel(handler) {
-      return handleV1Request(
-        handlePushNotificationCancelSlot,
-        () => new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handlePushNotificationCancelSlot, handler);
     },
 
     handleNavigateTo(handler) {
-      return handleV1Request(
-        handleNavigateToSlot,
-        () => new NavigateToErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleNavigateToSlot, handler);
     },
 
     handleDeriveEntropy(handler) {
-      return handleV1Request(
-        handleDeriveEntropySlot,
-        () => new DeriveEntropyErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleDeriveEntropySlot, handler);
     },
 
     handleLocalStorageRead(handler) {
-      return handleV1Request(
-        handleLocalStorageReadSlot,
-        () => new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleLocalStorageReadSlot, handler);
     },
 
     handleLocalStorageWrite(handler) {
-      return handleV1Request(
-        handleLocalStorageWriteSlot,
-        () => new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleLocalStorageWriteSlot, handler);
     },
 
     handleLocalStorageClear(handler) {
-      return handleV1Request(
-        handleLocalStorageClearSlot,
-        () => new StorageErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleLocalStorageClearSlot, handler);
     },
 
     handleThemeSubscribe(handler) {
       return handleV1Subscription(handleThemeSubscribeSlot, handler);
     },
 
+    handleLocalStorageSubscribe(handler) {
+      return handleV1Subscription(handleLocalStorageSubscribeSlot, handler);
+    },
+
+    handleWorkerBeginOperation(handler) {
+      return handleV1Request(handleWorkerBeginOperationSlot, handler);
+    },
+
+    handleWorkerEndOperation(handler) {
+      return handleV1Request(handleWorkerEndOperationSlot, handler);
+    },
+
     handleGetUserId(handler) {
-      return handleV1Request(
-        handleGetUserIdSlot,
-        () => new GetUserIdErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleGetUserIdSlot, handler);
     },
 
     handleRequestLogin(handler) {
-      return handleV1Request(
-        handleRequestLoginSlot,
-        () => new LoginErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleRequestLoginSlot, handler);
     },
 
     handleAccountConnectionStatusSubscribe(handler) {
@@ -619,131 +520,71 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     },
 
     handleAccountGet(handler) {
-      return handleV1Request(
-        handleAccountGetSlot,
-        () => new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleAccountGetSlot, handler);
     },
 
     handleAccountGetAlias(handler) {
-      return handleV1Request(
-        handleAccountGetAliasSlot,
-        () => new GetAliasErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleAccountGetAliasSlot, handler);
     },
 
     handleAccountCreateProof(handler) {
-      return handleV1Request(
-        handleAccountCreateProofSlot,
-        () => new CreateProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleAccountCreateProofSlot, handler);
     },
 
     handleAccountSignVrf(handler) {
-      return handleV1Request(
-        handleAccountSignVrfSlot,
-        () => new SignVrfErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleAccountSignVrfSlot, handler);
     },
 
     handleAccountRegisterRingVrfKey(handler) {
-      return handleV1Request(
-        handleAccountRegisterRingVrfKeySlot,
-        () => new RegisterRingVrfKeyErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleAccountRegisterRingVrfKeySlot, handler);
     },
 
     handleAccountListRingVrfKeys(handler) {
-      return handleV1Request(
-        handleAccountListRingVrfKeysSlot,
-        () => new ListRingVrfKeysErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleAccountListRingVrfKeysSlot, handler);
     },
 
     handleAccountRingVrfSign(handler) {
-      return handleV1Request(
-        handleAccountRingVrfSignSlot,
-        () => new RingVrfSignErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleAccountRingVrfSignSlot, handler);
+    },
+
+    handleChainGetChainInfo(handler) {
+      return handleV1Request(handleChainGetChainInfoSlot, handler);
     },
 
     handleGetLegacyAccounts(handler) {
-      return handleV1Request(
-        handleGetLegacyAccountsSlot,
-        () => new RequestCredentialsErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleGetLegacyAccountsSlot, handler);
     },
 
     handleCreateTransaction(handler) {
-      return handleV1Request(
-        handleCreateTransactionSlot,
-        () => new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleCreateTransactionSlot, handler);
     },
 
     handleCreateTransactionWithLegacyAccount(handler) {
-      return handleV1Request(
-        handleCreateTransactionWithLegacyAccountSlot,
-        () => new CreateTransactionErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleCreateTransactionWithLegacyAccountSlot, handler);
     },
 
     handleSignRaw(handler) {
-      return handleV1Request(
-        handleSignRawSlot,
-        () => new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleSignRawSlot, handler);
     },
 
     handleSignPayload(handler) {
-      return handleV1Request(
-        handleSignPayloadSlot,
-        () => new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleSignPayloadSlot, handler);
     },
 
     handleSignRawWithLegacyAccount(handler) {
-      return handleV1Request(
-        handleSignRawWithLegacyAccountSlot,
-        () => new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleSignRawWithLegacyAccountSlot, handler);
     },
 
     handleSignPayloadWithLegacyAccount(handler) {
-      return handleV1Request(
-        handleSignPayloadWithLegacyAccountSlot,
-        () => new SigningErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleSignPayloadWithLegacyAccountSlot, handler);
     },
 
     handleChatCreateRoom(handler) {
-      return handleV1Request(
-        handleChatCreateRoomSlot,
-        () => new ChatRoomRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleChatCreateRoomSlot, handler);
     },
 
     handleChatBotRegistration(handler) {
-      return handleV1Request(
-        handleChatBotRegistrationSlot,
-        () => new ChatBotRegistrationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleChatBotRegistrationSlot, handler);
     },
 
     handleChatListSubscribe(handler) {
@@ -751,11 +592,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     },
 
     handleChatPostMessage(handler) {
-      return handleV1Request(
-        handleChatPostMessageSlot,
-        () => new ChatMessagePostingErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleChatPostMessageSlot, handler);
     },
 
     handleChatActionSubscribe(handler) {
@@ -780,27 +617,15 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     },
 
     handleStatementStoreCreateProof(handler) {
-      return handleV1Request(
-        handleStatementStoreCreateProofSlot,
-        () => new StatementProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleStatementStoreCreateProofSlot, handler);
     },
 
     handleStatementStoreCreateProofAuthorized(handler) {
-      return handleV1Request(
-        handleStatementStoreCreateProofAuthorizedSlot,
-        () => new StatementProofErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleStatementStoreCreateProofAuthorizedSlot, handler);
     },
 
     handleStatementStoreSubmit(handler) {
-      return handleV1Request(
-        handleStatementStoreSubmitSlot,
-        () => new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleStatementStoreSubmitSlot, handler);
     },
 
     handlePreimageLookupSubscribe(handler) {
@@ -808,11 +633,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     },
 
     handlePreimageSubmit(handler) {
-      return handleV1Request(
-        handlePreimageSubmitSlot,
-        () => new PreimageSubmitErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handlePreimageSubmitSlot, handler);
     },
 
     handlePaymentBalanceSubscribe(handler) {
@@ -820,31 +641,55 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     },
 
     handlePaymentTopUp(handler) {
-      return handleV1Request(
-        handlePaymentTopUpSlot,
-        () => new PaymentTopUpErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handlePaymentTopUpSlot, handler);
     },
 
     handlePaymentRequest(handler) {
-      return handleV1Request(
-        handlePaymentRequestSlot,
-        () => new PaymentRequestErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handlePaymentRequestSlot, handler);
     },
 
     handlePaymentStatusSubscribe(handler) {
       return handleV1Subscription(handlePaymentStatusSubscribeSlot, handler);
     },
 
+    handleCoinPaymentCreatePurse(handler) {
+      return handleV1Request(handleCoinPaymentCreatePurseSlot, handler);
+    },
+
+    handleCoinPaymentQueryPurse(handler) {
+      return handleV1Request(handleCoinPaymentQueryPurseSlot, handler);
+    },
+
+    handleCoinPaymentRebalancePurse(handler) {
+      return handleV1Subscription(handleCoinPaymentRebalancePurseSlot, handler);
+    },
+
+    handleCoinPaymentDeletePurse(handler) {
+      return handleV1Subscription(handleCoinPaymentDeletePurseSlot, handler);
+    },
+
+    handleCoinPaymentCreateReceivable(handler) {
+      return handleV1Request(handleCoinPaymentCreateReceivableSlot, handler);
+    },
+
+    handleCoinPaymentCreateCheque(handler) {
+      return handleV1Request(handleCoinPaymentCreateChequeSlot, handler);
+    },
+
+    handleCoinPaymentDeposit(handler) {
+      return handleV1Subscription(handleCoinPaymentDepositSlot, handler);
+    },
+
+    handleCoinPaymentRefund(handler) {
+      return handleV1Subscription(handleCoinPaymentRefundSlot, handler);
+    },
+
+    handleCoinPaymentListenForPayment(handler) {
+      return handleV1Subscription(handleCoinPaymentListenForPaymentSlot, handler);
+    },
+
     handleRequestResourceAllocation(handler) {
-      return handleV1Request(
-        handleRequestResourceAllocationSlot,
-        () => new ResourceAllocationErr.Unknown({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR }),
-        handler,
-      );
+      return handleV1Request(handleRequestResourceAllocationSlot, handler);
     },
 
     // chain interaction
@@ -891,7 +736,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_head_header', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const { genesisHash, hash } = message.value;
 
@@ -912,7 +757,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_head_body', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const { genesisHash, hash } = message.value;
 
@@ -933,7 +778,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_head_storage', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const { genesisHash, hash, items, childTrie } = message.value;
 
@@ -963,7 +808,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_head_call', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const params = message.value;
 
@@ -988,7 +833,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_head_unpin', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const { genesisHash, hashes } = message.value;
 
@@ -1009,7 +854,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_head_continue', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const { genesisHash, operationId } = message.value;
 
@@ -1030,7 +875,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_head_stop_operation', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const { genesisHash, operationId } = message.value;
 
@@ -1051,7 +896,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_spec_genesis_hash', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const genesisHash = message.value;
 
@@ -1075,7 +920,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_spec_chain_name', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const genesisHash = message.value;
 
@@ -1099,7 +944,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_spec_properties', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const genesisHash = message.value;
 
@@ -1123,7 +968,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_transaction_broadcast', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const { genesisHash, transaction } = message.value;
 
@@ -1132,6 +977,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
           );
           const permissionGranted =
             isEnumVariant(permissionResponse, 'v1') &&
+            !isCallErrorFailure(permissionResponse.value) &&
             permissionResponse.value.success === true &&
             permissionResponse.value.value === true;
 
@@ -1170,7 +1016,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       cleanups.push(
         transport.handleRequest('remote_chain_transaction_stop', async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return enumValue('v1', resultErr(new GenericError({ reason: UNSUPPORTED_MESSAGE_FORMAT_ERROR })));
+            return MALFORMED_FRAME;
           }
           const { genesisHash, operationId } = message.value;
 

@@ -1,6 +1,7 @@
 import { Bytes, Enum, ErrEnum } from '@novasamatech/scale';
-import { Option, Result, Struct, Vector, _void, str, u128, u32 } from 'scale-ts';
+import { Option, Struct, Vector, _void, str, u128, u32 } from 'scale-ts';
 
+import { CallResult } from '../callError.js';
 import { GenericErr } from '../commonCodecs.js';
 
 import { DerivationIndex } from './accounts.js';
@@ -80,7 +81,7 @@ export const PaymentTopUpV1_request = Struct({
   amount: u128,
   source: PaymentTopUpSource,
 });
-export const PaymentTopUpV1_response = Result(_void, PaymentTopUpErr);
+export const PaymentTopUpV1_response = CallResult(_void, PaymentTopUpErr);
 
 // host_payment_request
 
@@ -89,7 +90,7 @@ export const PaymentRequestV1_request = Struct({
   amount: u128,
   destination: Bytes(32),
 });
-export const PaymentRequestV1_response = Result(PaymentReceipt, PaymentRequestErr);
+export const PaymentRequestV1_response = CallResult(PaymentReceipt, PaymentRequestErr);
 
 // host_payment_status_subscribe
 

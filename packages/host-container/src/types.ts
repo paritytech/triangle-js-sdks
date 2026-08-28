@@ -109,6 +109,12 @@ export type Container = {
   handleLocalStorageRead: InferHandler<'v1', HostApiProtocol['host_local_storage_read']>;
   handleLocalStorageWrite: InferHandler<'v1', HostApiProtocol['host_local_storage_write']>;
   handleLocalStorageClear: InferHandler<'v1', HostApiProtocol['host_local_storage_clear']>;
+  handleLocalStorageSubscribe: InferHandler<'v1', HostApiProtocol['host_local_storage_subscribe']>;
+
+  // worker
+
+  handleWorkerBeginOperation: InferHandler<'v1', HostApiProtocol['host_worker_begin_operation']>;
+  handleWorkerEndOperation: InferHandler<'v1', HostApiProtocol['host_worker_end_operation']>;
 
   // accounts
 
@@ -130,6 +136,10 @@ export type Container = {
   handleAccountRegisterRingVrfKey: InferHandler<'v1', HostApiProtocol['host_account_register_ring_vrf_key']>;
   handleAccountListRingVrfKeys: InferHandler<'v1', HostApiProtocol['host_account_list_ring_vrf_keys']>;
   handleAccountRingVrfSign: InferHandler<'v1', HostApiProtocol['host_account_ring_vrf_sign']>;
+
+  // chain info
+
+  handleChainGetChainInfo: InferHandler<'v1', HostApiProtocol['remote_chain_get_chain_info']>;
 
   // signing
 
@@ -177,6 +187,18 @@ export type Container = {
   handlePaymentTopUp: InferHandler<'v1', HostApiProtocol['host_payment_top_up']>;
   handlePaymentRequest: InferHandler<'v1', HostApiProtocol['host_payment_request']>;
   handlePaymentStatusSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_status_subscribe']>;
+
+  // coin payment (RFC 0017)
+
+  handleCoinPaymentCreatePurse: InferHandler<'v1', HostApiProtocol['host_coin_payment_create_purse']>;
+  handleCoinPaymentQueryPurse: InferHandler<'v1', HostApiProtocol['host_coin_payment_query_purse']>;
+  handleCoinPaymentRebalancePurse: InferHandler<'v1', HostApiProtocol['host_coin_payment_rebalance_purse']>;
+  handleCoinPaymentDeletePurse: InferHandler<'v1', HostApiProtocol['host_coin_payment_delete_purse']>;
+  handleCoinPaymentCreateReceivable: InferHandler<'v1', HostApiProtocol['host_coin_payment_create_receivable']>;
+  handleCoinPaymentCreateCheque: InferHandler<'v1', HostApiProtocol['host_coin_payment_create_cheque']>;
+  handleCoinPaymentDeposit: InferHandler<'v1', HostApiProtocol['host_coin_payment_deposit']>;
+  handleCoinPaymentRefund: InferHandler<'v1', HostApiProtocol['host_coin_payment_refund']>;
+  handleCoinPaymentListenForPayment: InferHandler<'v1', HostApiProtocol['host_coin_payment_listen_for_payment']>;
 
   // resource allocation
 

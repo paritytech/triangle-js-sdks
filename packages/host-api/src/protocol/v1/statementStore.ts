@@ -1,6 +1,7 @@
 import { Bytes, Enum, ErrEnum } from '@novasamatech/scale';
-import { Option, Result, Struct, Tuple, Vector, _void, bool, u64 } from 'scale-ts';
+import { Option, Struct, Tuple, Vector, _void, bool, u64 } from 'scale-ts';
 
+import { CallResult } from '../callError.js';
 import { GenericErr, GenericError } from '../commonCodecs.js';
 
 import { ProductAccountId } from './accounts.js';
@@ -83,14 +84,14 @@ export const StatementProofErr = ErrEnum('StatementProofErr', {
 });
 
 export const StatementStoreCreateProofV1_request = Tuple(ProductAccountId, Statement);
-export const StatementStoreCreateProofV1_response = Result(StatementProof, StatementProofErr);
+export const StatementStoreCreateProofV1_response = CallResult(StatementProof, StatementProofErr);
 
 // creating proof using a host-internal allowance account (no product account required)
 
 export const StatementStoreCreateProofAuthorizedV1_request = Statement;
-export const StatementStoreCreateProofAuthorizedV1_response = Result(StatementProof, StatementProofErr);
+export const StatementStoreCreateProofAuthorizedV1_response = CallResult(StatementProof, StatementProofErr);
 
 // submit
 
 export const StatementStoreSubmitV1_request = SignedStatement;
-export const StatementStoreSubmitV1_response = Result(_void, GenericError);
+export const StatementStoreSubmitV1_response = CallResult(_void, GenericError);

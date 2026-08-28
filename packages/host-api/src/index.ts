@@ -19,6 +19,8 @@ export { createDefaultLogger } from './logger.js';
 
 export type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './protocol/impl.js';
 export { hostApiProtocol } from './protocol/impl.js';
+export { CALL_ERROR_FAILURE, isCallErrorFailure } from './protocol/callError.js';
+export type { CallErrorTransportFailure } from './protocol/callError.js';
 
 // External reexports
 export type { Codec, CodecType } from 'scale-ts';
@@ -106,6 +108,7 @@ export {
   TopicFilter,
 } from './protocol/v1/statementStore.js';
 export { StorageErr } from './protocol/v1/localStorage.js';
+export { OperationId, WorkerErr } from './protocol/v1/worker.js';
 export { DevicePermission } from './protocol/v1/devicePermission.js';
 export { RemotePermission } from './protocol/v1/remotePermission.js';
 export { NotificationId, PushNotification, PushNotificationError } from './protocol/v1/notification.js';
@@ -141,6 +144,8 @@ export {
 export {
   ChainHeadEvent,
   ChainHeadFollowV1_start,
+  ChainIdentifier,
+  ChainInfoErr,
   OperationStartedResult,
   RuntimeType,
   StorageQueryItem,
@@ -151,4 +156,15 @@ export {
   TransactionStopV1_request,
   TransactionStopV1_response,
 } from './protocol/v1/chainInteraction.js';
+export {
+  CoinPaymentBalance,
+  CoinPaymentCheque,
+  CoinPaymentErr,
+  CoinPaymentListenForItem,
+  CoinPaymentPurseId,
+  CoinPaymentPurseInfo,
+  CoinPaymentReceivable,
+  CoinPaymentStatus,
+  CoinPaymentTransmissionChannel,
+} from './protocol/v1/coinPayment.js';
 export { Theme, ThemeName, ThemeVariant } from './protocol/v1/theme.js';

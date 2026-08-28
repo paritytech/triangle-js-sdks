@@ -1,6 +1,7 @@
 import { Bytes, ErrEnum, Hex, Nullable } from '@novasamatech/scale';
-import { Result, _void } from 'scale-ts';
+import { _void } from 'scale-ts';
 
+import { CallResult } from '../callError.js';
 import { GenericErr } from '../commonCodecs.js';
 
 export const PreimageKey = Hex();
@@ -15,4 +16,4 @@ export const PreimageSubmitErr = ErrEnum('PreimageSubmitErr', {
 });
 
 export const PreimageSubmitV1_request = PreimageValue;
-export const PreimageSubmitV1_response = Result(PreimageKey, PreimageSubmitErr);
+export const PreimageSubmitV1_response = CallResult(PreimageKey, PreimageSubmitErr);

@@ -1,6 +1,7 @@
 import { ErrEnum } from '@novasamatech/scale';
-import { Option, Result, Struct, _void, str, u32, u64 } from 'scale-ts';
+import { Option, Struct, _void, str, u32, u64 } from 'scale-ts';
 
+import { CallResult } from '../callError.js';
 import { GenericErr, GenericError } from '../commonCodecs.js';
 
 export const NotificationId = u32;
@@ -17,7 +18,7 @@ export const PushNotificationError = ErrEnum('PushNotificationError', {
 });
 
 export const PushNotificationV1_request = PushNotification;
-export const PushNotificationV1_response = Result(NotificationId, PushNotificationError);
+export const PushNotificationV1_response = CallResult(NotificationId, PushNotificationError);
 
 export const PushNotificationCancelV1_request = NotificationId;
-export const PushNotificationCancelV1_response = Result(_void, GenericError);
+export const PushNotificationCancelV1_response = CallResult(_void, GenericError);

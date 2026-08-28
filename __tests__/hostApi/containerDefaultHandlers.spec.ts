@@ -17,8 +17,11 @@ function setup() {
 }
 
 describe('Container default handlers', () => {
-  describe('unregistered request handler returns not-implemented error', () => {
-    it('handleRequestLogin default returns LoginErr.Unknown', async () => {
+  describe('unregistered request handler answers CallError.Unsupported', () => {
+    // The container replies with the transport-level `Unsupported` variant;
+    // the wrapper folds it into the method's own `Unknown` error, so the
+    // instance type is unchanged and the reason names the unsupported method.
+    it('handleRequestLogin default folds Unsupported into LoginErr.Unknown', async () => {
       const { accountsProvider } = setup();
       // No container.handleRequestLogin(...) call — default is active
 
@@ -27,10 +30,10 @@ describe('Container default handlers', () => {
       await expect(result).toBeErr();
       const error = result._unsafeUnwrapErr();
       expect(error).toBeInstanceOf(LoginErr.Unknown);
-      expect(error.payload?.reason).toBe('Not implemented');
+      expect(error.payload?.reason).toContain('unsupported');
     });
 
-    it('handleAccountGet default returns RequestCredentialsErr.Unknown', async () => {
+    it('handleAccountGet default folds Unsupported into RequestCredentialsErr.Unknown', async () => {
       const { accountsProvider } = setup();
       // No container.handleAccountGet(...) call — default is active
 
@@ -39,7 +42,7 @@ describe('Container default handlers', () => {
       await expect(result).toBeErr();
       const error = result._unsafeUnwrapErr();
       expect(error).toBeInstanceOf(RequestCredentialsErr.Unknown);
-      expect(error.payload?.reason).toBe('Not implemented');
+      expect(error.payload?.reason).toContain('unsupported');
     });
 
     it('handleLocalStorageRead default returns StorageErr.Unknown', async () => {

@@ -402,6 +402,17 @@ const config = await storage.readJSON('config');
 
 // Clear a key
 await storage.clear('key');
+
+// Subscribe to a key. The callback fires with the current value right away,
+// then on every later write or clear. `undefined` means the key is absent.
+const sub = storage.subscribeBytes('key', (bytes) => {
+  console.log('key changed:', bytes);
+});
+storage.subscribeString('greeting', (text) => console.log(text));
+storage.subscribeJSON('config', (value) => console.log(value));
+
+// Stop receiving updates
+sub.unsubscribe();
 ```
 
 ### Derive Entropy
@@ -507,5 +518,39 @@ const receipt = await payments.requestPayment(500_000n, destination);
 const statusSub = payments.subscribePaymentStatus(receipt.id, status => {
   if (status.type === 'completed') console.log('Payment settled');
   if (status.type === 'failed') console.log('Payment failed:', status.reason);
+});
+```
+
+### Coin payment (RFC 0017)
+
+Firewalled purses, cheques, and receivables. The long-running operations
+(rebalance, delete, deposit, refund, listen) stream clearing status through a
+callback and return a `Subscription`; `onInterrupt` fires with a
+`CoinPaymentErr` if the host tears the stream down.
+
+```ts
+import { createCoinPayment } from '@novasamatech/host-api-wrapper';
+
+const coinPayment = createCoinPayment();
+
+// Create a purse and read it back
+const purse = await coinPayment.createPurse('Terminal purse');
+const info = await coinPayment.queryPurse(purse);
+console.log('balance:', info.balance);
+
+// Pay a receivable with a cheque
+const receivable = await coinPayment.createReceivable(purse);
+const cheque = await coinPayment.createCheque(purse, receivable, 1000);
+
+// Claim the cheque, watching the coins clear
+const sub = coinPayment.deposit(cheque, status => {
+  if (status.tag === 'Done') console.log('cleared:', status.value.cleared);
+  if (status.tag === 'Failed') console.log('failed:', status.value.error);
+});
+sub.onInterrupt(err => console.log('deposit interrupted:', err));
+
+// Wait for a cheque delivered over a standard channel
+coinPayment.listenForPayment(receivable, item => {
+  if (item.tag === 'Cheque') console.log('received cheque:', item.value.amount);
 });
 ```

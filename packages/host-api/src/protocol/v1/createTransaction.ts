@@ -1,7 +1,8 @@
 import { Bytes, ErrEnum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
-import { Result, Struct, Vector, _void, str, u8 } from 'scale-ts';
+import { Struct, Vector, _void, str, u8 } from 'scale-ts';
 
+import { CallResult } from '../callError.js';
 import { GenericErr, GenesisHash } from '../commonCodecs.js';
 
 import { AccountId, ProductAccountId } from './accounts.js';
@@ -72,7 +73,7 @@ export const ProductAccountTransaction = GenericTxPayloadV1(ProductAccountId);
 export const LegacyTransaction = GenericTxPayloadV1(AccountId);
 
 export const CreateTransactionV1_request = ProductAccountTransaction;
-export const CreateTransactionV1_response = Result(Bytes(), CreateTransactionErr);
+export const CreateTransactionV1_response = CallResult(Bytes(), CreateTransactionErr);
 
 export const CreateTransactionWithLegacyAccountV1_request = LegacyTransaction;
-export const CreateTransactionWithLegacyAccountV1_response = Result(Bytes(), CreateTransactionErr);
+export const CreateTransactionWithLegacyAccountV1_response = CallResult(Bytes(), CreateTransactionErr);
