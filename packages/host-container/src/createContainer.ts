@@ -319,6 +319,10 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     return slot.update(slotHandler);
   }
 
+  // system slots
+  const handleGetProductContextSlot = makeUnsupportedSlot('host_get_product_context');
+  const handleInfoSlot = makeUnsupportedSlot('host_info');
+
   // account slots
   const handleGetUserIdSlot = makeUnsupportedSlot('host_get_user_id');
   const handleRequestLoginSlot = makeUnsupportedSlot('host_request_login');
@@ -412,6 +416,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   // subscription slots — default interrupts on next microtask so that
   // the caller has a chance to register an onInterrupt listener first
   const handleThemeSubscribeSlot = makeInterruptSlot('host_theme_subscribe', () => enumValue('v1', undefined));
+  const handleLocaleSubscribeSlot = makeInterruptSlot('host_locale_subscribe', () => enumValue('v1', undefined));
   const handleLocalStorageSubscribeSlot = makeInterruptSlot('host_local_storage_subscribe', () =>
     enumValue('v1', undefined),
   );
@@ -491,6 +496,10 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
       return handleV1Request(handleLocalStorageClearSlot, handler);
     },
 
+    handleLocaleSubscribe(handler) {
+      return handleV1Subscription(handleLocaleSubscribeSlot, handler);
+    },
+
     handleThemeSubscribe(handler) {
       return handleV1Subscription(handleThemeSubscribeSlot, handler);
     },
@@ -505,6 +514,14 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
     handleWorkerEndOperation(handler) {
       return handleV1Request(handleWorkerEndOperationSlot, handler);
+    },
+
+    handleGetProductContext(handler) {
+      return handleV1Request(handleGetProductContextSlot, handler);
+    },
+
+    handleInfo(handler) {
+      return handleV1Request(handleInfoSlot, handler);
     },
 
     handleGetUserId(handler) {

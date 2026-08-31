@@ -37,11 +37,15 @@ import {
   isEnumVariant,
   toHex,
 } from '@novasamatech/host-api';
+import { createV4Tx } from '@polkadot-api/signers-common';
 import { decAnyMetadata, unifyMetadata } from '@polkadot-api/substrate-bindings';
 import { err, ok } from 'neverthrow';
-import type { PolkadotSigner } from 'polkadot-api';
 import { AccountId } from 'polkadot-api';
-import { getPolkadotSignerFromPjs } from 'polkadot-api/pjs-signer';
+import { getTxCreatorFromPjs } from 'polkadot-api/pjs-signer';
+import type { SignerTxCreator } from 'polkadot-api/tx-creator';
+
+/** v3 `TxPayloadV1`, taken from the `TxCreator` call signature (not exported directly). */
+type TxPayloadV1 = Parameters<SignerTxCreator>[0];
 
 import { sandboxTransport } from './sandboxTransport.js';
 
@@ -313,15 +317,17 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
     },
 
     /**
-     * Builds a `PolkadotSigner` that delegates to the host via `host_create_transaction`.
+     * Builds a `TxCreator` (polkadot-api v3) that delegates to the host via
+     * `host_create_transaction`. The host keeps ownership of extension inference
+     * and signing; the creator maps the v3 `TxPayloadV1` onto the host codec.
      *
-     * The factory is async because `PolkadotSigner.publicKey` must be a synchronous
-     * `Uint8Array` on the returned object — it is fetched up front via `host_account_get`.
+     * `publicKey` is exposed synchronously on the returned object and is taken
+     * from `account`, so no up-front `host_account_get` is needed.
      */
     getProductAccountSigner(
       account: ProductAccount,
       signerType: 'signPayload' | 'createTransaction' = 'createTransaction',
-    ): PolkadotSigner {
+    ): SignerTxCreator {
       const hostApi = createHostApi(transport);
       const productAccountId: ProductAccountId = [account.dotNsIdentifier, derivationIndexOf(account.derivationIndex)];
 
@@ -329,7 +335,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
        * @deprecated added for backward compatibility
        */
       if (signerType === 'signPayload') {
-        return getPolkadotSignerFromPjs(
+        return getTxCreatorFromPjs(
           toHex(account.publicKey),
           async payload => {
             const codecPayload: CodecType<typeof SigningPayload> = {
@@ -389,66 +395,87 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         );
       }
 
-      return {
-        publicKey: account.publicKey,
-
-        async signTx(callData, signedExtensions, metadata) {
-          const decMeta = unifyMetadata(decAnyMetadata(metadata));
-          const { version: versions } = decMeta.extrinsic;
-          const latestVersion = versions.reduce((acc, v) => Math.max(acc, v), 0);
-          const txExtVersion = latestVersion === 4 ? 0 : latestVersion;
-
-          const checkGenesis = signedExtensions['CheckGenesis'];
-          if (!checkGenesis) {
-            throw new Error("Can't find genesis hash on transaction");
+      // v3 `TxCreator`: a callable that turns a `TxPayloadV1` into a
+      // SCALE-encoded extrinsic (hex). A real signature is produced by the host
+      // via `host_create_transaction`; a mocked signature (fee estimation) is
+      // built locally with a zero-filled signature and no host round-trip,
+      // mirroring polkadot-api's own `getTxCreator`.
+      const createTx = async (
+        payload: TxPayloadV1,
+        _opts: unknown,
+        _bindings: unknown,
+        mockedSignature: boolean,
+      ): Promise<string> => {
+        // Fee estimation on a v4 extrinsic: build a zero-signed extrinsic
+        // locally, with no host round-trip and no real signature. polkadot-api
+        // has no local builder for other versions (e.g. v5), so those fall
+        // through to the host path below, which returns a well-formed extrinsic
+        // of the right size for estimation.
+        if (mockedSignature && (payload.txExtVersion ?? 0) === 0) {
+          const decMeta = unifyMetadata(decAnyMetadata(payload.context.metadata));
+          const v4Extensions = decMeta.extrinsic.extensionsByVersion[0];
+          if (v4Extensions) {
+            const extra = v4Extensions.map(({ identifier }) => {
+              const extension = payload.extensions.find(({ id }) => id === identifier);
+              if (!extension) {
+                throw new Error(`Missing ${identifier} signed extension`);
+              }
+              return fromHex(extension.extra);
+            });
+            const mockSr25519Signature = new Uint8Array(64);
+            return toHex(
+              createV4Tx(decMeta, account.publicKey, mockSr25519Signature, extra, fromHex(payload.callData), 'Sr25519'),
+            );
           }
+        }
 
-          const txPayload: CodecType<typeof ProductAccountTransaction> = {
-            signer: productAccountId,
-            genesisHash: toHex(checkGenesis.additionalSigned),
-            callData,
-            extensions: Object.values(signedExtensions).map(({ identifier, value, additionalSigned }) => ({
-              id: identifier,
-              extra: value,
-              additionalSigned: additionalSigned,
-            })),
-            txExtVersion,
-          };
+        const txPayload: CodecType<typeof ProductAccountTransaction> = {
+          signer: productAccountId,
+          genesisHash: payload.context.genesisHash as HexString,
+          callData: fromHex(payload.callData),
+          extensions: payload.extensions.map(({ id, extra, additionalSigned }) => ({
+            id,
+            extra: fromHex(extra),
+            additionalSigned: fromHex(additionalSigned),
+          })),
+          txExtVersion: payload.txExtVersion ?? deriveDefaultTxExtVersion(payload.context.metadata),
+        };
 
-          const response = await hostApi.createTransaction(enumValue('v1', txPayload));
+        const response = await hostApi.createTransaction(enumValue('v1', txPayload));
 
-          return response.match(
-            response => {
-              assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
-              return response.value;
-            },
-            err => {
-              assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
-              throw err.value;
-            },
-          );
-        },
-
-        async signBytes(data) {
-          const response = await hostApi.signRaw(
-            enumValue('v1', {
-              account: productAccountId,
-              payload: { tag: 'Bytes', value: data },
-            }),
-          );
-
-          return response.match(
-            response => {
-              assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
-              return fromHex(response.value.signature);
-            },
-            err => {
-              assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
-              throw err.value;
-            },
-          );
-        },
+        return response.match(
+          response => {
+            assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
+            return toHex(response.value);
+          },
+          err => {
+            assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
+            throw err.value;
+          },
+        );
       };
+
+      const signBytes = async (data: Uint8Array): Promise<Uint8Array> => {
+        const response = await hostApi.signRaw(
+          enumValue('v1', {
+            account: productAccountId,
+            payload: { tag: 'Bytes', value: data },
+          }),
+        );
+
+        return response.match(
+          response => {
+            assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
+            return fromHex(response.value.signature);
+          },
+          err => {
+            assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
+            throw err.value;
+          },
+        );
+      };
+
+      return Object.assign(createTx, { publicKey: account.publicKey, signBytes }) as SignerTxCreator;
     },
     subscribeAccountConnectionStatus(callback: (status: AccountConnectionStatus) => void): Subscription<void> {
       const subscriber = hostApi.accountConnectionStatusSubscribe(enumValue('v1', undefined), status => {
@@ -462,13 +489,13 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
       };
     },
-    getLegacyAccountSigner(account: LegacyAccount): PolkadotSigner {
+    getLegacyAccountSigner(account: LegacyAccount): SignerTxCreator {
       // The pjs `address` is propagated verbatim into the wire `signer` field
       // (see `signer: payload.address` / `signer: raw.address` below), so it
       // must be an SS58 address the wallet can match — not a raw hex public
       // key. Mirrors the injected-extension path, which uses accountId.dec.
       const accountId = AccountId();
-      return getPolkadotSignerFromPjs(
+      return getTxCreatorFromPjs(
         accountId.dec(account.publicKey),
         async payload => {
           const codecPayload: CodecType<typeof SigningPayloadWithoutAccount> = {
@@ -530,6 +557,14 @@ function toProofContext([productId, suffix]: ProofContext): CodecType<typeof Pro
 function asHex(v: string): HexString {
   if (v.startsWith('0x')) return v as HexString;
   return `0x${v}`;
+}
+
+// Default transaction-extension version to request when the caller leaves it
+// unset: 0 for extrinsic v4, the version itself otherwise (e.g. v5).
+function deriveDefaultTxExtVersion(metadata: string): number {
+  const { version: versions } = unifyMetadata(decAnyMetadata(metadata)).extrinsic;
+  const latestVersion = versions.reduce((acc, v) => Math.max(acc, v), 0);
+  return latestVersion === 4 ? 0 : latestVersion;
 }
 
 function buildSigningPayloadFields(payload: {

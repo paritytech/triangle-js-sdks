@@ -44,12 +44,17 @@ export type {
 } from './accounts.js';
 export { accounts, createAccountsProvider, ringVrfKeyHandle } from './accounts.js';
 
+export type { Locale } from './locale.js';
+export { createLocaleProvider } from './locale.js';
 export type { ThemeMode } from './theme.js';
 export { createThemeProvider } from './theme.js';
 
 export { createLocalStorage, hostLocalStorage } from './localStorage.js';
 
 export { createWorker, hostWorker } from './worker.js';
+
+export type { HostInfo, HostPlatform, ProductContext } from './system.js';
+export { createSystem, hostSystem } from './system.js';
 
 export type { Cheque, ClearingStatus, PaymentDelivery, PurseInfo, Receivable } from './coinPayment.js';
 export { createCoinPayment, hostCoinPayment } from './coinPayment.js';

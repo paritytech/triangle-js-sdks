@@ -18,13 +18,13 @@ const descriptorValues = import('./descriptors-BLqmZ_vS.js').then((module) => mo
 const metadataTypes = import('./metadataTypes-wXgvb64i.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
-const asset = {};
 const extensions = {};
+const requiredExtensions = {};
 const getMetadata$1 = () => import('./people_lite_metadata-CwU9OBGy.js').then(
   (module) => toBinary("default" in module ? module.default : module)
 );
 const genesis = "0xe6c30d6e148f250b887105237bcaa5cb9f16dd203bf7b5b9d4f1da7387cb86ec";
-const _allDescriptors = { descriptors: descriptorValues, metadataTypes, asset, extensions, getMetadata: getMetadata$1, genesis };
+const _allDescriptors = { descriptors: descriptorValues, metadataTypes, extensions, requiredExtensions, getMetadata: getMetadata$1, genesis };
 
 const DigestItem = _Enum;
 const Phase = _Enum;
@@ -77,6 +77,7 @@ const XcmV4AssetWildAsset = _Enum;
 const TransactionValidityUnknownTransaction = _Enum;
 const TransactionValidityTransactionSource = _Enum;
 const XcmVersionedAsset = _Enum;
+const ExtensionsCheckMortality = _Enum;
 
 const metadatas = { ["0x82a343ddb8c1faf6d88721f6188dabb393b3d5b4fd54aae6d621bc3b0452ebbb"]: _allDescriptors };
 const getMetadata = async (codeHash) => {
@@ -87,4 +88,4 @@ const getMetadata = async (codeHash) => {
   return null;
 };
 
-export { ArithmeticError, BalanceStatus, BalancesAdjustmentDirection, BalancesTypesReasons, DigestItem, DispatchClass, IdentityData, IdentityJudgement, MultiAddress, Phase, TokenError, TransactionPaymentEvent, TransactionPaymentReleases, TransactionValidityTransactionSource, TransactionValidityUnknownTransaction, TransactionalError, UpgradeGoAhead, UpgradeRestriction, XcmPalletVersionMigrationStage, XcmV2JunctionBodyPart, XcmV2MultiassetWildFungibility, XcmV2OriginKind, XcmV3Instruction, XcmV3Junction, XcmV3JunctionBodyId, XcmV3JunctionNetworkId, XcmV3Junctions, XcmV3MaybeErrorCode, XcmV3MultiassetAssetId, XcmV3MultiassetAssetInstance, XcmV3MultiassetFungibility, XcmV3MultiassetMultiAssetFilter, XcmV3MultiassetWildMultiAsset, XcmV3Response, XcmV3TraitsError, XcmV3WeightLimit, XcmV4AssetAssetFilter, XcmV4AssetWildAsset, XcmV4Instruction, XcmV4Response, XcmV5AssetFilter, XcmV5Instruction, XcmV5Junction, XcmV5Junctions, XcmV5NetworkId, XcmV5WildAsset, XcmVersionedAsset, XcmVersionedAssetId, XcmVersionedAssets, XcmVersionedLocation, XcmVersionedXcm, getMetadata, _allDescriptors as people_lite };
+export { ArithmeticError, BalanceStatus, BalancesAdjustmentDirection, BalancesTypesReasons, DigestItem, DispatchClass, ExtensionsCheckMortality, IdentityData, IdentityJudgement, MultiAddress, Phase, TokenError, TransactionPaymentEvent, TransactionPaymentReleases, TransactionValidityTransactionSource, TransactionValidityUnknownTransaction, TransactionalError, UpgradeGoAhead, UpgradeRestriction, XcmPalletVersionMigrationStage, XcmV2JunctionBodyPart, XcmV2MultiassetWildFungibility, XcmV2OriginKind, XcmV3Instruction, XcmV3Junction, XcmV3JunctionBodyId, XcmV3JunctionNetworkId, XcmV3Junctions, XcmV3MaybeErrorCode, XcmV3MultiassetAssetId, XcmV3MultiassetAssetInstance, XcmV3MultiassetFungibility, XcmV3MultiassetMultiAssetFilter, XcmV3MultiassetWildMultiAsset, XcmV3Response, XcmV3TraitsError, XcmV3WeightLimit, XcmV4AssetAssetFilter, XcmV4AssetWildAsset, XcmV4Instruction, XcmV4Response, XcmV5AssetFilter, XcmV5Instruction, XcmV5Junction, XcmV5Junctions, XcmV5NetworkId, XcmV5WildAsset, XcmVersionedAsset, XcmVersionedAssetId, XcmVersionedAssets, XcmVersionedLocation, XcmVersionedXcm, getMetadata, _allDescriptors as people_lite };

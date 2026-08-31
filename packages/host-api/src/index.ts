@@ -167,4 +167,6 @@ export {
   CoinPaymentStatus,
   CoinPaymentTransmissionChannel,
 } from './protocol/v1/coinPayment.js';
+export { HostLocale } from './protocol/v1/locale.js';
+export { HostInfo, HostPlatform, ProductContext } from './protocol/v1/system.js';
 export { Theme, ThemeName, ThemeVariant } from './protocol/v1/theme.js';
