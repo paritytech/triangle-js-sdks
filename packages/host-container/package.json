@@ -25,16 +25,16 @@
     "README.md"
   ],
   "dependencies": {
-    "@noble/hashes": "2.2.0",
-    "polkadot-api": ">=2",
+    "@noble/hashes": "2.4.0",
+    "polkadot-api": ">=3",
     "@polkadot-api/substrate-client": "^0.7.0",
     "@novasamatech/host-api": "0.10.0",
     "nanoevents": "10.0.0",
-    "nanoid": "6.0.0",
+    "nanoid": "6.0.1",
     "neverthrow": "^8.2.0"
   },
   "devDependencies": {
-    "electron": "^41.2.0"
+    "electron": "^44.1.0"
   },
   "publishConfig": {
     "access": "public"

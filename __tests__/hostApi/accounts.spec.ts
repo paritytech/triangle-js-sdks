@@ -767,6 +767,52 @@ describe('Host API: Accounts', () => {
 
       await expect(signer.signBytes(new Uint8Array([1, 2, 3]))).rejects.toEqual(error);
     });
+
+    it('routes a mocked-signature v5 transaction through the host instead of the local v4 builder', async () => {
+      const { container, accountsProvider } = setup();
+      const extrinsic = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
+      let capturedParams: unknown;
+
+      container.handleCreateTransaction((params, { ok }) => {
+        capturedParams = params;
+        return ok(extrinsic);
+      });
+
+      const signer = accountsProvider.getProductAccountSigner(mockProductAccount);
+      const createTx = signer as unknown as (
+        payload: unknown,
+        opts: unknown,
+        bindings: unknown,
+        mocked: boolean,
+      ) => Promise<string>;
+
+      const genesisHash = toHex(new Uint8Array(32).fill(0xcd));
+      const callData = toHex(new Uint8Array([9, 9]));
+      const result = await createTx(
+        {
+          version: 1,
+          signer: null,
+          callData,
+          extensions: [{ id: 'CheckGenesis', extra: '0x', additionalSigned: genesisHash }],
+          // v5: polkadot-api has no local mock builder, so even with a mocked
+          // signature this must fall through to the host.
+          txExtVersion: 5,
+          context: { metadata: '0x', token: null, bestBlockHeight: 0, bestBlockHash: '0x00', genesisHash },
+        },
+        {},
+        {},
+        true,
+      );
+
+      expect(capturedParams).toEqual({
+        signer: [mockProductAccount.dotNsIdentifier, { tag: 'Index', value: 0 }],
+        genesisHash,
+        callData: new Uint8Array([9, 9]),
+        extensions: [{ id: 'CheckGenesis', extra: new Uint8Array(), additionalSigned: new Uint8Array(32).fill(0xcd) }],
+        txExtVersion: 5,
+      });
+      expect(result).toEqual(toHex(extrinsic));
+    });
   });
 
   describe('getLegacyAccountSigner', () => {

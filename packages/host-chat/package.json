@@ -41,9 +41,9 @@
     "@novasamatech/scale": "0.10.0",
     "@novasamatech/statement-store": "0.10.0",
     "@novasamatech/storage-adapter": "0.10.0",
-    "nanoid": "6.0.0",
+    "nanoid": "6.0.1",
     "neverthrow": "^8.2.0",
-    "polkadot-api": ">=2"
+    "polkadot-api": ">=3"
   },
   "publishConfig": {
     "access": "public"

@@ -1,5 +1,5 @@
 import { StorageDescriptor, PlainDescriptor, TxDescriptor, RuntimeDescriptor, Enum, ApisFromDef, QueryFromPalletsDef, TxFromPalletsDef, EventsFromPalletsDef, ErrorsFromPalletsDef, ConstFromPalletsDef, ViewFnsFromPalletsDef, SS58String, SizedHex, FixedSizeArray } from "polkadot-api";
-import type { I5sesotjlssv2d, Iffmde3ekjedi9, I4mddgoa69c0a2, Ibn2t84v0qbqml, I95g6i7ilua7lq, Ieniouoqkq4icf, Phase, Ibgl04rn6nbfm6, I4q39t5hn830vp, I1v7jbnil3tjns, I8jgj1nhcr2dg8, Ifn6q3equiq9qi, Ia3sb0vgvovhtg, Iav8k1edbj86k7, Itom7fk49o0c9, I4i91h98n3cv1b, I4iumukclgj8ej, Iqnbvitf7a7l3, I48i407regf59r, I6r5cbv8ttrb09, I1q8tnt1cluu5j, I8ds64oj6581v0, Ia7pdug7cdsg8g, Iafsev9pf8ur2h, I9bin2jc70qt6q, TransactionPaymentReleases, I52552vmt51a1m, Icd998p53cb80u, Ianratlvp36bb8, Ia2lhg7l2hilo3, Ifi4da1gej1fri, Ifvgo9568rpmqc, I82jm9g7pufuel, Ic5m5lp1oioo8r, I6cs1itejju2vv, Icgljjb6j82uhn, Ib77b0fp1a6mjr, I5g2vv0ckl2m8b, Ifup3lg9ro8a0f, I5qfubnuvrnqn6, I8t3u2dv73ahbd, I7vlvrrl2pnbgk, Ie0rpl5bahldfk, XcmPalletVersionMigrationStage, I7e5oaj2qi4kl1, Ie849h3gncgvok, Iat62vud7hlod2, Ict03eedr8de9s, Ibkm2gcn4pji30, XcmVersionedLocation, Idh2ug6ou4a8og, Iejeo53sea6n4q, I53esa2ms463bk, Ib4jhb8tt3uung, In7a38730s6qs, Ibtil0ss5munbk, I9s0ave7t0vnrk, I4fo08joqmcqnm, XcmV5Junctions, Iasb8k6ash5mjn, I8ofcg5rbj0g2c, I4adgbll7gku4i, I6pjjpfvhvcfru, I9pj91mj79qekl, I39uah9nss64h9, Ik64dknsq7k08, Ib51vk42m1po4n, Ial23jn8hp0aen, Ifpj261e8s63m3, Idcr6u6361oad9, I4m23d919gtr5d, I7esubsve8jvbp, I69p6pkv67dei3, I13j8trtusi7dq, I74eam70qc8398, I4ktuaksf5i1gk, I9bqtpv2ii35mp, I9j7pagd6d4bda, I2h9pmio37r7fb, Ibmr18suc9ikh9, I9iq22t0burs89, I5u8olqbbvfnvf, I5utcetro501ir, Itrlf5b2o2l8q, Icegg8a2cqf1gu, I4vj3ndsquheo1, I7h5kud22qmfsg, I2i8iea6e4ne1j, I4jotama61aldv, I4cbvqmqadhrea, I3rfugj0vt1ug5, Ifccifqltb5obi, Iadtsfv699cq8b, Ialpmgmhr3gk5r, I3sdol54kg5jaq, I8fougodaj6di6, I81vt5eq60l4b6, I3vh014cqgmrfd, Ia5cotcvi888ln, I21jsa919m88fd, Iegif7m3upfe1k, I9kt8c221c83ln, Ic76kfh5ebqkpl, Icscpmubum33bq, I21d2olof7eb60, Ibgm4rnf22lal1, Ie68np0vpihith, I9bnv6lu0crf1q, Iauhjqifrdklq7, Ie1uso9m8rt5cf, I40pqum1mu8qg3, I1r4c2ghbtvjuc, I2hedg0a6u185f, I8k3rnvpeeh4hv, I550f2tngqhbp1, Ia82mnkmeo2rhc, Icsa46bnbuohqc, Icbccs0ug47ilf, I855j4i3kr8ko1, I67n6mbhp91nlg, Idd7hd99u0ho0n, Iafscmv8tjf0ou, I100l07kaehdlp, I6gnbnvip5vvdi, I368e0tjmrcvlt, I6akqkga7li13u, I133qpg6ru2jqi, I3bp93psani87u, Icv68aq8841478, Ic262ibdoec56a, Iflcfm9b6nlmdd, Ijrsf4mnp3eka, Id5fm4p8lj5qgi, I8tjvj9uq4b7hi, I3qt1hgg4djhgb, I4fooe9dun9o0t, I8mvf14goplnni, Ie09mpthond7d6, I1ispultrc7caq, Iph9c4rn81ub2, Ier2cke86dqbr2, Ibi0s841005et5, I395h9meqpi2hf, I66jdpl6lile9j, I39t01nnod9109, I6v8sm60vvkmk7, I1qmtmbe5so8r3, Ih99m6ehpcar7, Idgorhsbgdq2ap, I9ubb2kqevnu6t, I2hq50pu2kdjpo, I9acqruh7322g2, I137t1cld92pod, I61d51nv4cou88, If8u5kl4h8070m, Ibmuil6p3vl83l, I7lul91g50ae87, Icl7nl1rfeog3i, Iasr6pj6shs0fl, I2uqmls7kcdnii, Idg69klialbkb8, I7r6b7145022pp, I30pg328m00nr3, Icmrn7bogp28cs, I7m9b5plj4h5ot, I9onhk772nfs4f, I3l6bnksrmt56r, Idh09k0l2pmdcg, I7uoiphbm0tj4r, I512p1n7qt24l8, I6s1nbislhk619, I3gghqnh2mj0is, I6iv852roh6t3h, I9oc2o6itbiopq, Ibslgga81p36aa, I1rvj4ubaplho0, Ia3uu7lqcc1q1i, I7crucfnonitkn, I7tmrp94r9sq4n, I4kigljjkan2n6, I5rtkmhm2dng4u, I5r8t4iaend96p, Iaqet9jc3ihboe, Ic952bubvq4k7d, I2v50gu3s1aqk6, Iabpgqcjikia83, Ieeb2u9t56qdcr, If7uv525tdvv7a, I2an1fs2eiebjp, TransactionValidityTransactionSource, I9ask1o4tfvcvs, I4ph3d1eepnmr1, Icerf8h8pdu8ss, I6spmpef2c7svf, Iei2mvq0mjvt81, Icd41grt22tk3v, Iftvbctbo05fu4, XcmVersionedXcm, Ic0c3req3mlc1l, XcmVersionedAssetId, I7ocn4njqde3v5, Iek7ha36da9mf5, I9cqlcs1cfiqgk, Ia0qb5p8rcp095, I7f06kkvfvbvn3, Ieh6nis3hdbtgi, XcmVersionedAsset, Icujp6hmv35vbn, I4tjame31218k9, I5gif8vomct5i8, Ic1d4u2opv3fst, Ie9sr1iqcg3cgm, I1mqgk2tmnn9i2, I6lr8sctk0bi4e, Id3cclc8rha27v } from "./common-types.js";
+import type { I5sesotjlssv2d, Iffmde3ekjedi9, I4mddgoa69c0a2, Ibn2t84v0qbqml, I95g6i7ilua7lq, Ieniouoqkq4icf, Phase, Ibgl04rn6nbfm6, I4q39t5hn830vp, I1v7jbnil3tjns, I8jgj1nhcr2dg8, Ifn6q3equiq9qi, Ia3sb0vgvovhtg, Iav8k1edbj86k7, Itom7fk49o0c9, I4i91h98n3cv1b, I4iumukclgj8ej, Iqnbvitf7a7l3, I48i407regf59r, I6r5cbv8ttrb09, I1q8tnt1cluu5j, I8ds64oj6581v0, Ia7pdug7cdsg8g, Iafsev9pf8ur2h, I9bin2jc70qt6q, TransactionPaymentReleases, I52552vmt51a1m, Icd998p53cb80u, Ianratlvp36bb8, Ia2lhg7l2hilo3, Ifi4da1gej1fri, Ifvgo9568rpmqc, I82jm9g7pufuel, Ic5m5lp1oioo8r, I6cs1itejju2vv, Icgljjb6j82uhn, Ib77b0fp1a6mjr, I5g2vv0ckl2m8b, Ifup3lg9ro8a0f, I5qfubnuvrnqn6, I8t3u2dv73ahbd, I7vlvrrl2pnbgk, Ie0rpl5bahldfk, XcmPalletVersionMigrationStage, I7e5oaj2qi4kl1, Ie849h3gncgvok, Iat62vud7hlod2, Ict03eedr8de9s, Ibkm2gcn4pji30, XcmVersionedLocation, Idh2ug6ou4a8og, Iejeo53sea6n4q, I53esa2ms463bk, Ib4jhb8tt3uung, In7a38730s6qs, Ibtil0ss5munbk, I9s0ave7t0vnrk, I4fo08joqmcqnm, XcmV5Junctions, Iasb8k6ash5mjn, I8ofcg5rbj0g2c, I4adgbll7gku4i, I6pjjpfvhvcfru, I9pj91mj79qekl, I39uah9nss64h9, Ik64dknsq7k08, Ib51vk42m1po4n, Ial23jn8hp0aen, Ifpj261e8s63m3, Idcr6u6361oad9, I4m23d919gtr5d, I7esubsve8jvbp, I69p6pkv67dei3, I13j8trtusi7dq, I74eam70qc8398, I4ktuaksf5i1gk, I9bqtpv2ii35mp, I9j7pagd6d4bda, I2h9pmio37r7fb, Ibmr18suc9ikh9, I9iq22t0burs89, I5u8olqbbvfnvf, I5utcetro501ir, Itrlf5b2o2l8q, Icegg8a2cqf1gu, I4vj3ndsquheo1, I7h5kud22qmfsg, I2i8iea6e4ne1j, I4jotama61aldv, I4cbvqmqadhrea, I3rfugj0vt1ug5, Ifccifqltb5obi, Iadtsfv699cq8b, Ialpmgmhr3gk5r, I3sdol54kg5jaq, I8fougodaj6di6, I81vt5eq60l4b6, I3vh014cqgmrfd, Ia5cotcvi888ln, I21jsa919m88fd, Iegif7m3upfe1k, I9kt8c221c83ln, Ic76kfh5ebqkpl, Icscpmubum33bq, I21d2olof7eb60, Ibgm4rnf22lal1, Ie68np0vpihith, I9bnv6lu0crf1q, Iauhjqifrdklq7, Ie1uso9m8rt5cf, I40pqum1mu8qg3, I1r4c2ghbtvjuc, I2hedg0a6u185f, I8k3rnvpeeh4hv, I550f2tngqhbp1, Ia82mnkmeo2rhc, Icsa46bnbuohqc, Icbccs0ug47ilf, I855j4i3kr8ko1, I67n6mbhp91nlg, Idd7hd99u0ho0n, Iafscmv8tjf0ou, I100l07kaehdlp, I6gnbnvip5vvdi, I368e0tjmrcvlt, I6akqkga7li13u, I133qpg6ru2jqi, I3bp93psani87u, Icv68aq8841478, Ic262ibdoec56a, Iflcfm9b6nlmdd, Ijrsf4mnp3eka, Id5fm4p8lj5qgi, I8tjvj9uq4b7hi, I3qt1hgg4djhgb, I4fooe9dun9o0t, I8mvf14goplnni, Ie09mpthond7d6, I1ispultrc7caq, Iph9c4rn81ub2, Ier2cke86dqbr2, Ibi0s841005et5, I395h9meqpi2hf, I66jdpl6lile9j, I39t01nnod9109, I6v8sm60vvkmk7, I1qmtmbe5so8r3, Ih99m6ehpcar7, Idgorhsbgdq2ap, I9ubb2kqevnu6t, I2hq50pu2kdjpo, I9acqruh7322g2, I137t1cld92pod, I61d51nv4cou88, If8u5kl4h8070m, Ibmuil6p3vl83l, I7lul91g50ae87, Icl7nl1rfeog3i, Iasr6pj6shs0fl, I2uqmls7kcdnii, Idg69klialbkb8, I7r6b7145022pp, I30pg328m00nr3, Icmrn7bogp28cs, I7m9b5plj4h5ot, I9onhk772nfs4f, I3l6bnksrmt56r, Idh09k0l2pmdcg, I7uoiphbm0tj4r, I512p1n7qt24l8, I6s1nbislhk619, I3gghqnh2mj0is, I6iv852roh6t3h, I9oc2o6itbiopq, Ibslgga81p36aa, I1rvj4ubaplho0, Ia3uu7lqcc1q1i, I7crucfnonitkn, I7tmrp94r9sq4n, I4kigljjkan2n6, I5rtkmhm2dng4u, I5r8t4iaend96p, Iaqet9jc3ihboe, Ic952bubvq4k7d, I2v50gu3s1aqk6, Iabpgqcjikia83, Ieeb2u9t56qdcr, If7uv525tdvv7a, I2an1fs2eiebjp, TransactionValidityTransactionSource, I9ask1o4tfvcvs, I4ph3d1eepnmr1, Icerf8h8pdu8ss, I6spmpef2c7svf, Iei2mvq0mjvt81, Icd41grt22tk3v, Iftvbctbo05fu4, XcmVersionedXcm, Ic0c3req3mlc1l, XcmVersionedAssetId, I7ocn4njqde3v5, Iek7ha36da9mf5, I9cqlcs1cfiqgk, Ia0qb5p8rcp095, I7f06kkvfvbvn3, Ieh6nis3hdbtgi, XcmVersionedAsset, Icujp6hmv35vbn, I4tjame31218k9, I5gif8vomct5i8, Ic1d4u2opv3fst, Ie9sr1iqcg3cgm, I1mqgk2tmnn9i2, I6lr8sctk0bi4e, ExtensionsCheckMortality, I87rnrnks7g0hm, I4s6vifaf8k998, Id3cclc8rha27v } from "./common-types.js";
 type AnonymousEnum<T extends {}> = T & {
     __anonymous: true;
 };
@@ -3327,8 +3327,32 @@ type IRuntimeCalls = {
     };
 };
 export type Bulletin_westendDispatchError = Anonymize<Id3cclc8rha27v>;
-type IAsset = PlainDescriptor<void>;
-export type Bulletin_westendExtensions = {};
+export type Bulletin_westendExtensions = {
+    "CheckSpecVersion": {
+        additionalSigned: number;
+    };
+    "CheckTxVersion": {
+        additionalSigned: number;
+    };
+    "CheckGenesis": {
+        additionalSigned: SizedHex<32>;
+    };
+    "CheckMortality": {
+        value: ExtensionsCheckMortality;
+        additionalSigned: SizedHex<32>;
+    };
+    "CheckNonce": {
+        value: number;
+    };
+    "ChargeTransactionPayment": {
+        value: bigint;
+    };
+    "CheckMetadataHash": {
+        value: Anonymize<I87rnrnks7g0hm>;
+        additionalSigned: Anonymize<I4s6vifaf8k998>;
+    };
+};
+type IRequiredExtensions = PlainDescriptor<"CheckSpecVersion" | "CheckTxVersion" | "CheckGenesis" | "CheckMortality" | "CheckNonce" | "ChargeTransactionPayment" | "CheckMetadataHash">;
 type PalletsTypedef = {
     __storage: IStorage;
     __tx: ICalls;
@@ -3343,8 +3367,8 @@ export type Bulletin_westend = {
         apis: IRuntimeCalls;
     } & Promise<any>;
     metadataTypes: Promise<Uint8Array>;
-    asset: IAsset;
     extensions: Bulletin_westendExtensions;
+    requiredExtensions: IRequiredExtensions;
     getMetadata: () => Promise<Uint8Array>;
     genesis: string | undefined;
 };

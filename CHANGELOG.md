@@ -3,6 +3,11 @@
 ### ⚠️ Breaking Changes
 
 - **host-api / host-container / host-api-wrapper:** `host_local_storage_subscribe` and the worker `begin`/`end` operation methods moved to the end of the protocol (ids 198, 202, 204), after every truapi-defined method, so truapi keeps sole ownership of ids 0-197. This is wire-incompatible with 0.10.0 for those three methods, so a host and product exchanging them must upgrade together. No session or key impact.
+- **host-api-wrapper / host-papp / product-bulletin:** require polkadot-api v3 (`>=3`). The signer factories `accounts.getProductAccountSigner`, `accounts.getLegacyAccountSigner` and `allowance.getBulletinSigner` now return a polkadot-api v3 `TxCreator` instead of a `PolkadotSigner`; the product-account creator still delegates real signing to the host via `host_create_transaction`, and builds a zero-signed extrinsic locally for mocked (fee-estimation) v4 payloads. Regenerate papi descriptors. See the [migration guide](./docs/migration/v0.10.md#polkadot-api-v3) and the [polkadot-api v3 guide](https://papi.how/v3migration/).
+
+### 📦 Dependencies
+
+- Bumped `@noble/ciphers`, `@noble/curves`, `@noble/hashes` and `@scure/sr25519` to 2.4.0, and `nanoid` to 6.0.1.
 
 ### 🚀 Features
 

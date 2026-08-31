@@ -6,8 +6,8 @@ import {
   signSlotAccountSecret,
 } from '@novasamatech/statement-store';
 import { ResultAsync, errAsync, okAsync } from 'neverthrow';
-import type { PolkadotSigner } from 'polkadot-api/signer';
-import { getPolkadotSigner } from 'polkadot-api/signer';
+import type { TxCreator } from 'polkadot-api/tx-creator';
+import { getTxCreator } from 'polkadot-api/tx-creator';
 
 import type { Callback } from '../../types.js';
 import type { ApAllocatableResource } from '../sessionManager/scale/resourceAllocation.js';
@@ -33,7 +33,7 @@ type SessionsView = {
 };
 
 export type AllowanceService = {
-  getBulletinSigner(sessionId: string, productId: string): ResultAsync<PolkadotSigner, AllowanceError>;
+  getBulletinSigner(sessionId: string, productId: string): ResultAsync<TxCreator, AllowanceError>;
   getStatementStoreProver(sessionId: string, productId: string): ResultAsync<StatementProver, AllowanceError>;
 };
 
@@ -102,9 +102,7 @@ export function createAllowanceService({
       return fetchKey(sessionId, productId, 'bulletin').andThen(secret =>
         ResultAsync.fromPromise(
           ensureSubstrateSlotSr25519Ready().then(() =>
-            getPolkadotSigner(deriveSlotAccountPublicKey(secret), 'Sr25519', input =>
-              signSlotAccountSecret(secret, input),
-            ),
+            getTxCreator(deriveSlotAccountPublicKey(secret), 'Sr25519', input => signSlotAccountSecret(secret, input)),
           ),
           e => new AllowanceError('UnexpectedResponse', e instanceof Error ? e.message : String(e)),
         ),

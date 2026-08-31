@@ -25,11 +25,11 @@
     "README.md"
   ],
   "dependencies": {
-    "@noble/ciphers": "2.2.0",
-    "@noble/hashes": "2.2.0",
+    "@noble/ciphers": "2.4.0",
+    "@noble/hashes": "2.4.0",
     "@novasamatech/scale": "0.10.0",
     "@polkadot-api/utils": "^0.4.0",
-    "@scure/sr25519": "2.2.0",
+    "@scure/sr25519": "2.4.0",
     "neverthrow": "^8.2.0",
     "scale-ts": "1.6.1"
   },
