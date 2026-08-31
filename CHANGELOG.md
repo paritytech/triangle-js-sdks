@@ -1,3 +1,19 @@
+## 0.10.1 (2026-08-31)
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-container / host-api-wrapper:** `host_local_storage_subscribe` and the worker `begin`/`end` operation methods moved to the end of the protocol (ids 198, 202, 204), after every truapi-defined method, so truapi keeps sole ownership of ids 0-197. This is wire-incompatible with 0.10.0 for those three methods, so a host and product exchanging them must upgrade together. No session or key impact.
+
+### 🚀 Features
+
+- **host-api / host-container / host-api-wrapper:** host info and product context. `createSystem().info()` reports the host's platform, name and version; `getProductContext()` returns the product id bound to the current host runtime. Hosts implement `handleInfo` and `handleGetProductContext`. Fills truapi ids 190 and 192.
+- **host-api / host-container / host-api-wrapper:** host locale subscription. `createLocaleProvider().subscribeLocale(cb)` receives the language the host presents its interface in as a BCP 47 tag on subscribe and on every change. Hosts implement `handleLocaleSubscribe`. Fills truapi id 194.
+
+### ❤️ Thank You
+
+- Ilya
+- Sergey Zhuravlev
+
 ## 0.10.0 (2026-08-27)
 
 ### ⚠️ Breaking Changes

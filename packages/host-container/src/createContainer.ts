@@ -319,6 +319,10 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     return slot.update(slotHandler);
   }
 
+  // system slots
+  const handleGetProductContextSlot = makeUnsupportedSlot('host_get_product_context');
+  const handleInfoSlot = makeUnsupportedSlot('host_info');
+
   // account slots
   const handleGetUserIdSlot = makeUnsupportedSlot('host_get_user_id');
   const handleRequestLoginSlot = makeUnsupportedSlot('host_request_login');
@@ -510,6 +514,14 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
     handleWorkerEndOperation(handler) {
       return handleV1Request(handleWorkerEndOperationSlot, handler);
+    },
+
+    handleGetProductContext(handler) {
+      return handleV1Request(handleGetProductContextSlot, handler);
+    },
+
+    handleInfo(handler) {
+      return handleV1Request(handleInfoSlot, handler);
     },
 
     handleGetUserId(handler) {

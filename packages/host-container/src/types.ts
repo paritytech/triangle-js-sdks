@@ -116,6 +116,11 @@ export type Container = {
   handleWorkerBeginOperation: InferHandler<'v1', HostApiProtocol['host_worker_begin_operation']>;
   handleWorkerEndOperation: InferHandler<'v1', HostApiProtocol['host_worker_end_operation']>;
 
+  // system
+
+  handleGetProductContext: InferHandler<'v1', HostApiProtocol['host_get_product_context']>;
+  handleInfo: InferHandler<'v1', HostApiProtocol['host_info']>;
+
   // accounts
 
   handleGetUserId: InferHandler<'v1', HostApiProtocol['host_get_user_id']>;

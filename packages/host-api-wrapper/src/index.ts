@@ -53,6 +53,9 @@ export { createLocalStorage, hostLocalStorage } from './localStorage.js';
 
 export { createWorker, hostWorker } from './worker.js';
 
+export type { HostInfo, ProductContext } from './system.js';
+export { createSystem, hostSystem } from './system.js';
+
 export type { Cheque, ClearingStatus, PaymentDelivery, PurseInfo, Receivable } from './coinPayment.js';
 export { createCoinPayment, hostCoinPayment } from './coinPayment.js';
 

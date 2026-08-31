@@ -173,6 +173,12 @@ import {
   StatementStoreSubscribeV1_receive,
   StatementStoreSubscribeV1_start,
 } from './v1/statementStore.js';
+import {
+  GetProductContextV1_request,
+  GetProductContextV1_response,
+  HostInfoV1_request,
+  HostInfoV1_response,
+} from './v1/system.js';
 import { ThemeSubscribeV1_interrupt, ThemeSubscribeV1_receive, ThemeSubscribeV1_start } from './v1/theme.js';
 import {
   WorkerBeginOperationV1_request,
@@ -574,22 +580,33 @@ export const hostApiProtocol = {
     v1: [AccountRingVrfSignV1_request, AccountRingVrfSignV1_response],
   }),
 
-  // truapi places localStorage.subscribe at start_id = 174, which the running
-  // index reaches naturally once every preceding method is in place.
+  // truapi jumps from the ring-VRF block (…172) to request_id 190, leaving
+  // 174-188 unassigned. The prefix skips that gap so `get_product_context`
+  // lands on its specified 190 and the methods after keep truapi's ids.
+  host_get_product_context: versionedRequest(indexer.request(16), {
+    v1: [GetProductContextV1_request, GetProductContextV1_response],
+  }),
+
+  host_info: versionedRequest(indexer.request(), {
+    v1: [HostInfoV1_request, HostInfoV1_response],
+  }),
+
+  host_locale_subscribe: versionedSubscription(indexer.subscription(), {
+    v1: [LocaleSubscribeV1_start, LocaleSubscribeV1_receive, LocaleSubscribeV1_interrupt],
+  }),
+
+  // Not in truapi — SDK-only additions from the 0.10.0 release. They sit after
+  // every truapi-defined method so truapi keeps sole ownership of ids 0-197 and
+  // future truapi methods slot in without colliding with these.
   host_local_storage_subscribe: versionedSubscription(indexer.subscription(), {
     v1: [StorageSubscribeV1_start, StorageSubscribeV1_receive, StorageSubscribeV1_interrupt],
   }),
 
-  // Worker background-operation keep-alive (truapi request_id 178 / 180).
   host_worker_begin_operation: versionedRequest(indexer.request(), {
     v1: [WorkerBeginOperationV1_request, WorkerBeginOperationV1_response],
   }),
 
   host_worker_end_operation: versionedRequest(indexer.request(), {
     v1: [WorkerEndOperationV1_request, WorkerEndOperationV1_response],
-  }),
-
-  host_locale_subscribe: versionedSubscription(indexer.subscription(), {
-    v1: [LocaleSubscribeV1_start, LocaleSubscribeV1_receive, LocaleSubscribeV1_interrupt],
   }),
 } as const;
