@@ -580,17 +580,19 @@ export const hostApiProtocol = {
     v1: [AccountRingVrfSignV1_request, AccountRingVrfSignV1_response],
   }),
 
-  // truapi jumps from the ring-VRF block (…172) to request_id 190, leaving
-  // 174-188 unassigned. The prefix skips that gap so `get_product_context`
-  // lands on its specified 190 and the methods after keep truapi's ids.
+  // truapi jumps from the ring-VRF block (…172) straight to request_id 190,
+  // leaving request_ids 174-188 unassigned. The prefix skips that gap so
+  // `get_product_context` lands on its truapi request_id 190.
   host_get_product_context: versionedRequest(indexer.request(16), {
     v1: [GetProductContextV1_request, GetProductContextV1_response],
   }),
 
+  // truapi request_id 192.
   host_info: versionedRequest(indexer.request(), {
     v1: [HostInfoV1_request, HostInfoV1_response],
   }),
 
+  // truapi start_id 194.
   host_locale_subscribe: versionedSubscription(indexer.subscription(), {
     v1: [LocaleSubscribeV1_start, LocaleSubscribeV1_receive, LocaleSubscribeV1_interrupt],
   }),

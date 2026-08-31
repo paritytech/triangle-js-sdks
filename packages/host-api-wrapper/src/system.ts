@@ -1,9 +1,10 @@
 import type { CodecType, Transport } from '@novasamatech/host-api';
-import { HostInfo, ProductContext, createHostApi, enumValue } from '@novasamatech/host-api';
+import { HostInfo, HostPlatform, ProductContext, createHostApi, enumValue } from '@novasamatech/host-api';
 
 import { resultToPromise, unwrapVersionedResult } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
 
+export type HostPlatform = CodecType<typeof HostPlatform>;
 export type HostInfo = CodecType<typeof HostInfo>;
 export type ProductContext = CodecType<typeof ProductContext>;
 
