@@ -4,18 +4,18 @@
 
 ## Specification
 
-* [**Host API protocol**](https://github.com/paritytech/truapi/tree/main/rust/crates/truapi) — source of truth for the host ↔ product integration protocol.
+* [**Host API protocol**](https://github.com/paritytech/host-rust-core/tree/main/rust/crates/truapi) — source of truth for the host ↔ product integration protocol.
 
 ## Packages
 
 ### For Product developers
-* [**host-api-wrapper**](./packages/host-api-wrapper/README.md) — Host API wrapper for integrating and running a product inside the Polkadot browser host.
+* [**host-api-wrapper**](./packages/host-api-wrapper/README.md) — Host API wrapper for integrating and running a product inside the Polkadot browser host. To be replaced by [truapi](https://github.com/paritytech/host-rust-core).
 * [**product-react-renderer**](./packages/product-react-renderer/README.md) — Custom React reconciler for rendering native UI widgets from product scripts.
 * [**product-bulletin**](./packages/product-bulletin/README.md) — Bulletin Chain client adapter for product applications, wrapping `@parity/bulletin-sdk`.
 
 ### For Host developers
-* [**host-api**](./packages/host-api/README.md) — Transport implementation for host ↔ product integration.
-* [**host-container**](./packages/host-container/README.md) — Host-side container for hosting and managing products within the Polkadot ecosystem.
+* [**host-api**](./packages/host-api/README.md) — Transport implementation for host ↔ product integration. To be replaced by [truapi](https://github.com/paritytech/host-rust-core).
+* [**host-container**](./packages/host-container/README.md) — Host-side container for hosting and managing products within the Polkadot ecosystem. To be replaced by [truapi](https://github.com/paritytech/host-rust-core).
 * [**host-papp**](./packages/host-papp/README.md) — Polkadot app integration layer for the host.
 * [**host-papp-react-ui**](./packages/host-papp-react-ui/README.md) — React UI flow for the Polkadot app integration.
 * [**host-chat**](./packages/host-chat/README.md) — Account lookup and chat-message codecs for host applications integrating with the Polkadot People chain.
@@ -35,6 +35,8 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
 ## Migration guides
 
+* [**v0.9 → v0.10**](./docs/migration/v0.10.md)
+* [**v0.8 → v0.9**](./docs/migration/v0.9.md)
 * [**v0.7 → v0.8**](./docs/migration/v0.8.md)
 * [**v0.6 → v0.7**](./docs/migration/v0.7.md)
 
