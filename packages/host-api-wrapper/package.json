@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-api-wrapper",
   "type": "module",
-  "version": "0.10.1",
+  "version": "0.10.2",
   "description": "Host API wrapper: integrate and run your product inside Polkadot browser.",
   "license": "Apache-2.0",
   "repository": {
@@ -29,7 +29,7 @@
     "@polkadot-api/json-rpc-provider-proxy": "^0.4.0",
     "@polkadot-api/signers-common": "^0.3.0",
     "@polkadot-api/substrate-bindings": "^0.21.0",
-    "@novasamatech/host-api": "0.10.1",
+    "@novasamatech/host-api": "0.10.2",
     "polkadot-api": ">=3",
     "neverthrow": "^8.2.0"
   },
