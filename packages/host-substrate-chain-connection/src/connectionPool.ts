@@ -5,8 +5,8 @@ import { createClient } from 'polkadot-api';
 import { createBranchedProvider } from './branchedProvider.js';
 import { createConnectionManager } from './connectionManager.js';
 import { createRefCounter } from './refCounter.js';
+import { createRestartableProvider } from './restartableProvider.js';
 import type { ChainConfig, ConnectionStatus, PooledClient } from './types.js';
-import { isPausable } from './wsProvider.js';
 
 export type ChainConnectionConfig<C extends ChainConfig, T = PolkadotClient> = {
   createProvider(chain: C, onStatusChanged: (status: ConnectionStatus) => void): JsonRpcProvider;
@@ -30,6 +30,22 @@ export type ChainConnection<C extends ChainConfig, T = PolkadotClient> = {
    */
   pauseAll(): void;
   resumeAll(): void;
+  /**
+   * Rebuild the transport of the chains named by `genesisHashes`, or of every
+   * chain currently held when it is omitted. `createProvider` runs again, so a
+   * host that picks its transport from settings (a light client versus RPC
+   * nodes, say) applies the new choice here.
+   *
+   * Pooled clients, resolved apis and refcounts all survive: consumers keep the
+   * references they already hold and see the same interruption a dropped socket
+   * would have caused. A chain nobody holds is skipped — one the pool never
+   * connected to, and one still waiting out `destroyDelay` — and picks the new
+   * transport up when it is next acquired.
+   *
+   * The old transports close at once, the new ones come up on the reconnect
+   * backoff; see `restart` in `createRestartableProvider`.
+   */
+  reconnect(genesisHashes?: readonly string[]): void;
 };
 
 export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>({
@@ -60,7 +76,27 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     const existing = existingClients.get(chain.genesisHash);
     if (existing) return existing;
 
-    const rootProvider = createProvider(chain, status => connections.update(chain.genesisHash, status));
+    // A provider replaced by `reconnect` can still report a trailing
+    // `disconnected` while its successor is already connecting, so status is
+    // scoped to the generation that produced it and stale updates are dropped.
+    let generation = 0;
+    const rootProvider = createRestartableProvider(() => {
+      const current = ++generation;
+      const update = (status: ConnectionStatus) => {
+        if (current === generation) connections.update(chain.genesisHash, status);
+      };
+
+      try {
+        return createProvider(chain, update);
+      } catch (error) {
+        // The bump above already muted the previous transport's updates, so a
+        // factory that throws would otherwise leave the chain reporting the
+        // status of a transport that no longer exists. `createRestartableProvider`
+        // retries, and the next attempt reports for itself.
+        update('disconnected');
+        throw error;
+      }
+    });
     const branchedProvider = createBranchedProvider(rootProvider);
     const client = makeClient(branchedProvider.branch(), clientOptions?.(chain));
 
@@ -192,13 +228,25 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
 
     pauseAll() {
       for (const { rootProvider } of existingClients.values()) {
-        if (isPausable(rootProvider)) rootProvider.pause();
+        rootProvider.pause();
       }
     },
 
     resumeAll() {
       for (const { rootProvider } of existingClients.values()) {
-        if (isPausable(rootProvider)) rootProvider.resume();
+        rootProvider.resume();
+      }
+    },
+
+    reconnect(genesisHashes) {
+      for (const [genesisHash, { rootProvider }] of existingClients) {
+        if (genesisHashes && !genesisHashes.includes(genesisHash)) continue;
+        // Nobody holds this one any more — it is only waiting out `destroyDelay`.
+        // Rebuilding its transport would open a socket the destruction timer is
+        // about to throw away.
+        if (destructionTimers.has(genesisHash)) continue;
+
+        rootProvider.restart();
       }
     },
   };

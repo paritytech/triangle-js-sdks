@@ -1,5 +1,7 @@
 import type { JsonRpcProvider, PolkadotClient } from 'polkadot-api';
 
+import type { RestartableJsonRpcProvider } from './restartableProvider.js';
+
 export type ChainConfig = {
   genesisHash: string;
 };
@@ -13,5 +15,5 @@ export type BranchedProvider = {
 export type PooledClient = {
   client: PolkadotClient;
   provider: BranchedProvider;
-  rootProvider: JsonRpcProvider;
+  rootProvider: RestartableJsonRpcProvider;
 };

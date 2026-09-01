@@ -81,7 +81,7 @@ describe('withSubscriptionReplay', () => {
     expect(mock.send).not.toHaveBeenCalled();
   });
 
-  it('replays pending subscriptions (no server response yet) on reconnect', () => {
+  it('leaves unconfirmed subscribes to the transport underneath on reconnect', () => {
     const mock = createMockProvider();
     const control = createReconnectControl();
     const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(vi.fn());
@@ -93,6 +93,28 @@ describe('withSubscriptionReplay', () => {
 
     control.triggerReconnect();
 
+    // `getSyncProvider`'s proxy re-sends it on its own; a second copy from here
+    // would leave an unmatched subscription live on the server.
+    expect(mock.send).not.toHaveBeenCalled();
+  });
+
+  it('still recognises the response to an unconfirmed subscribe the transport re-sent', () => {
+    const mock = createMockProvider();
+    const control = createReconnectControl();
+    const onMessage = vi.fn();
+    const conn = withSubscriptionReplay(mock.provider, control.onReconnect)(onMessage);
+
+    const subscribeMsg = req(1, 'statement_subscribeStatement');
+    conn.send(subscribeMsg as any);
+    control.triggerReconnect();
+    // The transport's own replay puts it back on the wire; the answer arrives
+    // against the id we are still holding a pending entry for.
+    mock.simulateMessage(res(1, 'sub-1'));
+    mock.send.mockClear();
+
+    control.triggerReconnect();
+
+    expect(onMessage).toHaveBeenCalledWith(res(1, 'sub-1'));
     expect(mock.send).toHaveBeenCalledWith(subscribeMsg);
   });
 
