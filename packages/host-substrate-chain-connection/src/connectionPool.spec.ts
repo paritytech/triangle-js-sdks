@@ -438,6 +438,26 @@ describe('createChainConnection', () => {
       expect(createProvider).not.toHaveBeenCalled();
     });
 
+    it('skips a chain that is only waiting out destroyDelay', async () => {
+      const createProvider = vi.fn(() => createMockProvider().provider);
+      const connection = createChainConnection<ChainConfig>({
+        createProvider,
+        createClient: createClientFactory().createClient,
+        destroyDelay: 10_000,
+      });
+
+      const { unlock } = await connection.lockApi(testChain('a'));
+      await settle();
+      unlock();
+
+      connection.reconnect();
+      await settle();
+
+      // Nobody holds it; the destruction timer is about to discard the client,
+      // so a fresh transport would be opened only to be thrown away.
+      expect(createProvider).toHaveBeenCalledTimes(1);
+    });
+
     it('drops a status the replaced transport reports after the swap', async () => {
       const statusCallbacks: ((status: ConnectionStatus) => void)[] = [];
       const { connection } = createTestConnection({

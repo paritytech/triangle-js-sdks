@@ -150,6 +150,50 @@ describe('createRestartableProvider', () => {
     expect(messages.filter(message => 'result' in message && message.result === 'sub-2')).toHaveLength(0);
   });
 
+  it('retries instead of wedging when the transport factory throws', async () => {
+    const transport = createFakeTransport();
+    const created = vi.fn(() => {
+      if (created.mock.calls.length === 1) throw new Error('no WebSocket class');
+
+      return transport.provider;
+    });
+    const provider = createRestartableProvider(created);
+
+    const { connection, messages } = await connect(provider);
+    connection.send({ jsonrpc: '2.0', id: 5, method: 'system_chain', params: [] });
+    transport.emit({ jsonrpc: '2.0', id: 5, result: 'polkadot' } as JsonRpcMessage);
+
+    expect(created).toHaveBeenCalledTimes(2);
+    expect(transport.send).toHaveBeenCalledOnce();
+    expect(messages).toContainEqual({ jsonrpc: '2.0', id: 5, result: 'polkadot' });
+  });
+
+  it('does not replay subscriptions into a transport the factory failed to build', async () => {
+    const first = createFakeTransport();
+    const second = createFakeTransport();
+    const transports: (FakeTransport | null)[] = [first, null, second];
+    const provider = createRestartableProvider(() => {
+      const next = transports.shift();
+      if (!next) throw new Error('transport unavailable');
+
+      return next.provider;
+    });
+
+    const { connection } = await connect(provider);
+    const subscribe = { jsonrpc: '2.0', id: 6, method: 'state_subscribeStorage', params: [['0x00']] };
+    connection.send(subscribe as JsonRpcRequest);
+    first.emit({ jsonrpc: '2.0', id: 6, result: 'sub-1' } as JsonRpcMessage);
+
+    provider.restart();
+    // Two windows: the failed attempt in between pushes the next one out by a
+    // further backoff step.
+    await settle();
+    await settle();
+
+    expect(second.send).toHaveBeenCalledTimes(1);
+    expect(second.send).toHaveBeenCalledWith(expect.objectContaining({ method: 'state_subscribeStorage' }));
+  });
+
   it('is a no-op before anything has connected', async () => {
     const transport = createFakeTransport();
     const created = vi.fn(() => transport.provider);
@@ -171,6 +215,25 @@ describe('createRestartableProvider', () => {
 
     expect(transport.pause).toHaveBeenCalledOnce();
     expect(transport.resume).toHaveBeenCalledOnce();
+  });
+
+  it('pauses a transport built while paused before handing it the message callback', async () => {
+    const pause = vi.fn();
+    const pausedAtInvocation: boolean[] = [];
+    const transport: JsonRpcProvider = Object.assign(
+      () => {
+        pausedAtInvocation.push(pause.mock.calls.length > 0);
+
+        return { send: vi.fn(), disconnect: vi.fn() } as unknown as JsonRpcConnection;
+      },
+      { pause, resume: vi.fn() },
+    );
+    const provider = createRestartableProvider(() => transport);
+
+    provider.pause();
+    await connect(provider);
+
+    expect(pausedAtInvocation).toEqual([true]);
   });
 
   it('brings a transport built while paused up paused', async () => {

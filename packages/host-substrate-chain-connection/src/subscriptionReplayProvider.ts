@@ -94,16 +94,17 @@ export const withSubscriptionReplay =
     });
 
     const unsubReconnect = onReconnect(() => {
-      // Replay unconfirmed subscribes first: their `reconnectFor === null`, so
-      // they're disjoint from the entries inserted by the active-replay loop
-      // below (which all carry a non-null `reconnectFor`).
-      for (const [, pending] of pendingSubscriptions) {
-        if (pending.reconnectFor === null) conn.send(pending.payload);
-      }
-
-      // Replay confirmed subscriptions: the server returns a fresh subId, which
-      // we map back to the consumer's stable subId.
+      // Only confirmed subscriptions are replayed. An unconfirmed subscribe is
+      // still owned by the transport underneath — every provider this wraps is
+      // built on `getSyncProvider`, whose proxy re-sends its in-flight requests
+      // across a reconnect and buffers them until the next one is up — so
+      // re-sending it here would put the same subscribe on the wire twice and
+      // leave the second, unmatched subId subscribed server-side forever.
+      // Its pending entry is kept: the response still has to be recognised.
       for (const [consumerSubId, sub] of activeSubscriptions) {
+        // The server returns a fresh subId, which we map back to the consumer's
+        // stable subId. `reconnectFor` keeps these entries apart from the
+        // unconfirmed ones already in the map, which all carry null.
         pendingSubscriptions.set(sub.id, { payload: sub.payload, reconnectFor: consumerSubId });
         conn.send(sub.payload);
       }

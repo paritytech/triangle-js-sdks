@@ -12,6 +12,14 @@ export type RestartableJsonRpcProvider = JsonRpcProvider & {
    * tearing down the consumers hanging off this provider. Callers use it to move
    * a chain onto a different transport — a light client to an RPC node, say —
    * while clients, subscriptions and refcounts stay where they are.
+   *
+   * The old transport closes synchronously; the new one does not. The swap goes
+   * through the proxy's reconnect path, so the factory is called on its backoff
+   * — 500 ms after this returns, and a step further out for each restart that
+   * lands before the chain has delivered a message on the transport before it
+   * (`getSyncProvider` counts those as a flapping connection). Next to opening a
+   * socket or booting a light client the first step is noise, but a caller
+   * driving this from a UI toggle should not treat it as instantaneous.
    */
   restart(): void;
   /** Forwarded to the current transport when it supports it; otherwise a no-op. */
@@ -54,17 +62,39 @@ export const createRestartableProvider = (createTransport: () => JsonRpcProvider
   };
 
   const core = getSyncProvider(onResult => {
+    let built = false;
+
     onResult((onMessage, halt) => {
-      const provider = createTransport();
+      let provider: JsonRpcProvider;
+      let connection: JsonRpcConnection;
+
+      try {
+        provider = createTransport();
+        // Paused before the transport is handed its message callback: a
+        // transport that opens its connection right there (a light client, say)
+        // would otherwise be up for as long as it takes to pause it again,
+        // which is the socket-behind-a-backgrounded-app this guards against.
+        if (paused && isPausable(provider)) provider.pause();
+        connection = provider(onMessage);
+      } catch (error) {
+        // The proxy is mid-connect and stores whatever we return here, so a
+        // factory that throws has to be reported through `halt`: it puts the
+        // proxy back to connecting — buffering sends rather than pushing them
+        // at a transport that was never built — and schedules the next attempt.
+        // Without it the chain would keep a live-looking client wired to
+        // nothing, for good.
+        halt(error);
+
+        return { send: noop, disconnect: noop };
+      }
+
       // The transport's own halt channel is deliberately not wired up: a
       // transport either recovers on its own (the ws provider proxies its
       // reconnects internally) or reports `disconnected` and stays down. `halt`
       // is kept for `restart`, which is the only reason this layer replaces one.
-      const connection = provider(onMessage);
       const transport: ActiveTransport = { provider, connection, halt };
       active = transport;
-
-      if (paused && isPausable(provider)) provider.pause();
+      built = true;
 
       return {
         send: message => connection.send(message),
@@ -77,8 +107,10 @@ export const createRestartableProvider = (createTransport: () => JsonRpcProvider
 
     // `onResult` runs the proxy's connect synchronously, so by here the proxy is
     // connected and the replayed subscribes go out on the new transport rather
-    // than into a buffer that a failed connect would discard.
-    notifyReconnect();
+    // than into a buffer that a failed connect would discard. A failed attempt
+    // skips the replay entirely — the halt above has already queued another one,
+    // which will do it against a transport that exists.
+    if (built) notifyReconnect();
 
     // Nothing to cancel: `onResult` above already resolved this attempt.
     return noop;

@@ -38,8 +38,12 @@ export type ChainConnection<C extends ChainConfig, T = PolkadotClient> = {
    *
    * Pooled clients, resolved apis and refcounts all survive: consumers keep the
    * references they already hold and see the same interruption a dropped socket
-   * would have caused. A chain the pool is not currently connected to is
-   * skipped — it will pick the new transport up when it is next acquired.
+   * would have caused. A chain nobody holds is skipped — one the pool never
+   * connected to, and one still waiting out `destroyDelay` — and picks the new
+   * transport up when it is next acquired.
+   *
+   * The old transports close at once, the new ones come up on the reconnect
+   * backoff; see `restart` in `createRestartableProvider`.
    */
   reconnect(genesisHashes?: readonly string[]): void;
 };
@@ -78,10 +82,20 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     let generation = 0;
     const rootProvider = createRestartableProvider(() => {
       const current = ++generation;
-
-      return createProvider(chain, status => {
+      const update = (status: ConnectionStatus) => {
         if (current === generation) connections.update(chain.genesisHash, status);
-      });
+      };
+
+      try {
+        return createProvider(chain, update);
+      } catch (error) {
+        // The bump above already muted the previous transport's updates, so a
+        // factory that throws would otherwise leave the chain reporting the
+        // status of a transport that no longer exists. `createRestartableProvider`
+        // retries, and the next attempt reports for itself.
+        update('disconnected');
+        throw error;
+      }
     });
     const branchedProvider = createBranchedProvider(rootProvider);
     const client = makeClient(branchedProvider.branch(), clientOptions?.(chain));
@@ -227,6 +241,10 @@ export const createChainConnection = <C extends ChainConfig, T = PolkadotClient>
     reconnect(genesisHashes) {
       for (const [genesisHash, { rootProvider }] of existingClients) {
         if (genesisHashes && !genesisHashes.includes(genesisHash)) continue;
+        // Nobody holds this one any more — it is only waiting out `destroyDelay`.
+        // Rebuilding its transport would open a socket the destruction timer is
+        // about to throw away.
+        if (destructionTimers.has(genesisHash)) continue;
 
         rootProvider.restart();
       }
