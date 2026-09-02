@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ChainConnectionConfig } from './connectionPool.js';
 import { createChainConnection } from './connectionPool.js';
+import { noop } from './helpers.js';
 import type { ChainConfig, ConnectionStatus } from './types.js';
 
 // An in-memory stand-in for polkadot-api's `createClient`: one client object per
@@ -10,15 +11,27 @@ import type { ChainConfig, ConnectionStatus } from './types.js';
 const createClientFactory = () => {
   const clients: { destroyed: number }[] = [];
 
-  const factory = ((_provider: JsonRpcProvider, _options?: unknown) => {
+  const factory = ((provider: JsonRpcProvider, _options?: unknown) => {
     const client = { destroyed: 0 };
     clients.push(client);
+    // The real one connects up front and drops the connection on destroy; the
+    // pool only builds a transport once something actually connects.
+    const connection = provider(noop);
 
-    return { destroy: () => client.destroyed++ } as unknown as PolkadotClient;
+    return {
+      destroy: () => {
+        client.destroyed++;
+        connection.disconnect();
+      },
+    } as unknown as PolkadotClient;
   }) as ChainConnectionConfig<ChainConfig>['createClient'];
 
   return { createClient: factory, last: () => clients[clients.length - 1]! };
 };
+
+// The transport is built on the proxy's first connect attempt, which it
+// schedules rather than runs inline.
+const connected = () => new Promise(resolve => setTimeout(resolve, 0));
 
 const createMockProvider = () => {
   const send = vi.fn();
@@ -165,10 +178,14 @@ describe('createChainConnection', () => {
         },
       });
 
-      await connection.lockApi(testChain('a')).then(({ unlock }) => unlock());
+      // The lock is held across the wait: releasing it destroys the client, and
+      // a destroyed pool never gets round to building a transport at all.
+      const { unlock } = await connection.lockApi(testChain('a'));
+      await connected();
 
       statusCb!('connected');
       expect(connection.status('a')).toBe('connected');
+      unlock();
     });
 
     it('onStatusChanged returns unsubscribe function', async () => {
@@ -180,7 +197,8 @@ describe('createChainConnection', () => {
         },
       });
 
-      await connection.lockApi(testChain('a')).then(({ unlock }) => unlock());
+      const { unlock } = await connection.lockApi(testChain('a'));
+      await connected();
 
       const callback = vi.fn();
       const unsub = connection.onStatusChanged('a', callback);
@@ -192,6 +210,7 @@ describe('createChainConnection', () => {
       callback.mockClear();
       statusCb!('disconnected');
       expect(callback).not.toHaveBeenCalled();
+      unlock();
     });
   });
 
@@ -279,6 +298,7 @@ describe('createChainConnection', () => {
 
       const { unlock: u1 } = await connection.lockApi(testChain('a'));
       const { unlock: u2 } = await connection.lockApi(testChain('b'));
+      await connected();
 
       connection.pauseAll();
 
@@ -297,6 +317,7 @@ describe('createChainConnection', () => {
         createClient: createClientFactory().createClient,
       });
       const { unlock } = await connection.lockApi(testChain('a'));
+      await connected();
 
       connection.pauseAll();
       connection.resumeAll();
@@ -315,6 +336,7 @@ describe('createChainConnection', () => {
       });
       await connection.lockApi(testChain('a'));
       await connection.lockApi(testChain('b'));
+      await connected();
 
       connection.pauseAll();
       connection.resumeAll();
@@ -336,6 +358,129 @@ describe('createChainConnection', () => {
 
       connection.pauseAll();
       expect(chainA.pause).not.toHaveBeenCalled();
+    });
+  });
+  describe('reconnect', () => {
+    // A restart rides the proxy's halt path, which backs off when halts land on
+    // top of each other. Running fake time past that window keeps these cases
+    // about the swap rather than about the backoff.
+    beforeEach(() => vi.useFakeTimers());
+    afterEach(() => vi.useRealTimers());
+
+    const settle = () => vi.advanceTimersByTimeAsync(1_000);
+
+    it('asks createProvider for a new transport and closes the old one', async () => {
+      const first = createMockProvider();
+      const second = createMockProvider();
+      const transports = [first, second];
+      const createProvider = vi.fn(() => transports.shift()!.provider);
+
+      const { connection } = createTestConnection({ createProvider });
+      const { unlock } = await connection.lockApi(testChain('a'));
+      await settle();
+
+      connection.reconnect();
+      await settle();
+
+      expect(createProvider).toHaveBeenCalledTimes(2);
+      expect(first.disconnect).toHaveBeenCalledTimes(1);
+      unlock();
+    });
+
+    it('keeps the pooled client — the point is not restarting the app', async () => {
+      const { connection, clients } = createTestConnection();
+      const { api, unlock } = await connection.lockApi(testChain('a'));
+      await settle();
+
+      connection.reconnect();
+      await settle();
+
+      const { api: after, unlock: unlockAfter } = await connection.lockApi(testChain('a'));
+
+      expect(clients.last().destroyed).toBe(0);
+      expect(after).toBe(api);
+      unlock();
+      unlockAfter();
+    });
+
+    it('rebuilds only the chains it was given', async () => {
+      const built: string[] = [];
+      const connection = createChainConnection<ChainConfig>({
+        createProvider: chain => {
+          built.push(chain.genesisHash);
+
+          return createMockProvider().provider;
+        },
+        createClient: createClientFactory().createClient,
+      });
+
+      const { unlock: unlockA } = await connection.lockApi(testChain('a'));
+      const { unlock: unlockB } = await connection.lockApi(testChain('b'));
+      await settle();
+      expect(built).toEqual(['a', 'b']);
+
+      connection.reconnect(['a']);
+      await settle();
+
+      expect(built).toEqual(['a', 'b', 'a']);
+      unlockA();
+      unlockB();
+    });
+
+    it('ignores a chain the pool is not holding', async () => {
+      const createProvider = vi.fn(() => createMockProvider().provider);
+      const connection = createChainConnection<ChainConfig>({
+        createProvider,
+        createClient: createClientFactory().createClient,
+      });
+
+      expect(() => connection.reconnect(['nothing-here'])).not.toThrow();
+      expect(createProvider).not.toHaveBeenCalled();
+    });
+
+    it('skips a chain that is only waiting out destroyDelay', async () => {
+      const createProvider = vi.fn(() => createMockProvider().provider);
+      const connection = createChainConnection<ChainConfig>({
+        createProvider,
+        createClient: createClientFactory().createClient,
+        destroyDelay: 10_000,
+      });
+
+      const { unlock } = await connection.lockApi(testChain('a'));
+      await settle();
+      unlock();
+
+      connection.reconnect();
+      await settle();
+
+      // Nobody holds it; the destruction timer is about to discard the client,
+      // so a fresh transport would be opened only to be thrown away.
+      expect(createProvider).toHaveBeenCalledTimes(1);
+    });
+
+    it('drops a status the replaced transport reports after the swap', async () => {
+      const statusCallbacks: ((status: ConnectionStatus) => void)[] = [];
+      const { connection } = createTestConnection({
+        createProvider: (_chain, onStatusChanged) => {
+          statusCallbacks.push(onStatusChanged);
+
+          return createMockProvider().provider;
+        },
+      });
+
+      const { unlock } = await connection.lockApi(testChain('a'));
+      await settle();
+
+      connection.reconnect();
+      await settle();
+
+      statusCallbacks[1]!('connected');
+      // The transport that was replaced has no say any more — otherwise its
+      // parting 'disconnected' would land on top of its successor's 'connected'.
+      statusCallbacks[0]!('disconnected');
+
+      expect(connection.status('a')).toBe('connected');
+      unlock();
     });
   });
 });

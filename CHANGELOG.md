@@ -1,3 +1,19 @@
+## 0.10.2 (2026-09-01)
+
+### 🚀 Features
+
+- **host-substrate-chain-connection:** `reconnect(genesisHashes?)` rebuilds the transport of the named chains, or of every chain currently held, in place. `createProvider` runs again, so a host that picks its transport from settings — a light client versus RPC nodes — applies the new choice without restarting. Pooled clients, resolved apis, refcounts and subscriptions all survive: the swap is dressed up as a connection drop, the one event every layer above already handles. A chain nobody holds is skipped and picks the new transport up when it is next acquired. The transport is now built when something first connects rather than when the pooled client is created, which is also when the host's settings are read. See the [migration guide](./docs/migration/v0.10.md#chain-transport-reconnect).
+- **host-substrate-chain-connection:** `createRestartableProvider` and `RestartableJsonRpcProvider` are exported for hosts wiring a pool of their own.
+
+### 🩹 Fixes
+
+- **host-substrate-chain-connection:** `withSubscriptionReplay` no longer re-sends unconfirmed subscribes on reconnect. The proxy underneath re-sends its own in-flight requests, so replaying them here put the same subscribe on the wire twice; the second response was dropped as unsolicited, leaving a subscription live server-side that nothing would unsubscribe and whose notifications arrived under an id the consumer was not routing on. Confirmed subscriptions are still replayed, and their notifications still arrive under the subId the consumer was given.
+
+### ❤️ Thank You
+
+- Ilya
+- Sergey Zhuravlev
+
 ## 0.10.1 (2026-08-31)
 
 ### ⚠️ Breaking Changes
