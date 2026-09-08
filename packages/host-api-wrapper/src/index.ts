@@ -64,7 +64,7 @@ export { createNotificationManager, notificationManager } from './notification.j
 
 export { createPreimageManager, preimageManager } from './preimage.js';
 
-export type { PaymentBalance, PaymentStatus, PurseId, TopUpSource } from './payments.js';
+export type { PaymentBalance, PaymentStatus, PurseId, TopUpSource, TopUpStatus } from './payments.js';
 export { createPaymentManager, paymentManager } from './payments.js';
 
 export { deriveEntropy } from './deriveEntropy.js';

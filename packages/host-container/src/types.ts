@@ -193,6 +193,7 @@ export type Container = {
   handlePaymentTopUp: InferHandler<'v1', HostApiProtocol['host_payment_top_up']>;
   handlePaymentRequest: InferHandler<'v1', HostApiProtocol['host_payment_request']>;
   handlePaymentStatusSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_status_subscribe']>;
+  handlePaymentTopUpStatusSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_top_up_status_subscribe']>;
 
   // coin payment (RFC 0017)
 

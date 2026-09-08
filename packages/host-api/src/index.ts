@@ -124,7 +124,10 @@ export {
   PaymentStatus,
   PaymentStatusErr,
   PaymentTopUpErr,
+  PaymentTopUpId,
   PaymentTopUpSource,
+  PaymentTopUpStatus,
+  PaymentTopUpStatusErr,
 } from './protocol/v1/payments.js';
 export {
   Arrangement,
