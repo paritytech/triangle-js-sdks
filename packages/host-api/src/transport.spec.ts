@@ -81,6 +81,190 @@ describe('transport', () => {
       expect(s2Handler).toHaveBeenCalledTimes(2);
     });
 
+    it('starts a fresh host subscription when re-subscribing with the same payload after an interrupt', () => {
+      const providers = createProviders();
+      const events = createNanoEvents<{ push: VoidFunction; interrupt: VoidFunction }>();
+
+      const host = createTransport(providers.host);
+      const sdk = createTransport(providers.sdk);
+
+      const containerHandler = vi.fn((_, send, interrupt) => {
+        const unsubPush = events.on('push', () => send({ tag: 'v1', value: 'connected' }));
+        const unsubInterrupt = events.on('interrupt', () => interrupt({ tag: 'v1', value: undefined }));
+        return () => {
+          unsubPush();
+          unsubInterrupt();
+        };
+      });
+      host.handleSubscription('host_account_connection_status_subscribe', containerHandler);
+
+      const first = vi.fn();
+      sdk.subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, first);
+      expect(containerHandler).toHaveBeenCalledTimes(1);
+
+      events.emit('interrupt');
+
+      const second = vi.fn();
+      sdk.subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, second);
+
+      // The interrupted subscription is gone: the second subscribe must open a
+      // new one on the host rather than joining the dead entry.
+      expect(containerHandler).toHaveBeenCalledTimes(2);
+
+      events.emit('push');
+      expect(first).not.toHaveBeenCalled();
+      expect(second).toHaveBeenCalledTimes(1);
+    });
+
+    it('delivers an interrupt raised synchronously from the host handler to a later onInterrupt listener', () => {
+      const providers = createProviders();
+
+      const host = createTransport(providers.host);
+      const sdk = createTransport(providers.sdk);
+
+      host.handleSubscription('host_account_connection_status_subscribe', (_, _send, interrupt) => {
+        interrupt({ tag: 'v1', value: undefined });
+        return vi.fn();
+      });
+
+      const subscription = sdk.subscribe(
+        'host_account_connection_status_subscribe',
+        { tag: 'v1', value: undefined },
+        vi.fn(),
+      );
+
+      // With an in-process host the interrupt arrives before subscribe() has
+      // returned, so onInterrupt is necessarily attached afterwards.
+      const interrupted = vi.fn();
+      subscription.onInterrupt(interrupted);
+
+      expect(interrupted).toHaveBeenCalledExactlyOnceWith({ tag: 'v1', value: undefined });
+    });
+
+    it('delivers an interrupt to every subscriber sharing a multiplexed subscription', () => {
+      const providers = createProviders();
+      const events = createNanoEvents<{ interrupt: VoidFunction }>();
+
+      const host = createTransport(providers.host);
+      const sdk = createTransport(providers.sdk);
+
+      host.handleSubscription('host_account_connection_status_subscribe', (_, _send, interrupt) =>
+        events.on('interrupt', () => interrupt({ tag: 'v1', value: undefined })),
+      );
+
+      const first = vi.fn();
+      const second = vi.fn();
+      sdk
+        .subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, vi.fn())
+        .onInterrupt(first);
+      sdk
+        .subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, vi.fn())
+        .onInterrupt(second);
+
+      events.emit('interrupt');
+
+      expect(first).toHaveBeenCalledExactlyOnceWith({ tag: 'v1', value: undefined });
+      expect(second).toHaveBeenCalledExactlyOnceWith({ tag: 'v1', value: undefined });
+    });
+
+    it('delivers a later interrupt to a listener attached before it', () => {
+      const providers = createProviders();
+      const events = createNanoEvents<{ interrupt: VoidFunction }>();
+
+      const host = createTransport(providers.host);
+      const sdk = createTransport(providers.sdk);
+
+      host.handleSubscription('host_account_connection_status_subscribe', (_, _send, interrupt) =>
+        events.on('interrupt', () => interrupt({ tag: 'v1', value: undefined })),
+      );
+
+      const interrupted = vi.fn();
+      sdk
+        .subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, vi.fn())
+        .onInterrupt(interrupted);
+
+      events.emit('interrupt');
+
+      expect(interrupted).toHaveBeenCalledExactlyOnceWith({ tag: 'v1', value: undefined });
+    });
+
+    it('drops receive frames and makes unsubscribe a no-op once interrupted', () => {
+      const providers = createProviders();
+      const events = createNanoEvents<{ interrupt: VoidFunction; push: VoidFunction }>();
+
+      const host = createTransport(providers.host);
+      const sdk = createTransport(providers.sdk);
+
+      const hostCleanup = vi.fn();
+      host.handleSubscription('host_account_connection_status_subscribe', (_, send, interrupt) => {
+        events.on('interrupt', () => interrupt({ tag: 'v1', value: undefined }));
+        events.on('push', () => send({ tag: 'v1', value: 'connected' }));
+        return hostCleanup;
+      });
+
+      const callback = vi.fn();
+      const subscription = sdk.subscribe(
+        'host_account_connection_status_subscribe',
+        { tag: 'v1', value: undefined },
+        callback,
+      );
+
+      events.emit('interrupt');
+      // The host-side handler is already torn down by the interrupt itself.
+      expect(hostCleanup).toHaveBeenCalledTimes(1);
+
+      events.emit('push');
+      expect(callback).not.toHaveBeenCalled();
+
+      // Nothing is left to stop on the host, so no second cleanup.
+      subscription.unsubscribe();
+      expect(hostCleanup).toHaveBeenCalledTimes(1);
+    });
+
+    it('opens a fresh host subscription when re-subscribing from inside onInterrupt', () => {
+      const providers = createProviders();
+      const events = createNanoEvents<{ interrupt: VoidFunction; push: VoidFunction }>();
+
+      const host = createTransport(providers.host);
+      const sdk = createTransport(providers.sdk);
+
+      const containerHandler = vi.fn((_, send, interrupt) => {
+        events.on('interrupt', () => interrupt({ tag: 'v1', value: undefined }));
+        return events.on('push', () => send({ tag: 'v1', value: 'connected' }));
+      });
+      host.handleSubscription('host_account_connection_status_subscribe', containerHandler);
+
+      const retried = vi.fn();
+      sdk
+        .subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, vi.fn())
+        .onInterrupt(() => {
+          sdk.subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, retried);
+        });
+
+      events.emit('interrupt');
+      expect(containerHandler).toHaveBeenCalledTimes(2);
+
+      events.emit('push');
+      expect(retried).toHaveBeenCalledTimes(1);
+    });
+
+    it('delivers a value the host sends synchronously while handling start', () => {
+      const providers = createProviders();
+
+      const host = createTransport(providers.host);
+      const sdk = createTransport(providers.sdk);
+
+      host.handleSubscription('host_account_connection_status_subscribe', (_, send) => {
+        send({ tag: 'v1', value: 'connected' });
+        return vi.fn();
+      });
+
+      const callback = vi.fn();
+      sdk.subscribe('host_account_connection_status_subscribe', { tag: 'v1', value: undefined }, callback);
+
+      expect(callback).toHaveBeenCalledExactlyOnceWith({ tag: 'v1', value: 'connected' });
+    });
+
     it('isolates a throwing subscriber so siblings on the same subscription still receive', () => {
       const providers = createProviders();
       const events = createNanoEvents<{ push: VoidFunction }>();

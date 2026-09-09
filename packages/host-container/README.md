@@ -619,18 +619,58 @@ container.handlePaymentBalanceSubscribe((_params, send, interrupt) => {
 
 Called when a product requests a balance top-up from a product-controlled source. Does not require user consent.
 
+The handler MUST return as soon as the top up is registered — it does not wait for the funds. `id` is an opaque 32-byte
+`Uint8Array` chosen by the product and is the idempotency key: answer `AlreadyExists` if a top up is already registered
+under it. A source can carry only one live top up at a time — answer `SourceBusy` while its previous top up has not
+reached a terminal status. The outcome is reported through `handlePaymentTopUpStatusSubscribe`, keyed on the same id.
+
+Once the host accepts a top up it owns it: it MUST drive the operation to a terminal status, surviving a full host
+restart, and it MUST keep that status readable indefinitely.
+
 ```ts
-container.handlePaymentTopUp(async ({ amount, source }, { ok, err }) => {
+container.handlePaymentTopUp(async ({ amount, source, id }, { ok, err }) => {
+  // `id` is a raw 32-byte Uint8Array, so key storage by its hex form.
+  const key = toHex(id);
+  if (topUps.has(key)) return err(new PaymentTopUpErr.AlreadyExists());
+  if (topUps.hasLiveFor(source)) return err(new PaymentTopUpErr.SourceBusy());
+
   if (source.tag === 'ProductAccount') {
     // Account of the calling product, addressed by the RFC-0022 selector.
-    await transferFromProductAccount(derivationIndexBytes(source.value), amount);
+    topUps.register(key, { amount, from: derivationIndexBytes(source.value) });
     return ok(undefined);
   }
   if (source.tag === 'PrivateKey') {
-    await transferFromPrivateKey(source.value, amount);
+    topUps.register(key, { amount, key: source.value });
     return ok(undefined);
   }
   return err(new PaymentTopUpErr.InvalidSource());
+});
+```
+
+### handlePaymentTopUpStatusSubscribe
+
+Called when a product subscribes to the outcome of a top up it registered. Interrupt with `PaymentTopUpStatusErr.NotFound`
+when the id is unknown.
+
+`Claimed { finalized: true }`, `ClaimedPartially` and `NotClaimed` are terminal — send nothing after them, and take no
+further action on the operation. A partial claim is reported here, not as a `handlePaymentTopUp` error; it is also what
+an `amount` below the smallest coinage denomination produces, the host claiming `amount - amount % 2^min_coinage_exponent`.
+
+```ts
+container.handlePaymentTopUpStatusSubscribe((id, send, interrupt) => {
+  const topUp = topUps.get(toHex(id));
+  if (!topUp) {
+    interrupt(new PaymentTopUpStatusErr.NotFound());
+    return () => {};
+  }
+
+  return topUp.track(status => {
+    if (status === 'detecting') send({ tag: 'Detecting', value: undefined });
+    if (status === 'claiming') send({ tag: 'Claiming', value: undefined });
+    if (status === 'claimed') send({ tag: 'Claimed', value: { finalized: status.finalized } });
+    if (status === 'partial') send({ tag: 'ClaimedPartially', value: { actualClaimed: status.claimed } });
+    if (status === 'failed') send({ tag: 'NotClaimed', value: undefined });
+  });
 });
 ```
 

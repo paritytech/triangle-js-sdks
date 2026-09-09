@@ -505,10 +505,41 @@ balanceSub.onInterrupt(() => console.log('Balance access denied or lost'));
 // Top up the user's balance from one of the calling product's accounts.
 // `derivationIndex` is the same selector as `accounts.getProductAccount` takes:
 // a plain index or a raw 32-byte index (RFC 0022).
-await payments.topUp(1_000_000n, {
-  type: 'productAccount',
-  derivationIndex: 0,
+//
+// The last argument is a product-chosen, opaque 32-byte id. It makes the call
+// idempotent — a retry with the same id rejects with
+// `PaymentTopUpErr.AlreadyExists` instead of starting a second top up — and it
+// is the handle the status subscription is opened on. Persist it before
+// calling, so a product that dies mid-flight can pick the outcome back up: the
+// host drives a registered top up to a terminal status on its own, across a
+// full host restart, and keeps that status indefinitely.
+const topUpId = crypto.getRandomValues(new Uint8Array(32));
+
+// Resolves once the host has registered the top up, not when the funds land.
+// Rejects with `PaymentTopUpErr.SourceBusy` if the source still carries a top up
+// that has not reached a terminal status — one live top up per source.
+await payments.topUp(1_000_000n, { type: 'productAccount', derivationIndex: 0 }, topUpId);
+
+// Track the outcome. `claimed` with `finalized: true`, `claimedPartially` and
+// `notClaimed` are terminal — nothing is sent, and nothing is done, after them.
+const topUpSub = payments.subscribeTopUpStatus(topUpId, status => {
+  switch (status.type) {
+    case 'detecting':
+      return console.log('Waiting for the funds to appear on the source');
+    case 'claiming':
+      return console.log('Claim in progress');
+    case 'claimed':
+      return console.log(status.finalized ? 'Claimed and finalized' : 'Claimed at best head');
+    case 'claimedPartially':
+      // The source never held enough to cover the request — send it the
+      // remainder and register a new top up.
+      return console.log('Only claimed', status.actualClaimed);
+    case 'notClaimed':
+      // The host never observed any balance at the source.
+      return console.log('Nothing could be claimed');
+  }
 });
+topUpSub.onInterrupt(reason => console.log('Top up status lost:', reason));
 
 // Request a payment from the user (host shows confirmation UI)
 const destination = new Uint8Array(32); // 32-byte AccountId

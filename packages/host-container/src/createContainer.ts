@@ -18,6 +18,7 @@ import {
   GenericError,
   PaymentBalanceErr,
   PaymentStatusErr,
+  PaymentTopUpStatusErr,
   PreimageSubmitErr,
   PushNotificationError,
   RemotePermission,
@@ -180,7 +181,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     const defaultHandler: SubscriptionHandler<Method> = (_params, _send, interrupt) => {
       // Cast needed: the default handler ignores typed params/send which TypeScript can't verify
       // matches the generic Method's subscription type without evaluating template literal types.
-      queueMicrotask(() => interrupt(makeDefaultInterrupt() as never));
+      interrupt(makeDefaultInterrupt() as never);
       return () => {
         /* nothing to clean up */
       };
@@ -439,6 +440,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   const handlePaymentStatusSubscribeSlot = makeInterruptSlot('host_payment_status_subscribe', () =>
     enumValue('v1', new PaymentStatusErr.Unknown({ reason: 'Not implemented' })),
   );
+  const handlePaymentTopUpStatusSubscribeSlot = makeInterruptSlot('host_payment_top_up_status_subscribe', () =>
+    enumValue('v1', new PaymentTopUpStatusErr.Unknown({ reason: 'Not implemented' })),
+  );
   const handleCoinPaymentRebalancePurseSlot = makeInterruptSlot('host_coin_payment_rebalance_purse', () =>
     enumValue('v1', new CoinPaymentErr.Internal()),
   );
@@ -667,6 +671,10 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
     handlePaymentStatusSubscribe(handler) {
       return handleV1Subscription(handlePaymentStatusSubscribeSlot, handler);
+    },
+
+    handlePaymentTopUpStatusSubscribe(handler) {
+      return handleV1Subscription(handlePaymentTopUpStatusSubscribeSlot, handler);
     },
 
     handleCoinPaymentCreatePurse(handler) {

@@ -11,7 +11,7 @@ import type {
 } from '@novasamatech/host-api';
 import { createHostApi, enumValue } from '@novasamatech/host-api';
 
-import { resultToPromise, unwrapVersionedResult } from './helpers.js';
+import { resultToPromise, unwrapVersionedResult, unwrapVersionedSubscription } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
 
 /** Purse identifier (RFC 0017). `0xffffffff` is the well-known main purse. */
@@ -31,15 +31,6 @@ type CoinPaymentInterrupt = CodecType<typeof CoinPaymentErr>;
 export const createCoinPayment = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
   const version = 'v1' as const;
-
-  function stream(
-    subscriber: Subscription<{ tag: 'v1'; value: CoinPaymentInterrupt }>,
-  ): Subscription<CoinPaymentInterrupt> {
-    return {
-      unsubscribe: subscriber.unsubscribe,
-      onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
-    };
-  }
 
   return {
     // Create a new firewalled purse and resolve with its assigned id.
@@ -77,7 +68,7 @@ export const createCoinPayment = (transport: Transport = sandboxTransport) => {
       amount: number,
       onStatus: (status: ClearingStatus) => void,
     ): Subscription<CoinPaymentInterrupt> {
-      return stream(
+      return unwrapVersionedSubscription(
         hostApi.coinPaymentRebalancePurse(enumValue(version, { from, to, amount }), payload => {
           if (payload.tag === version) onStatus(payload.value);
         }),
@@ -90,7 +81,7 @@ export const createCoinPayment = (transport: Transport = sandboxTransport) => {
       drainInto: PurseId,
       onStatus: (status: ClearingStatus) => void,
     ): Subscription<CoinPaymentInterrupt> {
-      return stream(
+      return unwrapVersionedSubscription(
         hostApi.coinPaymentDeletePurse(enumValue(version, { target, drainInto }), payload => {
           if (payload.tag === version) onStatus(payload.value);
         }),
@@ -99,7 +90,7 @@ export const createCoinPayment = (transport: Transport = sandboxTransport) => {
 
     // Claim coins from a cheque into the receivable's purse.
     deposit(cheque: Cheque, onStatus: (status: ClearingStatus) => void): Subscription<CoinPaymentInterrupt> {
-      return stream(
+      return unwrapVersionedSubscription(
         hostApi.coinPaymentDeposit(enumValue(version, { cheque }), payload => {
           if (payload.tag === version) onStatus(payload.value);
         }),
@@ -108,7 +99,7 @@ export const createCoinPayment = (transport: Transport = sandboxTransport) => {
 
     // Attempt to return coins associated with a receivable.
     refund(receivable: Receivable, onStatus: (status: ClearingStatus) => void): Subscription<CoinPaymentInterrupt> {
-      return stream(
+      return unwrapVersionedSubscription(
         hostApi.coinPaymentRefund(enumValue(version, { receivable }), payload => {
           if (payload.tag === version) onStatus(payload.value);
         }),
@@ -120,7 +111,7 @@ export const createCoinPayment = (transport: Transport = sandboxTransport) => {
       receivable: Receivable,
       onDelivery: (item: PaymentDelivery) => void,
     ): Subscription<CoinPaymentInterrupt> {
-      return stream(
+      return unwrapVersionedSubscription(
         hostApi.coinPaymentListenForPayment(enumValue(version, { receivable }), payload => {
           if (payload.tag === version) onDelivery(payload.value);
         }),

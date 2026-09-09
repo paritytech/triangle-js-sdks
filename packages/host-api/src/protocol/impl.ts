@@ -140,6 +140,9 @@ import {
   PaymentStatusSubscribeV1_interrupt,
   PaymentStatusSubscribeV1_receive,
   PaymentStatusSubscribeV1_start,
+  PaymentTopUpStatusSubscribeV1_interrupt,
+  PaymentTopUpStatusSubscribeV1_receive,
+  PaymentTopUpStatusSubscribeV1_start,
   PaymentTopUpV1_request,
   PaymentTopUpV1_response,
 } from './v1/payments.js';
@@ -610,5 +613,16 @@ export const hostApiProtocol = {
 
   host_worker_end_operation: versionedRequest(indexer.request(), {
     v1: [WorkerEndOperationV1_request, WorkerEndOperationV1_response],
+  }),
+
+  // Appended rather than placed next to `host_payment_top_up`: the index is a
+  // single running counter, so slotting it into the payment block would shift
+  // every id after it.
+  host_payment_top_up_status_subscribe: versionedSubscription(indexer.subscription(), {
+    v1: [
+      PaymentTopUpStatusSubscribeV1_start,
+      PaymentTopUpStatusSubscribeV1_receive,
+      PaymentTopUpStatusSubscribeV1_interrupt,
+    ],
   }),
 } as const;
