@@ -1,5 +1,5 @@
-import { PaymentRequestErr, PaymentTopUpErr, createTransport } from '@novasamatech/host-api';
-import type { PaymentBalance, PaymentStatus } from '@novasamatech/host-api-wrapper';
+import { PaymentRequestErr, PaymentTopUpErr, PaymentTopUpStatusErr, createTransport } from '@novasamatech/host-api';
+import type { PaymentBalance, PaymentStatus, TopUpStatus } from '@novasamatech/host-api-wrapper';
 import { createPaymentManager } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
@@ -52,12 +52,16 @@ describe('Host API: Payments', () => {
   });
 
   describe('topUp', () => {
+    const topUpId = new Uint8Array(32).fill(0xa1);
+
     it('should resolve with ProductAccount source', async () => {
       const { container, payments } = setup();
 
       container.handlePaymentTopUp((_params, { ok }) => ok(undefined));
 
-      await expect(payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 })).resolves.toBeUndefined();
+      await expect(
+        payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 }, topUpId),
+      ).resolves.toBeUndefined();
     });
 
     it('should resolve with PrivateKey source', async () => {
@@ -66,7 +70,7 @@ describe('Host API: Payments', () => {
 
       container.handlePaymentTopUp((_params, { ok }) => ok(undefined));
 
-      await expect(payments.topUp(50n, { type: 'privateKey', key })).resolves.toBeUndefined();
+      await expect(payments.topUp(50n, { type: 'privateKey', key }, topUpId)).resolves.toBeUndefined();
     });
 
     it('should resolve with Coins source', async () => {
@@ -75,7 +79,7 @@ describe('Host API: Payments', () => {
 
       container.handlePaymentTopUp((_params, { ok }) => ok(undefined));
 
-      await expect(payments.topUp(75n, { type: 'coins', keys })).resolves.toBeUndefined();
+      await expect(payments.topUp(75n, { type: 'coins', keys }, topUpId)).resolves.toBeUndefined();
     });
 
     it('should pass coin keys to handler', async () => {
@@ -86,22 +90,25 @@ describe('Host API: Payments', () => {
       );
       container.handlePaymentTopUp(handler);
 
-      await payments.topUp(75n, { type: 'coins', keys });
+      await payments.topUp(75n, { type: 'coins', keys }, topUpId);
 
-      expect(handler).toHaveBeenCalledWith({ amount: 75n, source: { tag: 'Coins', value: keys } }, expect.anything());
+      expect(handler).toHaveBeenCalledWith(
+        { amount: 75n, source: { tag: 'Coins', value: keys }, id: topUpId },
+        expect.anything(),
+      );
     });
 
-    it('should pass amount and source to handler', async () => {
+    it('should pass amount, source and id to handler', async () => {
       const { container, payments } = setup();
       const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
         ok(undefined),
       );
       container.handlePaymentTopUp(handler);
 
-      await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 });
+      await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 }, topUpId);
 
       expect(handler).toHaveBeenCalledWith(
-        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Index', value: 2 } } },
+        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Index', value: 2 } }, id: topUpId },
         expect.anything(),
       );
     });
@@ -114,10 +121,10 @@ describe('Host API: Payments', () => {
       );
       container.handlePaymentTopUp(handler);
 
-      await payments.topUp(200n, { type: 'productAccount', derivationIndex: rawIndex });
+      await payments.topUp(200n, { type: 'productAccount', derivationIndex: rawIndex }, topUpId);
 
       expect(handler).toHaveBeenCalledWith(
-        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Raw', value: rawIndex } } },
+        { amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Raw', value: rawIndex } }, id: topUpId },
         expect.anything(),
       );
     });
@@ -129,21 +136,16 @@ describe('Host API: Payments', () => {
       );
       container.handlePaymentTopUp(handler);
 
-      await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 }, 5);
+      await payments.topUp(200n, { type: 'productAccount', derivationIndex: 2 }, topUpId, 5);
 
       expect(handler).toHaveBeenCalledWith(
-        { into: 5, amount: 200n, source: { tag: 'ProductAccount', value: { tag: 'Index', value: 2 } } },
+        {
+          into: 5,
+          amount: 200n,
+          source: { tag: 'ProductAccount', value: { tag: 'Index', value: 2 } },
+          id: topUpId,
+        },
         expect.anything(),
-      );
-    });
-
-    it('should reject with InsufficientFunds', async () => {
-      const { container, payments } = setup();
-
-      container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.InsufficientFunds()));
-
-      await expect(payments.topUp(999n, { type: 'productAccount', derivationIndex: 0 })).rejects.toBeInstanceOf(
-        PaymentTopUpErr.InsufficientFunds,
       );
     });
 
@@ -152,20 +154,148 @@ describe('Host API: Payments', () => {
 
       container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.InvalidSource()));
 
-      await expect(payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 })).rejects.toBeInstanceOf(
-        PaymentTopUpErr.InvalidSource,
-      );
+      await expect(
+        payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 }, topUpId),
+      ).rejects.toBeInstanceOf(PaymentTopUpErr.InvalidSource);
     });
 
-    it('should reject with PartialPayment carrying the credited amount', async () => {
+    it('should reject with AlreadyExists when the id is already registered', async () => {
       const { container, payments } = setup();
-      const keys = [new Uint8Array(64).fill(1), new Uint8Array(64).fill(2)];
 
-      container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.PartialPayment({ credited: 40n })));
+      container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.AlreadyExists()));
 
-      await expect(payments.topUp(75n, { type: 'coins', keys })).rejects.toMatchObject({
-        payload: { credited: 40n },
+      await expect(
+        payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 }, topUpId),
+      ).rejects.toBeInstanceOf(PaymentTopUpErr.AlreadyExists);
+    });
+
+    it('should reject with SourceBusy when the source has a live top up', async () => {
+      const { container, payments } = setup();
+
+      container.handlePaymentTopUp((_params, { err }) => err(new PaymentTopUpErr.SourceBusy()));
+
+      await expect(
+        payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 }, topUpId),
+      ).rejects.toBeInstanceOf(PaymentTopUpErr.SourceBusy);
+    });
+
+    it('should reject an id that is not 32 bytes without calling the host', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
+        ok(undefined),
+      );
+      container.handlePaymentTopUp(handler);
+
+      // The strict Bytes(32) codec refuses to encode a wrong-length id; the
+      // failure surfaces as the request's Unknown error carrying the reason.
+      for (const id of [new Uint8Array(16), new Uint8Array(64)]) {
+        const error = await payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 }, id).then(
+          () => null,
+          (e: unknown) => e,
+        );
+
+        expect(error).toBeInstanceOf(PaymentTopUpErr.Unknown);
+        expect((error as InstanceType<typeof PaymentTopUpErr.Unknown>).payload.reason).toMatch(/expected 32 bytes/);
+      }
+      expect(handler).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('subscribeTopUpStatus', () => {
+    it('should deliver the full claim progression', async () => {
+      const { container, payments } = setup();
+
+      container.handlePaymentTopUpStatusSubscribe((_id, send, _interrupt) => {
+        send({ tag: 'Detecting', value: undefined });
+        send({ tag: 'Claiming', value: undefined });
+        send({ tag: 'Claimed', value: { finalized: false } });
+        send({ tag: 'Claimed', value: { finalized: true } });
+        return noop;
       });
+
+      const statuses: TopUpStatus[] = [];
+      payments.subscribeTopUpStatus(new Uint8Array(32).fill(0xa1), s => statuses.push(s));
+
+      await delay(50);
+
+      expect(statuses).toEqual([
+        { type: 'detecting' },
+        { type: 'claiming' },
+        { type: 'claimed', finalized: false },
+        { type: 'claimed', finalized: true },
+      ]);
+    });
+
+    it('should deliver ClaimedPartially with the actual claimed amount', async () => {
+      const { container, payments } = setup();
+
+      container.handlePaymentTopUpStatusSubscribe((_id, send, _interrupt) => {
+        send({ tag: 'ClaimedPartially', value: { actualClaimed: 40n } });
+        return noop;
+      });
+
+      const statuses: TopUpStatus[] = [];
+      payments.subscribeTopUpStatus(new Uint8Array(32).fill(0xa1), s => statuses.push(s));
+
+      await delay(50);
+
+      expect(statuses).toEqual([{ type: 'claimedPartially', actualClaimed: 40n }]);
+    });
+
+    it('should deliver NotClaimed', async () => {
+      const { container, payments } = setup();
+
+      container.handlePaymentTopUpStatusSubscribe((_id, send, _interrupt) => {
+        send({ tag: 'NotClaimed', value: undefined });
+        return noop;
+      });
+
+      const statuses: TopUpStatus[] = [];
+      payments.subscribeTopUpStatus(new Uint8Array(32).fill(0xa1), s => statuses.push(s));
+
+      await delay(50);
+
+      expect(statuses).toEqual([{ type: 'notClaimed' }]);
+    });
+
+    it('should pass the top up id to handler', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUpStatusSubscribe>>(() => noop);
+      container.handlePaymentTopUpStatusSubscribe(handler);
+
+      const id = new Uint8Array(32).fill(0xb2);
+      payments.subscribeTopUpStatus(id, noop);
+
+      await delay(50);
+
+      expect(handler).toHaveBeenCalledWith(id, expect.anything(), expect.anything());
+    });
+
+    it('should interrupt with NotFound for an unknown id', () => {
+      const { container, payments } = setup();
+
+      container.handlePaymentTopUpStatusSubscribe((_id, _send, interrupt) => {
+        // Raised synchronously on purpose: with an in-process host the interrupt
+        // lands before the product's subscribe() returns and must not be lost.
+        interrupt(new PaymentTopUpStatusErr.NotFound());
+        return noop;
+      });
+
+      const interrupted = vi.fn();
+      payments.subscribeTopUpStatus(new Uint8Array(32).fill(0xff), noop).onInterrupt(interrupted);
+
+      expect(interrupted).toHaveBeenCalledWith(expect.any(PaymentTopUpStatusErr.NotFound));
+    });
+
+    it('should throw for an id that is not 32 bytes without contacting the host', () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUpStatusSubscribe>>(() => noop);
+      container.handlePaymentTopUpStatusSubscribe(handler);
+
+      // The start payload is encoded synchronously, so the strict codec throws before anything is sent.
+      expect(() => payments.subscribeTopUpStatus(new Uint8Array(16), noop)).toThrow(/expected 32 bytes/);
+      expect(() => payments.subscribeTopUpStatus(new Uint8Array(64), noop)).toThrow(/expected 32 bytes/);
+      expect(handler).not.toHaveBeenCalled();
     });
   });
 

@@ -409,6 +409,10 @@ export function createHostApi(transport: Transport): HostApi {
       return transport.subscribe('host_payment_status_subscribe', args, callback);
     },
 
+    paymentTopUpStatusSubscribe(args, callback) {
+      return transport.subscribe('host_payment_top_up_status_subscribe', args, callback);
+    },
+
     requestResourceAllocation(payload) {
       return makeRequest(transport.request('host_request_resource_allocation', payload), reason => ({
         tag: payload.tag,

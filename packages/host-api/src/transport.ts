@@ -1,4 +1,5 @@
 import { enumValue, isEnumVariant, resultErr, resultOk, toHex } from '@novasamatech/scale';
+import type { Emitter } from 'nanoevents';
 import { createNanoEvents } from 'nanoevents';
 import type { CodecType } from 'scale-ts';
 
@@ -78,6 +79,11 @@ type InternalSubscription = {
   requestId: string;
   kill(): void;
   listeners: InternalListener[];
+  interruptEvents: Emitter<{ interrupt: (payload: unknown) => void }>;
+  // Set once the host has interrupted. Kept so onInterrupt listeners attached
+  // afterwards — including before subscribe() even returned, when an in-process
+  // host interrupts synchronously — still see the payload.
+  latchedInterrupt?: { payload: unknown };
 };
 
 export function createTransport(provider: Provider): Transport {
@@ -132,6 +138,71 @@ export function createTransport(provider: Provider): Transport {
 
   // subscriptions management (multiplexing)
   const activeSubscriptions: Map<string, InternalSubscription> = new Map();
+
+  // Wires a real subscription on the transport; later subscribers with the same
+  // start payload join it through `listeners` instead of opening another. The
+  // first listener is registered before `start` is posted: an in-process host
+  // may send its first value synchronously while handling it.
+  function openSubscription<const Method extends HostApiMethod>(
+    method: Method,
+    subscriptionKey: string,
+    startPayload: PickMessagePayload<ComposeMessageAction<Method, 'start'>>,
+    listener: InternalListener,
+  ): InternalSubscription {
+    const requestId = createRequestId();
+
+    const stopAction = composeAction(method, 'stop');
+    const interruptAction = composeAction(method, 'interrupt');
+    const receiveAction = composeAction(method, 'receive');
+
+    const unsubscribeReceive = transport.listenMessages(receiveAction, (receivedId, data) => {
+      if (receivedId === requestId) {
+        for (const listener of subscription.listeners) {
+          try {
+            listener.call(data.value);
+          } catch (e) {
+            provider.logger.error(`subscription "${method}" listener threw`, e);
+          }
+        }
+      }
+    });
+
+    const unsubscribeInterrupt = transport.listenMessages(interruptAction, (receivedId, data) => {
+      if (receivedId === requestId) {
+        // The host has dropped this subscription. Tear it down first so a
+        // re-subscribe with the same payload, even from inside onInterrupt,
+        // opens a fresh one instead of joining this dead entry.
+        stopSubscription();
+        subscription.latchedInterrupt = { payload: data.value };
+        subscription.interruptEvents.emit('interrupt', data.value);
+      }
+    });
+
+    const stopSubscription = () => {
+      activeSubscriptions.delete(subscriptionKey);
+      unsubscribeReceive();
+      unsubscribeInterrupt();
+    };
+
+    const subscription: InternalSubscription = {
+      requestId,
+      listeners: [listener],
+      interruptEvents: createNanoEvents(),
+      kill: () => {
+        stopSubscription();
+
+        const stopPayload = enumValue(stopAction, undefined) as PickMessagePayload<
+          ComposeMessageAction<Method, 'stop'>
+        >;
+        transport.postMessage(requestId, stopPayload);
+      },
+    };
+
+    activeSubscriptions.set(subscriptionKey, subscription);
+    transport.postMessage(requestId, startPayload);
+
+    return subscription;
+  }
 
   // Lazy provider subscription — zero per-message decode cost while no
   // debug listener is attached.
@@ -313,7 +384,6 @@ export function createTransport(provider: Provider): Transport {
       checks();
 
       type InterruptPayload = PickMessagePayloadValue<ComposeMessageAction<Method, 'interrupt'>>;
-      const events = createNanoEvents<{ interrupt: (payload: InterruptPayload) => void }>();
 
       const startAction = composeAction(method, 'start');
       const startPayload = enumValue(startAction, payload) as never as PickMessagePayload<
@@ -321,14 +391,12 @@ export function createTransport(provider: Provider): Transport {
       >;
 
       const subscriptionKey = getSubscriptionKey(method, startPayload);
-      let subscription = activeSubscriptions.get(subscriptionKey);
 
       function unsubscribeListener() {
         const subscription = activeSubscriptions.get(subscriptionKey);
         if (subscription) {
           const newListeners = subscription.listeners.filter(listener => listener.call !== callback);
           if (newListeners.length === 0) {
-            activeSubscriptions.delete(subscriptionKey);
             subscription.kill();
           } else {
             subscription.listeners = newListeners;
@@ -341,73 +409,22 @@ export function createTransport(provider: Provider): Transport {
         unsubscribe: unsubscribeListener,
       };
 
-      const publicSubscription: SubscriptionFor<Method> = {
+      const existing = activeSubscriptions.get(subscriptionKey);
+      existing?.listeners.push(listener);
+      const subscription = existing ?? openSubscription(method, subscriptionKey, startPayload, listener);
+
+      return {
         unsubscribe: unsubscribeListener,
         onInterrupt(callback) {
-          return events.on('interrupt', callback);
+          if (subscription.latchedInterrupt) {
+            callback(subscription.latchedInterrupt.payload as InterruptPayload);
+            return () => {
+              /* already delivered */
+            };
+          }
+          return subscription.interruptEvents.on('interrupt', callback as (payload: unknown) => void);
         },
       };
-
-      // wiring up a real subscription
-      if (!subscription) {
-        const requestId = createRequestId();
-
-        const stopAction = composeAction(method, 'stop');
-        const interruptAction = composeAction(method, 'interrupt');
-        const receiveAction = composeAction(method, 'receive');
-
-        const unsubscribeReceive = transport.listenMessages(receiveAction, (receivedId, data) => {
-          if (receivedId === requestId) {
-            const subscription = activeSubscriptions.get(subscriptionKey);
-            if (subscription) {
-              for (const listener of subscription.listeners) {
-                try {
-                  listener.call(data.value);
-                } catch (e) {
-                  provider.logger.error(`subscription "${method}" listener threw`, e);
-                }
-              }
-            }
-          }
-        });
-
-        const unsubscribeInterrupt = transport.listenMessages(interruptAction, (receivedId, data) => {
-          if (receivedId === requestId) {
-            events.emit('interrupt', data.value as InterruptPayload);
-            stopSubscription();
-          }
-        });
-
-        const stopSubscription = () => {
-          unsubscribeReceive();
-          unsubscribeInterrupt();
-          events.events = {};
-        };
-
-        // creating subscription
-
-        subscription = {
-          requestId,
-          kill: () => {
-            stopSubscription();
-
-            const stopPayload = enumValue(stopAction, undefined) as PickMessagePayload<
-              ComposeMessageAction<Method, 'stop'>
-            >;
-
-            transport.postMessage(requestId, stopPayload);
-          },
-          listeners: [listener],
-        };
-
-        activeSubscriptions.set(subscriptionKey, subscription);
-
-        transport.postMessage(requestId, startPayload);
-      } else {
-        subscription.listeners.push(listener);
-      }
-
-      return publicSubscription;
     },
 
     handleSubscription<const Method extends HostApiMethod>(method: Method, handler: SubscriptionHandler<Method>) {
@@ -434,6 +451,9 @@ export function createTransport(provider: Provider): Transport {
           },
           value => {
             interrupted = true;
+            // Undefined while the handler is still running; then the handler's
+            // own cleanup, which must run since no `stop` will ever arrive.
+            const cleanup = subscriptions.get(requestId);
             subscriptions.delete(requestId);
             transport.postMessage(
               requestId,
@@ -441,6 +461,7 @@ export function createTransport(provider: Provider): Transport {
                 ComposeMessageAction<Method, 'interrupt'>
               >,
             );
+            cleanup?.();
           },
         );
 
