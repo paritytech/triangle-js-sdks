@@ -1,3 +1,20 @@
+## 0.11.0 (2026-09-09)
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-container / host-api-wrapper:** `payments.topUp` is asynchronous. `host_payment_top_up` now returns as soon as the host has registered the top up, and the outcome is streamed from the new `host_payment_top_up_status_subscribe` (id 206, appended after every existing method so no id moves). The product supplies a 32-byte `id` that doubles as the idempotency key: `topUp(amount, source, id, into?)`, tracked with `subscribeTopUpStatus(id, cb)` through `detecting`, `claiming`, `claimed { finalized }`, `claimedPartially { actualClaimed }` and `notClaimed`. A source backs one live top up at a time. `PaymentTopUpErr` lost `InsufficientFunds` and `PartialPayment` and gained `AlreadyExists` and `SourceBusy`. Hosts implement `handlePaymentTopUp`, which must return without waiting, and `handlePaymentTopUpStatusSubscribe`. Wire-incompatible for this method, so host and product upgrade together. See the [migration guide](./docs/migration/v0.11.md#asynchronous-paymenttopup).
+- **scale:** `Bytes(n)` and `Hex(n)` refuse to encode a value that is not exactly `n` bytes. A shorter value used to be zero-padded silently, which made distinct values byte-identical on the wire, so every fixed-size field (account ids, genesis hashes, keys, the new top up id) now fails loudly instead of colliding. See the [migration guide](./docs/migration/v0.11.md#strict-fixed-size-bytes-and-hex).
+
+### 🩹 Fixes
+
+- **host-api:** subscription interrupts reach every subscriber. On a multiplexed subscription only the first subscriber's `onInterrupt` used to fire; an interrupt that arrived before `subscribe()` returned, as an in-process host raises it, was lost entirely; and re-subscribing with the same parameters after an interrupt joined the dead subscription and never received anything. Interrupt state now lives on the shared subscription, late `onInterrupt` listeners are called with the latched payload, and teardown forgets the subscription so the next `subscribe` opens a fresh one. See the [migration guide](./docs/migration/v0.11.md#subscription-interrupts).
+- **host-api:** a host handler that calls `interrupt` after it has returned now has its cleanup function run, as it does on `stop`. Previously the transport dropped its bookkeeping but left the handler's listeners alive, still sending frames for a dead request.
+- **host-container:** the default handler for an unimplemented subscription interrupts synchronously instead of on a microtask; the deferral only worked around the lost-interrupt bug above.
+
+### ❤️ Thank You
+
+- Sergey Zhuravlev
+
 ## 0.10.2 (2026-09-01)
 
 ### 🚀 Features
