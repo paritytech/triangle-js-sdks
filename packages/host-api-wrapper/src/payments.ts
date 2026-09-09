@@ -8,7 +8,7 @@ import type {
 } from '@novasamatech/host-api';
 import { createHostApi, derivationIndexOf, enumValue } from '@novasamatech/host-api';
 
-import { resultToPromise, unwrapVersionedResult } from './helpers.js';
+import { resultToPromise, unwrapVersionedResult, unwrapVersionedSubscription } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
 
 export type PaymentBalance = {
@@ -54,16 +54,11 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
       callback: (balance: PaymentBalance) => void,
       purse?: PurseId,
     ): Subscription<CodecType<typeof PaymentBalanceErr>> {
-      const subscriber = hostApi.paymentBalanceSubscribe(enumValue(version, { purse }), payload => {
-        if (payload.tag === version) {
-          callback(payload.value);
-        }
-      });
-
-      return {
-        unsubscribe: subscriber.unsubscribe,
-        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
-      };
+      return unwrapVersionedSubscription(
+        hostApi.paymentBalanceSubscribe(enumValue(version, { purse }), payload => {
+          if (payload.tag === version) callback(payload.value);
+        }),
+      );
     },
 
     /**
@@ -77,7 +72,7 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
      * not reached a terminal status, the call rejects with `SourceBusy`.
      * Track the outcome with `subscribeTopUpStatus(id)`.
      */
-    topUp(amount: bigint, source: TopUpSource, id: Uint8Array, into?: PurseId): Promise<void> {
+    async topUp(amount: bigint, source: TopUpSource, id: Uint8Array, into?: PurseId): Promise<void> {
       const sourceCodec =
         source.type === 'productAccount'
           ? {
@@ -106,28 +101,29 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
       id: Uint8Array,
       callback: (status: TopUpStatus) => void,
     ): Subscription<CodecType<typeof PaymentTopUpStatusErr>> {
-      const subscriber = hostApi.paymentTopUpStatusSubscribe(enumValue(version, id), payload => {
-        if (payload.tag !== version) return;
+      return unwrapVersionedSubscription(
+        hostApi.paymentTopUpStatusSubscribe(enumValue(version, id), payload => {
+          if (payload.tag !== version) return;
 
-        const raw = payload.value;
-        switch (raw.tag) {
-          case 'Detecting':
-            return callback({ type: 'detecting' });
-          case 'Claiming':
-            return callback({ type: 'claiming' });
-          case 'Claimed':
-            return callback({ type: 'claimed', finalized: raw.value.finalized });
-          case 'ClaimedPartially':
-            return callback({ type: 'claimedPartially', actualClaimed: raw.value.actualClaimed });
-          case 'NotClaimed':
-            return callback({ type: 'notClaimed' });
-        }
-      });
-
-      return {
-        unsubscribe: subscriber.unsubscribe,
-        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
-      };
+          const raw = payload.value;
+          switch (raw.tag) {
+            case 'Detecting':
+              return callback({ type: 'detecting' });
+            case 'Claiming':
+              return callback({ type: 'claiming' });
+            case 'Claimed':
+              return callback({ type: 'claimed', finalized: raw.value.finalized });
+            case 'ClaimedPartially':
+              return callback({ type: 'claimedPartially', actualClaimed: raw.value.actualClaimed });
+            case 'NotClaimed':
+              return callback({ type: 'notClaimed' });
+            default:
+              // A new PaymentTopUpStatus variant must be mirrored into TopUpStatus
+              // above, or the product silently misses a status.
+              raw satisfies never;
+          }
+        }),
+      );
     },
 
     requestPayment(amount: bigint, destination: Uint8Array, from?: PurseId): Promise<{ id: string }> {
@@ -138,15 +134,18 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
 
     subscribePaymentStatus(id: string, callback: (status: PaymentStatus) => void): Subscription {
       return hostApi.paymentStatusSubscribe(enumValue(version, id), payload => {
-        if (payload.tag === version) {
-          const raw = payload.value;
-          if (raw.tag === 'Processing') {
-            callback({ type: 'processing' });
-          } else if (raw.tag === 'Completed') {
-            callback({ type: 'completed' });
-          } else if (raw.tag === 'Failed') {
-            callback({ type: 'failed', reason: raw.value });
-          }
+        if (payload.tag !== version) return;
+
+        const raw = payload.value;
+        switch (raw.tag) {
+          case 'Processing':
+            return callback({ type: 'processing' });
+          case 'Completed':
+            return callback({ type: 'completed' });
+          case 'Failed':
+            return callback({ type: 'failed', reason: raw.value });
+          default:
+            raw satisfies never;
         }
       });
     },

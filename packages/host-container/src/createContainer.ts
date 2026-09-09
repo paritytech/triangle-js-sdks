@@ -181,7 +181,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     const defaultHandler: SubscriptionHandler<Method> = (_params, _send, interrupt) => {
       // Cast needed: the default handler ignores typed params/send which TypeScript can't verify
       // matches the generic Method's subscription type without evaluating template literal types.
-      queueMicrotask(() => interrupt(makeDefaultInterrupt() as never));
+      interrupt(makeDefaultInterrupt() as never);
       return () => {
         /* nothing to clean up */
       };

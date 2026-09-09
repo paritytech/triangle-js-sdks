@@ -178,6 +178,27 @@ describe('Host API: Payments', () => {
         payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 }, topUpId),
       ).rejects.toBeInstanceOf(PaymentTopUpErr.SourceBusy);
     });
+
+    it('should reject an id that is not 32 bytes without calling the host', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUp>>((_params, { ok }) =>
+        ok(undefined),
+      );
+      container.handlePaymentTopUp(handler);
+
+      // The strict Bytes(32) codec refuses to encode a wrong-length id; the
+      // failure surfaces as the request's Unknown error carrying the reason.
+      for (const id of [new Uint8Array(16), new Uint8Array(64)]) {
+        const error = await payments.topUp(100n, { type: 'productAccount', derivationIndex: 0 }, id).then(
+          () => null,
+          (e: unknown) => e,
+        );
+
+        expect(error).toBeInstanceOf(PaymentTopUpErr.Unknown);
+        expect((error as InstanceType<typeof PaymentTopUpErr.Unknown>).payload.reason).toMatch(/expected 32 bytes/);
+      }
+      expect(handler).not.toHaveBeenCalled();
+    });
   });
 
   describe('subscribeTopUpStatus', () => {
@@ -250,22 +271,31 @@ describe('Host API: Payments', () => {
       expect(handler).toHaveBeenCalledWith(id, expect.anything(), expect.anything());
     });
 
-    it('should interrupt with NotFound for an unknown id', async () => {
+    it('should interrupt with NotFound for an unknown id', () => {
       const { container, payments } = setup();
 
       container.handlePaymentTopUpStatusSubscribe((_id, _send, interrupt) => {
-        // Deferred: an interrupt raised synchronously from the handler outruns
-        // the product-side subscription bookkeeping and is dropped.
-        setTimeout(() => interrupt(new PaymentTopUpStatusErr.NotFound()), 0);
+        // Raised synchronously on purpose: with an in-process host the interrupt
+        // lands before the product's subscribe() returns and must not be lost.
+        interrupt(new PaymentTopUpStatusErr.NotFound());
         return noop;
       });
 
       const interrupted = vi.fn();
       payments.subscribeTopUpStatus(new Uint8Array(32).fill(0xff), noop).onInterrupt(interrupted);
 
-      await delay(50);
-
       expect(interrupted).toHaveBeenCalledWith(expect.any(PaymentTopUpStatusErr.NotFound));
+    });
+
+    it('should throw for an id that is not 32 bytes without contacting the host', () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentTopUpStatusSubscribe>>(() => noop);
+      container.handlePaymentTopUpStatusSubscribe(handler);
+
+      // The start payload is encoded synchronously, so the strict codec throws before anything is sent.
+      expect(() => payments.subscribeTopUpStatus(new Uint8Array(16), noop)).toThrow(/expected 32 bytes/);
+      expect(() => payments.subscribeTopUpStatus(new Uint8Array(64), noop)).toThrow(/expected 32 bytes/);
+      expect(handler).not.toHaveBeenCalled();
     });
   });
 

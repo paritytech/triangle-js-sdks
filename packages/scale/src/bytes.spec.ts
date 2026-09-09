@@ -24,16 +24,17 @@ describe('Bytes', () => {
     expect(codec.dec(codec.enc(value))).toEqual(value);
   });
 
-  it('should zero-pad a shorter value up to the fixed size', () => {
+  // Zero-padding would make distinct short values byte-identical on the wire.
+  it('should throw on a value shorter than the fixed size', () => {
     const codec = Bytes(4);
 
-    expect(codec.enc(new Uint8Array([1, 2]))).toEqual(new Uint8Array([1, 2, 0, 0]));
+    expect(() => codec.enc(new Uint8Array([1, 2]))).toThrow(/expected 4 bytes, got 2/);
   });
 
   it('should throw on a value longer than the fixed size', () => {
     const codec = Bytes(2);
 
-    expect(() => codec.enc(new Uint8Array([1, 2, 3]))).toThrow(/too long/);
+    expect(() => codec.enc(new Uint8Array([1, 2, 3]))).toThrow(/expected 2 bytes, got 3/);
   });
 
   // scale-ts hands back whatever the stream had left, which reads as a legitimate value.

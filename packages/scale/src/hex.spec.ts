@@ -18,10 +18,10 @@ describe('Hex', () => {
     expect(codec.enc(hex)).toEqual(new Uint8Array([255, 255, 255]));
     expect(codec.dec(codec.enc(hex))).toEqual(hex);
   });
-  it('should pad short values and throw on long ones when size is fixed', () => {
+  it('should throw on short and long values when size is fixed', () => {
     const codec = Hex(3);
 
-    expect(codec.enc('0xff')).toEqual(new Uint8Array([255, 0, 0]));
-    expect(() => codec.enc('0xffffffff')).toThrow(/too long/);
+    expect(() => codec.enc('0xff')).toThrow(/expected 3 bytes, got 1/);
+    expect(() => codec.enc('0xffffffff')).toThrow(/expected 3 bytes, got 4/);
   });
 });

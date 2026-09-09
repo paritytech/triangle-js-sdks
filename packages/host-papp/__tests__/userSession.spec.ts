@@ -1,4 +1,4 @@
-import { enumValue } from '@novasamatech/scale';
+import { enumValue, toHex } from '@novasamatech/scale';
 import type { StatementStoreAdapter } from '@novasamatech/statement-store';
 import {
   DecodingError,
@@ -10,7 +10,7 @@ import {
 import { createMemoryAdapter } from '@novasamatech/storage-adapter';
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, okAsync } from 'neverthrow';
-import { toHex } from 'polkadot-api/utils';
+import { EMPTY } from 'rxjs';
 import { describe, expect, it, vi } from 'vitest';
 
 import { onHostPappDebugMessage } from '../src/debugBus.js';
@@ -26,6 +26,10 @@ import { createPairedUserSession, flush } from './peerSession.js';
 const SESSION_ID = 'user-session-1';
 const IDENTITY_ACCOUNT_ID = new Uint8Array(32).fill(7);
 const PROCESSED_KEY = processedMessagesKey(SESSION_ID);
+
+// Chain identifiers go through the Hex(32) codec, which rejects any other length.
+const GENESIS_HASH = '0x0000000000000000000000000000000000000000000000000000000000000000';
+const CHAIN_ID = '0x2222222222222222222222222222222222222222222222222222222222222222';
 
 // An identity chain adapter with nothing on it: the repository wrapping it is
 // real, so lookups just resolve to null.
@@ -93,7 +97,7 @@ const signRawLegacyRequest = {
 const legacyTransactionRequest = {
   payload: enumValue('v1', {
     signer: createAccountId(new Uint8Array(32).fill(4)),
-    genesisHash: '0x00',
+    genesisHash: GENESIS_HASH,
     callData: bytes(1),
     extensions: [],
     txExtVersion: 0,
@@ -293,7 +297,7 @@ describe('createUserSession debug emits', () => {
           ['peopl.dot', { tag: 'Index', value: 0 }],
           ['product.alpha', { tag: 'Index', value: 0 }],
           {
-            chainId: '0x22',
+            chainId: CHAIN_ID,
             junctions: [{ tag: 'PalletInstance', value: 42 }],
           },
         );
@@ -316,7 +320,7 @@ describe('createUserSession debug emits', () => {
           'caller.dot',
           ['peopl.dot', { tag: 'Index', value: 0 }],
           ['product.alpha', { tag: 'Index', value: 0 }],
-          { chainId: '0x22', junctions: [{ tag: 'PalletInstance', value: 42 }] },
+          { chainId: CHAIN_ID, junctions: [{ tag: 'PalletInstance', value: 42 }] },
           new Uint8Array([1, 2, 3]),
         );
         await flush();
@@ -354,7 +358,7 @@ describe('createUserSession debug emits', () => {
           'peopl.dot',
           { tag: 'Index', value: 0 },
           {
-            chainId: '0x22',
+            chainId: CHAIN_ID,
             junctions: [{ tag: 'PalletInstance', value: 42 }],
           },
         );
