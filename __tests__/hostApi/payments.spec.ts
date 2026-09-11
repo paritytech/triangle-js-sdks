@@ -1,4 +1,10 @@
-import { PaymentRequestErr, PaymentTopUpErr, PaymentTopUpStatusErr, createTransport } from '@novasamatech/host-api';
+import {
+  PaymentRequestErr,
+  PaymentStatusErr,
+  PaymentTopUpErr,
+  PaymentTopUpStatusErr,
+  createTransport,
+} from '@novasamatech/host-api';
 import type { PaymentBalance, PaymentStatus, TopUpStatus } from '@novasamatech/host-api-wrapper';
 import { createPaymentManager } from '@novasamatech/host-api-wrapper';
 import type { ContainerHandlerOf } from '@novasamatech/host-container';
@@ -301,38 +307,75 @@ describe('Host API: Payments', () => {
 
   describe('requestPayment', () => {
     const destination = new Uint8Array(32).fill(0xab);
+    const paymentId = new Uint8Array(32).fill(0xc3);
 
-    it('should return payment receipt on success', async () => {
+    it('should resolve once the host accepts the payment', async () => {
       const { container, payments } = setup();
 
-      container.handlePaymentRequest((_params, { ok }) => ok({ id: 'payment-123' }));
+      container.handlePaymentRequest((_params, { ok }) => ok(undefined));
 
-      const receipt = await payments.requestPayment(500n, destination);
-      expect(receipt).toEqual({ id: 'payment-123' });
+      await expect(payments.requestPayment(500n, destination, paymentId)).resolves.toBeUndefined();
     });
 
-    it('should pass amount and destination to handler', async () => {
+    it('should pass amount, destination and id to handler', async () => {
       const { container, payments } = setup();
       const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentRequest>>((_params, { ok }) =>
-        ok({ id: 'p-1' }),
+        ok(undefined),
       );
       container.handlePaymentRequest(handler);
 
-      await payments.requestPayment(300n, destination);
+      await payments.requestPayment(300n, destination, paymentId);
 
-      expect(handler).toHaveBeenCalledWith({ amount: 300n, destination }, expect.anything());
+      expect(handler).toHaveBeenCalledWith({ amount: 300n, destination, id: paymentId }, expect.anything());
+    });
+
+    it('should round-trip the id to the status subscription unchanged', async () => {
+      const { container, payments } = setup();
+      const id = Uint8Array.from({ length: 32 }, (_, i) => i);
+      const requested: Uint8Array[] = [];
+      const subscribed: Uint8Array[] = [];
+
+      container.handlePaymentRequest((params, { ok }) => {
+        requested.push(params.id);
+        return ok(undefined);
+      });
+      container.handlePaymentStatusSubscribe((statusId, send, _interrupt) => {
+        subscribed.push(statusId);
+        send({ tag: 'Completed', value: undefined });
+        return noop;
+      });
+
+      await payments.requestPayment(300n, destination, id);
+      const statuses: PaymentStatus[] = [];
+      payments.subscribePaymentStatus(id, s => statuses.push(s));
+
+      await delay(50);
+
+      expect(requested).toEqual([id]);
+      expect(subscribed).toEqual([id]);
+      expect(statuses).toEqual([{ type: 'completed' }]);
     });
 
     it('should pass the selected purse (from) to handler', async () => {
       const { container, payments } = setup();
       const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentRequest>>((_params, { ok }) =>
-        ok({ id: 'p-1' }),
+        ok(undefined),
       );
       container.handlePaymentRequest(handler);
 
-      await payments.requestPayment(300n, destination, 9);
+      await payments.requestPayment(300n, destination, paymentId, 9);
 
-      expect(handler).toHaveBeenCalledWith({ from: 9, amount: 300n, destination }, expect.anything());
+      expect(handler).toHaveBeenCalledWith({ from: 9, amount: 300n, destination, id: paymentId }, expect.anything());
+    });
+
+    it('should reject with AlreadyExists when the id is already registered', async () => {
+      const { container, payments } = setup();
+
+      container.handlePaymentRequest((_params, { err }) => err(new PaymentRequestErr.AlreadyExists()));
+
+      await expect(payments.requestPayment(100n, destination, paymentId)).rejects.toBeInstanceOf(
+        PaymentRequestErr.AlreadyExists,
+      );
     });
 
     it('should reject with Rejected', async () => {
@@ -340,7 +383,9 @@ describe('Host API: Payments', () => {
 
       container.handlePaymentRequest((_params, { err }) => err(new PaymentRequestErr.Rejected()));
 
-      await expect(payments.requestPayment(100n, destination)).rejects.toBeInstanceOf(PaymentRequestErr.Rejected);
+      await expect(payments.requestPayment(100n, destination, paymentId)).rejects.toBeInstanceOf(
+        PaymentRequestErr.Rejected,
+      );
     });
 
     it('should reject with InsufficientBalance', async () => {
@@ -348,13 +393,34 @@ describe('Host API: Payments', () => {
 
       container.handlePaymentRequest((_params, { err }) => err(new PaymentRequestErr.InsufficientBalance()));
 
-      await expect(payments.requestPayment(100n, destination)).rejects.toBeInstanceOf(
+      await expect(payments.requestPayment(100n, destination, paymentId)).rejects.toBeInstanceOf(
         PaymentRequestErr.InsufficientBalance,
       );
+    });
+
+    it('should reject an id that is not 32 bytes without calling the host', async () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentRequest>>((_params, { ok }) =>
+        ok(undefined),
+      );
+      container.handlePaymentRequest(handler);
+
+      for (const id of [new Uint8Array(16), new Uint8Array(64)]) {
+        const error = await payments.requestPayment(100n, destination, id).then(
+          () => null,
+          (e: unknown) => e,
+        );
+
+        expect(error).toBeInstanceOf(PaymentRequestErr.Unknown);
+        expect((error as InstanceType<typeof PaymentRequestErr.Unknown>).payload.reason).toMatch(/expected 32 bytes/);
+      }
+      expect(handler).not.toHaveBeenCalled();
     });
   });
 
   describe('subscribePaymentStatus', () => {
+    const paymentId = new Uint8Array(32).fill(0xc3);
+
     it('should deliver Processing then Completed', async () => {
       const { container, payments } = setup();
 
@@ -365,7 +431,7 @@ describe('Host API: Payments', () => {
       });
 
       const statuses: PaymentStatus[] = [];
-      payments.subscribePaymentStatus('payment-123', s => statuses.push(s));
+      payments.subscribePaymentStatus(paymentId, s => statuses.push(s));
 
       await delay(50);
 
@@ -381,11 +447,28 @@ describe('Host API: Payments', () => {
       });
 
       const statuses: PaymentStatus[] = [];
-      payments.subscribePaymentStatus('payment-abc', s => statuses.push(s));
+      payments.subscribePaymentStatus(paymentId, s => statuses.push(s));
 
       await delay(50);
 
       expect(statuses).toEqual([{ type: 'failed', reason: 'insufficient recycler vouchers' }]);
+    });
+
+    it('should deliver PartiallyClaimed with the amount that reached the destination', async () => {
+      const { container, payments } = setup();
+
+      container.handlePaymentStatusSubscribe((_paymentId, send, _interrupt) => {
+        send({ tag: 'Processing', value: undefined });
+        send({ tag: 'PartiallyClaimed', value: 40n });
+        return noop;
+      });
+
+      const statuses: PaymentStatus[] = [];
+      payments.subscribePaymentStatus(paymentId, s => statuses.push(s));
+
+      await delay(50);
+
+      expect(statuses).toEqual([{ type: 'processing' }, { type: 'partiallyClaimed', actualClaimed: 40n }]);
     });
 
     it('should pass payment id to handler', async () => {
@@ -393,11 +476,36 @@ describe('Host API: Payments', () => {
       const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentStatusSubscribe>>(() => noop);
       container.handlePaymentStatusSubscribe(handler);
 
-      payments.subscribePaymentStatus('my-payment-id', noop);
+      const id = new Uint8Array(32).fill(0xd4);
+      payments.subscribePaymentStatus(id, noop);
 
       await delay(50);
 
-      expect(handler).toHaveBeenCalledWith('my-payment-id', expect.anything(), expect.anything());
+      expect(handler).toHaveBeenCalledWith(id, expect.anything(), expect.anything());
+    });
+
+    it('should interrupt with PaymentNotFound for an unknown id', () => {
+      const { container, payments } = setup();
+
+      container.handlePaymentStatusSubscribe((_paymentId, _send, interrupt) => {
+        interrupt(new PaymentStatusErr.PaymentNotFound());
+        return noop;
+      });
+
+      const interrupted = vi.fn();
+      payments.subscribePaymentStatus(new Uint8Array(32).fill(0xff), noop).onInterrupt(interrupted);
+
+      expect(interrupted).toHaveBeenCalledWith(expect.any(PaymentStatusErr.PaymentNotFound));
+    });
+
+    it('should throw for an id that is not 32 bytes without contacting the host', () => {
+      const { container, payments } = setup();
+      const handler = vi.fn<ContainerHandlerOf<typeof container.handlePaymentStatusSubscribe>>(() => noop);
+      container.handlePaymentStatusSubscribe(handler);
+
+      expect(() => payments.subscribePaymentStatus(new Uint8Array(16), noop)).toThrow(/expected 32 bytes/);
+      expect(() => payments.subscribePaymentStatus(new Uint8Array(64), noop)).toThrow(/expected 32 bytes/);
+      expect(handler).not.toHaveBeenCalled();
     });
   });
 });

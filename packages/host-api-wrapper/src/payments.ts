@@ -2,6 +2,7 @@ import type {
   AccountSelector,
   CodecType,
   PaymentBalanceErr,
+  PaymentStatusErr,
   PaymentTopUpStatusErr,
   Subscription,
   Transport,
@@ -15,7 +16,19 @@ export type PaymentBalance = {
   available: bigint;
 };
 
-export type PaymentStatus = { type: 'processing' } | { type: 'completed' } | { type: 'failed'; reason: string };
+/**
+ * Progress of a `requestPayment`. `completed`, `failed` and `partiallyClaimed`
+ * are terminal; the host sends nothing after them and takes no further action,
+ * but keeps the status readable indefinitely.
+ *
+ * `partiallyClaimed` means only `actualClaimed`, less than the requested
+ * amount, reached the destination.
+ */
+export type PaymentStatus =
+  | { type: 'processing' }
+  | { type: 'completed' }
+  | { type: 'failed'; reason: string }
+  | { type: 'partiallyClaimed'; actualClaimed: bigint };
 
 /**
  * Progress of a `topUp`. `claimed` with `finalized: true`, `claimedPartially`
@@ -126,28 +139,51 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
       );
     },
 
-    requestPayment(amount: bigint, destination: Uint8Array, from?: PurseId): Promise<{ id: string }> {
+    /**
+     * Registers a payment to `destination` and resolves as soon as the host has
+     * accepted it — not when the funds arrive. Once accepted, the host drives the
+     * payment to a terminal status on its own, across a full host restart if
+     * need be.
+     *
+     * `id` is a 32-byte opaque identifier chosen by the product and is the
+     * idempotency key: re-registering a known `id` rejects with `AlreadyExists`.
+     * Track the outcome with `subscribePaymentStatus(id)`.
+     */
+    async requestPayment(amount: bigint, destination: Uint8Array, id: Uint8Array, from?: PurseId): Promise<void> {
       return resultToPromise(
-        unwrapVersionedResult(version, hostApi.paymentRequest(enumValue(version, { from, amount, destination }))),
+        unwrapVersionedResult(version, hostApi.paymentRequest(enumValue(version, { from, amount, destination, id }))),
       );
     },
 
-    subscribePaymentStatus(id: string, callback: (status: PaymentStatus) => void): Subscription {
-      return hostApi.paymentStatusSubscribe(enumValue(version, id), payload => {
-        if (payload.tag !== version) return;
+    /**
+     * Follows a registered payment to its terminal status. Statuses are kept
+     * indefinitely, so a subscription opened long after the fact still reports
+     * the outcome. Interrupted with `PaymentStatusErr.PaymentNotFound` when the
+     * host knows nothing about `id`.
+     */
+    subscribePaymentStatus(
+      id: Uint8Array,
+      callback: (status: PaymentStatus) => void,
+    ): Subscription<CodecType<typeof PaymentStatusErr>> {
+      return unwrapVersionedSubscription(
+        hostApi.paymentStatusSubscribe(enumValue(version, id), payload => {
+          if (payload.tag !== version) return;
 
-        const raw = payload.value;
-        switch (raw.tag) {
-          case 'Processing':
-            return callback({ type: 'processing' });
-          case 'Completed':
-            return callback({ type: 'completed' });
-          case 'Failed':
-            return callback({ type: 'failed', reason: raw.value });
-          default:
-            raw satisfies never;
-        }
-      });
+          const raw = payload.value;
+          switch (raw.tag) {
+            case 'Processing':
+              return callback({ type: 'processing' });
+            case 'Completed':
+              return callback({ type: 'completed' });
+            case 'Failed':
+              return callback({ type: 'failed', reason: raw.value });
+            case 'PartiallyClaimed':
+              return callback({ type: 'partiallyClaimed', actualClaimed: raw.value });
+            default:
+              raw satisfies never;
+          }
+        }),
+      );
     },
   };
 };

@@ -541,15 +541,34 @@ const topUpSub = payments.subscribeTopUpStatus(topUpId, status => {
 });
 topUpSub.onInterrupt(reason => console.log('Top up status lost:', reason));
 
-// Request a payment from the user (host shows confirmation UI)
+// Request a payment from the user's balance to a destination account (host
+// shows confirmation UI). Like `topUp`, the product supplies an opaque 32-byte
+// id: a retry with the same id rejects with `PaymentRequestErr.AlreadyExists`
+// instead of paying twice, and the id is the handle the status subscription is
+// opened on. Persist it before calling — the host drives a registered payment to
+// a terminal status on its own, across a full host restart, and keeps that
+// status indefinitely.
 const destination = new Uint8Array(32); // 32-byte AccountId
-const receipt = await payments.requestPayment(500_000n, destination);
+const paymentId = crypto.getRandomValues(new Uint8Array(32));
 
-// Track payment settlement
-const statusSub = payments.subscribePaymentStatus(receipt.id, status => {
-  if (status.type === 'completed') console.log('Payment settled');
-  if (status.type === 'failed') console.log('Payment failed:', status.reason);
+// Resolves once the host has registered the payment, not when it settles.
+await payments.requestPayment(500_000n, destination, paymentId);
+
+// Track settlement. `completed`, `failed` and `partiallyClaimed` are terminal.
+const statusSub = payments.subscribePaymentStatus(paymentId, status => {
+  switch (status.type) {
+    case 'processing':
+      return console.log('Payment in progress');
+    case 'completed':
+      return console.log('Payment settled');
+    case 'failed':
+      return console.log('Payment failed:', status.reason);
+    case 'partiallyClaimed':
+      // Only part of the amount reached the destination.
+      return console.log('Only delivered', status.actualClaimed);
+  }
 });
+statusSub.onInterrupt(reason => console.log('Payment status lost:', reason));
 ```
 
 ### Coin payment (RFC 0017)
