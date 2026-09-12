@@ -119,7 +119,6 @@ export {
   PaymentBalance,
   PaymentBalanceErr,
   PaymentId,
-  PaymentReceipt,
   PaymentRequestErr,
   PaymentStatus,
   PaymentStatusErr,

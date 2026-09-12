@@ -10,7 +10,8 @@ import { DerivationIndex } from './accounts.js';
 
 export const Sr25519SecretKey = Bytes(64);
 
-export const PaymentId = str;
+/** Product-supplied, opaque 32-byte idempotency key for a payment request. */
+export const PaymentId = Bytes(32);
 
 /** Product-supplied, opaque 32-byte idempotency key for a top up. */
 export const PaymentTopUpId = Bytes(32);
@@ -29,14 +30,17 @@ export const PaymentBalance = Struct({
   available: u128,
 });
 
-export const PaymentReceipt = Struct({
-  id: PaymentId,
-});
-
+// A status never advances once it reaches a terminal variant (`Completed`,
+// `Failed`, `PartiallyClaimed`); the host takes no further action and keeps the
+// status readable indefinitely.
 export const PaymentStatus = Enum({
   Processing: _void,
+  // Terminal: the full amount reached the destination.
   Completed: _void,
+  // Terminal: the payment did not go through; carries the reason.
   Failed: str,
+  // Terminal: only this amount reached the destination, less than requested.
+  PartiallyClaimed: u128,
 });
 
 // A status never advances once it reaches a terminal variant (`Claimed` with
@@ -81,6 +85,7 @@ export const PaymentTopUpStatusErr = ErrEnum('PaymentTopUpStatusErr', {
 });
 
 export const PaymentRequestErr = ErrEnum('PaymentRequestErr', {
+  AlreadyExists: [_void, 'a payment with this id already exists'],
   Rejected: [_void, 'rejected'],
   InsufficientBalance: [_void, 'insufficient balance'],
   Unknown: [GenericErr, 'unknown error'],
@@ -115,8 +120,9 @@ export const PaymentRequestV1_request = Struct({
   from: Option(CoinPaymentPurseId),
   amount: u128,
   destination: Bytes(32),
+  id: PaymentId,
 });
-export const PaymentRequestV1_response = CallResult(PaymentReceipt, PaymentRequestErr);
+export const PaymentRequestV1_response = CallResult(_void, PaymentRequestErr);
 
 // host_payment_status_subscribe
 

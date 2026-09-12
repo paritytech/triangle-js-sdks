@@ -676,31 +676,52 @@ container.handlePaymentTopUpStatusSubscribe((id, send, interrupt) => {
 
 ### handlePaymentRequest
 
-Called when a product requests a payment from the user's balance. Host MUST show a confirmation UI. Returns a receipt immediately; settlement is asynchronous.
+Called when a product requests a payment from the user's balance to a destination account. Host MUST show a
+confirmation UI.
+
+The handler MUST return as soon as the payment is registered — it does not wait for settlement. `id` is an opaque
+32-byte `Uint8Array` chosen by the product and is the idempotency key: answer `AlreadyExists` if a payment is already
+registered under it. The outcome is reported through `handlePaymentStatusSubscribe`, keyed on the same id.
+
+Once the host accepts a payment it owns it: it MUST drive the operation to a terminal status, surviving a full host
+restart, and it MUST keep that status readable indefinitely.
 
 ```ts
-container.handlePaymentRequest(async ({ amount, destination }, { ok, err }) => {
-  const approved = await showPaymentConfirmation({ amount, destination });
-  if (!approved) return err(new PaymentRequestErr.Denied());
+container.handlePaymentRequest(async ({ amount, destination, id }, { ok, err }) => {
+  // `id` is a raw 32-byte Uint8Array, so key storage by its hex form.
+  const key = toHex(id);
+  if (payments.has(key)) return err(new PaymentRequestErr.AlreadyExists());
 
-  const paymentId = await paymentService.submit(amount, destination);
-  return ok({ id: paymentId });
+  const approved = await showPaymentConfirmation({ amount, destination });
+  if (!approved) return err(new PaymentRequestErr.Rejected());
+
+  payments.register(key, { amount, destination });
+  return ok(undefined);
 });
 ```
 
 ### handlePaymentStatusSubscribe
 
-Called when a product subscribes to the status of a previously requested payment.
+Called when a product subscribes to the outcome of a payment it registered. Interrupt with
+`PaymentStatusErr.PaymentNotFound` when the id is unknown.
+
+`Completed`, `Failed` and `PartiallyClaimed` are terminal — send nothing after them, and take no further action on the
+operation. `PartiallyClaimed` carries the amount that actually reached the destination, less than requested.
 
 ```ts
-container.handlePaymentStatusSubscribe((paymentId, send, interrupt) => {
-  const unsubscribe = paymentService.trackStatus(paymentId, status => {
+container.handlePaymentStatusSubscribe((id, send, interrupt) => {
+  const payment = payments.get(toHex(id));
+  if (!payment) {
+    interrupt(new PaymentStatusErr.PaymentNotFound());
+    return () => {};
+  }
+
+  return payment.track(status => {
     if (status === 'processing') send({ tag: 'Processing', value: undefined });
     if (status === 'completed') send({ tag: 'Completed', value: undefined });
+    if (status === 'partial') send({ tag: 'PartiallyClaimed', value: status.delivered });
     if (status === 'failed') send({ tag: 'Failed', value: 'settlement failed' });
   });
-
-  return () => unsubscribe();
 });
 ```
 

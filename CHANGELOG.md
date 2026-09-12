@@ -1,3 +1,9 @@
+## 0.12.0 (Unreleased)
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-container / host-api-wrapper:** `payments.requestPayment` is idempotent and product-keyed, mirroring `topUp`. `PaymentId` changes from a string to an opaque 32-byte value supplied by the product: `requestPayment(amount, destination, id, from?)` resolves with nothing once the host has registered the payment, and `PaymentReceipt` is removed. Re-registering a known id fails with the new `PaymentRequestErr.AlreadyExists` (variant 0, shifting `Rejected`, `InsufficientBalance` and `Unknown` by one). `subscribePaymentStatus(id, cb)` takes the 32-byte id, returns `Subscription<PaymentStatusErr>` with the version envelope stripped from interrupts, and reports the new terminal `PaymentStatus.PartiallyClaimed(u128)` — `{ type: 'partiallyClaimed', actualClaimed }` — when only part of the amount reached the destination; it is appended, so existing status indices are unchanged. Hosts receive `id` in `handlePaymentRequest`, answer `ok(undefined)`, and key `handlePaymentStatusSubscribe` on the same id. Wire-incompatible with 0.11 for `host_payment_request` and `host_payment_status_subscribe`, so host and product upgrade together; no method id moves. See the [migration guide](./docs/migration/v0.12.md#idempotent-paymentrequestpayment).
+
 ## 0.11.0 (2026-09-09)
 
 ### ⚠️ Breaking Changes
