@@ -8,12 +8,14 @@ Product SDK provides a set of tools to integrate your application with any Polka
 Core features:
 - Generic injectWeb3 provider similar to [polkadot-js extension](https://polkadot.js.org/extension/)
 - Chat module integration
+- Product renderer for custom chat messages, Pocket cards and other product-drawn bodies
 - Statement store integration
 - Accounts provider for product accounts and signing
 - Redirect [PAPI](https://papi.how/) requests to host application
 - Receive additional information from host application - supported chains, theme, etc.
 - Local storage for persisting data in the host application
 - Preimage manager for looking up and submitting preimages
+- Pocket cards and the host's contact picker
 
 ## Installation
 
@@ -85,6 +87,24 @@ const unsubscribe = metaProvider.subscribeConnectionStatus((status) => {
 });
 ```
 
+### Subscriptions
+
+Every streaming method returns a `Subscription`: call `unsubscribe()` to stop it, and `onInterrupt(callback)` to learn
+when the host ends it. The callback receives the method's error — `GenericError` unless the method documents its own
+(payments, coin payment) — or `undefined` when the host ended the stream cleanly. A transport-level failure (the host
+denied or does not support the call, a malformed frame, …) is folded into that same error type, as for request methods.
+
+```ts
+import { createThemeProvider } from '@novasamatech/host-api-wrapper';
+
+const subscription = createThemeProvider().subscribeTheme(theme => console.log(theme));
+
+subscription.onInterrupt(reason => {
+  if (reason === undefined) return; // ended cleanly
+  console.error('theme stream failed:', reason.payload.reason);
+});
+```
+
 ### Chat Integration
 
 ```ts
@@ -124,6 +144,8 @@ const subscriber = chat.subscribeAction((action) => {
     console.log('Received message:', action.value);
   }
   if (payload.tag === 'ActionTriggered') {
+    // A press on a button the host drew for an `Actions` message. Actions inside
+    // a product-rendered `Custom` message arrive through the product renderer.
     console.log('User triggered action:', action.value)
   }
 });
@@ -139,25 +161,76 @@ await chat.sendMessage('my-product-room', {
   value: { messageType: 'my-custom-type', payload: new Uint8Array([/* ... */]) }
 });
 
-// Handling custom message rendering requests from host
-const unsubscribeRenderer = chat.onCustomMessageRenderingRequest((messageType, payload, render) => {
-  // Build a CustomRendererNode tree and pass it to render()
+```
+
+A `Custom` message is drawn by the product itself — see [Product renderer](#product-renderer).
+
+**Note:** Messages sent before registration will be queued and sent automatically after successful registration.
+
+### Product renderer
+
+A product draws parts of host surfaces — custom chat messages, Pocket card faces, input widget candidates — as
+`RendererNode` trees the host renders from its own design system. The host starts a render for each body it shows
+(`renderer.render`) with a `RenderContext` naming the body and the product-defined payload; the product streams trees
+back for as long as the body is on screen. Actions inside a tree (button presses, text field changes) come back
+scoped to the same context.
+
+A product has **one** render handler; match on `request.context` to tell the surfaces apart.
+[`@novasamatech/product-react-renderer`](../product-react-renderer) builds these handlers from React components.
+
+```ts
+import { matchChatMessageRenderers, productRenderer } from '@novasamatech/host-api-wrapper';
+
+const unregister = productRenderer.onRender((request, render) => {
+  const { context, payload, subscribeActions, end } = request;
+
+  if (context.tag !== 'PocketCard') {
+    // Ends the stream with an error: the host shows the product's identity and no body.
+    end(`Unsupported surface ${context.tag}`);
+    return () => {};
+  }
+
+  // Each tree replaces the previous one.
   render({
-    tag: 'Text',
+    tag: 'Button',
     value: {
-      modifiers: undefined,
-      props: { style: undefined, color: undefined },
-      children: [{ tag: 'String', value: 'Custom message content' }],
+      modifiers: [],
+      props: { text: `Card ${context.value.cardId}`, variant: 'primary', enabled: undefined, loading: undefined, clickAction: 'open' },
+      children: [],
     },
   });
 
-  return () => {
-    // cleanup when subscription ends
-  };
+  // Actions triggered inside this body only. `payload` is empty for a button
+  // press and the UTF-8 bytes of the new value for a text field change.
+  const unsubscribe = subscribeActions((actionId, actionPayload) => {
+    console.log('action', actionId, actionPayload);
+  });
+
+  // Runs when the body leaves the screen, or after `end()`.
+  return unsubscribe;
+});
+
+// Custom chat messages, dispatched by `messageType`. A message type missing
+// from the map ends its stream with an error.
+productRenderer.onRender(
+  matchChatMessageRenderers({
+    'my-custom-type': ({ roomId, messageId, messageType, payload, subscribeActions, end }, render) => {
+      render({ tag: 'String', value: `${messageType} ${messageId} in ${roomId}` });
+      return () => {};
+    },
+  }),
+);
+
+// Every action across all rendered bodies, each with the context it came from.
+productRenderer.subscribeActions(({ context, actionId, payload }) => {
+  console.log(context.tag, actionId, payload);
 });
 ```
 
-**Note:** Messages sent before registration will be queued and sent automatically after successful registration.
+`end()` without a reason finishes the stream cleanly and leaves the last tree on screen. Registering another handler
+replaces the previous one for requests that arrive afterwards; the function `onRender` returns unregisters it and ends
+the bodies that are still open. Use `createProductRenderer(transport)` for a non-default transport, and
+`isSameRenderContext(a, b)` to compare contexts yourself.
 
 ### Statement Store
 
@@ -219,7 +292,7 @@ subscription.unsubscribe();
 The Accounts Provider allows you to access product accounts and create signers for signing transactions.
 
 ```ts
-import { accounts } from '@novasamatech/host-api-wrapper';
+import { accounts, hostContacts } from '@novasamatech/host-api-wrapper';
 import type { ProductAccount, ProofContext } from '@novasamatech/host-api-wrapper';
 
 // Get the user's primary DotNS username (RFC-0014)
@@ -338,6 +411,15 @@ if (vrfResult.isOk()) {
   console.error('signVrf failed:', vrfResult.error.tag);
 }
 
+// Sign raw data WITHOUT the `<Bytes>` watermark — a temporary compatibility API
+// for runtime ownership proofs, deprecated on arrival. A Uint8Array is signed as
+// bytes, a string goes through the host's `Payload` decoding. Requires signing
+// authorization and an explicit user confirmation.
+if (accountResult.isOk()) {
+  const signed = await accounts.signRawUnwatermarkedDeprecated(accountResult.value, new Uint8Array([0x48, 0x69]));
+  // …and for a legacy account: accounts.signRawUnwatermarkedDeprecatedWithLegacyAccount(legacyAccount, bytes)
+}
+
 // Get legacy accounts (external wallets)
 const legacyAccountsResult = await accounts.getLegacyAccounts();
 
@@ -358,6 +440,22 @@ const productAccountResult = await accounts.getProductAccount('product.dot', 0);
 if (productAccountResult.isOk()) {
   const productSigner = accounts.getProductAccountSigner(productAccountResult.value);
   const signedTx = await tx.signAndSubmit(productSigner);
+}
+
+// Pay a contact the user picked (see "Contacts"): put the handle bytes where the
+// recipient account goes in the call, and list the handle in `contacts`. The
+// host replaces it with the contact's account before anything is shown or
+// signed, and rejects with `CreateTransactionErr.UnknownContact` otherwise.
+const picked = await hostContacts.pick();
+
+if (picked.type === 'picked' && productAccountResult.isOk()) {
+  const signer = accounts.getProductAccountSigner(productAccountResult.value, 'createTransaction', {
+    contacts: [picked.handle],
+  });
+  // `AccountId` from polkadot-api: the handle's 32 bytes stand in for the recipient.
+  const dest = MultiAddress.Id(AccountId().dec(picked.handle.bytes));
+  const transfer = api.tx.Balances.transfer_keep_alive({ dest, value: 1n });
+  await transfer.signAndSubmit(signer);
 }
 
 // Create a signer for a legacy account.
@@ -402,6 +500,11 @@ const config = await storage.readJSON('config');
 
 // Clear a key
 await storage.clear('key');
+
+// Read another product's storage. Succeeds only when that product's manifest
+// grants yours the `storage` scope; rejects with `StorageReadV2Err.AccessNotGranted`
+// otherwise — for an unknown product as well.
+const shared = await storage.readJSON('config', 'other-product.dot');
 
 // Subscribe to a key. The callback fires with the current value right away,
 // then on every later write or clear. `undefined` means the key is absent.
@@ -457,7 +560,7 @@ Available device permission values: `'Notifications'`, `'Camera'`, `'Microphone'
 
 Available remote permission tags: `'Remote'` (HTTP/WS domain patterns), `'WebRTC'`, `'ChainSubmit'`, `'PreimageSubmit'`, `'StatementSubmit'`.
 
-> **Note:** `remote_chain_transaction_broadcast`, `remote_preimage_submit`, and `remote_statement_store_submit` implicitly trigger a permission prompt if the relevant permission has not yet been resolved. Call `requestPermission(...)` proactively before entering those flows for a controlled UX.
+> **Note:** `chain.broadcastTransaction`, `preimage.submit`, and `statementStore.submit` implicitly trigger a permission prompt if the relevant permission has not yet been resolved. Call `requestPermission(...)` proactively before entering those flows for a controlled UX.
 
 ### Preimage Manager
 
@@ -576,7 +679,8 @@ statusSub.onInterrupt(reason => console.log('Payment status lost:', reason));
 Firewalled purses, cheques, and receivables. The long-running operations
 (rebalance, delete, deposit, refund, listen) stream clearing status through a
 callback and return a `Subscription`; `onInterrupt` fires with a
-`CoinPaymentErr` if the host tears the stream down.
+`CoinPaymentErr` if the host tears the stream down (`Internal` for a transport
+failure), or with `undefined` when it ends cleanly.
 
 ```ts
 import { createCoinPayment } from '@novasamatech/host-api-wrapper';
@@ -603,4 +707,48 @@ sub.onInterrupt(err => console.log('deposit interrupted:', err));
 coinPayment.listenForPayment(receivable, item => {
   if (item.tag === 'Cheque') console.log('received cheque:', item.value.amount);
 });
+```
+
+### Pocket
+
+A product's cards in the host's Pocket collection. Card faces are drawn through the
+[product renderer](#product-renderer) with a `PocketCard` render context.
+
+```ts
+import { hostPocket, createPocket } from '@novasamatech/host-api-wrapper';
+
+// Emits the whole card set right away, then again after every change.
+const cardsSub = hostPocket.subscribeCards(cards => {
+  for (const { cardId, privileged } of cards) {
+    console.log(cardId, privileged ? '(placed by the host)' : '');
+  }
+});
+
+// Removing a card that is not present resolves; a privileged card rejects with
+// `PocketRemoveCardErr.Privileged`.
+await hostPocket.removeCard('ticket-42');
+```
+
+### Contacts
+
+Opens the host's contact picker. The product never reads the contact list — it gets only an opaque handle for the
+person the user chose, so there is no permission to request. The handle is not an address: it resolves to an account
+only inside a `createTransaction` that lists it in `contacts` (see [Accounts Provider](#accounts-provider)).
+
+```ts
+import { hostContacts } from '@novasamatech/host-api-wrapper';
+
+const outcome = await hostContacts.pick();
+
+switch (outcome.type) {
+  case 'picked':
+    console.log('handle:', outcome.handle.bytes); // 32 bytes, stable per person
+    break;
+  case 'dismissed':
+    // the user closed the picker — worth offering again
+    break;
+  case 'noContacts':
+    // nobody to pick — no picker was shown
+    break;
+}
 ```

@@ -1,7 +1,6 @@
 import { Status } from '@novasamatech/scale';
 import { Struct, _void, str } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
 import { GenericError } from '../commonCodecs.js';
 
 // Platform category a host runs on. Variant order is the wire encoding — keep
@@ -16,7 +15,8 @@ export const HostInfo = Struct({
 });
 
 export const HostInfoV1_request = _void;
-export const HostInfoV1_response = CallResult(HostInfo, GenericError);
+export const HostInfoV1_response = HostInfo;
+export const HostInfoV1_error = GenericError;
 
 // Product context bound to the current host runtime.
 export const ProductContext = Struct({
@@ -24,4 +24,5 @@ export const ProductContext = Struct({
 });
 
 export const GetProductContextV1_request = _void;
-export const GetProductContextV1_response = CallResult(ProductContext, GenericError);
+export const GetProductContextV1_response = ProductContext;
+export const GetProductContextV1_error = GenericError;

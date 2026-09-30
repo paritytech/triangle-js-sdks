@@ -1,7 +1,5 @@
 import { nanoid } from 'nanoid';
 
-import type { ComposeMessageAction } from './protocol/messageCodec.js';
-
 export function delay(ttl: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ttl));
 }
@@ -23,13 +21,6 @@ export const promiseWithResolvers = <const T>(): PromiseWithResolvers<T> => {
   // @ts-expect-error before assign
   return { promise, resolve, reject };
 };
-
-export function composeAction<const Method extends string, const Suffix extends string>(
-  method: Method,
-  suffix: Suffix,
-) {
-  return `${method}_${suffix}` as ComposeMessageAction<Method, Suffix>;
-}
 
 export function createRequestId() {
   return nanoid(8);

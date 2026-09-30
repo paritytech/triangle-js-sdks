@@ -1,12 +1,26 @@
 import type { ResultAsync } from 'neverthrow';
 import { errAsync, fromPromise, okAsync } from 'neverthrow';
-import type { Codec, CodecType } from 'scale-ts';
 
 import { extractErrorMessage } from './helpers.js';
-import type { CallErrorTransportFailure } from './protocol/callError.js';
-import { CALL_ERROR_FAILURE } from './protocol/callError.js';
+import type { CallErrorMarker, CallErrorTransportFailure } from './protocol/callError.js';
+import { CALL_ERROR_FAILURE, isCallErrorMarker } from './protocol/callError.js';
 import { GenericError } from './protocol/commonCodecs.js';
-import type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './protocol/impl.js';
+import type {
+  InterruptPayload,
+  MethodName,
+  ProtocolMethod,
+  ProtocolTrait,
+  ReceivePayload,
+  RequestMethodName,
+  RequestPayload,
+  ResponsePayload,
+  StartPayload,
+  SubscriptionMethodName,
+  TraitName,
+  VersionedProtocolRequest,
+  VersionedProtocolSubscription,
+} from './protocol/impl.js';
+import { hostApiProtocol } from './protocol/impl.js';
 import {
   CreateProofErr,
   GetAliasErr,
@@ -21,31 +35,21 @@ import {
 import { ChainInfoErr } from './protocol/v1/chainInteraction.js';
 import { ChatBotRegistrationErr, ChatMessagePostingErr, ChatRoomRegistrationErr } from './protocol/v1/chat.js';
 import { CoinPaymentErr } from './protocol/v1/coinPayment.js';
+import { ContactsPickErr } from './protocol/v1/contacts.js';
 import { CreateTransactionErr } from './protocol/v1/createTransaction.js';
 import { DeriveEntropyErr } from './protocol/v1/deriveEntropy.js';
 import { HandshakeErr } from './protocol/v1/handshake.js';
-import { StorageErr } from './protocol/v1/localStorage.js';
+import { StorageErr, StorageReadV2Err } from './protocol/v1/localStorage.js';
 import { NavigateToErr } from './protocol/v1/navigation.js';
 import { PushNotificationError } from './protocol/v1/notification.js';
 import { PaymentRequestErr, PaymentTopUpErr } from './protocol/v1/payments.js';
+import { PocketRemoveCardErr } from './protocol/v1/pocket.js';
 import { PreimageSubmitErr } from './protocol/v1/preimage.js';
 import { ResourceAllocationErr } from './protocol/v1/resourceAllocation.js';
 import { SigningErr } from './protocol/v1/sign.js';
 import { StatementProofErr } from './protocol/v1/statementStore.js';
 import { WorkerErr } from './protocol/v1/worker.js';
-import type { Subscription, Transport } from './types.js';
-
-type SnakeToCamelCase<S extends string> = S extends `${infer T}_${infer U}`
-  ? `${T}${Capitalize<SnakeToCamelCase<U>>}`
-  : S;
-
-type StripNamespace<S extends string> = S extends `host_${infer Rest}`
-  ? Rest
-  : S extends `remote_${infer Rest}`
-    ? Rest
-    : S;
-
-type Value<T extends Codec<any> | Codec<never>> = T extends Codec<any> ? CodecType<T> : unknown;
+import type { Subscription, SubscriptionHandler, Transport } from './types.js';
 
 type UnwrapVersionedResult<T> = T extends { tag: infer Tag; value: infer Value }
   ? ResultAsync<
@@ -63,510 +67,227 @@ type UnwrapVersionedResult<T> = T extends { tag: infer Tag; value: infer Value }
 type SuccessResponse<T> = T extends { success: true; value: infer U } ? U : never;
 type ErrorResponse<T> = T extends { success: false; value: infer U } ? U : never;
 
-type InferRequestMethod<Method extends VersionedProtocolRequest> = (
-  args: Value<Method['request']>,
-) => UnwrapVersionedResult<Value<Method['response']>>;
+/** The versioned domain error a request method answers with. */
+type VersionedError<T> = T extends { tag: infer Tag; value: infer Value }
+  ? { tag: Tag; value: ErrorResponse<Value> }
+  : never;
 
-type InferSubscribeMethod<Method extends VersionedProtocolSubscription> = (
-  args: Value<Method['start']>,
-  callback: (payload: Value<Method['receive']>) => void,
-) => Subscription<Value<Method['interrupt']>>;
+export type CallOptions = {
+  /** Withdraws the call: the host is sent a `Cancel` frame and the call rejects at once. */
+  signal?: AbortSignal;
+};
 
-type InferMethod<Method extends VersionedProtocolRequest | VersionedProtocolSubscription> =
-  Method extends VersionedProtocolRequest
-    ? InferRequestMethod<Method>
-    : Method extends VersionedProtocolSubscription
-      ? InferSubscribeMethod<Method>
-      : never;
+type ProductRequestMethodName<T extends TraitName> = {
+  [M in RequestMethodName<T>]: ProtocolMethod<T, M> extends VersionedProtocolRequest<any, true> ? never : M;
+}[RequestMethodName<T>];
 
+type ProductInitiatedSubscriptionName<T extends TraitName> = {
+  [M in SubscriptionMethodName<T>]: ProtocolMethod<T, M> extends VersionedProtocolSubscription<any, 'host'> ? never : M;
+}[SubscriptionMethodName<T>];
+
+type HostInitiatedSubscriptionName<T extends TraitName> = Exclude<
+  SubscriptionMethodName<T>,
+  ProductInitiatedSubscriptionName<T>
+>;
+
+type RequestFn<T extends TraitName, M extends RequestMethodName<T>> = (
+  args: RequestPayload<T, M>,
+  options?: CallOptions,
+) => UnwrapVersionedResult<ResponsePayload<T, M>>;
+
+type SubscribeFn<T extends TraitName, M extends SubscriptionMethodName<T>> = (
+  args: StartPayload<T, M>,
+  callback: (payload: ReceivePayload<T, M>) => void,
+) => Subscription<InterruptPayload<T, M>>;
+
+/**
+ * A host-initiated subscription: the host starts it and the product serves
+ * it, so the product registers a handler instead of subscribing.
+ */
+type ServeFn<T extends TraitName, M extends SubscriptionMethodName<T>> = (
+  handler: SubscriptionHandler<T, M>,
+) => VoidFunction;
+
+export type HostApiTrait<T extends TraitName> = {
+  [M in ProductRequestMethodName<T>]: RequestFn<T, M>;
+} & {
+  [M in ProductInitiatedSubscriptionName<T>]: SubscribeFn<T, M>;
+} & {
+  [M in HostInitiatedSubscriptionName<T>]: ServeFn<T, M>;
+};
+
+/**
+ * Product-facing host API, nested the way the wire addresses it:
+ * `hostApi.<trait>.<method>(...)`, e.g. `hostApi.account.getAccount(...)`.
+ */
 export type HostApi = {
-  [K in keyof HostApiProtocol as SnakeToCamelCase<StripNamespace<K>>]: InferMethod<HostApiProtocol[K]>;
+  [T in TraitName]: HostApiTrait<T>;
+};
+
+type TagOf<V> = V extends { tag: infer Tag } ? Tag : never;
+
+type FallbackErrors = {
+  [T in TraitName]: {
+    [M in ProductRequestMethodName<T>]: (
+      reason: string,
+      tag: TagOf<RequestPayload<T, M>>,
+    ) => VersionedError<ResponsePayload<T, M>>;
+  };
+};
+
+// Builds a fallback for methods with a single domain error type per version.
+const as =
+  <E>(make: (reason: string) => E) =>
+  <const Tag extends string>(reason: string, tag: Tag) => ({ tag, value: make(reason) });
+
+const generic = as(reason => new GenericError({ reason }));
+
+// The domain error a request folds into when it fails below the domain layer:
+// a transport failure (`CallError` other than `Domain`), a rejected send, or a
+// malformed response. Products keep a single error type per method.
+const fallbackErrors: FallbackErrors = {
+  system: {
+    handshake: as(reason => new HandshakeErr.Unknown({ reason })),
+    featureSupported: generic,
+    navigateTo: as(reason => new NavigateToErr.Unknown({ reason })),
+    info: generic,
+    getProductContext: generic,
+  },
+  account: {
+    getAccount: as(reason => new RequestCredentialsErr.Unknown({ reason })),
+    getAccountAlias: as(reason => new GetAliasErr.Unknown({ reason })),
+    createAccountProof: as(reason => new CreateProofErr.Unknown({ reason })),
+    getLegacyAccounts: as(reason => new RequestCredentialsErr.Unknown({ reason })),
+    getUserId: as(reason => new GetUserIdErr.Unknown({ reason })),
+    requestLogin: as(reason => new LoginErr.Unknown({ reason })),
+    signVrf: as(reason => new SignVrfErr.Unknown({ reason })),
+    registerRingVrfKey: as(reason => new RegisterRingVrfKeyErr.Unknown({ reason })),
+    listRingVrfKeys: as(reason => new ListRingVrfKeysErr.Unknown({ reason })),
+    ringVrfSign: as(reason => new RingVrfSignErr.Unknown({ reason })),
+  },
+  chain: {
+    getHeadHeader: generic,
+    getHeadBody: generic,
+    getHeadStorage: generic,
+    callHead: generic,
+    unpinHead: generic,
+    continueHead: generic,
+    stopHeadOperation: generic,
+    getSpecGenesisHash: generic,
+    getSpecChainName: generic,
+    getSpecProperties: generic,
+    broadcastTransaction: generic,
+    stopTransaction: generic,
+    getChainInfo: as(reason => new ChainInfoErr.Unknown({ reason })),
+  },
+  chat: {
+    createRoom: as(reason => new ChatRoomRegistrationErr.Unknown({ reason })),
+    registerBot: as(reason => new ChatBotRegistrationErr.Unknown({ reason })),
+    postMessage: as(reason => new ChatMessagePostingErr.Unknown({ reason })),
+  },
+  coinPayment: {
+    createPurse: as(() => new CoinPaymentErr.Internal()),
+    queryPurse: as(() => new CoinPaymentErr.Internal()),
+    createReceivable: as(() => new CoinPaymentErr.Internal()),
+    createCheque: as(() => new CoinPaymentErr.Internal()),
+  },
+  entropy: {
+    derive: as(reason => new DeriveEntropyErr.Unknown({ reason })),
+  },
+  localStorage: {
+    read: (reason, tag) =>
+      tag === 'v2'
+        ? { tag, value: new StorageReadV2Err.Unknown({ reason }) }
+        : { tag, value: new StorageErr.Unknown({ reason }) },
+    write: as(reason => new StorageErr.Unknown({ reason })),
+    clear: as(reason => new StorageErr.Unknown({ reason })),
+  },
+  notifications: {
+    sendPushNotification: as(reason => new PushNotificationError.Unknown({ reason })),
+    cancelPushNotification: generic,
+  },
+  payment: {
+    topUp: as(reason => new PaymentTopUpErr.Unknown({ reason })),
+    request: as(reason => new PaymentRequestErr.Unknown({ reason })),
+  },
+  permissions: {
+    requestDevicePermission: generic,
+    requestRemotePermission: generic,
+  },
+  preimage: {
+    submit: as(reason => new PreimageSubmitErr.Unknown({ reason })),
+  },
+  resourceAllocation: {
+    request: as(reason => new ResourceAllocationErr.Unknown({ reason })),
+  },
+  signing: {
+    createTransaction: as(reason => new CreateTransactionErr.Unknown({ reason })),
+    createTransactionWithLegacyAccount: as(reason => new CreateTransactionErr.Unknown({ reason })),
+    signRawWithLegacyAccount: as(reason => new SigningErr.Unknown({ reason })),
+    signPayloadWithLegacyAccount: as(reason => new SigningErr.Unknown({ reason })),
+    signRaw: as(reason => new SigningErr.Unknown({ reason })),
+    signPayload: as(reason => new SigningErr.Unknown({ reason })),
+    signRawUnwatermarkedDeprecated: as(reason => new SigningErr.Unknown({ reason })),
+    signRawUnwatermarkedDeprecatedWithLegacyAccount: as(reason => new SigningErr.Unknown({ reason })),
+  },
+  statementStore: {
+    createProof: as(reason => new StatementProofErr.Unknown({ reason })),
+    submit: generic,
+    createProofAuthorized: as(reason => new StatementProofErr.Unknown({ reason })),
+  },
+  theme: {},
+  locale: {},
+  renderer: {},
+  pocket: {
+    removeCard: as(reason => new PocketRemoveCardErr.Unknown({ reason })),
+  },
+  worker: {
+    beginOperation: as(reason => new WorkerErr.Unknown({ reason })),
+    endOperation: as(reason => new WorkerErr.Unknown({ reason })),
+  },
+  contacts: {
+    pick: as(reason => new ContactsPickErr.Unknown({ reason })),
+  },
 };
 
 export function createHostApi(transport: Transport): HostApi {
-  return {
-    handshake(payload) {
-      return makeRequest(transport.request('host_handshake', payload), reason => ({
-        tag: payload.tag,
-        value: new HandshakeErr.Unknown({ reason }),
-      }));
-    },
-
-    featureSupported(payload) {
-      return makeRequest(transport.request('host_feature_supported', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    themeSubscribe(args, callback) {
-      return transport.subscribe('host_theme_subscribe', args, callback);
-    },
-
-    localeSubscribe(args, callback) {
-      return transport.subscribe('host_locale_subscribe', args, callback);
-    },
-
-    getProductContext(payload) {
-      return makeRequest(transport.request('host_get_product_context', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    info(payload) {
-      return makeRequest(transport.request('host_info', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    devicePermission(payload) {
-      return makeRequest(transport.request('host_device_permission', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    permission(payload) {
-      return makeRequest(transport.request('remote_permission', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    pushNotification(payload) {
-      return makeRequest(transport.request('host_push_notification', payload), reason => ({
-        tag: payload.tag,
-        value: new PushNotificationError.Unknown({ reason }),
-      }));
-    },
-
-    pushNotificationCancel(payload) {
-      return makeRequest(transport.request('host_push_notification_cancel', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    navigateTo(payload) {
-      return makeRequest(transport.request('host_navigate_to', payload), reason => ({
-        tag: payload.tag,
-        value: new NavigateToErr.Unknown({ reason }),
-      }));
-    },
-
-    deriveEntropy(payload) {
-      return makeRequest(transport.request('host_derive_entropy', payload), reason => ({
-        tag: payload.tag,
-        value: new DeriveEntropyErr.Unknown({ reason }),
-      }));
-    },
-
-    localStorageRead(payload) {
-      return makeRequest(transport.request('host_local_storage_read', payload), reason => ({
-        tag: payload.tag,
-        value: new StorageErr.Unknown({ reason }),
-      }));
-    },
-
-    localStorageWrite(payload) {
-      return makeRequest(transport.request('host_local_storage_write', payload), reason => ({
-        tag: payload.tag,
-        value: new StorageErr.Unknown({ reason }),
-      }));
-    },
-
-    localStorageClear(payload) {
-      return makeRequest(transport.request('host_local_storage_clear', payload), reason => ({
-        tag: payload.tag,
-        value: new StorageErr.Unknown({ reason }),
-      }));
-    },
-
-    localStorageSubscribe(args, callback) {
-      return transport.subscribe('host_local_storage_subscribe', args, callback);
-    },
-
-    workerBeginOperation(payload) {
-      return makeRequest(transport.request('host_worker_begin_operation', payload), reason => ({
-        tag: payload.tag,
-        value: new WorkerErr.Unknown({ reason }),
-      }));
-    },
-
-    workerEndOperation(payload) {
-      return makeRequest(transport.request('host_worker_end_operation', payload), reason => ({
-        tag: payload.tag,
-        value: new WorkerErr.Unknown({ reason }),
-      }));
-    },
-
-    accountConnectionStatusSubscribe(args, callback) {
-      return transport.subscribe('host_account_connection_status_subscribe', args, callback);
-    },
-
-    getUserId(payload) {
-      return makeRequest(transport.request('host_get_user_id', payload), reason => ({
-        tag: payload.tag,
-        value: new GetUserIdErr.Unknown({ reason }),
-      }));
-    },
-
-    requestLogin(payload) {
-      return makeRequest(transport.request('host_request_login', payload), reason => ({
-        tag: payload.tag,
-        value: new LoginErr.Unknown({ reason }),
-      }));
-    },
-
-    accountGet(payload) {
-      return makeRequest(transport.request('host_account_get', payload), reason => ({
-        tag: payload.tag,
-        value: new RequestCredentialsErr.Unknown({ reason }),
-      }));
-    },
-
-    accountGetAlias(payload) {
-      return makeRequest(transport.request('host_account_get_alias', payload), reason => ({
-        tag: payload.tag,
-        value: new GetAliasErr.Unknown({ reason }),
-      }));
-    },
-
-    accountCreateProof(payload) {
-      return makeRequest(transport.request('host_account_create_proof', payload), reason => ({
-        tag: payload.tag,
-        value: new CreateProofErr.Unknown({ reason }),
-      }));
-    },
-
-    accountSignVrf(payload) {
-      return makeRequest(transport.request('host_account_sign_vrf', payload), reason => ({
-        tag: payload.tag,
-        value: new SignVrfErr.Unknown({ reason }),
-      }));
-    },
-
-    accountRegisterRingVrfKey(payload) {
-      return makeRequest(transport.request('host_account_register_ring_vrf_key', payload), reason => ({
-        tag: payload.tag,
-        value: new RegisterRingVrfKeyErr.Unknown({ reason }),
-      }));
-    },
-
-    accountListRingVrfKeys(payload) {
-      return makeRequest(transport.request('host_account_list_ring_vrf_keys', payload), reason => ({
-        tag: payload.tag,
-        value: new ListRingVrfKeysErr.Unknown({ reason }),
-      }));
-    },
-
-    accountRingVrfSign(payload) {
-      return makeRequest(transport.request('host_account_ring_vrf_sign', payload), reason => ({
-        tag: payload.tag,
-        value: new RingVrfSignErr.Unknown({ reason }),
-      }));
-    },
-
-    getLegacyAccounts(payload) {
-      return makeRequest(transport.request('host_get_legacy_accounts', payload), reason => ({
-        tag: payload.tag,
-        value: new RequestCredentialsErr.Unknown({ reason }),
-      }));
-    },
-
-    createTransaction(payload) {
-      return makeRequest(transport.request('host_create_transaction', payload), reason => ({
-        tag: payload.tag,
-        value: new CreateTransactionErr.Unknown({ reason }),
-      }));
-    },
-
-    createTransactionWithLegacyAccount(payload) {
-      return makeRequest(transport.request('host_create_transaction_with_legacy_account', payload), reason => ({
-        tag: payload.tag,
-        value: new CreateTransactionErr.Unknown({ reason }),
-      }));
-    },
-
-    signRaw(payload) {
-      return makeRequest(transport.request('host_sign_raw', payload), reason => ({
-        tag: payload.tag,
-        value: new SigningErr.Unknown({ reason }),
-      }));
-    },
-
-    signPayload(payload) {
-      return makeRequest(transport.request('host_sign_payload', payload), reason => ({
-        tag: payload.tag,
-        value: new SigningErr.Unknown({ reason }),
-      }));
-    },
-
-    signRawWithLegacyAccount(payload) {
-      return makeRequest(transport.request('host_sign_raw_with_legacy_account', payload), reason => ({
-        tag: payload.tag,
-        value: new SigningErr.Unknown({ reason }),
-      }));
-    },
-
-    signPayloadWithLegacyAccount(payload) {
-      return makeRequest(transport.request('host_sign_payload_with_legacy_account', payload), reason => ({
-        tag: payload.tag,
-        value: new SigningErr.Unknown({ reason }),
-      }));
-    },
-
-    chatListSubscribe(args, callback) {
-      return transport.subscribe('host_chat_list_subscribe', args, callback);
-    },
-
-    chatCreateRoom(payload) {
-      return makeRequest(transport.request('host_chat_create_room', payload), reason => ({
-        tag: payload.tag,
-        value: new ChatRoomRegistrationErr.Unknown({ reason }),
-      }));
-    },
-
-    chatRegisterBot(payload) {
-      return makeRequest(transport.request('host_chat_register_bot', payload), reason => ({
-        tag: payload.tag,
-        value: new ChatBotRegistrationErr.Unknown({ reason }),
-      }));
-    },
-
-    chatPostMessage(payload) {
-      return makeRequest(transport.request('host_chat_post_message', payload), reason => ({
-        tag: payload.tag,
-        value: new ChatMessagePostingErr.Unknown({ reason }),
-      }));
-    },
-
-    chatActionSubscribe(args, callback) {
-      return transport.subscribe('host_chat_action_subscribe', args, callback);
-    },
-
-    productChatCustomMessageRenderSubscribe(args, callback) {
-      return transport.subscribe('product_chat_custom_message_render_subscribe', args, callback);
-    },
-
-    statementStoreSubscribe(args, callback) {
-      return transport.subscribe('remote_statement_store_subscribe', args, callback);
-    },
-
-    statementStoreCreateProof(payload) {
-      return makeRequest(transport.request('remote_statement_store_create_proof', payload), reason => ({
-        tag: payload.tag,
-        value: new StatementProofErr.Unknown({ reason }),
-      }));
-    },
-
-    statementStoreCreateProofAuthorized(payload) {
-      return makeRequest(transport.request('remote_statement_store_create_proof_authorized', payload), reason => ({
-        tag: payload.tag,
-        value: new StatementProofErr.Unknown({ reason }),
-      }));
-    },
-
-    statementStoreSubmit(payload) {
-      return makeRequest(transport.request('remote_statement_store_submit', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    preimageLookupSubscribe(args, callback) {
-      return transport.subscribe('remote_preimage_lookup_subscribe', args, callback);
-    },
-
-    preimageSubmit(payload) {
-      return makeRequest(transport.request('remote_preimage_submit', payload), reason => ({
-        tag: payload.tag,
-        value: new PreimageSubmitErr.Unknown({ reason }),
-      }));
-    },
-
-    paymentBalanceSubscribe(args, callback) {
-      return transport.subscribe('host_payment_balance_subscribe', args, callback);
-    },
-
-    paymentTopUp(payload) {
-      return makeRequest(transport.request('host_payment_top_up', payload), reason => ({
-        tag: payload.tag,
-        value: new PaymentTopUpErr.Unknown({ reason }),
-      }));
-    },
-
-    paymentRequest(payload) {
-      return makeRequest(transport.request('host_payment_request', payload), reason => ({
-        tag: payload.tag,
-        value: new PaymentRequestErr.Unknown({ reason }),
-      }));
-    },
-
-    paymentStatusSubscribe(args, callback) {
-      return transport.subscribe('host_payment_status_subscribe', args, callback);
-    },
-
-    paymentTopUpStatusSubscribe(args, callback) {
-      return transport.subscribe('host_payment_top_up_status_subscribe', args, callback);
-    },
-
-    requestResourceAllocation(payload) {
-      return makeRequest(transport.request('host_request_resource_allocation', payload), reason => ({
-        tag: payload.tag,
-        value: new ResourceAllocationErr.Unknown({ reason }),
-      }));
-    },
-
-    // coin payment (RFC 0017)
-
-    coinPaymentCreatePurse(payload) {
-      return makeRequest(transport.request('host_coin_payment_create_purse', payload), () => ({
-        tag: payload.tag,
-        value: new CoinPaymentErr.Internal(),
-      }));
-    },
-
-    coinPaymentQueryPurse(payload) {
-      return makeRequest(transport.request('host_coin_payment_query_purse', payload), () => ({
-        tag: payload.tag,
-        value: new CoinPaymentErr.Internal(),
-      }));
-    },
-
-    coinPaymentRebalancePurse(args, callback) {
-      return transport.subscribe('host_coin_payment_rebalance_purse', args, callback);
-    },
-
-    coinPaymentDeletePurse(args, callback) {
-      return transport.subscribe('host_coin_payment_delete_purse', args, callback);
-    },
-
-    coinPaymentCreateReceivable(payload) {
-      return makeRequest(transport.request('host_coin_payment_create_receivable', payload), () => ({
-        tag: payload.tag,
-        value: new CoinPaymentErr.Internal(),
-      }));
-    },
-
-    coinPaymentCreateCheque(payload) {
-      return makeRequest(transport.request('host_coin_payment_create_cheque', payload), () => ({
-        tag: payload.tag,
-        value: new CoinPaymentErr.Internal(),
-      }));
-    },
-
-    coinPaymentDeposit(args, callback) {
-      return transport.subscribe('host_coin_payment_deposit', args, callback);
-    },
-
-    coinPaymentRefund(args, callback) {
-      return transport.subscribe('host_coin_payment_refund', args, callback);
-    },
-
-    coinPaymentListenForPayment(args, callback) {
-      return transport.subscribe('host_coin_payment_listen_for_payment', args, callback);
-    },
-
-    // chain interaction
-
-    chainHeadFollowSubscribe(args, callback) {
-      return transport.subscribe('remote_chain_head_follow_subscribe', args, callback);
-    },
-
-    chainHeadHeader(payload) {
-      return makeRequest(transport.request('remote_chain_head_header', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainHeadBody(payload) {
-      return makeRequest(transport.request('remote_chain_head_body', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainHeadStorage(payload) {
-      return makeRequest(transport.request('remote_chain_head_storage', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainHeadCall(payload) {
-      return makeRequest(transport.request('remote_chain_head_call', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainHeadUnpin(payload) {
-      return makeRequest(transport.request('remote_chain_head_unpin', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainHeadContinue(payload) {
-      return makeRequest(transport.request('remote_chain_head_continue', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainHeadStopOperation(payload) {
-      return makeRequest(transport.request('remote_chain_head_stop_operation', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainGetChainInfo(payload) {
-      return makeRequest(transport.request('remote_chain_get_chain_info', payload), reason => ({
-        tag: payload.tag,
-        value: new ChainInfoErr.Unknown({ reason }),
-      }));
-    },
-
-    chainSpecGenesisHash(payload) {
-      return makeRequest(transport.request('remote_chain_spec_genesis_hash', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainSpecChainName(payload) {
-      return makeRequest(transport.request('remote_chain_spec_chain_name', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainSpecProperties(payload) {
-      return makeRequest(transport.request('remote_chain_spec_properties', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainTransactionBroadcast(payload) {
-      return makeRequest(transport.request('remote_chain_transaction_broadcast', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-
-    chainTransactionStop(payload) {
-      return makeRequest(transport.request('remote_chain_transaction_stop', payload), reason => ({
-        tag: payload.tag,
-        value: new GenericError({ reason }),
-      }));
-    },
-  };
+  const api: Record<string, Record<string, unknown>> = {};
+
+  for (const [trait, { methods }] of Object.entries(hostApiProtocol) as [TraitName, ProtocolTrait][]) {
+    const group: Record<string, unknown> = {};
+    const fallbacks = fallbackErrors[trait] as Record<
+      string,
+      (reason: string, tag: string) => { tag: string; value: unknown }
+    >;
+
+    for (const [method, definition] of Object.entries(methods)) {
+      if (definition.kind === 'request') {
+        if (definition.internal) continue;
+        const fallback = fallbacks[method];
+        if (!fallback) throw new Error(`No fallback error for ${trait}.${method}`);
+
+        group[method] = (args: { tag: string }, options?: CallOptions) =>
+          makeRequest(
+            transport.request(trait, method as never, args as never, options?.signal) as Promise<{
+              tag: string;
+              value: { success: boolean; value: unknown } | CallErrorMarker;
+            }>,
+            reason => fallback(reason, args.tag),
+          );
+        continue;
+      }
+
+      if (definition.initiator === 'host') {
+        group[method] = (handler: never) => transport.handleSubscription(trait, method as never, handler);
+      } else {
+        group[method] = (args: never, callback: never) => transport.subscribe(trait, method as never, args, callback);
+      }
+    }
+
+    api[trait] = group;
+  }
+
+  return api as HostApi;
 }
 
 /** Human-readable reason for a transport-level `CallError`, for the domain fallback. */
@@ -580,26 +301,25 @@ function describeCallErrorFailure(failure: CallErrorTransportFailure): string {
       return `malformed frame: ${failure.value.reason}`;
     case 'HostFailure':
       return `host failure: ${failure.value.reason}`;
+    case 'Cancelled':
+      return 'call cancelled';
   }
 }
 
-type CallErrorMarker = { [CALL_ERROR_FAILURE]: CallErrorTransportFailure };
-
 function makeRequest<Tag extends string, R extends { success: boolean; value: unknown }>(
   promise: Promise<{ tag: Tag; value: R | CallErrorMarker }>,
-  mapErr: (e: string) => { tag: Tag; value: Extract<R, { success: false }>['value'] },
-): ResultAsync<
-  { tag: Tag; value: Extract<R, { success: true }>['value'] },
-  { tag: Tag; value: Extract<R, { success: false }>['value'] }
-> {
+  mapErr: (e: string) => { tag: Tag; value: unknown },
+): ResultAsync<{ tag: Tag; value: unknown }, { tag: Tag; value: unknown }> {
   return fromPromise(promise, e => mapErr(extractErrorMessage(e))).andThen(r => {
     const value = r.value;
     // A transport-level CallError carries no domain answer; fold it into the
     // method's domain error so products keep a single error type.
-    if (CALL_ERROR_FAILURE in value) {
+    if (isCallErrorMarker(value)) {
       return errAsync(mapErr(describeCallErrorFailure(value[CALL_ERROR_FAILURE])));
     }
     if (value.success) return okAsync({ tag: r.tag, value: value.value });
     return errAsync({ tag: r.tag, value: value.value });
   });
 }
+
+export type { MethodName };

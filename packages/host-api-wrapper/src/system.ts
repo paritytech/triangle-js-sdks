@@ -16,13 +16,16 @@ export const createSystem = (transport: Transport = sandboxTransport) => {
     // Identity and version of the host currently running the product.
     async info(): Promise<HostInfo> {
       return resultToPromise(
-        unwrapVersionedResult(supportedVersion, hostApi.info(enumValue(supportedVersion, undefined))),
+        unwrapVersionedResult(supportedVersion, hostApi.system.info(enumValue(supportedVersion, undefined))),
       );
     },
     // Product context bound to the current host runtime.
     async getProductContext(): Promise<ProductContext> {
       return resultToPromise(
-        unwrapVersionedResult(supportedVersion, hostApi.getProductContext(enumValue(supportedVersion, undefined))),
+        unwrapVersionedResult(
+          supportedVersion,
+          hostApi.system.getProductContext(enumValue(supportedVersion, undefined)),
+        ),
       );
     },
   };

@@ -1,10 +1,19 @@
 import type { PropsWithChildren } from 'react';
 import { createElement } from 'react';
-import { str } from 'scale-ts';
 
 import { useAction } from './context.js';
 import { noop } from './helpers.js';
-import type { BoxProps, ButtonProps, ColumnProps, RowProps, SpacerProps, TextFieldProps, TextProps } from './types.js';
+import type {
+  BoxProps,
+  ButtonProps,
+  ColumnProps,
+  EffectProps,
+  ImageProps,
+  RowProps,
+  SpacerProps,
+  TextFieldProps,
+  TextProps,
+} from './types.js';
 
 export function Box({ children, ...props }: PropsWithChildren<BoxProps>) {
   return createElement('Box', props, children);
@@ -32,15 +41,21 @@ export function Button({ children, onClick, ...props }: PropsWithChildren<Button
   return createElement('Button', { ...props, clickAction }, children);
 }
 
-const textDecoder = (payload: Uint8Array | void) => {
-  if (payload) {
-    return str.dec(payload);
-  }
-  return '';
-};
+const utf8Decoder = new TextDecoder();
+
+// A `TextField` change carries the UTF-8 bytes of the new value, with no length prefix.
+const decodeText = (payload: Uint8Array) => utf8Decoder.decode(payload);
 
 export function TextField({ onValueChange, ...props }: TextFieldProps) {
-  const valueChangeAction = useAction(textDecoder, onValueChange);
+  const valueChangeAction = useAction(decodeText, onValueChange);
 
   return createElement('TextField', { ...props, valueChangeAction });
+}
+
+export function Image(props: ImageProps) {
+  return createElement('Image', props);
+}
+
+export function Effect({ children, ...props }: PropsWithChildren<EffectProps>) {
+  return createElement('Effect', props, children);
 }

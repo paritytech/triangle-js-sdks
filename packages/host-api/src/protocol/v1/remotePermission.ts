@@ -1,7 +1,6 @@
 import { Enum } from '@novasamatech/scale';
 import { Vector, _void, bool, str } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
 import { GenericError } from '../commonCodecs.js';
 
 export const RemotePermission = Enum({
@@ -13,4 +12,5 @@ export const RemotePermission = Enum({
 });
 
 export const RemotePermissionV1_request = RemotePermission;
-export const RemotePermissionV1_response = CallResult(bool, GenericError);
+export const RemotePermissionV1_response = bool;
+export const RemotePermissionV1_error = GenericError;

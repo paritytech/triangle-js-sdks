@@ -1,6 +1,8 @@
 import type { CodecType } from '@novasamatech/host-api';
 import {
   CreateProofErr,
+  CreateTransactionErr,
+  GenericError,
   GetAliasErr,
   GetUserIdErr,
   ListRingVrfKeysErr,
@@ -81,7 +83,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const expected = { primaryUsername: 'alice.dot' };
 
-      container.handleGetUserId((_, { ok }) => ok(expected));
+      container.account.handleGetUserId((_, { ok }) => ok(expected));
 
       const result = await accountsProvider.getUserId();
 
@@ -92,7 +94,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new GetUserIdErr.PermissionDenied();
 
-      container.handleGetUserId((_, { err }) => err(error));
+      container.account.handleGetUserId((_, { err }) => err(error));
 
       const result = await accountsProvider.getUserId();
 
@@ -103,7 +105,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new GetUserIdErr.NotConnected();
 
-      container.handleGetUserId((_, { err }) => err(error));
+      container.account.handleGetUserId((_, { err }) => err(error));
 
       const result = await accountsProvider.getUserId();
 
@@ -114,7 +116,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new GetUserIdErr.Unknown({ reason: 'unexpected' });
 
-      container.handleGetUserId((_, { err }) => err(error));
+      container.account.handleGetUserId((_, { err }) => err(error));
 
       const result = await accountsProvider.getUserId();
 
@@ -126,7 +128,7 @@ describe('Host API: Accounts', () => {
     it('should return account on success', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleAccountGet((_, { ok }) => ok({ publicKey: mockPublicKey }));
+      container.account.handleGetAccount((_, { ok }) => ok({ publicKey: mockPublicKey }));
 
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
@@ -135,10 +137,10 @@ describe('Host API: Accounts', () => {
 
     it('should pass dotNsIdentifier and derivationIndex to handler', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleGetAccount>>((_, { ok }) =>
         ok({ publicKey: mockPublicKey }),
       );
-      container.handleAccountGet(handler);
+      container.account.handleGetAccount(handler);
 
       await accountsProvider.getProductAccount('my-product.dot', 3);
 
@@ -147,10 +149,10 @@ describe('Host API: Accounts', () => {
 
     it('should use derivation index 0 by default', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleGetAccount>>((_, { ok }) =>
         ok({ publicKey: mockPublicKey }),
       );
-      container.handleAccountGet(handler);
+      container.account.handleGetAccount(handler);
 
       await accountsProvider.getProductAccount('product.dot');
 
@@ -160,10 +162,10 @@ describe('Host API: Accounts', () => {
     it('should pass a raw 32-byte derivation index through unchanged', async () => {
       const { container, accountsProvider } = setup();
       const rawIndex = new Uint8Array(32).fill(0xee);
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGet>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleGetAccount>>((_, { ok }) =>
         ok({ publicKey: mockPublicKey }),
       );
-      container.handleAccountGet(handler);
+      container.account.handleGetAccount(handler);
 
       const result = await accountsProvider.getProductAccount('product.dot', rawIndex);
 
@@ -181,7 +183,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new RequestCredentialsErr.NotConnected();
 
-      container.handleAccountGet((_, { err }) => err(error));
+      container.account.handleGetAccount((_, { err }) => err(error));
 
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
@@ -194,7 +196,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const expected = { context: new Uint8Array(32).fill(5), alias: new Uint8Array([1, 2, 3]) };
 
-      container.handleAccountGetAlias((_, { ok }) => ok(expected));
+      container.account.handleGetAccountAlias((_, { ok }) => ok(expected));
 
       const result = await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
 
@@ -203,10 +205,10 @@ describe('Host API: Accounts', () => {
 
     it('should pass key handle, context and ring to handler', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountGetAlias>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleGetAccountAlias>>((_, { ok }) =>
         ok({ context: new Uint8Array(32), alias: new Uint8Array(0) }),
       );
-      container.handleAccountGetAlias(handler);
+      container.account.handleGetAccountAlias(handler);
 
       await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
 
@@ -217,7 +219,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new GetAliasErr.Rejected();
 
-      container.handleAccountGetAlias((_, { err }) => err(error));
+      container.account.handleGetAccountAlias((_, { err }) => err(error));
 
       const result = await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
 
@@ -228,7 +230,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new GetAliasErr.KeyNotInRing();
 
-      container.handleAccountGetAlias((_, { err }) => err(error));
+      container.account.handleGetAccountAlias((_, { err }) => err(error));
 
       const result = await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
 
@@ -239,7 +241,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new GetAliasErr.KeyNotRegistered();
 
-      container.handleAccountGetAlias((_, { err }) => err(error));
+      container.account.handleGetAccountAlias((_, { err }) => err(error));
 
       const result = await accountsProvider.getContextualAlias(mockKeyHandle, mockContext, mockRingLocation);
 
@@ -255,7 +257,7 @@ describe('Host API: Accounts', () => {
         { publicKey: new Uint8Array(32).fill(2), name: undefined },
       ];
 
-      container.handleGetLegacyAccounts((_, { ok }) => ok(accounts));
+      container.account.handleGetLegacyAccounts((_, { ok }) => ok(accounts));
 
       const result = await accountsProvider.getLegacyAccounts();
 
@@ -265,7 +267,7 @@ describe('Host API: Accounts', () => {
     it('should return empty list when no accounts', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleGetLegacyAccounts((_, { ok }) => ok([]));
+      container.account.handleGetLegacyAccounts((_, { ok }) => ok([]));
 
       const result = await accountsProvider.getLegacyAccounts();
 
@@ -276,7 +278,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new RequestCredentialsErr.Rejected();
 
-      container.handleGetLegacyAccounts((_, { err }) => err(error));
+      container.account.handleGetLegacyAccounts((_, { err }) => err(error));
 
       const result = await accountsProvider.getLegacyAccounts();
 
@@ -289,7 +291,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
 
       let capturedSigner: string | undefined;
-      container.handleSignRawWithLegacyAccount((params, { ok }) => {
+      container.signing.handleSignRawWithLegacyAccount((params, { ok }) => {
         capturedSigner = params.signer;
         return ok({
           signature: toHex(new Uint8Array(64).fill(7)),
@@ -321,7 +323,7 @@ describe('Host API: Accounts', () => {
     it('should return proof on success', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleAccountCreateProof((_, { ok }) => ok(mockProof));
+      container.account.handleCreateAccountProof((_, { ok }) => ok(mockProof));
 
       const result = await accountsProvider.createRingVRFProof(
         mockKeyHandle,
@@ -336,16 +338,17 @@ describe('Host API: Accounts', () => {
     it('should pass key handle, context, ring and message to handler', async () => {
       const { container, accountsProvider } = setup();
       const message = new Uint8Array([7, 8, 9]);
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleCreateAccountProof>>((_, { ok }) =>
         ok(mockProof),
       );
-      container.handleAccountCreateProof(handler);
+      container.account.handleCreateAccountProof(handler);
 
       await accountsProvider.createRingVRFProof(mockKeyHandle, mockContext, mockRingLocation, message);
 
       expect(handler).toHaveBeenCalledWith([mockKeyHandle, mockWireContext, mockRingLocation, message], {
         ok: expect.any(Function),
         err: expect.any(Function),
+        signal: expect.any(AbortSignal),
       });
     });
 
@@ -353,10 +356,10 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const rawIndex = new Uint8Array(32).fill(0x7f);
       const handle = ringVrfKeyHandle('peopl.dot', rawIndex);
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountCreateProof>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleCreateAccountProof>>((_, { ok }) =>
         ok(mockProof),
       );
-      container.handleAccountCreateProof(handler);
+      container.account.handleCreateAccountProof(handler);
 
       await accountsProvider.createRingVRFProof(handle, mockContext, mockRingLocation, new Uint8Array(0));
 
@@ -370,7 +373,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new CreateProofErr.RingNotFound();
 
-      container.handleAccountCreateProof((_, { err }) => err(error));
+      container.account.handleCreateAccountProof((_, { err }) => err(error));
 
       const result = await accountsProvider.createRingVRFProof(
         mockKeyHandle,
@@ -386,7 +389,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new CreateProofErr.NotMember();
 
-      container.handleAccountCreateProof((_, { err }) => err(error));
+      container.account.handleCreateAccountProof((_, { err }) => err(error));
 
       const result = await accountsProvider.createRingVRFProof(
         mockKeyHandle,
@@ -404,7 +407,7 @@ describe('Host API: Accounts', () => {
       // a foreign key handle — there is deliberately no user-prompt fallback.
       const error = new CreateProofErr.NotAllowlisted();
 
-      container.handleAccountCreateProof((_, { err }) => err(error));
+      container.account.handleCreateAccountProof((_, { err }) => err(error));
 
       const result = await accountsProvider.createRingVRFProof(
         mockKeyHandle,
@@ -420,7 +423,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new CreateProofErr.KeyNotRegistered();
 
-      container.handleAccountCreateProof((_, { err }) => err(error));
+      container.account.handleCreateAccountProof((_, { err }) => err(error));
 
       const result = await accountsProvider.createRingVRFProof(
         mockKeyHandle,
@@ -436,7 +439,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new CreateProofErr.Rejected();
 
-      container.handleAccountCreateProof((_, { err }) => err(error));
+      container.account.handleCreateAccountProof((_, { err }) => err(error));
 
       const result = await accountsProvider.createRingVRFProof(
         mockKeyHandle,
@@ -453,7 +456,7 @@ describe('Host API: Accounts', () => {
     it('should return the member public key on success', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleAccountRegisterRingVrfKey((_, { ok }) => ok(mockRingVrfPublicKey));
+      container.account.handleRegisterRingVrfKey((_, { ok }) => ok(mockRingVrfPublicKey));
 
       const result = await accountsProvider.registerRingVrfKey(0, mockRingLocation);
 
@@ -462,10 +465,10 @@ describe('Host API: Accounts', () => {
 
     it('should pass the index and ring to handler, and never an owner', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountRegisterRingVrfKey>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleRegisterRingVrfKey>>((_, { ok }) =>
         ok(mockRingVrfPublicKey),
       );
-      container.handleAccountRegisterRingVrfKey(handler);
+      container.account.handleRegisterRingVrfKey(handler);
 
       await accountsProvider.registerRingVrfKey(1, mockRingLocation);
 
@@ -477,10 +480,10 @@ describe('Host API: Accounts', () => {
     it('should accept a raw 32-byte index', async () => {
       const { container, accountsProvider } = setup();
       const rawIndex = new Uint8Array(32).fill(3);
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountRegisterRingVrfKey>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleRegisterRingVrfKey>>((_, { ok }) =>
         ok(mockRingVrfPublicKey),
       );
-      container.handleAccountRegisterRingVrfKey(handler);
+      container.account.handleRegisterRingVrfKey(handler);
 
       await accountsProvider.registerRingVrfKey(rawIndex, mockRingLocation);
 
@@ -491,7 +494,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new RegisterRingVrfKeyErr.RingNotFound();
 
-      container.handleAccountRegisterRingVrfKey((_, { err }) => err(error));
+      container.account.handleRegisterRingVrfKey((_, { err }) => err(error));
 
       const result = await accountsProvider.registerRingVrfKey(0, mockRingLocation);
 
@@ -502,7 +505,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new RegisterRingVrfKeyErr.NotConnected();
 
-      container.handleAccountRegisterRingVrfKey((_, { err }) => err(error));
+      container.account.handleRegisterRingVrfKey((_, { err }) => err(error));
 
       const result = await accountsProvider.registerRingVrfKey(0, mockRingLocation);
 
@@ -513,8 +516,8 @@ describe('Host API: Accounts', () => {
   describe('listRingVrfKeys', () => {
     it('should default to anonymized disclosure', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountListRingVrfKeys>>((_, { ok }) => ok([]));
-      container.handleAccountListRingVrfKeys(handler);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleListRingVrfKeys>>((_, { ok }) => ok([]));
+      container.account.handleListRingVrfKeys(handler);
 
       await accountsProvider.listRingVrfKeys('peopl.dot');
 
@@ -528,7 +531,7 @@ describe('Host API: Accounts', () => {
       // member public key.
       const entries = [{ handle: mockKeyHandle, rings: [mockRingLocation], publicKey: undefined }];
 
-      container.handleAccountListRingVrfKeys((_, { ok }) => ok(entries));
+      container.account.handleListRingVrfKeys((_, { ok }) => ok(entries));
 
       const result = await accountsProvider.listRingVrfKeys('peopl.dot');
 
@@ -538,10 +541,10 @@ describe('Host API: Accounts', () => {
     it('should return the member public key under PublicKey disclosure', async () => {
       const { container, accountsProvider } = setup();
       const entries = [{ handle: mockKeyHandle, rings: [mockRingLocation], publicKey: mockRingVrfPublicKey }];
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountListRingVrfKeys>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleListRingVrfKeys>>((_, { ok }) =>
         ok(entries),
       );
-      container.handleAccountListRingVrfKeys(handler);
+      container.account.handleListRingVrfKeys(handler);
 
       const result = await accountsProvider.listRingVrfKeys('peopl.dot', 'PublicKey');
 
@@ -559,7 +562,7 @@ describe('Host API: Accounts', () => {
       };
       const entries = [{ handle: mockKeyHandle, rings: [mockRingLocation, secondRing], publicKey: undefined }];
 
-      container.handleAccountListRingVrfKeys((_, { ok }) => ok(entries));
+      container.account.handleListRingVrfKeys((_, { ok }) => ok(entries));
 
       const result = await accountsProvider.listRingVrfKeys('peopl.dot');
 
@@ -570,7 +573,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new ListRingVrfKeysErr.Rejected();
 
-      container.handleAccountListRingVrfKeys((_, { err }) => err(error));
+      container.account.handleListRingVrfKeys((_, { err }) => err(error));
 
       const result = await accountsProvider.listRingVrfKeys('peopl.dot', 'PublicKey');
 
@@ -584,7 +587,7 @@ describe('Host API: Accounts', () => {
     it('should return the signature on success', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleAccountRingVrfSign((_, { ok }) => ok(mockSignature));
+      container.account.handleRingVrfSign((_, { ok }) => ok(mockSignature));
 
       const result = await accountsProvider.ringVrfSign(mockKeyHandle, new Uint8Array([1, 2, 3]));
 
@@ -594,10 +597,10 @@ describe('Host API: Accounts', () => {
     it('should pass only the handle and message — no context, no ring', async () => {
       const { container, accountsProvider } = setup();
       const message = new Uint8Array([4, 5, 6]);
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountRingVrfSign>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleRingVrfSign>>((_, { ok }) =>
         ok(mockSignature),
       );
-      container.handleAccountRingVrfSign(handler);
+      container.account.handleRingVrfSign(handler);
 
       await accountsProvider.ringVrfSign(mockKeyHandle, message);
 
@@ -610,7 +613,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new RingVrfSignErr.NotAllowlisted();
 
-      container.handleAccountRingVrfSign((_, { err }) => err(error));
+      container.account.handleRingVrfSign((_, { err }) => err(error));
 
       const result = await accountsProvider.ringVrfSign(mockKeyHandle, new Uint8Array(0));
 
@@ -621,7 +624,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new RingVrfSignErr.KeyNotRegistered();
 
-      container.handleAccountRingVrfSign((_, { err }) => err(error));
+      container.account.handleRingVrfSign((_, { err }) => err(error));
 
       const result = await accountsProvider.ringVrfSign(mockKeyHandle, new Uint8Array(0));
 
@@ -632,7 +635,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new RingVrfSignErr.Rejected();
 
-      container.handleAccountRingVrfSign((_, { err }) => err(error));
+      container.account.handleRingVrfSign((_, { err }) => err(error));
 
       const result = await accountsProvider.ringVrfSign(mockKeyHandle, new Uint8Array(0));
 
@@ -641,11 +644,12 @@ describe('Host API: Accounts', () => {
   });
 
   describe('signVrf', () => {
-    it('is pinned to the wire index the truapi spec assigns it', () => {
-      // RFC-0023 specifies `#[wire(request_id = 164)]`. The index is allocated
-      // positionally in `hostApiProtocol`, so a table reorder would silently
-      // move it and break compatibility with non-JS hosts.
-      expect(hostApiProtocol.host_account_sign_vrf.index).toBe(164);
+    it('is pinned to the wire address the truapi spec assigns it', () => {
+      // truapi's `wire_table.rs` addresses `account.signVrf` as (trait 2,
+      // method 7). A reorder of `hostApiProtocol` would silently move it and
+      // break compatibility with non-JS hosts.
+      expect(hostApiProtocol.account.id).toBe(2);
+      expect(hostApiProtocol.account.methods.signVrf.id).toBe(7);
     });
 
     const mockTranscriptLabel = new TextEncoder().encode('pop:airdrop');
@@ -661,7 +665,7 @@ describe('Host API: Accounts', () => {
     it('should return the vrf signature on success', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleAccountSignVrf((_, { ok }) => ok(mockVrfSignature));
+      container.account.handleSignVrf((_, { ok }) => ok(mockVrfSignature));
 
       const result = await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, mockItems);
 
@@ -671,10 +675,10 @@ describe('Host API: Accounts', () => {
 
     it('should pass the transcript recipe through unchanged', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountSignVrf>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleSignVrf>>((_, { ok }) =>
         ok(mockVrfSignature),
       );
-      container.handleAccountSignVrf(handler);
+      container.account.handleSignVrf(handler);
 
       await accountsProvider.signVrf('product.dot', 1, mockTranscriptLabel, mockItems);
 
@@ -684,22 +688,22 @@ describe('Host API: Accounts', () => {
           transcriptLabel: mockTranscriptLabel,
           items: mockItems,
         },
-        { ok: expect.any(Function), err: expect.any(Function) },
+        { ok: expect.any(Function), err: expect.any(Function), signal: expect.any(AbortSignal) },
       );
     });
 
     it('should support an empty item list', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleAccountSignVrf>>((_, { ok }) =>
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleSignVrf>>((_, { ok }) =>
         ok(mockVrfSignature),
       );
-      container.handleAccountSignVrf(handler);
+      container.account.handleSignVrf(handler);
 
       await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, []);
 
       expect(handler).toHaveBeenCalledWith(
         { account: ['product.dot', { tag: 'Index', value: 0 }], transcriptLabel: mockTranscriptLabel, items: [] },
-        { ok: expect.any(Function), err: expect.any(Function) },
+        { ok: expect.any(Function), err: expect.any(Function), signal: expect.any(AbortSignal) },
       );
     });
 
@@ -707,7 +711,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new SignVrfErr.NotConnected();
 
-      container.handleAccountSignVrf((_, { err }) => err(error));
+      container.account.handleSignVrf((_, { err }) => err(error));
 
       const result = await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, mockItems);
 
@@ -719,7 +723,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new SignVrfErr.Rejected();
 
-      container.handleAccountSignVrf((_, { err }) => err(error));
+      container.account.handleSignVrf((_, { err }) => err(error));
 
       const result = await accountsProvider.signVrf('product.dot', 0, mockTranscriptLabel, mockItems);
 
@@ -742,7 +746,7 @@ describe('Host API: Accounts', () => {
       const signatureBytes = new Uint8Array(64).fill(0xab);
       let capturedParams: unknown;
 
-      container.handleSignRaw((params, { ok }) => {
+      container.signing.handleSignRaw((params, { ok }) => {
         capturedParams = params;
         return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
       });
@@ -761,7 +765,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new SigningErr.Rejected();
 
-      container.handleSignRaw((_, { err }) => err(error));
+      container.signing.handleSignRaw((_, { err }) => err(error));
 
       const signer = accountsProvider.getProductAccountSigner(mockProductAccount);
 
@@ -773,7 +777,7 @@ describe('Host API: Accounts', () => {
       const extrinsic = new Uint8Array([0xde, 0xad, 0xbe, 0xef]);
       let capturedParams: unknown;
 
-      container.handleCreateTransaction((params, { ok }) => {
+      container.signing.handleCreateTransaction((params, { ok }) => {
         capturedParams = params;
         return ok(extrinsic);
       });
@@ -810,8 +814,60 @@ describe('Host API: Accounts', () => {
         callData: new Uint8Array([9, 9]),
         extensions: [{ id: 'CheckGenesis', extra: new Uint8Array(), additionalSigned: new Uint8Array(32).fill(0xcd) }],
         txExtVersion: 5,
+        // No `contacts` option: the call names no contact handles.
+        contacts: [],
       });
       expect(result).toEqual(toHex(extrinsic));
+    });
+
+    const v5TxPayload = () => {
+      const genesisHash = toHex(new Uint8Array(32).fill(0xcd));
+      return {
+        genesisHash,
+        payload: {
+          version: 1,
+          signer: null,
+          callData: toHex(new Uint8Array([9, 9])),
+          extensions: [{ id: 'CheckGenesis', extra: '0x', additionalSigned: genesisHash }],
+          txExtVersion: 5,
+          context: { metadata: '0x', token: null, bestBlockHeight: 0, bestBlockHash: '0x00', genesisHash },
+        },
+      };
+    };
+
+    type CreateTx = (payload: unknown, opts: unknown, bindings: unknown, mocked: boolean) => Promise<string>;
+
+    it('lists the contact handles passed as `contacts` in the createTransaction request', async () => {
+      const { container, accountsProvider } = setup();
+      const contact = { bytes: new Uint8Array(32).fill(0x77) };
+      let capturedParams: unknown;
+
+      container.signing.handleCreateTransaction((params, { ok }) => {
+        capturedParams = params;
+        return ok(new Uint8Array([1]));
+      });
+
+      const signer = accountsProvider.getProductAccountSigner(mockProductAccount, 'createTransaction', {
+        contacts: [contact],
+      });
+      const { payload } = v5TxPayload();
+      await (signer as unknown as CreateTx)(payload, {}, {}, false);
+
+      expect(capturedParams).toMatchObject({ contacts: [contact] });
+    });
+
+    it('rejects with UnknownContact when the host cannot resolve a listed contact', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new CreateTransactionErr.UnknownContact();
+
+      container.signing.handleCreateTransaction((_, { err }) => err(error));
+
+      const signer = accountsProvider.getProductAccountSigner(mockProductAccount, 'createTransaction', {
+        contacts: [{ bytes: new Uint8Array(32) }],
+      });
+      const { payload } = v5TxPayload();
+
+      await expect((signer as unknown as CreateTx)(payload, {}, {}, false)).rejects.toEqual(error);
     });
   });
 
@@ -829,7 +885,7 @@ describe('Host API: Accounts', () => {
       const signatureBytes = new Uint8Array(64).fill(0xef);
       let capturedParams: unknown;
 
-      container.handleSignRawWithLegacyAccount((params, { ok }) => {
+      container.signing.handleSignRawWithLegacyAccount((params, { ok }) => {
         capturedParams = params;
         return ok({ signature: toHex(signatureBytes), signedTransaction: undefined });
       });
@@ -845,7 +901,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new SigningErr.Rejected();
 
-      container.handleSignRawWithLegacyAccount((_, { err }) => err(error));
+      container.signing.handleSignRawWithLegacyAccount((_, { err }) => err(error));
 
       const signer = accountsProvider.getLegacyAccountSigner(mockLegacyAccount);
 
@@ -857,7 +913,7 @@ describe('Host API: Accounts', () => {
     it('should return success when login completes', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleRequestLogin((_, { ok }) => ok('success'));
+      container.account.handleRequestLogin((_, { ok }) => ok('success'));
 
       const result = await accountsProvider.requestLogin();
 
@@ -867,7 +923,7 @@ describe('Host API: Accounts', () => {
     it('should return alreadyConnected when user is already logged in', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleRequestLogin((_, { ok }) => ok('alreadyConnected'));
+      container.account.handleRequestLogin((_, { ok }) => ok('alreadyConnected'));
 
       const result = await accountsProvider.requestLogin('some reason');
 
@@ -877,7 +933,7 @@ describe('Host API: Accounts', () => {
     it('should return rejected when user dismisses login UI', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleRequestLogin((_, { ok }) => ok('rejected'));
+      container.account.handleRequestLogin((_, { ok }) => ok('rejected'));
 
       const result = await accountsProvider.requestLogin();
 
@@ -886,8 +942,10 @@ describe('Host API: Accounts', () => {
 
     it('should pass reason string to handler', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleRequestLogin>>((_, { ok }) => ok('success'));
-      container.handleRequestLogin(handler);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleRequestLogin>>((_, { ok }) =>
+        ok('success'),
+      );
+      container.account.handleRequestLogin(handler);
 
       await accountsProvider.requestLogin('Sign in to vote');
 
@@ -896,8 +954,10 @@ describe('Host API: Accounts', () => {
 
     it('should pass undefined reason when no reason given', async () => {
       const { container, accountsProvider } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleRequestLogin>>((_, { ok }) => ok('success'));
-      container.handleRequestLogin(handler);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.account.handleRequestLogin>>((_, { ok }) =>
+        ok('success'),
+      );
+      container.account.handleRequestLogin(handler);
 
       await accountsProvider.requestLogin();
 
@@ -908,7 +968,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const error = new LoginErr.Unknown({ reason: 'host crashed' });
 
-      container.handleRequestLogin((_, { err }) => err(error));
+      container.account.handleRequestLogin((_, { err }) => err(error));
 
       const result = await accountsProvider.requestLogin();
 
@@ -920,7 +980,7 @@ describe('Host API: Accounts', () => {
     it('should receive connection status updates from host', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleAccountConnectionStatusSubscribe((_, send) => {
+      container.account.handleConnectionStatusSubscribe((_, send) => {
         send('connected');
         return () => {
           /* cleanup */
@@ -940,7 +1000,7 @@ describe('Host API: Accounts', () => {
     it('should receive multiple status updates', async () => {
       const { container, accountsProvider } = setup();
 
-      container.handleAccountConnectionStatusSubscribe((_, send) => {
+      container.account.handleConnectionStatusSubscribe((_, send) => {
         send('disconnected');
         send('connected');
         send('disconnected');
@@ -964,7 +1024,7 @@ describe('Host API: Accounts', () => {
       let sendStatus: ((status: AccountConnectionStatus) => void) | undefined;
       const cleanupFn = vi.fn();
 
-      container.handleAccountConnectionStatusSubscribe((_, send) => {
+      container.account.handleConnectionStatusSubscribe((_, send) => {
         sendStatus = send;
         return cleanupFn;
       });
@@ -990,7 +1050,7 @@ describe('Host API: Accounts', () => {
       const { container, accountsProvider } = setup();
       const cleanupFn = vi.fn();
 
-      container.handleAccountConnectionStatusSubscribe((_, send) => {
+      container.account.handleConnectionStatusSubscribe((_, send) => {
         send('connected');
         return cleanupFn;
       });
@@ -1004,6 +1064,42 @@ describe('Host API: Accounts', () => {
       await delay(10);
 
       expect(cleanupFn).toHaveBeenCalledOnce();
+    });
+
+    it('reports a clean end from the host as an undefined interrupt', async () => {
+      const { container, accountsProvider } = setup();
+
+      container.account.handleConnectionStatusSubscribe((_, send, interrupt) => {
+        send('connected');
+        interrupt(undefined);
+        return () => undefined;
+      });
+
+      const onInterrupt = vi.fn();
+      const subscription = accountsProvider.subscribeAccountConnectionStatus(vi.fn());
+      subscription.onInterrupt(onInterrupt);
+
+      await delay(10);
+
+      expect(onInterrupt).toHaveBeenCalledExactlyOnceWith(undefined);
+    });
+
+    it('reports a host error as a GenericError interrupt', async () => {
+      const { container, accountsProvider } = setup();
+      const error = new GenericError({ reason: 'session lost' });
+
+      container.account.handleConnectionStatusSubscribe((_, _send, interrupt) => {
+        interrupt(error);
+        return () => undefined;
+      });
+
+      const onInterrupt = vi.fn();
+      const subscription = accountsProvider.subscribeAccountConnectionStatus(vi.fn());
+      subscription.onInterrupt(onInterrupt);
+
+      await delay(10);
+
+      expect(onInterrupt).toHaveBeenCalledExactlyOnceWith(error);
     });
   });
 });

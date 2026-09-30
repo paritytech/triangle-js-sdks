@@ -1,12 +1,16 @@
 import type { CodecType } from '@novasamatech/host-api';
 import {
   Arrangement as ArrangementCodec,
+  BlendingMode as BlendingModeCodec,
   BorderStyle as BorderStyleCodec,
   ButtonVariant as ButtonVariantCodec,
   ColorToken as ColorTokenCodec,
   ContentAlignment as ContentAlignmentCodec,
   Dimensions as DimensionsCodec,
+  Effect as EffectCodec,
   HorizontalAlignment as HorizontalAlignmentCodec,
+  ImageFit as ImageFitCodec,
+  ImageSource as ImageSourceCodec,
   Modifier as ModifierCodec,
   Shape as ShapeCodec,
   Size as SizeCodec,
@@ -25,6 +29,10 @@ export type VerticalAlignment = CodecType<typeof VerticalAlignmentCodec>;
 export type Arrangement = CodecType<typeof ArrangementCodec>;
 export type Shape = CodecType<typeof ShapeCodec>;
 export type BorderStyle = CodecType<typeof BorderStyleCodec>;
+export type BlendingMode = CodecType<typeof BlendingModeCodec>;
+export type ImageSource = CodecType<typeof ImageSourceCodec>;
+export type ImageFit = CodecType<typeof ImageFitCodec>;
+export type Effect = CodecType<typeof EffectCodec>;
 
 export type Size = CodecType<typeof SizeCodec>;
 export type Dimensions = CodecType<typeof DimensionsCodec>;
@@ -50,6 +58,10 @@ export interface BaseWidgetProps {
   maxHeight?: number;
   fillMaxWidth?: boolean | number;
   fillMaxHeight?: boolean | number;
+  /** 0 is transparent, 255 is opaque. */
+  opacity?: number;
+  /** How the node composites with what is behind it (CSS `mix-blend-mode` values). */
+  blendingMode?: BlendingMode;
 }
 
 export interface BoxProps extends BaseWidgetProps {
@@ -79,6 +91,18 @@ export interface ButtonProps extends BaseWidgetProps {
   enabled?: boolean;
   loading?: boolean;
   onClick(): void;
+}
+
+export interface ImageProps extends BaseWidgetProps {
+  /** Where the host fetches the image from; the tree carries no URL. */
+  source: ImageSource;
+  /** Defaults to `fill`. */
+  fit?: ImageFit;
+}
+
+/** Applies a visual effect to its children. Takes no layout modifiers. */
+export interface EffectProps {
+  effect: Effect;
 }
 
 export interface TextFieldProps extends BaseWidgetProps {

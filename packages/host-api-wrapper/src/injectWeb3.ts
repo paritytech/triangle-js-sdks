@@ -1,8 +1,16 @@
-import type { HexString, Transport } from '@novasamatech/host-api';
+import type {
+  CodecType,
+  HexString,
+  SigningErr,
+  SigningRawPayloadWithoutAccount,
+  SigningResult,
+  Transport,
+} from '@novasamatech/host-api';
 import { assertEnumVariant, createHostApi, enumValue, fromHex, toHex } from '@novasamatech/host-api';
 import { injectExtension } from '@polkadot/extension-inject';
 import type { InjectedAccount, InjectedAccounts } from '@polkadot/extension-inject/types';
 import type { SignerPayloadJSON, SignerPayloadRaw, SignerResult } from '@polkadot/types/types/extrinsic';
+import type { Result } from 'neverthrow';
 import { AccountId } from 'polkadot-api';
 
 import { createAccountsProvider } from './accounts.js';
@@ -97,6 +105,12 @@ interface Signer {
    */
   signRaw?: (raw: SignerPayloadRaw) => Promise<SignerResult>;
   /**
+   * @description signs a raw payload without the `<Bytes>` watermark. Not part of the polkadot-js signer interface.
+   * @deprecated Temporary compatibility API for runtime ownership proofs; migrate to `signRaw` once the runtime
+   * supports watermarked signatures. See https://github.com/paritytech/host-rust-core/issues/612
+   */
+  signRawUnwatermarkedDeprecated?: (raw: SignerPayloadRaw) => Promise<SignerResult>;
+  /**
    * @description signs a transaction according to https://github.com/polkadot-js/api/issues/6213
    */
   createTransaction?: (payload: TxPayloadV1) => Promise<HexString>;
@@ -105,6 +119,35 @@ interface Signer {
 interface Injected {
   accounts: InjectedAccounts;
   signer: Signer;
+}
+
+function toLegacyRawPayload(raw: SignerPayloadRaw): CodecType<typeof SigningRawPayloadWithoutAccount> {
+  return {
+    signer: raw.address,
+    payload: raw.type === 'bytes' ? { tag: 'Bytes', value: fromHex(raw.data) } : { tag: 'Payload', value: raw.data },
+  };
+}
+
+function toSignerResult(
+  response: Result<
+    { tag: 'v1'; value: CodecType<typeof SigningResult> },
+    { tag: 'v1'; value: CodecType<typeof SigningErr> }
+  >,
+): SignerResult {
+  return response.match(
+    response => {
+      assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
+      return {
+        id: 0,
+        signature: response.value.signature,
+        signedTransaction: response.value.signedTransaction,
+      };
+    },
+    err => {
+      assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
+      throw err.value;
+    },
+  );
 }
 
 export async function createLegacyExtensionEnableFactory(transport: Transport) {
@@ -149,36 +192,14 @@ export async function createLegacyExtensionEnableFactory(transport: Transport) {
 
       signer: {
         async signRaw(raw) {
-          const payload = {
-            signer: raw.address,
-            payload:
-              raw.type === 'bytes'
-                ? {
-                    tag: 'Bytes' as const,
-                    value: fromHex(raw.data),
-                  }
-                : {
-                    tag: 'Payload' as const,
-                    value: raw.data,
-                  },
-          };
-
-          const response = await hostApi.signRawWithLegacyAccount(enumValue('v1', payload));
-
-          return response.match(
-            response => {
-              assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
-              return {
-                id: 0,
-                signature: response.value.signature,
-                signedTransaction: response.value.signedTransaction,
-              };
-            },
-            err => {
-              assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
-              throw err.value;
-            },
+          const response = await hostApi.signing.signRawWithLegacyAccount(enumValue('v1', toLegacyRawPayload(raw)));
+          return toSignerResult(response);
+        },
+        async signRawUnwatermarkedDeprecated(raw) {
+          const response = await hostApi.signing.signRawUnwatermarkedDeprecatedWithLegacyAccount(
+            enumValue('v1', toLegacyRawPayload(raw)),
           );
+          return toSignerResult(response);
         },
         async signPayload(payload) {
           const codecPayload = {
@@ -202,22 +223,8 @@ export async function createLegacyExtensionEnableFactory(transport: Transport) {
             },
           };
 
-          const response = await hostApi.signPayloadWithLegacyAccount(enumValue('v1', codecPayload));
-
-          return response.match(
-            response => {
-              assertEnumVariant(response, 'v1', UNSUPPORTED_VERSION_ERROR);
-              return {
-                id: 0,
-                signature: response.value.signature,
-                signedTransaction: response.value.signedTransaction,
-              };
-            },
-            err => {
-              assertEnumVariant(err, 'v1', UNSUPPORTED_VERSION_ERROR);
-              throw err.value;
-            },
-          );
+          const response = await hostApi.signing.signPayloadWithLegacyAccount(enumValue('v1', codecPayload));
+          return toSignerResult(response);
         },
         async createTransaction(payload) {
           if (payload.version !== 1) {
@@ -232,7 +239,7 @@ export async function createLegacyExtensionEnableFactory(transport: Transport) {
             throw new Error("Can't find genesis hash on transaction");
           }
           const possibleAccountId = accountId.enc(signer);
-          const response = await hostApi.createTransactionWithLegacyAccount(
+          const response = await hostApi.signing.createTransactionWithLegacyAccount(
             enumValue('v1', {
               signer: possibleAccountId,
               genesisHash: checkGenesis.additionalSigned,

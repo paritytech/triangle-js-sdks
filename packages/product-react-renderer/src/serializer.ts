@@ -1,5 +1,5 @@
-import type { CustomRendererNodeType } from './context.js';
-import type { Background, BorderStyle, Dimensions, Modifier, Padding, Size } from './types.js';
+import type { RendererNodeType } from './context.js';
+import type { Background, BlendingMode, BorderStyle, Dimensions, Modifier, Padding, Size } from './types.js';
 
 export type WidgetInstance = {
   type: string;
@@ -49,6 +49,10 @@ function convertModifiers(props: Record<string, unknown>): Modifier[] {
   if (props.minHeight !== undefined) modifiers.push({ tag: 'minHeight', value: props.minHeight as Size });
   if (props.fillMaxWidth) modifiers.push({ tag: 'fillWidth', value: true });
   if (props.fillMaxHeight) modifiers.push({ tag: 'fillHeight', value: true });
+  if (props.opacity !== undefined) modifiers.push({ tag: 'opacity', value: props.opacity as number });
+  if (props.blendingMode !== undefined) {
+    modifiers.push({ tag: 'blendingMode', value: props.blendingMode as BlendingMode });
+  }
 
   return modifiers;
 }
@@ -67,8 +71,6 @@ function convertWidgetProps(widgetType: string, props: Record<string, unknown>):
         verticalAlignment: props.verticalAlignment as string | undefined,
         horizontalArrangement: props.horizontalArrangement as string | undefined,
       };
-    case 'Spacer':
-      return undefined;
     case 'Text':
       return {
         style: props.style as string | undefined,
@@ -90,6 +92,13 @@ function convertWidgetProps(widgetType: string, props: Record<string, unknown>):
         enabled: props.enabled as boolean | undefined,
         valueChangeAction: props.valueChangeAction,
       };
+    case 'Image':
+      return {
+        source: props.source,
+        fit: props.fit as string | undefined,
+      };
+    case 'Effect':
+      return { effect: props.effect };
     default:
       return undefined;
   }
@@ -97,29 +106,37 @@ function convertWidgetProps(widgetType: string, props: Record<string, unknown>):
 
 // ---------- Serialization ----------
 
-function serializeNode(node: WidgetInstance | TextInstance): CustomRendererNodeType {
+function serializeNode(node: WidgetInstance | TextInstance): RendererNodeType {
   if (isTextInstance(node)) {
     return { tag: 'String', value: node.text };
   }
 
-  return {
-    tag: node.type,
-    value: {
-      modifiers: convertModifiers(node.props),
-      props: convertWidgetProps(node.type, node.props),
-      children: node.children.map(child => serializeNode(child)),
-    },
-  } as CustomRendererNodeType;
+  const modifiers = convertModifiers(node.props);
+  const props = convertWidgetProps(node.type, node.props);
+  const children = () => node.children.map(child => serializeNode(child));
+
+  // Leaf nodes carry no children and `Spacer` no props; `Effect` takes no modifiers.
+  switch (node.type) {
+    case 'Spacer':
+      return { tag: 'Spacer', value: { modifiers } };
+    case 'TextField':
+    case 'Image':
+      return { tag: node.type, value: { modifiers, props } } as RendererNodeType;
+    case 'Effect':
+      return { tag: 'Effect', value: { props, children: children() } } as RendererNodeType;
+    default:
+      return { tag: node.type, value: { modifiers, props, children: children() } } as RendererNodeType;
+  }
 }
 
 /**
  * Serialize the reconciler tree and deliver the result via the render callback.
  * Clears stale callbacks, serializes the tree, and wraps multiple roots in a Column.
  */
-export function serializeAndRender(children: (WidgetInstance | TextInstance)[]): CustomRendererNodeType {
+export function serializeAndRender(children: (WidgetInstance | TextInstance)[]): RendererNodeType {
   const serialized = children.map(serializeNode);
 
-  let rootNode: CustomRendererNodeType;
+  let rootNode: RendererNodeType;
   if (serialized.length === 0) {
     rootNode = { tag: 'Nil', value: undefined };
   } else if (serialized.length === 1 && serialized[0] !== undefined) {

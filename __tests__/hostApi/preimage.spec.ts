@@ -22,16 +22,20 @@ describe('Host API: Preimage', () => {
     const preimageData = new Uint8Array([1, 2, 3, 4]);
     const expectedKey = '0xdeadbeef';
 
-    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.handlePermission>>((_params, { ok }) =>
-      ok(true),
+    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.permissions.handleRequestRemotePermission>>(
+      (_params, { ok }) => ok(true),
     );
-    container.handlePermission(permissionHandler);
-    const handler = vi.fn<ContainerHandlerOf<typeof container.handlePreimageSubmit>>((_, { ok }) => ok(expectedKey));
-    container.handlePreimageSubmit(handler);
+    container.permissions.handleRequestRemotePermission(permissionHandler);
+    const handler = vi.fn<ContainerHandlerOf<typeof container.preimage.handleSubmit>>((_, { ok }) => ok(expectedKey));
+    container.preimage.handleSubmit(handler);
 
     await preimageManager.submit(preimageData);
 
-    expect(handler).toHaveBeenCalledWith(preimageData, { ok: expect.any(Function), err: expect.any(Function) });
+    expect(handler).toHaveBeenCalledWith(preimageData, {
+      ok: expect.any(Function),
+      err: expect.any(Function),
+      signal: expect.any(AbortSignal),
+    });
     expect(permissionHandler).toHaveBeenCalledOnce();
     const [receivedParams] = permissionHandler.mock.calls[0]!;
     expect(receivedParams).toEqual({ tag: 'PreimageSubmit', value: undefined });
@@ -42,11 +46,11 @@ describe('Host API: Preimage', () => {
     const preimageData = new Uint8Array([5, 6, 7, 8]);
     const error = new PreimageSubmitErr.Unknown({ reason: 'Submit failed' });
 
-    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.handlePermission>>((_params, { ok }) =>
-      ok(true),
+    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.permissions.handleRequestRemotePermission>>(
+      (_params, { ok }) => ok(true),
     );
-    container.handlePermission(permissionHandler);
-    container.handlePreimageSubmit((_, { err }) => err(error));
+    container.permissions.handleRequestRemotePermission(permissionHandler);
+    container.preimage.handleSubmit((_, { err }) => err(error));
 
     await expect(preimageManager.submit(preimageData)).rejects.toEqual(error);
 

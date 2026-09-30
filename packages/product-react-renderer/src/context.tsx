@@ -1,10 +1,11 @@
-import type { CodecType, CustomRendererNode } from '@novasamatech/host-api';
+import type { RendererNode } from '@novasamatech/host-api-wrapper';
 import type { PropsWithChildren } from 'react';
 import { createContext, useCallback, useContext, useEffect, useId, useRef } from 'react';
 
-export type CustomRendererNodeType = CodecType<typeof CustomRendererNode>;
-export type RenderCallback = (node: CustomRendererNodeType) => void;
-export type ActionCallback = (actionId: string, payload: Uint8Array | void) => void;
+export type RendererNodeType = RendererNode;
+export type RenderCallback = (node: RendererNodeType) => void;
+/** `payload` is empty for a `Button` press and the UTF-8 bytes of the new value for a `TextField` change. */
+export type ActionCallback = (actionId: string, payload: Uint8Array) => void;
 
 export type SubscribeAction = (callback: ActionCallback) => VoidFunction;
 
@@ -48,7 +49,7 @@ function useRenderer() {
   return context;
 }
 
-export function useAction<T>(map: (payload: Uint8Array | void) => T, callback?: (value: T) => void) {
+export function useAction<T>(map: (payload: Uint8Array) => T, callback?: (value: T) => void) {
   const id = useId();
   const { registerAction } = useRenderer();
   const ref = useRef(callback);

@@ -1,7 +1,7 @@
-export { Box, Button, Column, Row, Spacer, Text, TextField } from './components.js';
+export { Box, Button, Column, Effect, Image, Row, Spacer, Text, TextField } from './components.js';
 
-export type { CustomRendererNodeType } from './context.js';
+export type { RendererNodeType } from './context.js';
 
 // React renderer
 export { createRenderer } from './renderer.js';
-export { registerChatMessageRenderer } from './rendererChatMessage.js';
+export { registerChatMessageRenderer, registerRenderer } from './rendererChatMessage.js';

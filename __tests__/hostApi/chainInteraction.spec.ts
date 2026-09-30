@@ -1,8 +1,16 @@
 /* eslint-disable @typescript-eslint/no-non-null-assertion */
 
 import type { HexString } from '@novasamatech/host-api';
-import { createHostApi, createTransport, enumValue, hostApiProtocol } from '@novasamatech/host-api';
+import {
+  CALL_ERROR_FAILURE,
+  createHostApi,
+  createTransport,
+  enumValue,
+  hostApiProtocol,
+  isCallErrorMarker,
+} from '@novasamatech/host-api';
 import { WellKnownChain, createPapiProvider } from '@novasamatech/host-api-wrapper';
+import type { ContainerHandlerOf } from '@novasamatech/host-container';
 import { createContainer } from '@novasamatech/host-container';
 
 import type { JsonRpcMessage } from '@polkadot-api/json-rpc-provider';
@@ -30,7 +38,7 @@ describe('Host API: Chain Interaction', () => {
       const receivedMessages: any[] = [];
       const followFn = vi.fn();
 
-      container.handleFeatureSupported((params, { ok }) =>
+      container.system.handleFeatureSupported((params, { ok }) =>
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
@@ -104,7 +112,7 @@ describe('Host API: Chain Interaction', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let chainOnMessage: ((msg: any) => void) | null = null;
 
-      container.handleFeatureSupported((params, { ok }) =>
+      container.system.handleFeatureSupported((params, { ok }) =>
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
@@ -190,7 +198,7 @@ describe('Host API: Chain Interaction', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const receivedMessages: any[] = [];
 
-      container.handleFeatureSupported((params, { ok }) =>
+      container.system.handleFeatureSupported((params, { ok }) =>
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
@@ -249,7 +257,7 @@ describe('Host API: Chain Interaction', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const receivedMessages: any[] = [];
 
-      container.handleFeatureSupported((params, { ok }) =>
+      container.system.handleFeatureSupported((params, { ok }) =>
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
@@ -355,7 +363,7 @@ describe('Host API: Chain Interaction', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const receivedMessages: any[] = [];
 
-      container.handleFeatureSupported((params, { ok }) =>
+      container.system.handleFeatureSupported((params, { ok }) =>
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
@@ -430,7 +438,7 @@ describe('Host API: Chain Interaction', () => {
       const receivedMessages: any[] = [];
       const unpinFn = vi.fn();
 
-      container.handleFeatureSupported((params, { ok }) =>
+      container.system.handleFeatureSupported((params, { ok }) =>
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
@@ -486,7 +494,7 @@ describe('Host API: Chain Interaction', () => {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const receivedMessages: any[] = [];
 
-      container.handleFeatureSupported((params, { ok }) =>
+      container.system.handleFeatureSupported((params, { ok }) =>
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
@@ -560,7 +568,7 @@ describe('Host API: Chain Interaction', () => {
       const disconnectFn = vi.fn();
       const unfollowFn = vi.fn();
 
-      container.handleFeatureSupported((params, { ok }) =>
+      container.system.handleFeatureSupported((params, { ok }) =>
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
@@ -616,7 +624,7 @@ describe('Host API: Chain Interaction', () => {
       const { container, hostApi } = setupDirect();
       const broadcastFn = vi.fn();
 
-      container.handlePermission((_params, { ok }) => ok(true));
+      container.permissions.handleRequestRemotePermission((_params, { ok }) => ok(true));
       container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
@@ -638,7 +646,7 @@ describe('Host API: Chain Interaction', () => {
         };
       });
 
-      const result = await hostApi.chainTransactionBroadcast(
+      const result = await hostApi.chain.broadcastTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
       );
 
@@ -654,7 +662,7 @@ describe('Host API: Chain Interaction', () => {
     it('should handle broadcast returning null when limit reached', async () => {
       const { container, hostApi } = setupDirect();
 
-      container.handlePermission((_params, { ok }) => ok(true));
+      container.permissions.handleRequestRemotePermission((_params, { ok }) => ok(true));
       container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
@@ -670,7 +678,7 @@ describe('Host API: Chain Interaction', () => {
         };
       });
 
-      const result = await hostApi.chainTransactionBroadcast(
+      const result = await hostApi.chain.broadcastTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
       );
 
@@ -686,7 +694,7 @@ describe('Host API: Chain Interaction', () => {
       const { container, hostApi } = setupDirect();
       const stopFn = vi.fn();
 
-      container.handlePermission((_params, { ok }) => ok(true));
+      container.permissions.handleRequestRemotePermission((_params, { ok }) => ok(true));
       container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
@@ -711,11 +719,11 @@ describe('Host API: Chain Interaction', () => {
       });
 
       // A stop pairs with a prior broadcast, which keeps the connection alive.
-      await hostApi.chainTransactionBroadcast(
+      await hostApi.chain.broadcastTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
       );
 
-      const result = await hostApi.chainTransactionStop(
+      const result = await hostApi.chain.stopTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, operationId: 'tx_op_1' }),
       );
 
@@ -734,7 +742,7 @@ describe('Host API: Chain Interaction', () => {
       const { container, hostApi } = setupDirect();
       const disconnectFn = vi.fn();
 
-      container.handlePermission((_params, { ok }) => ok(true));
+      container.permissions.handleRequestRemotePermission((_params, { ok }) => ok(true));
       container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
@@ -752,7 +760,7 @@ describe('Host API: Chain Interaction', () => {
         };
       });
 
-      const broadcast = await hostApi.chainTransactionBroadcast(
+      const broadcast = await hostApi.chain.broadcastTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
       );
       broadcast.match(
@@ -766,7 +774,7 @@ describe('Host API: Chain Interaction', () => {
       // it down here would abandon the broadcast (the reported bug).
       expect(disconnectFn).not.toHaveBeenCalled();
 
-      const stop = await hostApi.chainTransactionStop(
+      const stop = await hostApi.chain.stopTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, operationId: 'tx_op_1' }),
       );
       stop.match(
@@ -787,7 +795,7 @@ describe('Host API: Chain Interaction', () => {
       const disconnectFn = vi.fn();
       const stopFn = vi.fn();
 
-      container.handlePermission((_params, { ok }) => ok(true));
+      container.permissions.handleRequestRemotePermission((_params, { ok }) => ok(true));
       container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
@@ -808,14 +816,14 @@ describe('Host API: Chain Interaction', () => {
         };
       });
 
-      await hostApi.chainTransactionBroadcast(
+      await hostApi.chain.broadcastTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
       );
 
-      const first = await hostApi.chainTransactionStop(
+      const first = await hostApi.chain.stopTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, operationId: 'tx_op_1' }),
       );
-      const second = await hostApi.chainTransactionStop(
+      const second = await hostApi.chain.stopTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, operationId: 'tx_op_1' }),
       );
 
@@ -840,7 +848,7 @@ describe('Host API: Chain Interaction', () => {
       const { container, hostApi } = setupDirect();
       const disconnectFn = vi.fn();
 
-      container.handlePermission((_params, { ok }) => ok(true));
+      container.permissions.handleRequestRemotePermission((_params, { ok }) => ok(true));
       container.handleChainConnection(chain => {
         if (chain !== WellKnownChain.polkadotRelay) return null;
 
@@ -854,7 +862,7 @@ describe('Host API: Chain Interaction', () => {
         };
       });
 
-      const broadcast = await hostApi.chainTransactionBroadcast(
+      const broadcast = await hostApi.chain.broadcastTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
       );
       broadcast.match(
@@ -887,7 +895,7 @@ describe('Host API: Chain Interaction', () => {
         };
       });
 
-      const result = await hostApi.chainTransactionBroadcast(
+      const result = await hostApi.chain.broadcastTransaction(
         enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
       );
 
@@ -943,7 +951,7 @@ describe('Host API: Chain Interaction', () => {
       const createProduct = () => {
         const providers = createHostApiProviders();
         const container = createContainer(providers.host);
-        container.handleFeatureSupported((p, { ok }) => ok(p.tag === 'Chain' && p.value === chainId));
+        container.system.handleFeatureSupported((p, { ok }) => ok(p.tag === 'Chain' && p.value === chainId));
         container.handleChainConnection(sharedFactory);
         const messages: JsonRpcMessage[] = [];
         const conn = createPapiProvider(chainId, undefined, { transport: createTransport(providers.sdk) })(msg =>
@@ -985,7 +993,7 @@ describe('Host API: Chain Interaction', () => {
       const disconnectFn = vi.fn();
       const callOrder: string[] = [];
 
-      container.handleFeatureSupported((params, { ok }) =>
+      container.system.handleFeatureSupported((params, { ok }) =>
         ok(params.tag === 'Chain' && params.value === WellKnownChain.polkadotRelay),
       );
 
@@ -1042,7 +1050,7 @@ describe('Host API: Chain Interaction', () => {
       const receivedMessages: any[] = [];
 
       // Feature returns false - chain not supported
-      container.handleFeatureSupported((_, { ok }) => ok(false));
+      container.system.handleFeatureSupported((_, { ok }) => ok(false));
       container.handleChainConnection(chain => {
         if (chain === WellKnownChain.polkadotRelay) {
           return _onMessage => ({
@@ -1068,12 +1076,75 @@ describe('Host API: Chain Interaction', () => {
     });
   });
 
+  describe('without a chain connection', () => {
+    function setupDirect() {
+      const providers = createHostApiProviders();
+      const container = createContainer(providers.host);
+      const hostApi = createHostApi(createTransport(providers.sdk));
+      return { container, hostApi };
+    }
+
+    const headerRequest = () =>
+      enumValue('v1', {
+        genesisHash: WellKnownChain.polkadotRelay,
+        followSubscriptionId: 'sub_1',
+        hash: '0x00' as HexString,
+      });
+
+    it('answers Unsupported to chain requests before handleChainConnection and after disconnect', async () => {
+      const { container, hostApi } = setupDirect();
+
+      const before = await hostApi.chain.getHeadHeader(headerRequest());
+      expect(before._unsafeUnwrapErr().value.payload.reason).toContain('unsupported');
+
+      const disconnect = container.handleChainConnection(() => null);
+      disconnect();
+
+      const after = await hostApi.chain.getHeadHeader(headerRequest());
+      expect(after._unsafeUnwrapErr().value.payload.reason).toContain('unsupported');
+    });
+
+    it('answers Unsupported to a broadcast without asking for the ChainSubmit permission', async () => {
+      const { container, hostApi } = setupDirect();
+      const permission = vi.fn<ContainerHandlerOf<typeof container.permissions.handleRequestRemotePermission>>(
+        (_, { ok }) => ok(true),
+      );
+      container.permissions.handleRequestRemotePermission(permission);
+
+      const result = await hostApi.chain.broadcastTransaction(
+        enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, transaction: '0xdeadbeef' as HexString }),
+      );
+
+      expect(result._unsafeUnwrapErr().value.payload.reason).toContain('unsupported');
+      expect(permission).not.toHaveBeenCalled();
+    });
+
+    it('interrupts a follow subscription with the Unsupported marker', async () => {
+      const { hostApi } = setupDirect();
+
+      const onInterrupt = vi.fn();
+      const subscription = hostApi.chain.followHeadSubscribe(
+        enumValue('v1', { genesisHash: WellKnownChain.polkadotRelay, withRuntime: false }),
+        vi.fn(),
+      );
+      subscription.onInterrupt(onInterrupt);
+
+      await delay(10);
+
+      expect(onInterrupt).toHaveBeenCalledOnce();
+      const [interrupt] = onInterrupt.mock.calls[0]!;
+      expect(interrupt.tag).toBe('v1');
+      expect(isCallErrorMarker(interrupt.value) && interrupt.value[CALL_ERROR_FAILURE]).toEqual({ tag: 'Unsupported' });
+    });
+  });
+
   describe('getChainInfo', () => {
-    it('is pinned to the wire index the truapi spec assigns it', () => {
-      // truapi specifies `#[wire(request_id = 166)]`, between `sign_vrf` and the
-      // ring-VRF block. A table reorder would silently move it and break
-      // compatibility with non-JS hosts.
-      expect(hostApiProtocol.remote_chain_get_chain_info.index).toBe(166);
+    it('is pinned to the wire address the truapi spec assigns it', () => {
+      // truapi's `wire_table.rs` addresses `chain.getChainInfo` as (trait 3,
+      // method 13), after `stopTransaction`. A table reorder would silently
+      // move it and break compatibility with non-JS hosts.
+      expect(hostApiProtocol.chain.id).toBe(3);
+      expect(hostApiProtocol.chain.methods.getChainInfo.id).toBe(13);
     });
 
     it('resolves a chain identifier to its network and genesis hash', async () => {
@@ -1082,9 +1153,9 @@ describe('Host API: Chain Interaction', () => {
       const hostApi = createHostApi(createTransport(providers.sdk));
       const genesisHash = `0x${'ab'.repeat(32)}` as HexString;
 
-      container.handleChainGetChainInfo(({ chain }, { ok }) => ok({ network: 'paseo', chain, genesisHash }));
+      container.chain.handleGetChainInfo(({ chain }, { ok }) => ok({ network: 'paseo', chain, genesisHash }));
 
-      const result = await hostApi.chainGetChainInfo(enumValue('v1', { chain: 'AssetHub' }));
+      const result = await hostApi.chain.getChainInfo(enumValue('v1', { chain: 'AssetHub' }));
 
       expect(result.isOk()).toBe(true);
       expect(result._unsafeUnwrap()).toEqual({

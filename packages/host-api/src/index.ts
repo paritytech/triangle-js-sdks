@@ -1,26 +1,59 @@
 export type {
   ConnectionStatus,
   DebugMessageEvent,
-  HostApiMethod,
+  DecodedMessage,
   Logger,
+  RequestContext,
   RequestHandler,
   Subscription,
+  SubscriptionFor,
   SubscriptionHandler,
   Transport,
 } from './types.js';
-export type { MessagePayloadSchema } from './protocol/messageCodec.js';
+export type { Frame, MessageLeg, RequestLeg, SubscriptionLeg } from './protocol/messageCodec.js';
+export {
+  MessageType,
+  PROTOCOL_ERROR_METHOD_ID,
+  PROTOCOL_ERROR_TRAIT_ID,
+  decodeFrame,
+  encodeFrame,
+} from './protocol/messageCodec.js';
+export { SCALE_CODEC_PROTOCOL_ID } from './constants.js';
 export type { Provider } from './provider.js';
 export { createRequestId } from './helpers.js';
 
-export type { HostApi } from './hostApi.js';
+export type { CallOptions, HostApi, HostApiTrait } from './hostApi.js';
 export { createHostApi } from './hostApi.js';
 export { createTransport } from './transport.js';
 export { createDefaultLogger } from './logger.js';
 
-export type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './protocol/impl.js';
-export { hostApiProtocol } from './protocol/impl.js';
-export { CALL_ERROR_FAILURE, isCallErrorFailure } from './protocol/callError.js';
-export type { CallErrorTransportFailure } from './protocol/callError.js';
+export type {
+  HostApiProtocol,
+  Initiator,
+  InterruptPayload,
+  MethodName,
+  ProtocolAddress,
+  ProtocolMethod,
+  ProtocolTrait,
+  ReceivePayload,
+  RequestMethodName,
+  RequestPayload,
+  ResponsePayload,
+  StartPayload,
+  SubscriptionMethodName,
+  TraitName,
+  VersionedProtocolMethod,
+  VersionedProtocolRequest,
+  VersionedProtocolSubscription,
+} from './protocol/impl.js';
+export { hostApiProtocol, lookupAddress, resolveMethod } from './protocol/impl.js';
+export { CALL_ERROR_FAILURE, callErrorMarker, isCallErrorFailure, isCallErrorMarker } from './protocol/callError.js';
+export type {
+  CallErrorMarker,
+  CallErrorTransportFailure,
+  CallInterruptValue,
+  CallResponseValue,
+} from './protocol/callError.js';
 
 // External reexports
 export type { Codec, CodecType } from 'scale-ts';
@@ -107,7 +140,9 @@ export {
   Topic,
   TopicFilter,
 } from './protocol/v1/statementStore.js';
-export { StorageErr } from './protocol/v1/localStorage.js';
+export { StorageErr, StorageReadV2Err } from './protocol/v1/localStorage.js';
+export { ContactHandle, ContactPickOutcome, ContactsPickErr } from './protocol/v1/contacts.js';
+export { PocketCard, PocketRemoveCardErr } from './protocol/v1/pocket.js';
 export { OperationId, WorkerErr } from './protocol/v1/worker.js';
 export { DevicePermission } from './protocol/v1/devicePermission.js';
 export { RemotePermission } from './protocol/v1/remotePermission.js';
@@ -128,21 +163,28 @@ export {
   PaymentTopUpStatus,
   PaymentTopUpStatusErr,
 } from './protocol/v1/payments.js';
+export type { RendererNodeType } from './protocol/v1/renderer.js';
 export {
   Arrangement,
+  BlendingMode,
   BorderStyle,
   ButtonVariant,
   ColorToken,
   ContentAlignment,
-  CustomRendererNode,
   Dimensions,
+  Effect,
   HorizontalAlignment,
+  ImageFit,
+  ImageSource,
   Modifier,
+  RenderContext,
+  RendererAction,
+  RendererNode,
   Shape,
   Size,
   TypographyStyle,
   VerticalAlignment,
-} from './protocol/v1/customRenderer.js';
+} from './protocol/v1/renderer.js';
 export {
   ChainHeadEvent,
   ChainHeadFollowV1_start,

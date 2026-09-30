@@ -1,8 +1,6 @@
 import { Enum, ErrEnum, Hex, Status } from '@novasamatech/scale';
 import { Struct, Tuple, Vector, _void, str, u32, u64 } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
-
 // RFC 0017 CoinPayment shared types.
 
 // Purse identifier. `0xffffffff` (u32::MAX) is the well-known MAIN_PURSE.
@@ -84,11 +82,13 @@ export const CoinPaymentListenForItem = Enum({
 
 // host_coin_payment_create_purse (136)
 export const CoinPaymentCreatePurseV1_request = Struct({ name: str });
-export const CoinPaymentCreatePurseV1_response = CallResult(Struct({ purse: CoinPaymentPurseId }), CoinPaymentErr);
+export const CoinPaymentCreatePurseV1_response = Struct({ purse: CoinPaymentPurseId });
+export const CoinPaymentCreatePurseV1_error = CoinPaymentErr;
 
 // host_coin_payment_query_purse (138)
 export const CoinPaymentQueryPurseV1_request = Struct({ purse: CoinPaymentPurseId });
-export const CoinPaymentQueryPurseV1_response = CallResult(Struct({ info: CoinPaymentPurseInfo }), CoinPaymentErr);
+export const CoinPaymentQueryPurseV1_response = Struct({ info: CoinPaymentPurseInfo });
+export const CoinPaymentQueryPurseV1_error = CoinPaymentErr;
 
 // host_coin_payment_rebalance_purse (140)
 export const CoinPaymentRebalancePurseV1_start = Struct({
@@ -109,10 +109,8 @@ export const CoinPaymentDeletePurseV1_interrupt = CoinPaymentErr;
 
 // host_coin_payment_create_receivable (148)
 export const CoinPaymentCreateReceivableV1_request = Struct({ into: CoinPaymentPurseId });
-export const CoinPaymentCreateReceivableV1_response = CallResult(
-  Struct({ receivable: CoinPaymentReceivable }),
-  CoinPaymentErr,
-);
+export const CoinPaymentCreateReceivableV1_response = Struct({ receivable: CoinPaymentReceivable });
+export const CoinPaymentCreateReceivableV1_error = CoinPaymentErr;
 
 // host_coin_payment_create_cheque (150)
 export const CoinPaymentCreateChequeV1_request = Struct({
@@ -120,7 +118,8 @@ export const CoinPaymentCreateChequeV1_request = Struct({
   to: CoinPaymentReceivable,
   amount: CoinPaymentBalance,
 });
-export const CoinPaymentCreateChequeV1_response = CallResult(Struct({ cheque: CoinPaymentCheque }), CoinPaymentErr);
+export const CoinPaymentCreateChequeV1_response = Struct({ cheque: CoinPaymentCheque });
+export const CoinPaymentCreateChequeV1_error = CoinPaymentErr;
 
 // host_coin_payment_deposit (152)
 export const CoinPaymentDepositV1_start = Struct({ cheque: CoinPaymentCheque });

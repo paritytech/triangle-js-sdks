@@ -9,16 +9,28 @@ export { createMetaProvider, metaProvider } from './metaProvider.js';
 export { createLegacyExtensionEnableFactory, injectSpektrExtension } from './injectWeb3.js';
 export { createPapiProvider } from './papiProvider.js';
 
+export type { GenericInterrupt } from './helpers.js';
+
 export type {
   ChatBotRegistrationResult,
-  ChatCustomMessageRenderer,
-  ChatCustomMessageRendererParams,
   ChatMessageContent,
   ChatReceivedAction,
   ChatRoom,
   ChatRoomRegistrationResult,
 } from './chat.js';
-export { createProductChatManager, matchChatCustomRenderers } from './chat.js';
+export { createProductChatManager } from './chat.js';
+
+export type {
+  ChatMessageRenderParams,
+  ChatMessageRenderer,
+  RenderActionCallback,
+  RenderContext,
+  RenderHandler,
+  RenderRequest,
+  RendererAction,
+  RendererNode,
+} from './renderer.js';
+export { createProductRenderer, isSameRenderContext, matchChatMessageRenderers, productRenderer } from './renderer.js';
 
 export type {
   ProductAccountId,
@@ -36,6 +48,7 @@ export type {
   AccountSelector,
   LegacyAccount,
   ProductAccount,
+  ProductAccountSignerOptions,
   ProofContext,
   RegisteredRingVrfKey,
   RingVrfKeyDisclosure,
@@ -50,6 +63,12 @@ export type { ThemeMode } from './theme.js';
 export { createThemeProvider } from './theme.js';
 
 export { createLocalStorage, hostLocalStorage } from './localStorage.js';
+
+export type { PocketCard } from './pocket.js';
+export { createPocket, hostPocket } from './pocket.js';
+
+export type { ContactHandle, ContactPickOutcome } from './contacts.js';
+export { createContacts, hostContacts } from './contacts.js';
 
 export { createWorker, hostWorker } from './worker.js';
 

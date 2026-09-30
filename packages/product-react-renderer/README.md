@@ -1,15 +1,15 @@
 # @novasamatech/product-react-renderer
 
-A custom React reconciler for rendering native UI widgets inside Polkadot host applications. Use it together with [`@novasamatech/host-api-wrapper`](../host-api-wrapper) to render interactive widget trees in response to custom chat messages.
+A custom React reconciler for rendering native UI widgets inside Polkadot host applications. Use it together with [`@novasamatech/host-api-wrapper`](../host-api-wrapper)'s product renderer to draw interactive widget trees for custom chat messages, Pocket cards and other product-rendered bodies.
 
 ## How it works
 
-When the host app displays a custom chat message, it calls your script to produce a **widget tree** — a structured description of the UI to render natively (buttons, text, columns, etc.). This package implements a custom React reconciler that maps React components to that widget tree format, so you can use React features like `useState`, `useEffect`, and component composition to build your UI.
+When the host app displays a product-rendered body — a custom chat message, a Pocket card face, an input widget candidate — it asks your product (through `renderer.render`) to produce a **widget tree**: a structured description of the UI to render natively (buttons, text, columns, etc.). This package implements a custom React reconciler that maps React components to that widget tree format, so you can use React features like `useState`, `useEffect`, and component composition to build your UI.
 
 ```
 React component tree
       ↓  (React reconciler)
-Widget tree (CustomRendererNode)
+Widget tree (RendererNode)
       ↓  (SCALE encoding)
 Native Desktop/Mobile UI
 ```
@@ -36,18 +36,23 @@ Configure your `tsconfig.json` to use React JSX:
 
 ## `registerChatMessageRenderer`
 
-The primary entry point for rendering custom chat messages. Pass a `mapPayload` function that decodes the raw bytes sent by the host, and a `renderFn` that returns the React element tree. The return value is a callback you pass directly to `chat.onCustomMessageRenderingRequest()`.
+The primary entry point for rendering custom chat messages. Pass a `mapPayload` function that decodes the raw bytes sent by the host, and a `renderFn` that returns the React element tree. The return value is a `ChatMessageRenderer`: put it in the message-type map of `matchChatMessageRenderers()` from `@novasamatech/host-api-wrapper` and register the result with `productRenderer.onRender()`.
+
+A product has one render handler, so register every message type in one map.
 
 ### Static message
 
 ```tsx
+import { matchChatMessageRenderers, productRenderer } from '@novasamatech/host-api-wrapper';
 import { registerChatMessageRenderer, Text } from '@novasamatech/product-react-renderer';
 
-chat.onCustomMessageRenderingRequest(
-  registerChatMessageRenderer(
-    () => undefined,
-    () => <Text style="headline.large">Hello from the product!</Text>,
-  ),
+productRenderer.onRender(
+  matchChatMessageRenderers({
+    greeting: registerChatMessageRenderer(
+      () => undefined,
+      () => <Text style="headline.large">Hello from the product!</Text>,
+    ),
+  }),
 );
 ```
 
@@ -56,20 +61,23 @@ chat.onCustomMessageRenderingRequest(
 `mapPayload` converts the raw `Uint8Array` the host sends before your `renderFn` sees it. A common pattern is JSON:
 
 ```tsx
+import { matchChatMessageRenderers, productRenderer } from '@novasamatech/host-api-wrapper';
 import { registerChatMessageRenderer, Column, Text } from '@novasamatech/product-react-renderer';
 
 type BalancePayload = { token: string; amount: string };
 
-chat.onCustomMessageRenderingRequest(
-  registerChatMessageRenderer(
-    raw => JSON.parse(new TextDecoder().decode(raw)) as BalancePayload,
-    ({ payload }) => (
-      <Column>
-        <Text style="headline.large">{payload.amount}</Text>
-        <Text color="fg.secondary">{payload.token}</Text>
-      </Column>
+productRenderer.onRender(
+  matchChatMessageRenderers({
+    balance: registerChatMessageRenderer(
+      raw => JSON.parse(new TextDecoder().decode(raw)) as BalancePayload,
+      ({ payload }) => (
+        <Column>
+          <Text style="headline.large">{payload.amount}</Text>
+          <Text color="fg.secondary">{payload.token}</Text>
+        </Column>
+      ),
     ),
-  ),
+  }),
 );
 ```
 
@@ -78,6 +86,7 @@ chat.onCustomMessageRenderingRequest(
 Use standard React hooks for local state. Library automatically wires up callbacks to user interactions on Host side.
 
 ```tsx
+import { matchChatMessageRenderers, productRenderer } from '@novasamatech/host-api-wrapper';
 import { useState } from 'react';
 import { registerChatMessageRenderer, Column, Text, Button } from '@novasamatech/product-react-renderer';
 
@@ -91,30 +100,55 @@ function VoteWidget() {
   );
 }
 
-chat.onCustomMessageRenderingRequest(
-  registerChatMessageRenderer(
-    () => undefined,
-    () => <VoteWidget />,
-  ),
+productRenderer.onRender(
+  matchChatMessageRenderers({
+    vote: registerChatMessageRenderer(
+      () => undefined,
+      () => <VoteWidget />,
+    ),
+  }),
 );
 ```
 
-### Using messageId and messageType
+### Using roomId, messageId and messageType
 
-Both are forwarded to `renderFn` so you can adapt the UI per message:
+All three are forwarded to `renderFn` so you can adapt the UI per message:
 
 ```tsx
 import { registerChatMessageRenderer, Text } from '@novasamatech/product-react-renderer';
 
-chat.onCustomMessageRenderingRequest(
-  registerChatMessageRenderer(
-    () => undefined,
-    ({ messageId, messageType }) => (
-      <Text color="fg.secondary">
-        [{messageType}] {messageId}
-      </Text>
-    ),
+const debug = registerChatMessageRenderer(
+  () => undefined,
+  ({ roomId, messageId, messageType }) => (
+    <Text color="fg.secondary">
+      [{messageType}] {roomId}/{messageId}
+    </Text>
   ),
+);
+```
+
+---
+
+## `registerRenderer`
+
+The surface-neutral counterpart of `registerChatMessageRenderer`. `renderFn` receives the `RenderContext` (`ChatMessage`, `InputWidget` or `PocketCard`) and the mapped payload, and the result is a `RenderHandler` you can pass to `productRenderer.onRender()` directly — or call from your own handler for the surfaces you draw.
+
+```tsx
+import { matchChatMessageRenderers, productRenderer } from '@novasamatech/host-api-wrapper';
+import { Column, Text, registerRenderer } from '@novasamatech/product-react-renderer';
+
+const pocketCard = registerRenderer(
+  () => undefined,
+  ({ context }) => (
+    <Column padding={16}>
+      <Text style="title.medium.regular">{context.tag === 'PocketCard' ? context.value.cardId : ''}</Text>
+    </Column>
+  ),
+);
+const chatMessages = matchChatMessageRenderers({ balance: balanceRenderer });
+
+productRenderer.onRender((request, render) =>
+  request.context.tag === 'PocketCard' ? pocketCard(request, render) : chatMessages(request, render),
 );
 ```
 
@@ -168,9 +202,10 @@ All components accept the [shared layout props](#layout-props) in addition to th
 <TextField value={query} placeholder="Search…" onValueChange={setQuery} />
 ```
 
-`onValueChange` receives the decoded string value each time the user edits the field.
+`onValueChange` receives the decoded string value each time the user edits the field (the host sends the new value as UTF-8 bytes). A text field takes no children.
 
 ```tsx
+import { matchChatMessageRenderers, productRenderer } from '@novasamatech/host-api-wrapper';
 import { useState } from 'react';
 import {
   registerChatMessageRenderer,
@@ -195,12 +230,46 @@ function SearchForm() {
   );
 }
 
-chat.onCustomMessageRenderingRequest(
-  registerChatMessageRenderer(
-    () => undefined,
-    () => <SearchForm />,
-  ),
+productRenderer.onRender(
+  matchChatMessageRenderers({
+    search: registerChatMessageRenderer(
+      () => undefined,
+      () => <SearchForm />,
+    ),
+  }),
 );
+```
+
+### `<Image>`
+
+Draws an image the host fetches itself — the tree carries no URL. Size it with the layout props. An image that cannot be fetched draws as empty space.
+
+| Prop     | Type          | Description                                             |
+|----------|---------------|---------------------------------------------------------|
+| `source` | `ImageSource` | Where the bytes come from (required)                    |
+| `fit`    | `ImageFit`    | How the image fills its bounds; defaults to `fill`      |
+
+**`ImageSource`**: `{ tag: 'Bulletin', value: cid }` (a Bulletin chain blob) · `{ tag: 'Archive', value: path }` (a file in the product's executable archive, relative to its root)
+**`ImageFit`**: `none` · `fill` · `cover` · `contain` · `scaleDown`
+
+```tsx
+<Image source={{ tag: 'Archive', value: 'assets/logo.png' }} fit="contain" width={48} height={48} />
+```
+
+### `<Effect>`
+
+Applies a visual effect to its children. It takes no layout props.
+
+| Prop     | Type     | Description               |
+|----------|----------|---------------------------|
+| `effect` | `Effect` | The effect (required)     |
+
+**`Effect`**: `rainbow`
+
+```tsx
+<Effect effect="rainbow">
+  <Text style="headline.large">Winner!</Text>
+</Effect>
 ```
 
 ### `<Column>`
@@ -258,7 +327,7 @@ Single-child container with optional content alignment.
 
 ### `<Spacer>`
 
-Flexible space element. Use `fillMaxWidth` / `fillMaxHeight` or explicit `width` / `height`.
+Flexible space element. Use `fillMaxWidth` / `fillMaxHeight` or explicit `width` / `height`. A spacer takes no children.
 
 ```tsx
 <Row>
@@ -272,7 +341,7 @@ Flexible space element. Use `fillMaxWidth` / `fillMaxHeight` or explicit `width`
 
 ## Layout props
 
-Every component accepts these props to control sizing, spacing, and appearance.
+Every component except `<Effect>` accepts these props to control sizing, spacing, and appearance.
 
 ### Spacing
 
@@ -305,6 +374,7 @@ Every component accepts these props to control sizing, spacing, and appearance.
 // Color + shape
 <Box background={{ color: 'bg.surface.container', shape: { tag: 'Rounded', value: 8 } }} />
 <Box background={{ color: 'bg.surface.nested', shape: { tag: 'Circle' } }} />
+<Box background={{ color: 'bg.surface.nested', shape: { tag: 'Square' } }} />
 ```
 
 ### Border
@@ -313,6 +383,19 @@ Every component accepts these props to control sizing, spacing, and appearance.
 <Box border={{ width: 1, color: 'fg.tertiary' }} />
 // With a rounded corner
 <Box border={{ width: 1, color: 'fg.success', shape: { tag: 'Rounded', value: 4 } }} />
+```
+
+### Compositing
+
+| Prop           | Type           | Description                                              |
+|----------------|----------------|----------------------------------------------------------|
+| `opacity`      | `number`       | `0` (transparent) to `255` (opaque)                      |
+| `blendingMode` | `BlendingMode` | How the node composites with what is behind it           |
+
+**`BlendingMode`**: `normal` · `multiply` · `screen` · `overlay` · `darken` · `lighten` · `colorDodge` · `colorBurn` · `hardLight` · `softLight` · `difference` · `exclusion` · `hue` · `saturation` · `color` · `luminosity`
+
+```tsx
+<Box opacity={128} blendingMode="multiply" />
 ```
 
 ---
@@ -335,7 +418,7 @@ Every component accepts these props to control sizing, spacing, and appearance.
 
 ## `createRenderer`
 
-The low-level primitive that `registerChatMessageRenderer` is built on. Use it directly when you need to manage the renderer lifecycle yourself or integrate it into a custom pipeline outside of the chat system.
+The low-level primitive that `registerRenderer` and `registerChatMessageRenderer` are built on. Use it directly when you need to manage the renderer lifecycle yourself or integrate it into a custom pipeline.
 
 `createRenderer` returns an object with two methods:
 
@@ -355,7 +438,8 @@ const renderer = createRenderer({
     send(node);
   },
 
-  // Subscribe to events from the host.
+  // Subscribe to events from the host: `payload` is empty for a button press
+  // and the UTF-8 bytes of the new value for a text field change.
   // Return an unsubscribe function.
   subscribeActions: (callback) => {
     return actionsSubscription.subscribe((actionId, payload) => {
@@ -388,17 +472,18 @@ renderer.mount(<Text style="headline.large">Loading…</Text>);
 renderer.mount(<Text style="headline.large">Done!</Text>);
 ```
 
-### Manual integration with `onCustomMessageRenderingRequest`
+### Manual integration with `productRenderer.onRender`
 
-This is what `registerChatMessageRenderer` does internally. Writing it manually gives you full control over the teardown sequence:
+This is what `registerRenderer` does internally. Writing it manually gives you full control over the teardown sequence. `subscribeActions` is already scoped to the body being drawn:
 
 ```tsx
+import { productRenderer } from '@novasamatech/host-api-wrapper';
 import { createRenderer, Text } from '@novasamatech/product-react-renderer';
 
-chat.onCustomMessageRenderingRequest(({ messageId, messageType, payload, subscribeActions }, render) => {
+productRenderer.onRender(({ context, payload, subscribeActions }, render) => {
   const renderer = createRenderer({ onRender: render, subscribeActions });
 
-  renderer.mount(<Text style="headline.large">{messageType}</Text>);
+  renderer.mount(<Text style="headline.large">{context.tag}</Text>);
 
   // Return the cleanup callback.
   return () => {

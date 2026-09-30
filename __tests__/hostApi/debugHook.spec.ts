@@ -1,4 +1,4 @@
-import { createTransport } from '@novasamatech/host-api';
+import { CALL_ERROR_FAILURE, createTransport, hostApiProtocol, isCallErrorMarker } from '@novasamatech/host-api';
 import { createAccountsProvider } from '@novasamatech/host-api-wrapper';
 import type { HostApiDebugMessageEvent } from '@novasamatech/host-container';
 import { createContainer, onHostApiDebugMessage } from '@novasamatech/host-container';
@@ -29,6 +29,35 @@ describe('host-container debug hook', () => {
     for (const event of events) {
       expect(event.productId).toBe('product.alpha');
     }
+  });
+
+  it('carries each frame decoded: trait/method names, wire ids, leg and value', async () => {
+    const { container, accountsProvider } = setup('product.alpha');
+
+    const events: HostApiDebugMessageEvent[] = [];
+    container.onDebugMessage(event => events.push(event));
+
+    await accountsProvider.getProductAccount('product.alpha', 0);
+
+    const getAccount = events.filter(e => e.payload.trait === 'account' && e.payload.method === 'getAccount');
+    expect(getAccount.map(e => [e.direction, e.payload.leg])).toEqual([
+      ['incoming', 'request'],
+      ['outgoing', 'response'],
+    ]);
+
+    const [request, response] = getAccount;
+    expect(request?.payload).toEqual({
+      trait: 'account',
+      method: 'getAccount',
+      traitId: hostApiProtocol.account.id,
+      methodId: hostApiProtocol.account.methods.getAccount.id,
+      leg: 'request',
+      value: { tag: 'v1', value: ['product.alpha', { tag: 'Index', value: 0 }] },
+    });
+    // No handler registered: the host answers the transport-level Unsupported failure.
+    const responseValue = (response?.payload.value as { tag: string; value: unknown } | undefined)?.value;
+    expect(isCallErrorMarker(responseValue) && responseValue[CALL_ERROR_FAILURE]).toEqual({ tag: 'Unsupported' });
+    expect(response?.requestId).toBe(request?.requestId);
   });
 
   it('leaves productId undefined when none is supplied', async () => {

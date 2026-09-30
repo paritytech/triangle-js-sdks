@@ -8,8 +8,10 @@ import type {
   Subscription,
   Transport,
 } from '@novasamatech/host-api';
-import { CustomRendererNode, createHostApi, enumValue } from '@novasamatech/host-api';
+import { createHostApi, enumValue } from '@novasamatech/host-api';
 
+import type { GenericInterrupt } from './helpers.js';
+import { genericInterrupt, unwrapVersionedSubscription } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
 
 export type ChatMessageContent = CodecType<typeof ChatMessageContentCodec>;
@@ -17,18 +19,6 @@ export type ChatReceivedAction = CodecType<typeof ReceivedChatActionCodec>;
 export type ChatRoomRegistrationResult = CodecType<typeof ChatRoomRegistrationStatusCodec>;
 export type ChatBotRegistrationResult = CodecType<typeof ChatBotRegistrationStatusCodec>;
 export type ChatRoom = CodecType<typeof ChatRoomCodec>;
-
-export type ChatCustomMessageRenderer = (
-  params: ChatCustomMessageRendererParams,
-  render: (node: CodecType<typeof CustomRendererNode>) => void,
-) => VoidFunction;
-
-export type ChatCustomMessageRendererParams<T = Uint8Array> = {
-  messageId: string;
-  messageType: string;
-  payload: T;
-  subscribeActions(callback: (actionId: string, payload: Uint8Array | undefined) => void): VoidFunction;
-};
 
 export const createProductChatManager = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
@@ -42,7 +32,7 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
         return existingRegistration;
       }
 
-      const result = await hostApi.chatCreateRoom(enumValue('v1', params));
+      const result = await hostApi.chat.createRoom(enumValue('v1', params));
 
       return result.match(
         payload => {
@@ -66,7 +56,7 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
         return existingRegistration;
       }
 
-      const result = await hostApi.chatRegisterBot(enumValue('v1', params));
+      const result = await hostApi.chat.registerBot(enumValue('v1', params));
 
       return result.match(
         payload => {
@@ -85,7 +75,7 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
       );
     },
     async sendMessage(roomId: string, payload: ChatMessageContent) {
-      const result = await hostApi.chatPostMessage(enumValue('v1', { roomId, payload }));
+      const result = await hostApi.chat.postMessage(enumValue('v1', { roomId, payload }));
 
       return result.match(
         payload => {
@@ -102,84 +92,37 @@ export const createProductChatManager = (transport: Transport = sandboxTransport
         },
       );
     },
-    subscribeChatList(callback: (rooms: ChatRoom[]) => void): Subscription<void> {
-      const subscriber = hostApi.chatListSubscribe(enumValue('v1', undefined), action => {
-        if (action.tag === 'v1') {
-          callback(action.value);
-        }
-      });
-
-      return {
-        unsubscribe: subscriber.unsubscribe,
-        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
-      };
-    },
-    subscribeAction(callback: (action: ChatReceivedAction) => void): Subscription<void> {
-      const subscriber = hostApi.chatActionSubscribe(enumValue('v1', undefined), action => {
-        switch (action.tag) {
-          case 'v1':
+    subscribeChatList(callback: (rooms: ChatRoom[]) => void): Subscription<GenericInterrupt | undefined> {
+      return unwrapVersionedSubscription(
+        hostApi.chat.listSubscribe(enumValue('v1', undefined), action => {
+          if (action.tag === 'v1') {
             callback(action.value);
-            break;
-          default:
-            console.error(`Unknown message version ${action.tag}`);
-        }
-      });
-
-      return {
-        unsubscribe: subscriber.unsubscribe,
-        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
-      };
+          }
+        }),
+        genericInterrupt,
+      );
     },
-
-    onCustomMessageRenderingRequest(callback: ChatCustomMessageRenderer) {
-      return transport.handleSubscription('product_chat_custom_message_render_subscribe', (params, send, interrupt) => {
-        if (params.tag !== 'v1') {
-          // unsupported version
-          interrupt(enumValue('v1', undefined));
-          return () => {
-            /* empty */
-          };
-        }
-
-        const { messageId, messageType, payload } = params.value;
-
-        return callback(
-          {
-            messageId,
-            messageType,
-            payload,
-            subscribeActions(callback) {
-              const actionsSubscription = hostApi.chatActionSubscribe(enumValue('v1', undefined), action => {
-                if (
-                  action.tag === 'v1' &&
-                  action.value.payload.tag === 'ActionTriggered' &&
-                  action.value.payload.value.messageId === messageId
-                ) {
-                  callback(action.value.payload.value.actionId, action.value.payload.value.payload);
-                }
-              });
-
-              return actionsSubscription.unsubscribe;
-            },
-          },
-          node => send(enumValue('v1', node)),
-        );
-      });
+    /**
+     * Subscribes to chat activity addressed to this product: posted messages,
+     * slash commands, and presses on the buttons the host draws for an
+     * `Actions` message. Actions inside a product-rendered `Custom` message
+     * arrive through the renderer instead (see `createProductRenderer`).
+     */
+    subscribeAction(callback: (action: ChatReceivedAction) => void): Subscription<GenericInterrupt | undefined> {
+      return unwrapVersionedSubscription(
+        hostApi.chat.actionSubscribe(enumValue('v1', undefined), action => {
+          switch (action.tag) {
+            case 'v1':
+              callback(action.value);
+              break;
+            default:
+              console.error(`Unknown message version ${action.tag}`);
+          }
+        }),
+        genericInterrupt,
+      );
     },
   };
 
   return chat;
 };
-
-export function matchChatCustomRenderers(map: Record<string, ChatCustomMessageRenderer>): ChatCustomMessageRenderer {
-  return (params, render) => {
-    const { messageType } = params;
-    const renderer = map[messageType];
-
-    if (!renderer) {
-      throw new Error(`Renderer for message type ${messageType} is not defined`);
-    }
-
-    return renderer(params, render);
-  };
-}

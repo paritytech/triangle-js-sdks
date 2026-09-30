@@ -1,85 +1,118 @@
-import type { EnumCodec } from '@novasamatech/scale';
-import { Enum } from '@novasamatech/scale';
-import type { Codec, CodecType } from 'scale-ts';
-import { Struct, _void, str } from 'scale-ts';
+import { compact, str } from 'scale-ts';
 
-import type { HostApiProtocol, VersionedProtocolRequest, VersionedProtocolSubscription } from './impl.js';
-import { hostApiProtocol } from './impl.js';
+// Wire frame, as truapi's `frame.rs` defines it (RFC 0027):
+//
+//   [requestId: SCALE str][trait: u8][method: u8][message_type: u8][payload bytes...]
+//
+// `(trait, method)` addresses the method; `message_type` names which leg of
+// its exchange the frame carries. The payload is that leg's own versioned
+// wrapper, inlined with no length prefix: one transport message is one frame,
+// so the payload runs to the end of it.
 
-type UnionToIntersection<U> = (U extends any ? (k: U) => void : never) extends (k: infer I) => void ? I : never;
+/**
+ * `message_type` values. A request/response method uses `request`/`response`
+ * (and `cancel`); a subscription uses `start`/`receive`/`interrupt`/`stop`. The
+ * two families share `0` and `1`: which one applies follows from the method's
+ * registered kind.
+ */
+export const MessageType = {
+  request: 0,
+  start: 0,
+  response: 1,
+  receive: 1,
+  interrupt: 2,
+  stop: 3,
+  /** Withdraws a request; travels the same way as the request, with no payload. */
+  cancel: 4,
+} as const;
 
-type InferRequest<Method extends string, R extends VersionedProtocolRequest<any>> = Record<
-  `${Method}_request`,
-  R['request']
-> &
-  Record<`${Method}_response`, R['response']>;
-type InferSubscription<Method extends string, R extends VersionedProtocolSubscription<any>> = Record<
-  `${Method}_start`,
-  R['start']
-> &
-  Record<`${Method}_receive`, R['receive']> &
-  Record<`${Method}_interrupt`, R['interrupt']> &
-  Record<`${Method}_stop`, Codec<undefined>>;
+export type RequestLeg = 'request' | 'response' | 'cancel';
+export type SubscriptionLeg = 'start' | 'receive' | 'interrupt' | 'stop';
+export type MessageLeg = RequestLeg | SubscriptionLeg;
 
-type InferHostApiMethod<Method extends string, Payload> =
-  Payload extends VersionedProtocolRequest<any>
-    ? InferRequest<Method, Payload>
-    : Payload extends VersionedProtocolSubscription<any>
-      ? InferSubscription<Method, Payload>
-      : Codec<undefined>;
+/** Reserved `(trait, method)` address for method-independent protocol errors. */
+export const PROTOCOL_ERROR_TRAIT_ID = 255;
+export const PROTOCOL_ERROR_METHOD_ID = 255;
 
-type HostApiPayloadFields = UnionToIntersection<
-  {
-    [Method in keyof HostApiProtocol]: InferHostApiMethod<Method, HostApiProtocol[Method]>;
-  }[keyof HostApiProtocol]
->;
-
-const createPayload = (hostApi: HostApiProtocol): EnumCodec<HostApiPayloadFields> => {
-  const fields: Record<string, Codec<any>> = {};
-  // Serialization index per field, kept positionally in lockstep with `fields`
-  // so the on-wire ABI is pinned by each method's explicit base index rather
-  // than by object iteration order.
-  const indexes: number[] = [];
-
-  for (const [method, payload] of Object.entries(hostApi)) {
-    if (payload.method === 'request') {
-      fields[`${method}_request`] = payload.request;
-      indexes.push(payload.index);
-      fields[`${method}_response`] = payload.response;
-      indexes.push(payload.index + 1);
-    }
-    if (payload.method === 'subscribe') {
-      fields[`${method}_start`] = payload.start;
-      indexes.push(payload.index);
-      fields[`${method}_stop`] = _void;
-      indexes.push(payload.index + 1);
-      fields[`${method}_interrupt`] = payload.interrupt;
-      indexes.push(payload.index + 2);
-      fields[`${method}_receive`] = payload.receive;
-      indexes.push(payload.index + 3);
-    }
-  }
-
-  return Enum(fields as HostApiPayloadFields, indexes);
+export type Frame = {
+  requestId: string;
+  traitId: number;
+  methodId: number;
+  messageType: number;
+  /** The leg's own SCALE-encoded payload. */
+  payload: Uint8Array;
 };
 
-export type MessagePayloadSchema = CodecType<EnumCodec<HostApiPayloadFields>>;
+const EMPTY = new Uint8Array(0);
 
-export const MessagePayload = createPayload(hostApiProtocol);
+function assertByte(name: string, value: number) {
+  if (!Number.isInteger(value) || value < 0 || value > 255) {
+    throw new Error(`Invalid wire ${name}: ${value}`);
+  }
+}
 
-export const Message = Struct({
-  requestId: str,
-  payload: MessagePayload,
-});
+export function encodeFrame(frame: Frame): Uint8Array {
+  assertByte('trait id', frame.traitId);
+  assertByte('method id', frame.methodId);
+  assertByte('message type', frame.messageType);
 
-export type MessageAction = MessagePayloadSchema['tag'];
+  const requestId = str.enc(frame.requestId);
+  const bytes = new Uint8Array(requestId.length + 3 + frame.payload.length);
+  bytes.set(requestId, 0);
+  bytes[requestId.length] = frame.traitId;
+  bytes[requestId.length + 1] = frame.methodId;
+  bytes[requestId.length + 2] = frame.messageType;
+  bytes.set(frame.payload, requestId.length + 3);
+  return bytes;
+}
 
-export type PickMessagePayload<Action extends MessageAction> = Extract<MessagePayloadSchema, { tag: Action }>;
+// Byte length of the SCALE compact integer at the start of `bytes`.
+function compactPrefixLength(bytes: Uint8Array): number {
+  const first = bytes[0];
+  if (first === undefined) throw new Error('frame is missing the request id');
+  switch (first & 0b11) {
+    case 0:
+      return 1;
+    case 1:
+      return 2;
+    case 2:
+      return 4;
+    default:
+      return (first >> 2) + 5;
+  }
+}
 
-export type PickMessagePayloadValue<Action extends MessageAction> =
-  PickMessagePayload<Action> extends never ? never : PickMessagePayload<Action>['value'];
+export function decodeFrame(bytes: Uint8Array): Frame {
+  const prefixLength = compactPrefixLength(bytes);
+  if (bytes.length < prefixLength) throw new Error('frame request id is truncated');
+  const idLength = Number(compact.dec(bytes.subarray(0, prefixLength)));
+  const headerEnd = prefixLength + idLength;
+  if (bytes.length < headerEnd + 3) {
+    throw new Error('frame is missing its (trait, method, message type) header');
+  }
+  const requestId = new TextDecoder().decode(bytes.subarray(prefixLength, headerEnd));
+  const [traitId = 0, methodId = 0, messageType = 0] = bytes.subarray(headerEnd, headerEnd + 3);
+  const payload = bytes.length === headerEnd + 3 ? EMPTY : bytes.slice(headerEnd + 3);
 
-export type ComposeMessageAction<
-  Method extends string,
-  Action extends string,
-> = `${Method}_${Action}` extends MessageAction ? `${Method}_${Action}` : never;
+  return { requestId, traitId, methodId, messageType, payload };
+}
+
+/** `VersionedProtocolError::V1(UnsupportedMessage { trait_id, method_id })`. */
+export function encodeUnsupportedMessage(traitId: number, methodId: number): Uint8Array {
+  return new Uint8Array([0, 0, traitId, methodId]);
+}
+
+/**
+ * Decode a protocol-error payload. `null` is a protocol error this build does
+ * not know (a later version or variant): the correlated call still settles,
+ * and the connection stays up.
+ */
+export function decodeProtocolError(payload: Uint8Array): { traitId: number; methodId: number } | null {
+  if (payload.length === 0) throw new Error('protocol error payload is empty');
+  if (payload[0] !== 0 || (payload.length > 1 && payload[1] !== 0)) return null;
+  const [, , traitId, methodId] = payload;
+  if (payload.length !== 4 || traitId === undefined || methodId === undefined) {
+    throw new Error('malformed UnsupportedMessage protocol error');
+  }
+  return { traitId, methodId };
+}

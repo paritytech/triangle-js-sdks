@@ -3,16 +3,18 @@ import type {
   CodecType,
   ConnectionStatus,
   HexString,
-  HostApiMethod,
-  HostApiProtocol,
+  InterruptPayload,
   Provider,
+  ReceivePayload,
+  RequestContext,
   RequestHandler,
+  RequestMethodName,
+  ResponsePayload,
   SubscriptionHandler,
-  VersionedProtocolRequest,
-  VersionedProtocolSubscription,
+  SubscriptionMethodName,
+  TraitName,
 } from '@novasamatech/host-api';
 import {
-  CALL_ERROR_FAILURE,
   CoinPaymentErr,
   DevicePermission,
   GenericError,
@@ -22,6 +24,9 @@ import {
   PreimageSubmitErr,
   PushNotificationError,
   RemotePermission,
+  StorageErr,
+  StorageReadV2Err,
+  callErrorMarker,
   createTransport,
   enumValue,
   isCallErrorFailure,
@@ -29,67 +34,97 @@ import {
   resultErr,
   resultOk,
 } from '@novasamatech/host-api';
-import type { Result } from 'neverthrow';
+import type { Result, ResultAsync } from 'neverthrow';
 import { err, errAsync, ok, okAsync } from 'neverthrow';
 
 import { createChainConnectionManager } from './chainConnectionManager.js';
 import { emitHostApiDebugMessage, registerHostApiDebugSource } from './debugBus.js';
 import type {
-  CodecValue,
   Container,
   ContainerRequestHandler,
+  ContainerSubscriptionHandler,
   CreateContainerOptions,
   UnwrapErrorResponse,
+  WithVersion,
 } from './types.js';
 
 // Reason attached to a `MalformedFrame` transport failure when an incoming
-// request does not decode to the expected v1 shape.
+// request does not decode to the version its handler works in.
 const MALFORMED_FRAME_REASON = 'request did not decode to a supported version';
 
-// Transport-level `CallError` envelopes, riding the same envelope the transport
+// Reason a v1 `localStorage.read` caller sees for a v2 `AccessNotGranted`. A
+// v1 request carries no product, so it cannot provoke the refusal; the
+// downgrade still has to be total (truapi `versioned/local_storage.rs`).
+const ACCESS_NOT_GRANTED_REASON = 'the owning product grants no read access to its storage';
+
+// Transport-level `CallError` failures, riding the same envelope the transport
 // uses for a thrown handler (`HostFailure`). The host answers `Unsupported` when
 // no handler is registered for a method, and `MalformedFrame` when a request
 // does not decode. `host-api-wrapper` folds both into the method's own error
 // type, so products keep a single error to handle.
-const UNSUPPORTED = enumValue('v1', {
-  [CALL_ERROR_FAILURE]: { tag: 'Unsupported' } as CallErrorTransportFailure,
-});
-const MALFORMED_FRAME = enumValue('v1', {
-  [CALL_ERROR_FAILURE]: {
-    tag: 'MalformedFrame',
-    value: { reason: MALFORMED_FRAME_REASON },
-  } as CallErrorTransportFailure,
-});
-
-// Cast helpers: the transport encodes these envelopes for any method's response
-// codec, but TypeScript can't verify that against a generic `Method` here.
-function unsupportedResponse<Method extends HostApiMethod>(): Awaited<ReturnType<RequestHandler<Method>>> {
-  return UNSUPPORTED as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
-}
-function malformedFrameResponse<Method extends HostApiMethod>(): Awaited<ReturnType<RequestHandler<Method>>> {
-  return MALFORMED_FRAME as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
-}
-
-type RequestSlot<Method extends HostApiMethod> = {
-  update(handler: RequestHandler<Method>): VoidFunction;
-  call: RequestHandler<Method>;
+const UNSUPPORTED: CallErrorTransportFailure = { tag: 'Unsupported' };
+const MALFORMED_FRAME: CallErrorTransportFailure = {
+  tag: 'MalformedFrame',
+  value: { reason: MALFORMED_FRAME_REASON },
 };
 
-type SubscriptionSlot<Method extends HostApiMethod> = {
-  update(handler: SubscriptionHandler<Method>): VoidFunction;
-  makeDefaultInterrupt(): InterruptPayloadFor<HostApiProtocol[Method]>;
+const MALFORMED_FRAME_V1 = enumValue('v1', callErrorMarker(MALFORMED_FRAME));
+
+type Versioned = { tag: string; value: unknown };
+
+type OrPromise<T> = T | Promise<T>;
+
+// Loose shapes of the container-level handlers, used where TypeScript can't
+// resolve a generic method's payload types. The public `Container` type keeps
+// every slot precise.
+type LooseRequestHandler = (
+  params: unknown,
+  helpers: { ok: typeof okAsync; err: typeof errAsync; signal: AbortSignal },
+) => OrPromise<ResultAsync<unknown, unknown>>;
+type LooseSubscriptionHandler = (
+  params: unknown,
+  send: (payload: unknown) => void,
+  interrupt: (payload: unknown) => void,
+) => VoidFunction;
+
+type RequestSlot<T extends TraitName, M extends RequestMethodName<T>> = {
+  update(handler: RequestHandler<T, M>): VoidFunction;
+  call: RequestHandler<T, M>;
 };
 
-type InterruptPayloadFor<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
-  Call extends VersionedProtocolSubscription ? CodecValue<Call['interrupt']> : never;
+type SubscriptionSlot<T extends TraitName, M extends SubscriptionMethodName<T>> = {
+  update(handler: SubscriptionHandler<T, M>): VoidFunction;
+};
 
-type ContainerRequestHandlerGuard<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
-  Call extends VersionedProtocolRequest ? ContainerRequestHandler<'v1', Call> : never;
+// A permission the host must grant before a slot's handler runs. A denied call
+// answers `makeError()` — a business "no", distinct from `Unsupported`.
+type PermissionGate<T extends TraitName, M extends RequestMethodName<T>> = {
+  isGranted(context: RequestContext): Promise<boolean>;
+  makeError(): UnwrapErrorResponse<'v1', ResponsePayload<T, M>>;
+};
 
-// Error response used by the permission-gated slots for a denied call (a
-// business "no", distinct from `Unsupported`).
-type ErrorResponse<Call extends VersionedProtocolRequest | VersionedProtocolSubscription> =
-  Call extends VersionedProtocolRequest ? UnwrapErrorResponse<'v1', CodecValue<Call['response']>> : never;
+function noop() {
+  /* nothing to clean up */
+}
+
+function versionOf(value: unknown): string {
+  return (value as Versioned | undefined)?.tag ?? 'v1';
+}
+
+// Cast helpers: the transport encodes a failure for any method's response or
+// interrupt codec, but TypeScript can't verify that against a generic method.
+function failureResponse<T extends TraitName, M extends RequestMethodName<T>>(
+  params: unknown,
+  failure: CallErrorTransportFailure,
+): ResponsePayload<T, M> {
+  return enumValue(versionOf(params), callErrorMarker(failure)) as unknown as ResponsePayload<T, M>;
+}
+function failureInterrupt<T extends TraitName, M extends SubscriptionMethodName<T>>(
+  params: unknown,
+  failure: CallErrorTransportFailure,
+): InterruptPayload<T, M> {
+  return enumValue(versionOf(params), callErrorMarker(failure)) as unknown as InterruptPayload<T, M>;
+}
 
 function guardVersion<const Enum extends { tag: string; value: unknown }, const Tag extends Enum['tag'], const Err>(
   value: Enum | undefined,
@@ -105,6 +140,26 @@ function guardVersion<const Enum extends { tag: string; value: unknown }, const 
   return err(error);
 }
 
+// Both permission methods answer a plain `bool` grant.
+function isPermissionGranted(response: ResponsePayload<'permissions', 'requestRemotePermission'>): boolean {
+  return (
+    isEnumVariant(response, 'v1') &&
+    !isCallErrorFailure(response.value) &&
+    response.value.success === true &&
+    response.value.value === true
+  );
+}
+
+function downgradeStorageReadError(error: CodecType<typeof StorageReadV2Err>): CodecType<typeof StorageErr> {
+  if (error instanceof StorageReadV2Err.Unknown) {
+    return new StorageErr.Unknown(error.payload);
+  }
+  if (error instanceof StorageReadV2Err.Full) {
+    return new StorageErr.Full();
+  }
+  return new StorageErr.Unknown({ reason: ACCESS_NOT_GRANTED_REASON });
+}
+
 export function createContainer(provider: Provider, options: CreateContainerOptions = {}): Container {
   const transport = createTransport(provider);
   if (!transport.isCorrectEnvironment()) {
@@ -116,7 +171,7 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
   // process-global debug bus, tagged with this container's productId.
   // The forwarder is registered as a bus *source* and only attaches to
   // `transport.onDebugMessage` while the bus has at least one subscriber —
-  // otherwise the transport's lazy `Message.dec` path stays cold.
+  // otherwise the transport's lazy frame decode path stays cold.
   const unregisterGlobalDebugSource = registerHostApiDebugSource(() =>
     transport.onDebugMessage(({ direction, requestId, payload }) => {
       emitHostApiDebugMessage({ direction, productId, requestId, payload });
@@ -129,13 +184,31 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     transport.isReady();
   }
 
-  function makeRequestSlot<const Method extends HostApiMethod>(
-    method: Method,
-    defaultHandler: RequestHandler<Method>,
-  ): RequestSlot<Method> {
-    let current: RequestHandler<Method> = defaultHandler;
+  // A request slot answers `Unsupported` until a handler is registered. A
+  // gated slot additionally asks for its permission before every call.
+  function makeRequestSlot<const T extends TraitName, const M extends RequestMethodName<T>>(
+    trait: T,
+    method: M,
+    gate?: PermissionGate<T, M>,
+  ): RequestSlot<T, M> {
+    const defaultHandler: RequestHandler<T, M> = async params => failureResponse<T, M>(params, UNSUPPORTED);
+    let current = defaultHandler;
     let version = 0;
-    transport.handleRequest(method, params => current(params));
+
+    transport.handleRequest(trait, method, async (params, context) => {
+      if (gate) {
+        // No registered handler → the method is unsupported. Answer that before
+        // the permission gate: an unimplemented method must not ask for a grant.
+        if (current === defaultHandler) {
+          return failureResponse<T, M>(params, UNSUPPORTED);
+        }
+        if (!(await gate.isGranted(context))) {
+          return enumValue(versionOf(params), resultErr(gate.makeError())) as unknown as ResponsePayload<T, M>;
+        }
+      }
+      return current(params, context);
+    });
+
     return {
       update: handler => {
         current = handler;
@@ -150,117 +223,27 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
     };
   }
 
-  function makeSubscriptionSlot<const Method extends HostApiMethod>(
-    method: Method,
-    defaultHandler: SubscriptionHandler<Method>,
-  ): (handler: SubscriptionHandler<Method>) => VoidFunction {
-    let current: SubscriptionHandler<Method> = defaultHandler;
-    let version = 0;
-    transport.handleSubscription(method, (params, send, interrupt) => current(params, send, interrupt));
-    return handler => {
-      current = handler;
-      const myVersion = ++version;
-      return () => {
-        if (myVersion !== version) return;
-        version++;
-        current = defaultHandler;
-      };
-    };
-  }
-
-  // A method with no registered handler answers `Unsupported`.
-  function makeUnsupportedSlot<const Method extends HostApiMethod>(method: Method): RequestSlot<Method> {
-    const handler: RequestHandler<Method> = async () => unsupportedResponse<Method>();
-    return makeRequestSlot(method, handler);
-  }
-
-  function makeInterruptSlot<const Method extends HostApiMethod>(
-    method: Method,
-    makeDefaultInterrupt: () => InterruptPayloadFor<HostApiProtocol[Method]>,
-  ): SubscriptionSlot<Method> {
-    const defaultHandler: SubscriptionHandler<Method> = (_params, _send, interrupt) => {
-      // Cast needed: the default handler ignores typed params/send which TypeScript can't verify
-      // matches the generic Method's subscription type without evaluating template literal types.
-      interrupt(makeDefaultInterrupt() as never);
-      return () => {
-        /* nothing to clean up */
-      };
-    };
-    const update = makeSubscriptionSlot(method, defaultHandler);
-    return { update, makeDefaultInterrupt };
-  }
-
-  function makePermissionGatedRequestSlot<const Method extends HostApiMethod>(
-    method: Method,
-    permissionVariant: CodecType<typeof RemotePermission>['tag'],
-    makeError: () => ErrorResponse<HostApiProtocol[Method]>,
-  ): RequestSlot<Method> {
-    // No registered handler → the method is unsupported.
-    const defaultHandler: RequestHandler<Method> = async () => unsupportedResponse<Method>();
-    let current = defaultHandler;
-    let version = 0;
-
-    transport.handleRequest(method, async params => {
-      // No registered handler → the method is unsupported. Answer that before
-      // the permission gate: an unimplemented method must not ask for a grant.
-      if (current === defaultHandler) {
-        return unsupportedResponse<Method>();
-      }
-      const permissionResponse = await handleRemotePermissionSlot.call(
-        enumValue('v1', enumValue(permissionVariant as never, undefined)),
+  // A subscription slot interrupts at once until a handler is registered —
+  // with `Unsupported`, unless the method has a domain default. The transport
+  // latches the interrupt, so a caller attaching `onInterrupt` after
+  // `subscribe()` returned still sees it.
+  function makeSubscriptionSlot<const T extends TraitName, const M extends SubscriptionMethodName<T>>(
+    trait: T,
+    method: M,
+    makeDefaultInterrupt?: () => WithVersion<'v1', InterruptPayload<T, M>>,
+  ): SubscriptionSlot<T, M> {
+    const defaultHandler: SubscriptionHandler<T, M> = (params, _send, interrupt) => {
+      interrupt(
+        makeDefaultInterrupt
+          ? (enumValue(versionOf(params), makeDefaultInterrupt()) as unknown as InterruptPayload<T, M>)
+          : failureInterrupt<T, M>(params, UNSUPPORTED),
       );
-      const permissionGranted =
-        isEnumVariant(permissionResponse, 'v1') &&
-        !isCallErrorFailure(permissionResponse.value) &&
-        permissionResponse.value.success === true &&
-        permissionResponse.value.value === true;
-      if (!permissionGranted) {
-        return enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
-      }
-      return current(params);
-    });
-
-    return {
-      update: handler => {
-        current = handler;
-        const myVersion = ++version;
-        return () => {
-          if (myVersion !== version) return;
-          version++;
-          current = defaultHandler;
-        };
-      },
-      call: (...args) => current(...args),
+      return noop;
     };
-  }
-
-  function makeDevicePermissionGatedRequestSlot<const Method extends HostApiMethod>(
-    method: Method,
-    permissionVariant: CodecType<typeof DevicePermission>,
-    makeError: () => ErrorResponse<HostApiProtocol[Method]>,
-  ): RequestSlot<Method> {
-    // No registered handler → the method is unsupported.
-    const defaultHandler: RequestHandler<Method> = async () => unsupportedResponse<Method>();
     let current = defaultHandler;
     let version = 0;
 
-    transport.handleRequest(method, async params => {
-      // No registered handler → the method is unsupported. Answer that before
-      // the permission gate: an unimplemented method must not ask for a grant.
-      if (current === defaultHandler) {
-        return unsupportedResponse<Method>();
-      }
-      const permissionResponse = await handleDevicePermissionSlot.call(enumValue('v1', permissionVariant));
-      const permissionGranted =
-        isEnumVariant(permissionResponse, 'v1') &&
-        !isCallErrorFailure(permissionResponse.value) &&
-        permissionResponse.value.success === true &&
-        permissionResponse.value.value === true;
-      if (!permissionGranted) {
-        return enumValue('v1', resultErr(makeError())) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
-      }
-      return current(params);
-    });
+    transport.handleSubscription(trait, method, (params, send, interrupt) => current(params, send, interrupt));
 
     return {
       update: handler => {
@@ -272,449 +255,338 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
           current = defaultHandler;
         };
       },
-      call: (...args) => current(...args),
     };
   }
 
-  function handleV1Request<const Method extends HostApiMethod>(
-    slot: RequestSlot<Method>,
-    handler: ContainerRequestHandlerGuard<HostApiProtocol[Method]>,
-  ): VoidFunction {
+  // Adapts a container-level handler (plain v1 params in, `ResultAsync` out) to
+  // the transport's versioned request/response shapes.
+  function serveV1Request<const T extends TraitName, const M extends RequestMethodName<T>>(slot: RequestSlot<T, M>) {
+    return (handler: ContainerRequestHandler<T, M, 'v1'>): VoidFunction => {
+      init();
+      return slot.update(async (params, { signal }) => {
+        const parsed = guardVersion(params as Versioned, 'v1', null);
+        // A request that does not decode to the expected version is a
+        // `MalformedFrame` transport failure, not a domain error.
+        if (parsed.isErr()) {
+          return failureResponse<T, M>(params, MALFORMED_FRAME);
+        }
+        const result = await (handler as unknown as LooseRequestHandler)(parsed.value, {
+          ok: okAsync,
+          err: errAsync,
+          signal,
+        });
+        return result.match(
+          v => enumValue('v1', resultOk(v)),
+          e => enumValue('v1', resultErr(e)),
+        ) as unknown as ResponsePayload<T, M>;
+      });
+    };
+  }
+
+  function serveV1Subscription<const T extends TraitName, const M extends SubscriptionMethodName<T>>(
+    slot: SubscriptionSlot<T, M>,
+  ) {
+    return (handler: ContainerSubscriptionHandler<T, M, 'v1'>): VoidFunction => {
+      init();
+      return slot.update((params, send, interrupt) => {
+        const parsed = guardVersion(params as Versioned, 'v1', null);
+        if (parsed.isErr()) {
+          interrupt(failureInterrupt<T, M>(params, MALFORMED_FRAME));
+          return noop;
+        }
+        return (handler as unknown as LooseSubscriptionHandler)(
+          parsed.value,
+          payload => send(enumValue('v1', payload) as unknown as ReceivePayload<T, M>),
+          payload => interrupt(enumValue('v1', payload) as unknown as InterruptPayload<T, M>),
+        );
+      });
+    };
+  }
+
+  function serveRequest<const T extends TraitName, const M extends RequestMethodName<T>>(
+    trait: T,
+    method: M,
+    gate?: PermissionGate<T, M>,
+  ) {
+    return serveV1Request(makeRequestSlot(trait, method, gate));
+  }
+
+  function serveSubscription<const T extends TraitName, const M extends SubscriptionMethodName<T>>(
+    trait: T,
+    method: M,
+    makeDefaultInterrupt?: () => WithVersion<'v1', InterruptPayload<T, M>>,
+  ) {
+    return serveV1Subscription(makeSubscriptionSlot(trait, method, makeDefaultInterrupt));
+  }
+
+  // permission slots — the gated slots below consult these
+
+  const requestDevicePermissionSlot = makeRequestSlot('permissions', 'requestDevicePermission');
+  const requestRemotePermissionSlot = makeRequestSlot('permissions', 'requestRemotePermission');
+
+  async function isRemotePermissionGranted(
+    permission: CodecType<typeof RemotePermission>,
+    context: RequestContext,
+  ): Promise<boolean> {
+    return isPermissionGranted(await requestRemotePermissionSlot.call(enumValue('v1', permission), context));
+  }
+
+  async function isDevicePermissionGranted(
+    permission: CodecType<typeof DevicePermission>,
+    context: RequestContext,
+  ): Promise<boolean> {
+    return isPermissionGranted(await requestDevicePermissionSlot.call(enumValue('v1', permission), context));
+  }
+
+  function remotePermissionGate<const T extends TraitName, const M extends RequestMethodName<T>>(
+    permission: CodecType<typeof RemotePermission>,
+    makeError: () => UnwrapErrorResponse<'v1', ResponsePayload<T, M>>,
+  ): PermissionGate<T, M> {
+    return { isGranted: context => isRemotePermissionGranted(permission, context), makeError };
+  }
+
+  function devicePermissionGate<const T extends TraitName, const M extends RequestMethodName<T>>(
+    permission: CodecType<typeof DevicePermission>,
+    makeError: () => UnwrapErrorResponse<'v1', ResponsePayload<T, M>>,
+  ): PermissionGate<T, M> {
+    return { isGranted: context => isDevicePermissionGranted(permission, context), makeError };
+  }
+
+  // localStorage.read has two versions. The host handler works in the latest
+  // (v2) one; a v1 request upgrades to it and its answer downgrades back.
+  const localStorageReadSlot = makeRequestSlot('localStorage', 'read');
+
+  function handleLocalStorageRead(handler: ContainerRequestHandler<'localStorage', 'read'>): VoidFunction {
     init();
-    const version = 'v1' as const;
-    return slot.update(async params => {
-      const parsed = guardVersion(params, version, null);
-      // A request that does not decode to the expected version is a
-      // `MalformedFrame` transport failure, not a domain error.
-      if (parsed.isErr()) {
-        return malformedFrameResponse<Method>();
+    return localStorageReadSlot.update(async (params, { signal }) => {
+      // A v1 caller can only name its own storage, which is what an absent
+      // `product` means in v2.
+      const request = isEnumVariant(params, 'v1') ? { product: undefined, key: params.value } : params.value;
+      const result = await handler(request, { ok: okAsync<any>, err: errAsync<never, any>, signal });
+      if (isEnumVariant(params, 'v1')) {
+        return result.match(
+          v => enumValue('v1', resultOk(v)),
+          e => enumValue('v1', resultErr(downgradeStorageReadError(e))),
+        );
       }
-      const result = await handler(parsed.value as never, { ok: okAsync<any>, err: errAsync<never, any> });
       return result.match(
-        v => enumValue(version, resultOk(v)),
-        e => enumValue(version, resultErr(e)),
-      ) as unknown as Awaited<ReturnType<RequestHandler<Method>>>;
+        v => enumValue('v2', resultOk(v)),
+        e => enumValue('v2', resultErr(e)),
+      );
     });
   }
 
-  function handleV1Subscription<const Method extends HostApiMethod>(
-    slot: SubscriptionSlot<Method>,
-    handler: (params: any, send: any, interrupt: any) => VoidFunction,
-  ): VoidFunction {
-    init();
-    const version = 'v1' as const;
-    const slotHandler = ((params: unknown, send: unknown, interrupt: (v: unknown) => void) => {
-      return guardVersion(params as { tag: string; value: unknown }, version, null)
-        .map(p =>
-          handler(
-            p as never,
-            ((payload: unknown) => (send as (v: unknown) => void)(enumValue(version, payload))) as never,
-            ((payload: unknown) => interrupt(enumValue(version, payload))) as never,
-          ),
-        )
-        .orTee(() => interrupt(slot.makeDefaultInterrupt()))
-        .unwrapOr(() => {
-          /* empty */
-        });
-    }) as SubscriptionHandler<Method>;
-    return slot.update(slotHandler);
-  }
+  // chain slots — served together by `handleChainConnection`
 
-  // system slots
-  const handleGetProductContextSlot = makeUnsupportedSlot('host_get_product_context');
-  const handleInfoSlot = makeUnsupportedSlot('host_info');
+  const chainSlots = {
+    followHeadSubscribe: makeSubscriptionSlot('chain', 'followHeadSubscribe'),
+    getHeadHeader: makeRequestSlot('chain', 'getHeadHeader'),
+    getHeadBody: makeRequestSlot('chain', 'getHeadBody'),
+    getHeadStorage: makeRequestSlot('chain', 'getHeadStorage'),
+    callHead: makeRequestSlot('chain', 'callHead'),
+    unpinHead: makeRequestSlot('chain', 'unpinHead'),
+    continueHead: makeRequestSlot('chain', 'continueHead'),
+    stopHeadOperation: makeRequestSlot('chain', 'stopHeadOperation'),
+    getSpecGenesisHash: makeRequestSlot('chain', 'getSpecGenesisHash'),
+    getSpecChainName: makeRequestSlot('chain', 'getSpecChainName'),
+    getSpecProperties: makeRequestSlot('chain', 'getSpecProperties'),
+    broadcastTransaction: makeRequestSlot('chain', 'broadcastTransaction'),
+    stopTransaction: makeRequestSlot('chain', 'stopTransaction'),
+  };
 
-  // account slots
-  const handleGetUserIdSlot = makeUnsupportedSlot('host_get_user_id');
-  const handleRequestLoginSlot = makeUnsupportedSlot('host_request_login');
-  const handleAccountGetSlot = makeUnsupportedSlot('host_account_get');
-  const handleAccountGetAliasSlot = makeUnsupportedSlot('host_account_get_alias');
-  const handleGetLegacyAccountsSlot = makeUnsupportedSlot('host_get_legacy_accounts');
-  const handleAccountCreateProofSlot = makeUnsupportedSlot('host_account_create_proof');
-  const handleAccountSignVrfSlot = makeUnsupportedSlot('host_account_sign_vrf');
-
-  // ring VRF key registry slots (RFC-0024)
-  const handleAccountRegisterRingVrfKeySlot = makeUnsupportedSlot('host_account_register_ring_vrf_key');
-  const handleAccountListRingVrfKeysSlot = makeUnsupportedSlot('host_account_list_ring_vrf_keys');
-  const handleAccountRingVrfSignSlot = makeUnsupportedSlot('host_account_ring_vrf_sign');
-
-  // chain info slot
-  const handleChainGetChainInfoSlot = makeUnsupportedSlot('remote_chain_get_chain_info');
-
-  // entropy derivation slot
-  const handleDeriveEntropySlot = makeUnsupportedSlot('host_derive_entropy');
-
-  // storage slots
-  const handleLocalStorageReadSlot = makeUnsupportedSlot('host_local_storage_read');
-  const handleLocalStorageWriteSlot = makeUnsupportedSlot('host_local_storage_write');
-  const handleLocalStorageClearSlot = makeUnsupportedSlot('host_local_storage_clear');
-
-  // worker slots
-  const handleWorkerBeginOperationSlot = makeUnsupportedSlot('host_worker_begin_operation');
-  const handleWorkerEndOperationSlot = makeUnsupportedSlot('host_worker_end_operation');
-
-  // signing slots
-  const handleSignRawSlot = makeUnsupportedSlot('host_sign_raw');
-  const handleSignPayloadSlot = makeUnsupportedSlot('host_sign_payload');
-  const handleSignRawWithLegacyAccountSlot = makeUnsupportedSlot('host_sign_raw_with_legacy_account');
-  const handleSignPayloadWithLegacyAccountSlot = makeUnsupportedSlot('host_sign_payload_with_legacy_account');
-  const handleCreateTransactionSlot = makeUnsupportedSlot('host_create_transaction');
-  const handleCreateTransactionWithLegacyAccountSlot = makeUnsupportedSlot(
-    'host_create_transaction_with_legacy_account',
-  );
-
-  const handleFeatureSupportedSlot = makeUnsupportedSlot('host_feature_supported');
-  const handleDevicePermissionSlot = makeUnsupportedSlot('host_device_permission');
-  const handleRemotePermissionSlot = makeUnsupportedSlot('remote_permission');
-
-  const handlePushNotificationSlot = makeDevicePermissionGatedRequestSlot(
-    'host_push_notification',
-    'Notifications',
-    () => new PushNotificationError.Unknown({ reason: 'Notifications permission denied' }),
-  );
-
-  const handlePushNotificationCancelSlot = makeDevicePermissionGatedRequestSlot(
-    'host_push_notification_cancel',
-    'Notifications',
-    () => new GenericError({ reason: 'Notifications permission denied' }),
-  );
-
-  const handleNavigateToSlot = makeUnsupportedSlot('host_navigate_to');
-  const handleChatCreateRoomSlot = makeUnsupportedSlot('host_chat_create_room');
-  const handleChatBotRegistrationSlot = makeUnsupportedSlot('host_chat_register_bot');
-  const handleChatPostMessageSlot = makeUnsupportedSlot('host_chat_post_message');
-
-  const handleStatementStoreSubmitSlot = makePermissionGatedRequestSlot(
-    'remote_statement_store_submit',
-    'StatementSubmit',
-    () => new GenericError({ reason: 'StatementSubmit permission denied' }),
-  );
-
-  const handleStatementStoreCreateProofSlot = makeUnsupportedSlot('remote_statement_store_create_proof');
-  const handleStatementStoreCreateProofAuthorizedSlot = makeUnsupportedSlot(
-    'remote_statement_store_create_proof_authorized',
-  );
-
-  const handlePreimageSubmitSlot = makePermissionGatedRequestSlot(
-    'remote_preimage_submit',
-    'PreimageSubmit',
-    () => new PreimageSubmitErr.Unknown({ reason: 'PreimageSubmit permission denied' }),
-  );
-
-  // payment request slots
-  const handlePaymentTopUpSlot = makeUnsupportedSlot('host_payment_top_up');
-  const handlePaymentRequestSlot = makeUnsupportedSlot('host_payment_request');
-
-  // resource allocation slot
-  const handleRequestResourceAllocationSlot = makeUnsupportedSlot('host_request_resource_allocation');
-
-  // coin payment request slots
-  const handleCoinPaymentCreatePurseSlot = makeUnsupportedSlot('host_coin_payment_create_purse');
-  const handleCoinPaymentQueryPurseSlot = makeUnsupportedSlot('host_coin_payment_query_purse');
-  const handleCoinPaymentCreateReceivableSlot = makeUnsupportedSlot('host_coin_payment_create_receivable');
-  const handleCoinPaymentCreateChequeSlot = makeUnsupportedSlot('host_coin_payment_create_cheque');
-
-  // subscription slots — default interrupts on next microtask so that
-  // the caller has a chance to register an onInterrupt listener first
-  const handleThemeSubscribeSlot = makeInterruptSlot('host_theme_subscribe', () => enumValue('v1', undefined));
-  const handleLocaleSubscribeSlot = makeInterruptSlot('host_locale_subscribe', () => enumValue('v1', undefined));
-  const handleLocalStorageSubscribeSlot = makeInterruptSlot('host_local_storage_subscribe', () =>
-    enumValue('v1', undefined),
-  );
-  const handleAccountConnectionStatusSubscribeSlot = makeInterruptSlot('host_account_connection_status_subscribe', () =>
-    enumValue('v1', undefined),
-  );
-  const handleChatListSubscribeSlot = makeInterruptSlot('host_chat_list_subscribe', () => enumValue('v1', undefined));
-  const handleChatActionSubscribeSlot = makeInterruptSlot('host_chat_action_subscribe', () =>
-    enumValue('v1', undefined),
-  );
-  const handleStatementStoreSubscribeSlot = makeInterruptSlot('remote_statement_store_subscribe', () =>
-    enumValue('v1', undefined),
-  );
-  const handlePreimageLookupSubscribeSlot = makeInterruptSlot('remote_preimage_lookup_subscribe', () =>
-    enumValue('v1', undefined),
-  );
-  const handlePaymentBalanceSubscribeSlot = makeInterruptSlot('host_payment_balance_subscribe', () =>
-    enumValue('v1', new PaymentBalanceErr.Unknown({ reason: 'Not implemented' })),
-  );
-  const handlePaymentStatusSubscribeSlot = makeInterruptSlot('host_payment_status_subscribe', () =>
-    enumValue('v1', new PaymentStatusErr.Unknown({ reason: 'Not implemented' })),
-  );
-  const handlePaymentTopUpStatusSubscribeSlot = makeInterruptSlot('host_payment_top_up_status_subscribe', () =>
-    enumValue('v1', new PaymentTopUpStatusErr.Unknown({ reason: 'Not implemented' })),
-  );
-  const handleCoinPaymentRebalancePurseSlot = makeInterruptSlot('host_coin_payment_rebalance_purse', () =>
-    enumValue('v1', new CoinPaymentErr.Internal()),
-  );
-  const handleCoinPaymentDeletePurseSlot = makeInterruptSlot('host_coin_payment_delete_purse', () =>
-    enumValue('v1', new CoinPaymentErr.Internal()),
-  );
-  const handleCoinPaymentDepositSlot = makeInterruptSlot('host_coin_payment_deposit', () =>
-    enumValue('v1', new CoinPaymentErr.Internal()),
-  );
-  const handleCoinPaymentRefundSlot = makeInterruptSlot('host_coin_payment_refund', () =>
-    enumValue('v1', new CoinPaymentErr.Internal()),
-  );
-  const handleCoinPaymentListenForPaymentSlot = makeInterruptSlot('host_coin_payment_listen_for_payment', () =>
-    enumValue('v1', new CoinPaymentErr.Internal()),
-  );
+  const coinPaymentInternal = () => new CoinPaymentErr.Internal();
 
   return {
-    handleFeatureSupported(handler) {
-      return handleV1Request(handleFeatureSupportedSlot, handler);
+    system: {
+      handleFeatureSupported: serveRequest('system', 'featureSupported'),
+      handleNavigateTo: serveRequest('system', 'navigateTo'),
+      handleInfo: serveRequest('system', 'info'),
+      handleGetProductContext: serveRequest('system', 'getProductContext'),
     },
 
-    handleDevicePermission(handler) {
-      return handleV1Request(handleDevicePermissionSlot, handler);
+    account: {
+      handleConnectionStatusSubscribe: serveSubscription('account', 'connectionStatusSubscribe'),
+      handleGetAccount: serveRequest('account', 'getAccount'),
+      handleGetAccountAlias: serveRequest('account', 'getAccountAlias'),
+      handleCreateAccountProof: serveRequest('account', 'createAccountProof'),
+      handleGetLegacyAccounts: serveRequest('account', 'getLegacyAccounts'),
+      handleGetUserId: serveRequest('account', 'getUserId'),
+      handleRequestLogin: serveRequest('account', 'requestLogin'),
+      handleSignVrf: serveRequest('account', 'signVrf'),
+      // ring VRF key registry (RFC-0024)
+      handleRegisterRingVrfKey: serveRequest('account', 'registerRingVrfKey'),
+      handleListRingVrfKeys: serveRequest('account', 'listRingVrfKeys'),
+      handleRingVrfSign: serveRequest('account', 'ringVrfSign'),
     },
 
-    handlePermission(handler) {
-      return handleV1Request(handleRemotePermissionSlot, handler);
+    chain: {
+      handleGetChainInfo: serveRequest('chain', 'getChainInfo'),
     },
 
-    handlePushNotification(handler) {
-      return handleV1Request(handlePushNotificationSlot, handler);
+    chat: {
+      handleCreateRoom: serveRequest('chat', 'createRoom'),
+      handleRegisterBot: serveRequest('chat', 'registerBot'),
+      handleListSubscribe: serveSubscription('chat', 'listSubscribe'),
+      handlePostMessage: serveRequest('chat', 'postMessage'),
+      handleActionSubscribe: serveSubscription('chat', 'actionSubscribe'),
     },
 
-    handlePushNotificationCancel(handler) {
-      return handleV1Request(handlePushNotificationCancelSlot, handler);
+    // RFC 0017
+    coinPayment: {
+      handleCreatePurse: serveRequest('coinPayment', 'createPurse'),
+      handleQueryPurse: serveRequest('coinPayment', 'queryPurse'),
+      handleRebalancePurse: serveSubscription('coinPayment', 'rebalancePurse', coinPaymentInternal),
+      handleDeletePurse: serveSubscription('coinPayment', 'deletePurse', coinPaymentInternal),
+      handleCreateReceivable: serveRequest('coinPayment', 'createReceivable'),
+      handleCreateCheque: serveRequest('coinPayment', 'createCheque'),
+      handleDeposit: serveSubscription('coinPayment', 'deposit', coinPaymentInternal),
+      handleRefund: serveSubscription('coinPayment', 'refund', coinPaymentInternal),
+      handleListenForPayment: serveSubscription('coinPayment', 'listenForPayment', coinPaymentInternal),
     },
 
-    handleNavigateTo(handler) {
-      return handleV1Request(handleNavigateToSlot, handler);
+    entropy: {
+      handleDerive: serveRequest('entropy', 'derive'),
     },
 
-    handleDeriveEntropy(handler) {
-      return handleV1Request(handleDeriveEntropySlot, handler);
+    localStorage: {
+      handleRead: handleLocalStorageRead,
+      handleWrite: serveRequest('localStorage', 'write'),
+      handleClear: serveRequest('localStorage', 'clear'),
+      handleSubscribe: serveSubscription('localStorage', 'subscribe'),
     },
 
-    handleLocalStorageRead(handler) {
-      return handleV1Request(handleLocalStorageReadSlot, handler);
+    notifications: {
+      handleSendPushNotification: serveRequest(
+        'notifications',
+        'sendPushNotification',
+        devicePermissionGate(
+          'Notifications',
+          () => new PushNotificationError.Unknown({ reason: 'Notifications permission denied' }),
+        ),
+      ),
+      handleCancelPushNotification: serveRequest(
+        'notifications',
+        'cancelPushNotification',
+        devicePermissionGate('Notifications', () => new GenericError({ reason: 'Notifications permission denied' })),
+      ),
     },
 
-    handleLocalStorageWrite(handler) {
-      return handleV1Request(handleLocalStorageWriteSlot, handler);
+    payment: {
+      handleBalanceSubscribe: serveSubscription(
+        'payment',
+        'balanceSubscribe',
+        () => new PaymentBalanceErr.Unknown({ reason: 'Not implemented' }),
+      ),
+      handleTopUp: serveRequest('payment', 'topUp'),
+      handleRequest: serveRequest('payment', 'request'),
+      handleStatusSubscribe: serveSubscription(
+        'payment',
+        'statusSubscribe',
+        () => new PaymentStatusErr.Unknown({ reason: 'Not implemented' }),
+      ),
+      handleTopUpStatusSubscribe: serveSubscription(
+        'payment',
+        'topUpStatusSubscribe',
+        () => new PaymentTopUpStatusErr.Unknown({ reason: 'Not implemented' }),
+      ),
     },
 
-    handleLocalStorageClear(handler) {
-      return handleV1Request(handleLocalStorageClearSlot, handler);
+    permissions: {
+      handleRequestDevicePermission: serveV1Request(requestDevicePermissionSlot),
+      handleRequestRemotePermission: serveV1Request(requestRemotePermissionSlot),
+      // Host-internal: authorize one operation, consuming an available
+      // one-use grant. Never consulted by the gated slots.
+      handleAuthorizeRemotePermission: serveRequest('permissions', 'authorizeRemotePermission'),
+      handleAuthorizeDevicePermission: serveRequest('permissions', 'authorizeDevicePermission'),
     },
 
-    handleLocaleSubscribe(handler) {
-      return handleV1Subscription(handleLocaleSubscribeSlot, handler);
+    preimage: {
+      handleLookupSubscribe: serveSubscription('preimage', 'lookupSubscribe'),
+      handleSubmit: serveRequest(
+        'preimage',
+        'submit',
+        remotePermissionGate(
+          enumValue('PreimageSubmit', undefined),
+          () => new PreimageSubmitErr.Unknown({ reason: 'PreimageSubmit permission denied' }),
+        ),
+      ),
     },
 
-    handleThemeSubscribe(handler) {
-      return handleV1Subscription(handleThemeSubscribeSlot, handler);
+    resourceAllocation: {
+      handleRequest: serveRequest('resourceAllocation', 'request'),
     },
 
-    handleLocalStorageSubscribe(handler) {
-      return handleV1Subscription(handleLocalStorageSubscribeSlot, handler);
+    signing: {
+      handleCreateTransaction: serveRequest('signing', 'createTransaction'),
+      handleCreateTransactionWithLegacyAccount: serveRequest('signing', 'createTransactionWithLegacyAccount'),
+      handleSignRawWithLegacyAccount: serveRequest('signing', 'signRawWithLegacyAccount'),
+      handleSignPayloadWithLegacyAccount: serveRequest('signing', 'signPayloadWithLegacyAccount'),
+      handleSignRaw: serveRequest('signing', 'signRaw'),
+      handleSignPayload: serveRequest('signing', 'signPayload'),
+      handleSignRawUnwatermarkedDeprecated: serveRequest('signing', 'signRawUnwatermarkedDeprecated'),
+      handleSignRawUnwatermarkedDeprecatedWithLegacyAccount: serveRequest(
+        'signing',
+        'signRawUnwatermarkedDeprecatedWithLegacyAccount',
+      ),
     },
 
-    handleWorkerBeginOperation(handler) {
-      return handleV1Request(handleWorkerBeginOperationSlot, handler);
+    statementStore: {
+      handleSubscribe: serveSubscription('statementStore', 'subscribe'),
+      handleCreateProof: serveRequest('statementStore', 'createProof'),
+      handleSubmit: serveRequest(
+        'statementStore',
+        'submit',
+        remotePermissionGate(
+          enumValue('StatementSubmit', undefined),
+          () => new GenericError({ reason: 'StatementSubmit permission denied' }),
+        ),
+      ),
+      handleCreateProofAuthorized: serveRequest('statementStore', 'createProofAuthorized'),
     },
 
-    handleWorkerEndOperation(handler) {
-      return handleV1Request(handleWorkerEndOperationSlot, handler);
+    theme: {
+      handleSubscribe: serveSubscription('theme', 'subscribe'),
     },
 
-    handleGetProductContext(handler) {
-      return handleV1Request(handleGetProductContextSlot, handler);
+    locale: {
+      handleSubscribe: serveSubscription('locale', 'subscribe'),
     },
 
-    handleInfo(handler) {
-      return handleV1Request(handleInfoSlot, handler);
-    },
-
-    handleGetUserId(handler) {
-      return handleV1Request(handleGetUserIdSlot, handler);
-    },
-
-    handleRequestLogin(handler) {
-      return handleV1Request(handleRequestLoginSlot, handler);
-    },
-
-    handleAccountConnectionStatusSubscribe(handler) {
-      return handleV1Subscription(handleAccountConnectionStatusSubscribeSlot, handler);
-    },
-
-    handleAccountGet(handler) {
-      return handleV1Request(handleAccountGetSlot, handler);
-    },
-
-    handleAccountGetAlias(handler) {
-      return handleV1Request(handleAccountGetAliasSlot, handler);
-    },
-
-    handleAccountCreateProof(handler) {
-      return handleV1Request(handleAccountCreateProofSlot, handler);
-    },
-
-    handleAccountSignVrf(handler) {
-      return handleV1Request(handleAccountSignVrfSlot, handler);
-    },
-
-    handleAccountRegisterRingVrfKey(handler) {
-      return handleV1Request(handleAccountRegisterRingVrfKeySlot, handler);
-    },
-
-    handleAccountListRingVrfKeys(handler) {
-      return handleV1Request(handleAccountListRingVrfKeysSlot, handler);
-    },
-
-    handleAccountRingVrfSign(handler) {
-      return handleV1Request(handleAccountRingVrfSignSlot, handler);
-    },
-
-    handleChainGetChainInfo(handler) {
-      return handleV1Request(handleChainGetChainInfoSlot, handler);
-    },
-
-    handleGetLegacyAccounts(handler) {
-      return handleV1Request(handleGetLegacyAccountsSlot, handler);
-    },
-
-    handleCreateTransaction(handler) {
-      return handleV1Request(handleCreateTransactionSlot, handler);
-    },
-
-    handleCreateTransactionWithLegacyAccount(handler) {
-      return handleV1Request(handleCreateTransactionWithLegacyAccountSlot, handler);
-    },
-
-    handleSignRaw(handler) {
-      return handleV1Request(handleSignRawSlot, handler);
-    },
-
-    handleSignPayload(handler) {
-      return handleV1Request(handleSignPayloadSlot, handler);
-    },
-
-    handleSignRawWithLegacyAccount(handler) {
-      return handleV1Request(handleSignRawWithLegacyAccountSlot, handler);
-    },
-
-    handleSignPayloadWithLegacyAccount(handler) {
-      return handleV1Request(handleSignPayloadWithLegacyAccountSlot, handler);
-    },
-
-    handleChatCreateRoom(handler) {
-      return handleV1Request(handleChatCreateRoomSlot, handler);
-    },
-
-    handleChatBotRegistration(handler) {
-      return handleV1Request(handleChatBotRegistrationSlot, handler);
-    },
-
-    handleChatListSubscribe(handler) {
-      return handleV1Subscription(handleChatListSubscribeSlot, handler);
-    },
-
-    handleChatPostMessage(handler) {
-      return handleV1Request(handleChatPostMessageSlot, handler);
-    },
-
-    handleChatActionSubscribe(handler) {
-      return handleV1Subscription(handleChatActionSubscribeSlot, handler);
-    },
-
-    renderChatCustomMessage({ messageId, messageType, payload }, callback) {
-      init();
-      return transport.subscribe(
-        'product_chat_custom_message_render_subscribe',
-        enumValue('v1', { messageId, messageType, payload }),
-        value => {
-          if (value.tag === 'v1') {
+    renderer: {
+      // Host-initiated: the host asks the product to draw a body, and the
+      // product streams renderer trees back.
+      render({ context, payload }, callback) {
+        init();
+        const subscription = transport.subscribe('renderer', 'render', enumValue('v1', { context, payload }), value => {
+          if (isEnumVariant(value, 'v1')) {
             callback(value.value);
           }
-        },
-      );
+        });
+        return {
+          unsubscribe: subscription.unsubscribe,
+          onInterrupt: listener =>
+            subscription.onInterrupt(value => {
+              if (isEnumVariant(value, 'v1')) {
+                listener(value.value);
+              }
+            }),
+        };
+      },
+      handleActionSubscribe: serveSubscription('renderer', 'actionSubscribe'),
     },
 
-    handleStatementStoreSubscribe(handler) {
-      return handleV1Subscription(handleStatementStoreSubscribeSlot, handler);
+    pocket: {
+      handleListSubscribe: serveSubscription('pocket', 'listSubscribe'),
+      handleRemoveCard: serveRequest('pocket', 'removeCard'),
     },
 
-    handleStatementStoreCreateProof(handler) {
-      return handleV1Request(handleStatementStoreCreateProofSlot, handler);
+    worker: {
+      handleBeginOperation: serveRequest('worker', 'beginOperation'),
+      handleEndOperation: serveRequest('worker', 'endOperation'),
     },
 
-    handleStatementStoreCreateProofAuthorized(handler) {
-      return handleV1Request(handleStatementStoreCreateProofAuthorizedSlot, handler);
-    },
-
-    handleStatementStoreSubmit(handler) {
-      return handleV1Request(handleStatementStoreSubmitSlot, handler);
-    },
-
-    handlePreimageLookupSubscribe(handler) {
-      return handleV1Subscription(handlePreimageLookupSubscribeSlot, handler);
-    },
-
-    handlePreimageSubmit(handler) {
-      return handleV1Request(handlePreimageSubmitSlot, handler);
-    },
-
-    handlePaymentBalanceSubscribe(handler) {
-      return handleV1Subscription(handlePaymentBalanceSubscribeSlot, handler);
-    },
-
-    handlePaymentTopUp(handler) {
-      return handleV1Request(handlePaymentTopUpSlot, handler);
-    },
-
-    handlePaymentRequest(handler) {
-      return handleV1Request(handlePaymentRequestSlot, handler);
-    },
-
-    handlePaymentStatusSubscribe(handler) {
-      return handleV1Subscription(handlePaymentStatusSubscribeSlot, handler);
-    },
-
-    handlePaymentTopUpStatusSubscribe(handler) {
-      return handleV1Subscription(handlePaymentTopUpStatusSubscribeSlot, handler);
-    },
-
-    handleCoinPaymentCreatePurse(handler) {
-      return handleV1Request(handleCoinPaymentCreatePurseSlot, handler);
-    },
-
-    handleCoinPaymentQueryPurse(handler) {
-      return handleV1Request(handleCoinPaymentQueryPurseSlot, handler);
-    },
-
-    handleCoinPaymentRebalancePurse(handler) {
-      return handleV1Subscription(handleCoinPaymentRebalancePurseSlot, handler);
-    },
-
-    handleCoinPaymentDeletePurse(handler) {
-      return handleV1Subscription(handleCoinPaymentDeletePurseSlot, handler);
-    },
-
-    handleCoinPaymentCreateReceivable(handler) {
-      return handleV1Request(handleCoinPaymentCreateReceivableSlot, handler);
-    },
-
-    handleCoinPaymentCreateCheque(handler) {
-      return handleV1Request(handleCoinPaymentCreateChequeSlot, handler);
-    },
-
-    handleCoinPaymentDeposit(handler) {
-      return handleV1Subscription(handleCoinPaymentDepositSlot, handler);
-    },
-
-    handleCoinPaymentRefund(handler) {
-      return handleV1Subscription(handleCoinPaymentRefundSlot, handler);
-    },
-
-    handleCoinPaymentListenForPayment(handler) {
-      return handleV1Subscription(handleCoinPaymentListenForPaymentSlot, handler);
-    },
-
-    handleRequestResourceAllocation(handler) {
-      return handleV1Request(handleRequestResourceAllocationSlot, handler);
+    contacts: {
+      handlePick: serveRequest('contacts', 'pick'),
     },
 
     // chain interaction
@@ -728,21 +600,18 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // Follow subscription
       cleanups.push(
-        transport.handleSubscription('remote_chain_head_follow_subscribe', (params, send, interrupt) => {
+        chainSlots.followHeadSubscribe.update((params, send, interrupt) => {
           if (!isEnumVariant(params, 'v1')) {
-            interrupt(enumValue('v1', undefined));
-            return () => {
-              /* unsupported version */
-            };
+            interrupt(MALFORMED_FRAME_V1);
+            return noop;
           }
           const { genesisHash, withRuntime } = params.value;
 
           const entry = manager.getOrCreateChain(genesisHash);
           if (!entry) {
-            interrupt(enumValue('v1', undefined));
-            return () => {
-              /* no chain provider available */
-            };
+            // no chain provider available
+            interrupt(enumValue('v1', new GenericError({ reason: 'Chain not supported' })));
+            return noop;
           }
 
           const { followId } = manager.startFollow(genesisHash, withRuntime, (event: unknown) => {
@@ -759,9 +628,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // Header request
       cleanups.push(
-        transport.handleRequest('remote_chain_head_header', async message => {
+        chainSlots.getHeadHeader.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const { genesisHash, hash } = message.value;
 
@@ -780,9 +649,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // Body request
       cleanups.push(
-        transport.handleRequest('remote_chain_head_body', async message => {
+        chainSlots.getHeadBody.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const { genesisHash, hash } = message.value;
 
@@ -801,9 +670,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // Storage request
       cleanups.push(
-        transport.handleRequest('remote_chain_head_storage', async message => {
+        chainSlots.getHeadStorage.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const { genesisHash, hash, items, childTrie } = message.value;
 
@@ -831,9 +700,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // Call request
       cleanups.push(
-        transport.handleRequest('remote_chain_head_call', async message => {
+        chainSlots.callHead.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const params = message.value;
 
@@ -856,9 +725,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // Unpin request
       cleanups.push(
-        transport.handleRequest('remote_chain_head_unpin', async message => {
+        chainSlots.unpinHead.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const { genesisHash, hashes } = message.value;
 
@@ -877,9 +746,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // Continue request
       cleanups.push(
-        transport.handleRequest('remote_chain_head_continue', async message => {
+        chainSlots.continueHead.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const { genesisHash, operationId } = message.value;
 
@@ -898,9 +767,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // StopOperation request
       cleanups.push(
-        transport.handleRequest('remote_chain_head_stop_operation', async message => {
+        chainSlots.stopHeadOperation.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const { genesisHash, operationId } = message.value;
 
@@ -919,9 +788,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // ChainSpec: genesis hash
       cleanups.push(
-        transport.handleRequest('remote_chain_spec_genesis_hash', async message => {
+        chainSlots.getSpecGenesisHash.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const genesisHash = message.value;
 
@@ -943,9 +812,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // ChainSpec: chain name
       cleanups.push(
-        transport.handleRequest('remote_chain_spec_chain_name', async message => {
+        chainSlots.getSpecChainName.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const genesisHash = message.value;
 
@@ -967,9 +836,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // ChainSpec: properties
       cleanups.push(
-        transport.handleRequest('remote_chain_spec_properties', async message => {
+        chainSlots.getSpecProperties.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const genesisHash = message.value;
 
@@ -991,22 +860,13 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // Transaction broadcast
       cleanups.push(
-        transport.handleRequest('remote_chain_transaction_broadcast', async message => {
+        chainSlots.broadcastTransaction.update(async (message, context) => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const { genesisHash, transaction } = message.value;
 
-          const permissionResponse = await handleRemotePermissionSlot.call(
-            enumValue('v1', enumValue('ChainSubmit', undefined)),
-          );
-          const permissionGranted =
-            isEnumVariant(permissionResponse, 'v1') &&
-            !isCallErrorFailure(permissionResponse.value) &&
-            permissionResponse.value.success === true &&
-            permissionResponse.value.value === true;
-
-          if (!permissionGranted) {
+          if (!(await isRemotePermissionGranted(enumValue('ChainSubmit', undefined), context))) {
             return enumValue('v1', resultErr(new GenericError({ reason: 'Permission denied' })));
           }
 
@@ -1039,9 +899,9 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       // Transaction stop
       cleanups.push(
-        transport.handleRequest('remote_chain_transaction_stop', async message => {
+        chainSlots.stopTransaction.update(async message => {
           if (!isEnumVariant(message, 'v1')) {
-            return MALFORMED_FRAME;
+            return MALFORMED_FRAME_V1;
           }
           const { genesisHash, operationId } = message.value;
 
@@ -1066,6 +926,8 @@ export function createContainer(provider: Provider, options: CreateContainerOpti
 
       let disposed = false;
 
+      // Restores the chain slots' `Unsupported` defaults. Follows still open
+      // stop receiving events once the manager tears its chains down.
       const dispose = () => {
         if (disposed) return;
         disposed = true;

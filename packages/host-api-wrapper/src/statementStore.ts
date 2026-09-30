@@ -10,6 +10,8 @@ import type {
 } from '@novasamatech/host-api';
 import { createHostApi, derivationIndexOf, enumValue } from '@novasamatech/host-api';
 
+import type { GenericInterrupt } from './helpers.js';
+import { genericInterrupt, unwrapVersionedSubscription } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
 
 export type Statement = CodecType<typeof StatementCodec>;
@@ -36,24 +38,25 @@ export const createStatementStore = (transport: Transport = sandboxTransport) =>
   const hostApi = createHostApi(transport);
 
   return {
-    subscribe(filter: StatementTopicFilter, callback: (page: StatementsPage) => void): Subscription<void> {
+    subscribe(
+      filter: StatementTopicFilter,
+      callback: (page: StatementsPage) => void,
+    ): Subscription<GenericInterrupt | undefined> {
       const scaleFilter =
         'matchAll' in filter ? enumValue('MatchAll', filter.matchAll) : enumValue('MatchAny', filter.matchAny);
-      const subscriber = hostApi.statementStoreSubscribe(enumValue('v1', scaleFilter), payload => {
-        if (payload.tag === 'v1') {
-          callback(payload.value);
-        }
-      });
-
-      return {
-        unsubscribe: subscriber.unsubscribe,
-        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
-      };
+      return unwrapVersionedSubscription(
+        hostApi.statementStore.subscribe(enumValue('v1', scaleFilter), payload => {
+          if (payload.tag === 'v1') {
+            callback(payload.value);
+          }
+        }),
+        genericInterrupt,
+      );
     },
 
     async createProof([dotNsIdentifier, derivationIndex]: ProductAccountRef, statement: Statement) {
       const accountId: ProductAccountId = [dotNsIdentifier, derivationIndexOf(derivationIndex)];
-      const result = await hostApi.statementStoreCreateProof(enumValue('v1', [accountId, statement]));
+      const result = await hostApi.statementStore.createProof(enumValue('v1', [accountId, statement]));
 
       return result.match(
         payload => {
@@ -69,7 +72,7 @@ export const createStatementStore = (transport: Transport = sandboxTransport) =>
     },
 
     async submit(signedStatement: SignedStatement): Promise<void> {
-      const result = await hostApi.statementStoreSubmit(enumValue('v1', signedStatement));
+      const result = await hostApi.statementStore.submit(enumValue('v1', signedStatement));
 
       return result.match(
         payload => {
