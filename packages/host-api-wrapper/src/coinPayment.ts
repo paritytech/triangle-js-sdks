@@ -1,7 +1,6 @@
 import type {
   CodecType,
   CoinPaymentCheque,
-  CoinPaymentErr,
   CoinPaymentListenForItem,
   CoinPaymentPurseInfo,
   CoinPaymentStatus,
@@ -9,7 +8,7 @@ import type {
   Subscription,
   Transport,
 } from '@novasamatech/host-api';
-import { createHostApi, enumValue } from '@novasamatech/host-api';
+import { CoinPaymentErr, createHostApi, enumValue } from '@novasamatech/host-api';
 
 import { resultToPromise, unwrapVersionedResult, unwrapVersionedSubscription } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
@@ -28,6 +27,9 @@ export type PaymentDelivery = CodecType<typeof CoinPaymentListenForItem>;
 
 type CoinPaymentInterrupt = CodecType<typeof CoinPaymentErr>;
 
+// `CoinPaymentErr` has no free-form variant; a transport failure is reported as `Internal`.
+const coinPaymentInterrupt = (): CoinPaymentInterrupt => new CoinPaymentErr.Internal();
+
 export const createCoinPayment = (transport: Transport = sandboxTransport) => {
   const hostApi = createHostApi(transport);
   const version = 'v1' as const;
@@ -36,28 +38,28 @@ export const createCoinPayment = (transport: Transport = sandboxTransport) => {
     // Create a new firewalled purse and resolve with its assigned id.
     createPurse(name: string): Promise<PurseId> {
       return resultToPromise(
-        unwrapVersionedResult(version, hostApi.coinPaymentCreatePurse(enumValue(version, { name }))),
+        unwrapVersionedResult(version, hostApi.coinPayment.createPurse(enumValue(version, { name }))),
       ).then(({ purse }) => purse);
     },
 
     // Query product-visible metadata and balance for a purse.
     queryPurse(purse: PurseId): Promise<PurseInfo> {
       return resultToPromise(
-        unwrapVersionedResult(version, hostApi.coinPaymentQueryPurse(enumValue(version, { purse }))),
+        unwrapVersionedResult(version, hostApi.coinPayment.queryPurse(enumValue(version, { purse }))),
       ).then(({ info }) => info);
     },
 
     // Create a fresh receivable public key for depositing into a purse.
     createReceivable(into: PurseId): Promise<Receivable> {
       return resultToPromise(
-        unwrapVersionedResult(version, hostApi.coinPaymentCreateReceivable(enumValue(version, { into }))),
+        unwrapVersionedResult(version, hostApi.coinPayment.createReceivable(enumValue(version, { into }))),
       ).then(({ receivable }) => receivable);
     },
 
     // Create a cheque paying from a local purse to a receivable.
     createCheque(from: PurseId, to: Receivable, amount: number): Promise<Cheque> {
       return resultToPromise(
-        unwrapVersionedResult(version, hostApi.coinPaymentCreateCheque(enumValue(version, { from, to, amount }))),
+        unwrapVersionedResult(version, hostApi.coinPayment.createCheque(enumValue(version, { from, to, amount }))),
       ).then(({ cheque }) => cheque);
     },
 
@@ -67,11 +69,12 @@ export const createCoinPayment = (transport: Transport = sandboxTransport) => {
       to: PurseId,
       amount: number,
       onStatus: (status: ClearingStatus) => void,
-    ): Subscription<CoinPaymentInterrupt> {
+    ): Subscription<CoinPaymentInterrupt | undefined> {
       return unwrapVersionedSubscription(
-        hostApi.coinPaymentRebalancePurse(enumValue(version, { from, to, amount }), payload => {
+        hostApi.coinPayment.rebalancePurse(enumValue(version, { from, to, amount }), payload => {
           if (payload.tag === version) onStatus(payload.value);
         }),
+        coinPaymentInterrupt,
       );
     },
 
@@ -80,29 +83,38 @@ export const createCoinPayment = (transport: Transport = sandboxTransport) => {
       target: PurseId,
       drainInto: PurseId,
       onStatus: (status: ClearingStatus) => void,
-    ): Subscription<CoinPaymentInterrupt> {
+    ): Subscription<CoinPaymentInterrupt | undefined> {
       return unwrapVersionedSubscription(
-        hostApi.coinPaymentDeletePurse(enumValue(version, { target, drainInto }), payload => {
+        hostApi.coinPayment.deletePurse(enumValue(version, { target, drainInto }), payload => {
           if (payload.tag === version) onStatus(payload.value);
         }),
+        coinPaymentInterrupt,
       );
     },
 
     // Claim coins from a cheque into the receivable's purse.
-    deposit(cheque: Cheque, onStatus: (status: ClearingStatus) => void): Subscription<CoinPaymentInterrupt> {
+    deposit(
+      cheque: Cheque,
+      onStatus: (status: ClearingStatus) => void,
+    ): Subscription<CoinPaymentInterrupt | undefined> {
       return unwrapVersionedSubscription(
-        hostApi.coinPaymentDeposit(enumValue(version, { cheque }), payload => {
+        hostApi.coinPayment.deposit(enumValue(version, { cheque }), payload => {
           if (payload.tag === version) onStatus(payload.value);
         }),
+        coinPaymentInterrupt,
       );
     },
 
     // Attempt to return coins associated with a receivable.
-    refund(receivable: Receivable, onStatus: (status: ClearingStatus) => void): Subscription<CoinPaymentInterrupt> {
+    refund(
+      receivable: Receivable,
+      onStatus: (status: ClearingStatus) => void,
+    ): Subscription<CoinPaymentInterrupt | undefined> {
       return unwrapVersionedSubscription(
-        hostApi.coinPaymentRefund(enumValue(version, { receivable }), payload => {
+        hostApi.coinPayment.refund(enumValue(version, { receivable }), payload => {
           if (payload.tag === version) onStatus(payload.value);
         }),
+        coinPaymentInterrupt,
       );
     },
 
@@ -110,11 +122,12 @@ export const createCoinPayment = (transport: Transport = sandboxTransport) => {
     listenForPayment(
       receivable: Receivable,
       onDelivery: (item: PaymentDelivery) => void,
-    ): Subscription<CoinPaymentInterrupt> {
+    ): Subscription<CoinPaymentInterrupt | undefined> {
       return unwrapVersionedSubscription(
-        hostApi.coinPaymentListenForPayment(enumValue(version, { receivable }), payload => {
+        hostApi.coinPayment.listenForPayment(enumValue(version, { receivable }), payload => {
           if (payload.tag === version) onDelivery(payload.value);
         }),
+        coinPaymentInterrupt,
       );
     },
   };

@@ -1,17 +1,16 @@
-import type { CodecType } from 'scale-ts';
-
-import type { HostApiProtocol } from './protocol/impl.js';
 import type {
-  ComposeMessageAction,
-  MessageAction,
-  MessagePayloadSchema,
-  PickMessagePayload,
-  PickMessagePayloadValue,
-} from './protocol/messageCodec.js';
-import { Message } from './protocol/messageCodec.js';
+  InterruptPayload,
+  MethodName,
+  ReceivePayload,
+  RequestMethodName,
+  RequestPayload,
+  ResponsePayload,
+  StartPayload,
+  SubscriptionMethodName,
+  TraitName,
+} from './protocol/impl.js';
+import type { Frame, MessageLeg } from './protocol/messageCodec.js';
 import type { Provider } from './provider.js';
-
-export type HostApiMethod = keyof HostApiProtocol;
 
 export type Logger = Record<'info' | 'warn' | 'error' | 'log', (...args: unknown[]) => void> & {
   withPrefix(prefix: string): Logger;
@@ -19,14 +18,25 @@ export type Logger = Record<'info' | 'warn' | 'error' | 'log', (...args: unknown
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected';
 
-export type RequestHandler<Method extends string> = (
-  message: PickMessagePayloadValue<ComposeMessageAction<Method, 'request'>>,
-) => PromiseLike<PickMessagePayloadValue<ComposeMessageAction<Method, 'response'>>>;
+/** Per-call context handed to a request handler. */
+export type RequestContext = {
+  /**
+   * Aborted when the caller withdraws the request (a `Cancel` frame). The
+   * caller has already been answered `CallError::Cancelled` by then, so
+   * whatever the handler resolves with afterwards is discarded.
+   */
+  signal: AbortSignal;
+};
 
-export type SubscriptionHandler<Method extends string> = (
-  params: PickMessagePayloadValue<ComposeMessageAction<Method, 'start'>>,
-  send: (value: PickMessagePayloadValue<ComposeMessageAction<Method, 'receive'>>) => void,
-  interrupt: (value: PickMessagePayloadValue<ComposeMessageAction<Method, 'interrupt'>>) => void,
+export type RequestHandler<T extends TraitName, M extends RequestMethodName<T>> = (
+  message: RequestPayload<T, M>,
+  context: RequestContext,
+) => PromiseLike<ResponsePayload<T, M>>;
+
+export type SubscriptionHandler<T extends TraitName, M extends SubscriptionMethodName<T>> = (
+  params: StartPayload<T, M>,
+  send: (value: ReceivePayload<T, M>) => void,
+  interrupt: (value: InterruptPayload<T, M>) => void,
 ) => VoidFunction;
 
 export type Subscription<InterruptPayload = unknown> = {
@@ -34,13 +44,21 @@ export type Subscription<InterruptPayload = unknown> = {
   onInterrupt(callback: (payload: InterruptPayload) => void): VoidFunction;
 };
 
-export type SubscriptionFor<Method extends HostApiMethod> = Subscription<
-  PickMessagePayloadValue<ComposeMessageAction<Method, 'interrupt'>>
+export type SubscriptionFor<T extends TraitName, M extends SubscriptionMethodName<T>> = Subscription<
+  InterruptPayload<T, M>
 >;
 
-export type MessageProvider = {
-  postMessage(message: CodecType<typeof Message>): void;
-  subscribe(fn: (message: CodecType<typeof Message>) => void): VoidFunction;
+/** A frame decoded as far as this build understands it. */
+export type DecodedMessage = {
+  /** `undefined` for an address this build does not know, or a protocol error. */
+  trait: TraitName | undefined;
+  method: string | undefined;
+  traitId: number;
+  methodId: number;
+  /** `undefined` when the address or its message type is unknown, or for a protocol-error frame. */
+  leg: MessageLeg | undefined;
+  /** The leg's decoded value; `undefined` when it carries none or could not be decoded. */
+  value: unknown;
 };
 
 /**
@@ -51,7 +69,7 @@ export type DebugMessageEvent = {
   /** `outgoing` = sent by this side via `postMessage`; `incoming` = received from the peer. */
   direction: 'incoming' | 'outgoing';
   requestId: string;
-  payload: MessagePayloadSchema;
+  payload: DecodedMessage;
 };
 
 export type Transport = {
@@ -63,41 +81,49 @@ export type Transport = {
   onConnectionStatusChange(callback: (status: ConnectionStatus) => void): VoidFunction;
   onDestroy(callback: VoidFunction): VoidFunction;
 
-  request<const Method extends HostApiMethod>(
-    method: Method,
-    payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'request'>>,
+  /**
+   * Send a request and resolve with its response leg. Aborting `signal`
+   * withdraws the call on the wire (a `Cancel` frame) and rejects at once.
+   */
+  request<const T extends TraitName, const M extends RequestMethodName<T>>(
+    trait: T,
+    method: M,
+    payload: RequestPayload<T, M>,
     signal?: AbortSignal,
-  ): Promise<PickMessagePayloadValue<ComposeMessageAction<Method, 'response'>>>;
+  ): Promise<ResponsePayload<T, M>>;
 
-  handleRequest<const Method extends HostApiMethod>(method: Method, handler: RequestHandler<Method>): VoidFunction;
+  handleRequest<const T extends TraitName, const M extends RequestMethodName<T>>(
+    trait: T,
+    method: M,
+    handler: RequestHandler<T, M>,
+  ): VoidFunction;
 
-  subscribe<const Method extends HostApiMethod>(
-    method: Method,
-    payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'start'>>,
-    callback: (payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'receive'>>) => void,
-  ): SubscriptionFor<Method>;
+  subscribe<const T extends TraitName, const M extends SubscriptionMethodName<T>>(
+    trait: T,
+    method: M,
+    payload: StartPayload<T, M>,
+    callback: (payload: ReceivePayload<T, M>) => void,
+  ): SubscriptionFor<T, M>;
 
-  handleSubscription<const Method extends HostApiMethod>(
-    method: Method,
-    handler: SubscriptionHandler<Method>,
+  handleSubscription<const T extends TraitName, const M extends SubscriptionMethodName<T>>(
+    trait: T,
+    method: M,
+    handler: SubscriptionHandler<T, M>,
   ): VoidFunction;
 
   // low level method, use on your own risk
-  postMessage(requestId: string, payload: MessagePayloadSchema): void;
+  postMessage(frame: Frame): void;
 
-  // low level method, use on your own risk
-  listenMessages<const Action extends MessageAction>(
-    action: Action,
-    callback: (requestId: string, data: PickMessagePayload<Action>) => void,
-    onError?: (error: unknown) => void,
-  ): VoidFunction;
+  // low level method, use on your own risk: every inbound frame, header decoded, payload raw
+  listenMessages(callback: (frame: Frame) => void): VoidFunction;
 
   /**
    * EXPERIMENTAL. Subscribe to every message crossing this transport
    * in either direction, in decoded form. Returns an unsubscribe
-   * function. Multiple listeners are supported; the underlying
-   * provider is subscribed lazily — there is no per-message cost
-   * while no listener is attached.
+   * function. Multiple listeners are supported; there is no per-message
+   * decode cost while no listener is attached.
    */
   onDebugMessage(callback: (event: DebugMessageEvent) => void): VoidFunction;
 };
+
+export type { MethodName, TraitName };

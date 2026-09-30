@@ -201,7 +201,7 @@ export function createPapiProvider(
           const [withRuntime] = params as [boolean];
           const syntheticSubId = getNextSubId();
 
-          const subscription = hostApi.chainHeadFollowSubscribe(
+          const subscription = hostApi.chain.followHeadSubscribe(
             enumValue(version, { genesisHash, withRuntime }),
             payload => {
               if (payload.tag !== version) return;
@@ -218,6 +218,15 @@ export function createPapiProvider(
               sendFollowEvent(syntheticSubId, convertTypedEventToJsonRpc(typed));
             },
           );
+
+          // A host that ends the follow without a `Stop` event (an interrupt,
+          // clean or not) would otherwise leave the consumer waiting forever;
+          // chainHead_v1 reports that as a `stop` event.
+          subscription.onInterrupt(() => {
+            if (activeFollows.delete(syntheticSubId)) {
+              sendFollowEvent(syntheticSubId, { event: 'stop' });
+            }
+          });
 
           activeFollows.set(syntheticSubId, { syntheticSubId, subscription, genesisHash });
           sendJsonRpcResponse(id, syntheticSubId);
@@ -237,16 +246,18 @@ export function createPapiProvider(
 
         case 'chainHead_v1_header': {
           const [followSubId, hash] = params as [string, HexString];
-          hostApi.chainHeadHeader(enumValue(version, { genesisHash, followSubscriptionId: followSubId, hash })).match(
-            result => sendJsonRpcResponse(id, result.value),
-            error => sendJsonRpcError(id, -32603, error.value.payload.reason),
-          );
+          hostApi.chain
+            .getHeadHeader(enumValue(version, { genesisHash, followSubscriptionId: followSubId, hash }))
+            .match(
+              result => sendJsonRpcResponse(id, result.value),
+              error => sendJsonRpcError(id, -32603, error.value.payload.reason),
+            );
           break;
         }
 
         case 'chainHead_v1_body': {
           const [followSubId, hash] = params as [string, HexString];
-          hostApi.chainHeadBody(enumValue(version, { genesisHash, followSubscriptionId: followSubId, hash })).match(
+          hostApi.chain.getHeadBody(enumValue(version, { genesisHash, followSubscriptionId: followSubId, hash })).match(
             result => sendJsonRpcResponse(id, convertOperationResultToJsonRpc(result.value)),
             error => sendJsonRpcError(id, -32603, error.value.payload.reason),
           );
@@ -264,8 +275,8 @@ export function createPapiProvider(
             key: item.key,
             queryType: convertStorageTypeToTyped(item.type),
           }));
-          hostApi
-            .chainHeadStorage(
+          hostApi.chain
+            .getHeadStorage(
               enumValue(version, {
                 genesisHash,
                 followSubscriptionId: followSubId,
@@ -283,8 +294,8 @@ export function createPapiProvider(
 
         case 'chainHead_v1_call': {
           const [followSubId, hash, fn, callParameters] = params as [string, HexString, string, HexString];
-          hostApi
-            .chainHeadCall(
+          hostApi.chain
+            .callHead(
               enumValue(version, {
                 genesisHash,
                 followSubscriptionId: followSubId,
@@ -303,7 +314,7 @@ export function createPapiProvider(
         case 'chainHead_v1_unpin': {
           const [followSubId, hashOrHashes] = params as [string, HexString | HexString[]];
           const hashes = Array.isArray(hashOrHashes) ? hashOrHashes : [hashOrHashes];
-          hostApi.chainHeadUnpin(enumValue(version, { genesisHash, followSubscriptionId: followSubId, hashes })).match(
+          hostApi.chain.unpinHead(enumValue(version, { genesisHash, followSubscriptionId: followSubId, hashes })).match(
             () => sendJsonRpcResponse(id, null),
             error => sendJsonRpcError(id, -32603, error.value.payload.reason),
           );
@@ -312,8 +323,8 @@ export function createPapiProvider(
 
         case 'chainHead_v1_continue': {
           const [followSubId, operationId] = params as [string, string];
-          hostApi
-            .chainHeadContinue(enumValue(version, { genesisHash, followSubscriptionId: followSubId, operationId }))
+          hostApi.chain
+            .continueHead(enumValue(version, { genesisHash, followSubscriptionId: followSubId, operationId }))
             .match(
               () => sendJsonRpcResponse(id, null),
               error => sendJsonRpcError(id, -32603, error.value.payload.reason),
@@ -323,8 +334,8 @@ export function createPapiProvider(
 
         case 'chainHead_v1_stopOperation': {
           const [followSubId, operationId] = params as [string, string];
-          hostApi
-            .chainHeadStopOperation(enumValue(version, { genesisHash, followSubscriptionId: followSubId, operationId }))
+          hostApi.chain
+            .stopHeadOperation(enumValue(version, { genesisHash, followSubscriptionId: followSubId, operationId }))
             .match(
               () => sendJsonRpcResponse(id, null),
               error => sendJsonRpcError(id, -32603, error.value.payload.reason),
@@ -333,7 +344,7 @@ export function createPapiProvider(
         }
 
         case 'chainSpec_v1_genesisHash': {
-          hostApi.chainSpecGenesisHash(enumValue(version, genesisHash)).match(
+          hostApi.chain.getSpecGenesisHash(enumValue(version, genesisHash)).match(
             result => sendJsonRpcResponse(id, result.value),
             error => sendJsonRpcError(id, -32603, error.value.payload.reason),
           );
@@ -341,7 +352,7 @@ export function createPapiProvider(
         }
 
         case 'chainSpec_v1_chainName': {
-          hostApi.chainSpecChainName(enumValue(version, genesisHash)).match(
+          hostApi.chain.getSpecChainName(enumValue(version, genesisHash)).match(
             result => sendJsonRpcResponse(id, result.value),
             error => sendJsonRpcError(id, -32603, error.value.payload.reason),
           );
@@ -349,7 +360,7 @@ export function createPapiProvider(
         }
 
         case 'chainSpec_v1_properties': {
-          hostApi.chainSpecProperties(enumValue(version, genesisHash)).match(
+          hostApi.chain.getSpecProperties(enumValue(version, genesisHash)).match(
             result => {
               try {
                 sendJsonRpcResponse(id, JSON.parse(result.value));
@@ -364,7 +375,7 @@ export function createPapiProvider(
 
         case 'transaction_v1_broadcast': {
           const [transaction] = params as [HexString];
-          hostApi.chainTransactionBroadcast(enumValue(version, { genesisHash, transaction })).match(
+          hostApi.chain.broadcastTransaction(enumValue(version, { genesisHash, transaction })).match(
             result => {
               if (result.value !== null) {
                 activeBroadcasts.add(result.value);
@@ -379,7 +390,7 @@ export function createPapiProvider(
         case 'transaction_v1_stop': {
           const [operationId] = params as [string];
           activeBroadcasts.delete(operationId);
-          hostApi.chainTransactionStop(enumValue(version, { genesisHash, operationId })).match(
+          hostApi.chain.stopTransaction(enumValue(version, { genesisHash, operationId })).match(
             () => sendJsonRpcResponse(id, null),
             error => sendJsonRpcError(id, -32603, error.value.payload.reason),
           );
@@ -403,7 +414,7 @@ export function createPapiProvider(
         }
         activeFollows.clear();
         for (const operationId of activeBroadcasts) {
-          hostApi.chainTransactionStop(enumValue(version, { genesisHash, operationId })).match(
+          hostApi.chain.stopTransaction(enumValue(version, { genesisHash, operationId })).match(
             () => {
               /* fire-and-forget on disconnect */
             },
@@ -422,7 +433,7 @@ export function createPapiProvider(
       if (!ready) return false;
 
       return transport
-        .request('host_feature_supported', enumValue('v1', enumValue('Chain', genesisHash)))
+        .request('system', 'featureSupported', enumValue('v1', enumValue('Chain', genesisHash)))
         .then(payload => {
           switch (payload.tag) {
             case 'v1': {

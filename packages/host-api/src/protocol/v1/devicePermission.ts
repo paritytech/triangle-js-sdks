@@ -1,7 +1,6 @@
 import { Status } from '@novasamatech/scale';
 import { bool } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
 import { GenericError } from '../commonCodecs.js';
 
 export const DevicePermission = Status(
@@ -17,4 +16,5 @@ export const DevicePermission = Status(
 );
 
 export const DevicePermissionV1_request = DevicePermission;
-export const DevicePermissionV1_response = CallResult(bool, GenericError);
+export const DevicePermissionV1_response = bool;
+export const DevicePermissionV1_error = GenericError;

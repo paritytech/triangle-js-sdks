@@ -2,8 +2,7 @@ import { Bytes, Enum, ErrEnum, Status } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
 import { Option, Struct, Tuple, Vector, _void, str, u32, u8 } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
-import { GenericErr, GenesisHash } from '../commonCodecs.js';
+import { GenericErr, GenericError, GenesisHash } from '../commonCodecs.js';
 
 // common types
 
@@ -218,17 +217,19 @@ export const AccountConnectionStatus = Status('disconnected', 'connected');
 
 export const AccountConnectionStatusV1_start = _void;
 export const AccountConnectionStatusV1_receive = AccountConnectionStatus;
-export const AccountConnectionStatusV1_interrupt = _void;
+export const AccountConnectionStatusV1_interrupt = GenericError;
 
 // get_user_id
 
 export const GetUserIdV1_request = _void;
-export const GetUserIdV1_response = CallResult(UserIdentity, GetUserIdErr);
+export const GetUserIdV1_response = UserIdentity;
+export const GetUserIdV1_error = GetUserIdErr;
 
 // account_get
 
 export const AccountGetV1_request = ProductAccountId;
-export const AccountGetV1_response = CallResult(ProductAccount, RequestCredentialsErr);
+export const AccountGetV1_response = ProductAccount;
+export const AccountGetV1_error = RequestCredentialsErr;
 
 // account_get_alias
 
@@ -239,13 +240,15 @@ export const AccountGetV1_response = CallResult(ProductAccount, RequestCredentia
  * is among the handle's declared rings and fail with `KeyNotInRing` otherwise.
  */
 export const AccountGetAliasV1_request = Tuple(RingVrfKeyHandle, ProductProofContext, RingLocation);
-export const AccountGetAliasV1_response = CallResult(ContextualAlias, GetAliasErr);
+export const AccountGetAliasV1_response = ContextualAlias;
+export const AccountGetAliasV1_error = GetAliasErr;
 
 // account_create_proof
 
 /** `(keyHandle, context, ring, message)` — see {@link AccountGetAliasV1_request}. */
 export const AccountCreateProofV1_request = Tuple(RingVrfKeyHandle, ProductProofContext, RingLocation, Bytes());
-export const AccountCreateProofV1_response = CallResult(RingVrfProof, CreateProofErr);
+export const AccountCreateProofV1_response = RingVrfProof;
+export const AccountCreateProofV1_error = CreateProofErr;
 
 // account_register_ring_vrf_key
 
@@ -257,13 +260,15 @@ export const AccountCreateProofV1_response = CallResult(RingVrfProof, CreateProo
  * one (RFC-0024).
  */
 export const AccountRegisterRingVrfKeyV1_request = Tuple(DerivationIndex, RingLocation);
-export const AccountRegisterRingVrfKeyV1_response = CallResult(RingVrfPublicKey, RegisterRingVrfKeyErr);
+export const AccountRegisterRingVrfKeyV1_response = RingVrfPublicKey;
+export const AccountRegisterRingVrfKeyV1_error = RegisterRingVrfKeyErr;
 
 // account_list_ring_vrf_keys
 
 /** `(owner, disclosure)` — lists the registry entries owned by `owner` (RFC-0024). */
 export const AccountListRingVrfKeysV1_request = Tuple(ProductId, RingVrfKeyDisclosure);
-export const AccountListRingVrfKeysV1_response = CallResult(Vector(RegisteredRingVrfKey), ListRingVrfKeysErr);
+export const AccountListRingVrfKeysV1_response = Vector(RegisteredRingVrfKey);
+export const AccountListRingVrfKeysV1_error = ListRingVrfKeysErr;
 
 // account_ring_vrf_sign
 
@@ -277,7 +282,8 @@ export const AccountListRingVrfKeysV1_response = CallResult(Vector(RegisteredRin
  * use of that key.
  */
 export const AccountRingVrfSignV1_request = Tuple(RingVrfKeyHandle, Bytes());
-export const AccountRingVrfSignV1_response = CallResult(Bytes(), RingVrfSignErr);
+export const AccountRingVrfSignV1_response = Bytes();
+export const AccountRingVrfSignV1_error = RingVrfSignErr;
 
 // account_sign_vrf
 
@@ -291,12 +297,14 @@ export const AccountSignVrfV1_request = Struct({
   transcriptLabel: Bytes(),
   items: Vector(VrfTranscriptItem),
 });
-export const AccountSignVrfV1_response = CallResult(VrfSignature, SignVrfErr);
+export const AccountSignVrfV1_response = VrfSignature;
+export const AccountSignVrfV1_error = SignVrfErr;
 
 // get_legacy_accounts
 
 export const GetLegacyAccountsV1_request = _void;
-export const GetLegacyAccountsV1_response = CallResult(Vector(LegacyAccount), RequestCredentialsErr);
+export const GetLegacyAccountsV1_response = Vector(LegacyAccount);
+export const GetLegacyAccountsV1_error = RequestCredentialsErr;
 
 // request_login
 
@@ -307,4 +315,5 @@ export const LoginErr = ErrEnum('LoginErr', {
 });
 
 export const RequestLoginV1_request = Option(str);
-export const RequestLoginV1_response = CallResult(LoginResult, LoginErr);
+export const RequestLoginV1_response = LoginResult;
+export const RequestLoginV1_error = LoginErr;

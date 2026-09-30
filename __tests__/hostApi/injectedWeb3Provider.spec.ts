@@ -36,7 +36,7 @@ describe('Host API: injected web3 provider', () => {
 
     const { container, injected } = await setup();
 
-    container.handleGetLegacyAccounts((_, { ok }) => ok(mockAccounts));
+    container.account.handleGetLegacyAccounts((_, { ok }) => ok(mockAccounts));
 
     const injectedAccounts = await injected.accounts.get();
 
@@ -58,7 +58,7 @@ describe('Host API: injected web3 provider', () => {
       signature: '0x0001',
     };
 
-    container.handleSignPayloadWithLegacyAccount((params, { ok }) => {
+    container.signing.handleSignPayloadWithLegacyAccount((params, { ok }) => {
       return ok({ ...signerResult, signedTransaction: params.payload.method });
     });
 
@@ -89,7 +89,7 @@ describe('Host API: injected web3 provider', () => {
       signature: '0x0001',
     };
 
-    container.handleSignRawWithLegacyAccount((params, { ok }) => {
+    container.signing.handleSignRawWithLegacyAccount((params, { ok }) => {
       return ok({ ...signerResult, signedTransaction: params.payload.value as HexString });
     });
 
@@ -126,11 +126,11 @@ describe('Host API: injected web3 provider', () => {
       },
     };
 
-    const createTransaction = vitest.fn<ContainerHandlerOf<typeof container.handleCreateTransactionWithLegacyAccount>>(
-      (_, { ok }) => ok(response),
-    );
+    const createTransaction = vitest.fn<
+      ContainerHandlerOf<typeof container.signing.handleCreateTransactionWithLegacyAccount>
+    >((_, { ok }) => ok(response));
 
-    container.handleCreateTransactionWithLegacyAccount(createTransaction);
+    container.signing.handleCreateTransactionWithLegacyAccount(createTransaction);
 
     const result = await injected.signer.createTransaction?.(payload);
 
@@ -141,7 +141,7 @@ describe('Host API: injected web3 provider', () => {
     const { container, injected } = await setup();
     const error = new RequestCredentialsErr.Rejected();
 
-    container.handleGetLegacyAccounts((_, { err }) => err(error));
+    container.account.handleGetLegacyAccounts((_, { err }) => err(error));
 
     await expect(injected.accounts.get()).rejects.toEqual(error);
   });
@@ -150,7 +150,7 @@ describe('Host API: injected web3 provider', () => {
     const { container, injected } = await setup();
     const error = new SigningErr.Rejected();
 
-    container.handleSignPayloadWithLegacyAccount((_, { err }) => err(error));
+    container.signing.handleSignPayloadWithLegacyAccount((_, { err }) => err(error));
 
     await expect(
       injected.signer.signPayload?.({
@@ -174,7 +174,7 @@ describe('Host API: injected web3 provider', () => {
     const { container, injected } = await setup();
     const error = new SigningErr.Rejected();
 
-    container.handleSignRawWithLegacyAccount((_, { err }) => err(error));
+    container.signing.handleSignRawWithLegacyAccount((_, { err }) => err(error));
 
     await expect(
       injected.signer.signRaw?.({
@@ -209,7 +209,7 @@ describe('Host API: injected web3 provider', () => {
       },
     };
 
-    container.handleCreateTransactionWithLegacyAccount((_, { err }) => err(error));
+    container.signing.handleCreateTransactionWithLegacyAccount((_, { err }) => err(error));
 
     await expect(injected.signer.createTransaction?.(payload)).rejects.toEqual(error);
   });

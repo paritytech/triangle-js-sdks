@@ -49,10 +49,56 @@ document.body.appendChild(webview);
 
 ## API reference
 
-### handleFeatureSupported
+The container is nested the way the wire addresses methods: one group per protocol trait, one slot per method, named
+after the method (the method names of the truapi specification):
 
 ```ts
-container.handleFeatureSupported((params, { ok, err }) => {
+container.<trait>.handle<Method>(handler) // => VoidFunction, restores the default handler
+```
+
+Every product-initiated method has a slot, except `system.handshake` (the transport answers it) and the `chain`
+methods other than `getChainInfo` (all served by [`handleChainConnection`](#handlechainconnection)). Host-initiated
+subscriptions go the other way: the host subscribes and the product serves, see
+[`renderer.render`](#rendererrender).
+
+| Trait                | Slots                                                                                                                                                                                                                                                                  |
+|----------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `system`             | `handleFeatureSupported`, `handleNavigateTo`, `handleInfo`, `handleGetProductContext`                                                                                                                                                                                  |
+| `account`            | `handleConnectionStatusSubscribe`, `handleGetAccount`, `handleGetAccountAlias`, `handleCreateAccountProof`, `handleGetLegacyAccounts`, `handleGetUserId`, `handleRequestLogin`, `handleSignVrf`, `handleRegisterRingVrfKey`, `handleListRingVrfKeys`, `handleRingVrfSign` |
+| `chain`              | `handleGetChainInfo`                                                                                                                                                                                                                                                   |
+| `chat`               | `handleCreateRoom`, `handleRegisterBot`, `handleListSubscribe`, `handlePostMessage`, `handleActionSubscribe`                                                                                                                                                           |
+| `coinPayment`        | `handleCreatePurse`, `handleQueryPurse`, `handleRebalancePurse`, `handleDeletePurse`, `handleCreateReceivable`, `handleCreateCheque`, `handleDeposit`, `handleRefund`, `handleListenForPayment`                                                                        |
+| `entropy`            | `handleDerive`                                                                                                                                                                                                                                                         |
+| `localStorage`       | `handleRead`, `handleWrite`, `handleClear`, `handleSubscribe`                                                                                                                                                                                                          |
+| `notifications`      | `handleSendPushNotification`, `handleCancelPushNotification`                                                                                                                                                                                                           |
+| `payment`            | `handleBalanceSubscribe`, `handleTopUp`, `handleRequest`, `handleStatusSubscribe`, `handleTopUpStatusSubscribe`                                                                                                                                                        |
+| `permissions`        | `handleRequestDevicePermission`, `handleRequestRemotePermission`, `handleAuthorizeRemotePermission`, `handleAuthorizeDevicePermission`                                                                                                                                 |
+| `preimage`           | `handleLookupSubscribe`, `handleSubmit`                                                                                                                                                                                                                                |
+| `resourceAllocation` | `handleRequest`                                                                                                                                                                                                                                                        |
+| `signing`            | `handleCreateTransaction`, `handleCreateTransactionWithLegacyAccount`, `handleSignRawWithLegacyAccount`, `handleSignPayloadWithLegacyAccount`, `handleSignRaw`, `handleSignPayload`, `handleSignRawUnwatermarkedDeprecated`, `handleSignRawUnwatermarkedDeprecatedWithLegacyAccount` |
+| `statementStore`     | `handleSubscribe`, `handleCreateProof`, `handleSubmit`, `handleCreateProofAuthorized`                                                                                                                                                                                  |
+| `theme`              | `handleSubscribe`                                                                                                                                                                                                                                                      |
+| `locale`             | `handleSubscribe`                                                                                                                                                                                                                                                      |
+| `renderer`           | `render`, `handleActionSubscribe`                                                                                                                                                                                                                                      |
+| `pocket`             | `handleListSubscribe`, `handleRemoveCard`                                                                                                                                                                                                                              |
+| `worker`             | `handleBeginOperation`, `handleEndOperation`                                                                                                                                                                                                                           |
+| `contacts`           | `handlePick`                                                                                                                                                                                                                                                           |
+
+A request handler receives the request's params and `{ ok, err, signal }`, and returns a `ResultAsync`. `signal` is
+aborted when the product withdraws the call; the product has already been answered `Cancelled` by then, so whatever the
+handler resolves with afterwards is dropped.
+
+A subscription handler receives `(params, send, interrupt)` and returns its cleanup. `interrupt(undefined)` completes
+the subscription cleanly; any other value ends it with that error.
+
+Until a handler is registered (or after its cleanup ran), a request answers the transport-level `Unsupported` failure
+and a subscription is interrupted with it — except the `payment` and `coinPayment` subscriptions, which interrupt with
+their own domain error. `host-api-wrapper` folds `Unsupported` into the method's own error type.
+
+### system.handleFeatureSupported
+
+```ts
+container.system.handleFeatureSupported((params, { ok, err }) => {
   if (params.tag === 'Chat') {
     return ok(supportedChains.has(params.value));
   }
@@ -60,35 +106,35 @@ container.handleFeatureSupported((params, { ok, err }) => {
 });
 ```
 
-### handleDevicePermission
+### permissions.handleRequestDevicePermission
 
 The `request` parameter is one of: `'Notifications'`, `'Camera'`, `'Microphone'`, `'Bluetooth'`, `'NFC'`, `'Location'`, `'Clipboard'`, `'OpenUrl'`, `'Biometrics'`.
 
 ```ts
-container.handleDevicePermission(async (request, { ok, err }) => {
+container.permissions.handleRequestDevicePermission(async (request, { ok, err }) => {
   // request is a string literal: 'Notifications' | 'Camera' | 'Microphone' | ...
   const granted = await promptDevicePermission(request);
   return ok(granted);
 });
 ```
 
-### handlePermission
+### permissions.handleRequestRemotePermission
 
 The `request` parameter is a single `RemotePermission` item. Return `ok(true)` when the permission is granted, `ok(false)` when denied.
 
 The item has one of these shapes:
 - `{ tag: 'Remote', value: string[] }` — HTTP/WS domain patterns (exact or `*.wildcard`)
-- `{ tag: 'WebRTC', value: undefined }` — WebRTC access (may expose user IP)
-- `{ tag: 'ChainSubmit', value: undefined }` — broadcast transactions via `remote_chain_transaction_broadcast`
-- `{ tag: 'PreimageSubmit', value: undefined }` — submit preimages via `remote_preimage_submit`
-- `{ tag: 'StatementSubmit', value: undefined }` — submit statements via `remote_statement_store_submit`
+- `{ tag: 'WebRtc', value: undefined }` — WebRTC access (may expose user IP)
+- `{ tag: 'ChainSubmit', value: undefined }` — broadcast transactions via `chain.broadcastTransaction`
+- `{ tag: 'PreimageSubmit', value: undefined }` — submit preimages via `preimage.submit`
+- `{ tag: 'StatementSubmit', value: undefined }` — submit statements via `statementStore.submit`
 
 ```ts
-container.handlePermission(async (permission, { ok, err }) => {
+container.permissions.handleRequestRemotePermission(async (permission, { ok, err }) => {
   switch (permission.tag) {
     case 'Remote':
       return ok(await checkDomainPermissions(permission.value));
-    case 'WebRTC':
+    case 'WebRtc':
       return ok(await promptWebRTCPermission());
     case 'ChainSubmit':
       return ok(await promptChainSubmitPermission());
@@ -100,48 +146,81 @@ container.handlePermission(async (permission, { ok, err }) => {
 });
 ```
 
-### handlePushNotification
+`chain.broadcastTransaction`, `preimage.submit` and `statementStore.submit` are gated by the matching permission: the
+container consults this handler before invoking theirs, and answers a denial with the method's own error. A gated
+method with no handler registered answers `Unsupported` without asking for the permission.
 
-Gated by the `Notifications` device permission: the container consults `handleDevicePermission` with `'Notifications'` before invoking this handler. If the device permission is denied or errors, the handler is skipped and the request fails.
+### permissions.handleAuthorizeRemotePermission / permissions.handleAuthorizeDevicePermission
+
+Host-internal methods, not exposed to products: the host's own product-side code (for example a sandbox mediating
+`fetch`, WebSocket or media capture) authorizes **one** operation, consuming an available one-use grant. They take the
+same params and answer the same `bool` as the `request*` methods. The gated slots above never consult them.
 
 ```ts
-container.handlePushNotification(async (notification, { ok, err }) => {
+container.permissions.handleAuthorizeRemotePermission(async (permission, { ok }) => {
+  return ok(await grants.consume(productId, permission));
+});
+
+container.permissions.handleAuthorizeDevicePermission(async (permission, { ok }) => {
+  // permission: 'Camera' | 'Microphone' | ...
+  return ok(await grants.consume(productId, permission));
+});
+```
+
+### notifications.handleSendPushNotification
+
+Gated by the `Notifications` device permission: the container consults `permissions.handleRequestDevicePermission` with `'Notifications'` before invoking this handler. If the device permission is denied or errors, the handler is skipped and the request fails. `notifications.handleCancelPushNotification` is gated the same way.
+
+```ts
+container.notifications.handleSendPushNotification(async (notification, { ok, err }) => {
   await showNotification(notification);
   return ok(undefined);
 });
 ```
 
-### handleNavigateTo
+### system.handleNavigateTo
 
 ```ts
-container.handleNavigateTo(async (url, { ok, err }) => {
+container.system.handleNavigateTo(async (url, { ok, err }) => {
   await navigate(url);
   return ok(undefined);
 });
 ```
 
-### handleDeriveEntropy
+### entropy.handleDerive
 
 ```ts
-container.handleDeriveEntropy(async (key, { ok, err }) => {
+container.entropy.handleDerive(async (key, { ok, err }) => {
   const entropy = await deriveEntropy(key);
   return ok(entropy);
 });
 ```
 
-### handleLocalStorageRead
+### localStorage.handleRead
+
+The handler works in the latest (v2) shape: `{ product, key }`, where `product` names the product whose storage is read
+(`undefined`, or the caller's own id, reads the caller's own). Answer `StorageReadV2Err.AccessNotGranted` for every
+refusal — unknown product, no manifest, no `storage` grant — so the call cannot probe which products exist.
+
+A v1 request (a bare key) reaches the handler as `{ product: undefined, key }`, and its answer is downgraded to v1:
+`AccessNotGranted` becomes `StorageErr.Unknown` (a v1 caller cannot address foreign storage, so it never provokes one).
 
 ```ts
-container.handleLocalStorageRead(async (key, { ok, err }) => {
-  const value = await storage.get(key);
-  return ok(value ?? null);
+import { StorageReadV2Err } from '@novasamatech/host-api';
+
+container.localStorage.handleRead(async ({ product, key }, { ok, err }) => {
+  const owner = product ?? productId;
+  if (owner !== productId && !(await grantsStorageRead(owner, productId))) {
+    return err(new StorageReadV2Err.AccessNotGranted());
+  }
+  return ok(await storage.get(owner, key)); // `undefined` for an absent key
 });
 ```
 
-### handleLocalStorageWrite
+### localStorage.handleWrite
 
 ```ts
-container.handleLocalStorageWrite(async ([key, value], { ok, err }) => {
+container.localStorage.handleWrite(async ([key, value], { ok, err }) => {
   try {
     await storage.set(key, value);
     return ok(undefined);
@@ -151,29 +230,29 @@ container.handleLocalStorageWrite(async ([key, value], { ok, err }) => {
 });
 ```
 
-### handleLocalStorageClear
+### localStorage.handleClear
 
 ```ts
-container.handleLocalStorageClear(async (key, { ok, err }) => {
+container.localStorage.handleClear(async (key, { ok, err }) => {
   await storage.delete(key);
   return ok(undefined);
 });
 ```
 
-### handleAccountConnectionStatusSubscribe
+### account.handleConnectionStatusSubscribe
 
 ```ts
-container.handleAccountConnectionStatusSubscribe((_, send, interrupt) => {
+container.account.handleConnectionStatusSubscribe((_, send, interrupt) => {
   const listener = (status) => send(status);
   accountService.on('connectionStatusChange', listener);
   return () => accountService.off('connectionStatusChange', listener);
 });
 ```
 
-### handleThemeSubscribe
+### theme.handleSubscribe
 
 ```ts
-container.handleThemeSubscribe((_, send, interrupt) => {
+container.theme.handleSubscribe((_, send, interrupt) => {
   const listener = (theme: 'light' | 'dark') => send(theme);
   themeService.on('change', listener);
   send(themeService.getCurrentTheme());
@@ -181,14 +260,14 @@ container.handleThemeSubscribe((_, send, interrupt) => {
 });
 ```
 
-### handleGetUserId
+### account.handleGetUserId
 
 Called when a product requests the user's primary DotNS username (RFC-0014). Show a disclosure prompt on first call; the host decides what counts as "primary" for the calling product. Return `NotConnected` without prompting if no user is connected; return `PermissionDenied` if the user denies disclosure.
 
 ```ts
 import { GetUserIdErr } from '@novasamatech/host-api';
 
-container.handleGetUserId(async (_, { ok, err }) => {
+container.account.handleGetUserId(async (_, { ok, err }) => {
   const username = await pickPrimaryUsernameForCallingProduct();
   if (!username) {
     return err(new GetUserIdErr.NotConnected());
@@ -203,14 +282,14 @@ container.handleGetUserId(async (_, { ok, err }) => {
 });
 ```
 
-### handleRequestLogin
+### account.handleRequestLogin
 
 Called when a product requests the host login UI. Present the sign-in flow and return the outcome. `reason` is an optional human-readable string the product provides to explain why login is needed.
 
 ```ts
 import { LoginErr } from '@novasamatech/host-api';
 
-container.handleRequestLogin(async (reason, { ok, err }) => {
+container.account.handleRequestLogin(async (reason, { ok, err }) => {
   const alreadyConnected = await checkIfConnected();
   if (alreadyConnected) return ok('alreadyConnected');
 
@@ -221,7 +300,7 @@ container.handleRequestLogin(async (reason, { ok, err }) => {
 });
 ```
 
-### handleAccountGet
+### account.handleGetAccount
 
 The derivation index is an `Enum` (RFC 0022): `Index`
 carries a plain index, `Raw` a raw 32-byte index. Expand it with
@@ -231,7 +310,7 @@ the 32-byte form exists.
 ```ts
 import { derivationIndexBytes } from '@novasamatech/host-container';
 
-container.handleAccountGet(async ([dotnsId, derivationIndex], { ok, err }) => {
+container.account.handleGetAccount(async ([dotnsId, derivationIndex], { ok, err }) => {
   // `//product//{dotnsId}/{index}` — hard, hard, soft junctions.
   const account = await getProductAccount(dotnsId, derivationIndexBytes(derivationIndex));
   if (account) {
@@ -241,7 +320,7 @@ container.handleAccountGet(async ([dotnsId, derivationIndex], { ok, err }) => {
 });
 ```
 
-### handleAccountRegisterRingVrfKey
+### account.handleRegisterRingVrfKey
 
 A product registers a ring VRF key it owns against the ring it intends it for
 (RFC-0024). Ownership is the calling product id and is never a parameter, so this
@@ -259,7 +338,7 @@ the host can answer immediately and mirror the registration fire-and-forget.
 > only registration brings a key into existence.
 
 ```ts
-container.handleAccountRegisterRingVrfKey(async ([index, ring], { ok, err }) => {
+container.account.handleRegisterRingVrfKey(async ([index, ring], { ok, err }) => {
   if (!isConnected()) {
     return err(new RegisterRingVrfKeyErr.NotConnected());
   }
@@ -279,7 +358,7 @@ same well-known ring, do **not** pick silently: resolve to the product the user
 designated as their personhood provider (defaulting to the first registrar), so a
 second product cannot displace the first.
 
-### handleAccountListRingVrfKeys
+### account.handleListRingVrfKeys
 
 Answer from the registry snapshot when it is current. Listing the caller's own
 keys is permissionless; a foreign `owner` needs a grant or a prompt, and
@@ -288,7 +367,7 @@ is linkable across every ring it appears in. Omit `publicKey` under
 `'Anonymized'`.
 
 ```ts
-container.handleAccountListRingVrfKeys(async ([owner, disclosure], { ok, err }) => {
+container.account.handleListRingVrfKeys(async ([owner, disclosure], { ok, err }) => {
   if (owner !== productId && !(await hasGrantFor(productId, owner))) {
     return err(new ListRingVrfKeysErr.Rejected());
   }
@@ -303,7 +382,7 @@ container.handleAccountListRingVrfKeys(async ([owner, disclosure], { ok, err }) 
 });
 ```
 
-### handleAccountGetAlias
+### account.handleGetAccountAlias
 
 `keyHandle` names the ring VRF key explicitly (RFC-0024) — the host no longer
 defines a PoP collection, infers correspondence, or falls back to a compiled-in
@@ -316,7 +395,7 @@ verify it appears among the handle's declared rings and return `KeyNotInRing`
 otherwise, and `KeyNotRegistered` when the handle has no entry at all.
 
 ```ts
-container.handleAccountGetAlias(async ([keyHandle, context, ring], { ok, err }) => {
+container.account.handleGetAccountAlias(async ([keyHandle, context, ring], { ok, err }) => {
   const entry = await registry.lookup(keyHandle);
   if (!entry) {
     return err(new GetAliasErr.KeyNotRegistered());
@@ -333,11 +412,11 @@ container.handleAccountGetAlias(async ([keyHandle, context, ring], { ok, err }) 
 ```
 
 Reading an alias authorizes nothing, so a foreign `keyHandle` here is governed by
-the ordinary grant-or-prompt model — unlike `handleAccountCreateProof` below.
+the ordinary grant-or-prompt model — unlike `account.handleCreateAccountProof` below.
 
-### handleAccountCreateProof
+### account.handleCreateAccountProof
 
-Same handle checks as `handleAccountGetAlias`, plus the allowlist gate. A proof is
+Same handle checks as `account.handleGetAccountAlias`, plus the allowlist gate. A proof is
 a **bearer token for its context's alias**, and `message` is opaque — for an
 extrinsic it is a hash of the inherited implication — so nothing at call time can
 tell what the result will authorize. A host MUST therefore reject a foreign
@@ -347,7 +426,7 @@ message is not meaningful consent, and only the key's owner is positioned to
 evaluate the risk.
 
 ```ts
-container.handleAccountCreateProof(async ([keyHandle, context, ring, message], { ok, err }) => {
+container.account.handleCreateAccountProof(async ([keyHandle, context, ring, message], { ok, err }) => {
   const [owner] = keyHandle;
   const entry = await registry.lookup(keyHandle);
   if (!entry) {
@@ -368,7 +447,7 @@ container.handleAccountCreateProof(async ([keyHandle, context, ring, message], {
 });
 ```
 
-### handleAccountRingVrfSign
+### account.handleRingVrfSign
 
 Signs with the member key itself instead of producing an anonymous ring proof
 (RFC-0024). It carries no context and no ring, so there is nothing to scope what
@@ -378,7 +457,7 @@ verified against the member public key and is linkable to every other use of tha
 key.
 
 ```ts
-container.handleAccountRingVrfSign(async ([keyHandle, message], { ok, err }) => {
+container.account.handleRingVrfSign(async ([keyHandle, message], { ok, err }) => {
   if (!isConnected()) {
     return err(new RingVrfSignErr.NotConnected());
   }
@@ -393,17 +472,17 @@ container.handleAccountRingVrfSign(async ([keyHandle, message], { ok, err }) => 
 });
 ```
 
-### handleAccountSignVrf
+### account.handleSignVrf
 
 Produces an sr25519 (schnorrkel) VRF signature over a transcript the product supplies as a
 recipe (RFC-0023). Replay it verbatim — no interpretation of labels or values — so one
-method serves any consuming runtime. Authorize it exactly like `handleSignRaw`: reject with
+method serves any consuming runtime. Authorize it exactly like `signing.handleSignRaw`: reject with
 `NotConnected` when there is no session (never auto-prompt login), sign locally when
 `AutoSigning` covers the account, otherwise ask the user and return `Rejected` on decline.
 Bound `items.length` and the total transcript size against a hostile caller.
 
 ```ts
-container.handleAccountSignVrf(async ({ account, transcriptLabel, items }, { ok, err }) => {
+container.account.handleSignVrf(async ({ account, transcriptLabel, items }, { ok, err }) => {
   if (!isConnected()) {
     return err(new SignVrfErr.NotConnected());
   }
@@ -421,19 +500,19 @@ container.handleAccountSignVrf(async ({ account, transcriptLabel, items }, { ok,
 });
 ```
 
-### handleGetLegacyAccounts
+### account.handleGetLegacyAccounts
 
 ```ts
-container.handleGetLegacyAccounts(async (_, { ok, err }) => {
+container.account.handleGetLegacyAccounts(async (_, { ok, err }) => {
   const accounts = await getLegacyAccounts();
   return ok(accounts);
 });
 ```
 
-### handleCreateTransaction
+### signing.handleCreateTransaction
 
 ```ts
-container.handleCreateTransaction(async ([productAccountId, payload], { ok, err }) => {
+container.signing.handleCreateTransaction(async ([productAccountId, payload], { ok, err }) => {
   try {
     const signedTx = await createTransaction(productAccountId, payload);
     return ok(signedTx);
@@ -443,10 +522,10 @@ container.handleCreateTransaction(async ([productAccountId, payload], { ok, err 
 });
 ```
 
-### handleCreateTransactionWithLegacyAccount
+### signing.handleCreateTransactionWithLegacyAccount
 
 ```ts
-container.handleCreateTransactionWithLegacyAccount(async (payload, { ok, err }) => {
+container.signing.handleCreateTransactionWithLegacyAccount(async (payload, { ok, err }) => {
   try {
     const signedTx = await createTransactionWithLegacyAccount(payload);
     return ok(signedTx);
@@ -456,10 +535,10 @@ container.handleCreateTransactionWithLegacyAccount(async (payload, { ok, err }) 
 });
 ```
 
-### handleSignRaw
+### signing.handleSignRaw
 
 ```ts
-container.handleSignRaw(async (payload, { ok, err }) => {
+container.signing.handleSignRaw(async (payload, { ok, err }) => {
   try {
     const result = await signRaw(payload);
     return ok({ signature: result.signature, signedTransaction: result.signedTransaction });
@@ -469,82 +548,125 @@ container.handleSignRaw(async (payload, { ok, err }) => {
 });
 ```
 
-### handleSignPayload
+### signing.handleSignPayload
 
 ```ts
-container.handleSignPayload(async (payload, { ok, err }) => {
+container.signing.handleSignPayload(async (payload, { ok, err }) => {
   try {
     const result = await signPayload(payload);
-    return ok({ signature: result.signature, signedTransaction: result.signedTransaction ?? null });
+    return ok({ signature: result.signature, signedTransaction: result.signedTransaction });
   } catch (e) {
     return err({ tag: 'Rejected' });
   }
 });
 ```
 
-### handleChatCreateRoom
+### signing.handleSignRawUnwatermarkedDeprecated / signing.handleSignRawUnwatermarkedDeprecatedWithLegacyAccount
+
+Sign raw bytes **without** the `<Bytes>…</Bytes>` watermark. Deprecated on arrival: only for integrations that cannot
+verify watermarked signatures. Same params, result and errors as `signing.handleSignRaw` /
+`signing.handleSignRawWithLegacyAccount`; authorize them the same way, and make the user aware the bytes are signed
+as-is (they may be a valid extrinsic or any other signed message).
 
 ```ts
-container.handleChatCreateRoom(async (room, { ok, err }) => {
+container.signing.handleSignRawUnwatermarkedDeprecated(async (payload, { ok, err }) => {
+  if (!(await confirmUnwatermarkedSigning(payload))) {
+    return err({ tag: 'Rejected' });
+  }
+  return ok(await signRawBytes(payload));
+});
+```
+
+### chat.handleCreateRoom
+
+```ts
+container.chat.handleCreateRoom(async (room, { ok, err }) => {
   await chatService.registerRoom(room);
   return ok(undefined);
 });
 ```
 
-### handleChatBotRegistration
+### chat.handleRegisterBot
 
 ```ts
-container.handleChatBotRegistration(async (bot, { ok, err }) => {
+container.chat.handleRegisterBot(async (bot, { ok, err }) => {
   await chatService.registerBot(bot);
   return ok(undefined);
 });
 ```
 
-### handleChatListSubscribe
+### chat.handleListSubscribe
 
 ```ts
-container.handleChatListSubscribe((_, send, interrupt) => {
+container.chat.handleListSubscribe((_, send, interrupt) => {
   const listener = (rooms) => send(rooms);
   chatService.on('roomsUpdate', listener);
   return () => chatService.off('roomsUpdate', listener);
 });
 ```
 
-### handleChatPostMessage
+### chat.handlePostMessage
 
 ```ts
-container.handleChatPostMessage(async (message, { ok, err }) => {
+container.chat.handlePostMessage(async (message, { ok, err }) => {
   const messageId = await chatService.postMessage(message);
   return ok({ messageId });
 });
 ```
 
-### handleChatActionSubscribe
+### chat.handleActionSubscribe
 
 ```ts
-container.handleChatActionSubscribe((_, send, interrupt) => {
+container.chat.handleActionSubscribe((_, send, interrupt) => {
   const listener = (action) => send(action);
   chatService.on('action', listener);
   return () => chatService.off('action', listener);
 });
 ```
 
-### renderChatCustomMessage
+### renderer.render
+
+Host-initiated: the host asks the product to draw a body and the product streams `RendererNode` trees back until either
+side ends it. `context` says where the body lives (`ChatMessage`, `InputWidget` or `PocketCard`); `payload` is
+product-defined and opaque to the host.
 
 ```ts
-const subscription = container.renderChatCustomMessage('my-custom-type', payload, (node) => {
-  // node is a CustomRendererNode tree describing the UI to render
-  console.log('Render custom message:', node);
+const subscription = container.renderer.render(
+  {
+    context: { tag: 'ChatMessage', value: { roomId, messageId, messageType: 'my-custom-type' } },
+    payload,
+  },
+  node => {
+    // node is a RendererNode tree describing the UI to render
+    console.log('Render:', node);
+  },
+);
+
+subscription.onInterrupt(reason => {
+  // `undefined` when the product completed cleanly
 });
 
 // Unsubscribe when done
 subscription.unsubscribe();
 ```
 
-### handleStatementStoreSubscribe
+### renderer.handleActionSubscribe
+
+Actions triggered inside product-rendered bodies: `actionId` names the action as the renderer tree declared it,
+`payload` is empty for a `Button` press and the UTF-8 bytes of the new value for a `TextField` change.
 
 ```ts
-container.handleStatementStoreSubscribe((filter, send, interrupt) => {
+container.renderer.handleActionSubscribe((_, send, interrupt) => {
+  const listener = ({ context, actionId, payload }) => send({ context, actionId, payload });
+  rendererHost.on('action', listener);
+  return () => rendererHost.off('action', listener);
+});
+```
+
+### statementStore.handleSubscribe
+
+```ts
+container.statementStore.handleSubscribe((filter, send, interrupt) => {
   // filter is { tag: 'MatchAll', value: Uint8Array[] } | { tag: 'MatchAny', value: Uint8Array[] }
   const listener = (page) => send(page);
   statementStore.subscribe(filter, listener);
@@ -552,10 +674,10 @@ container.handleStatementStoreSubscribe((filter, send, interrupt) => {
 });
 ```
 
-### handleStatementStoreCreateProof
+### statementStore.handleCreateProof
 
 ```ts
-container.handleStatementStoreCreateProof(async ([[dotnsId, derivationIndex], statement], { ok, err }) => {
+container.statementStore.handleCreateProof(async ([[dotnsId, derivationIndex], statement], { ok, err }) => {
   try {
     const proof = await createStatementProof(dotnsId, derivationIndexBytes(derivationIndex), statement);
     return ok(proof);
@@ -565,10 +687,10 @@ container.handleStatementStoreCreateProof(async ([[dotnsId, derivationIndex], st
 });
 ```
 
-### handleStatementStoreSubmit
+### statementStore.handleSubmit
 
 ```ts
-container.handleStatementStoreSubmit(async (statement, { ok, err }) => {
+container.statementStore.handleSubmit(async (statement, { ok, err }) => {
   try {
     await statementStore.submit(statement);
     return ok(undefined);
@@ -578,20 +700,20 @@ container.handleStatementStoreSubmit(async (statement, { ok, err }) => {
 });
 ```
 
-### handlePreimageLookupSubscribe
+### preimage.handleLookupSubscribe
 
 ```ts
-container.handlePreimageLookupSubscribe((key, send, interrupt) => {
+container.preimage.handleLookupSubscribe((key, send, interrupt) => {
   const listener = (value) => send(value);
   preimageService.subscribe(key, listener);
   return () => preimageService.unsubscribe(key, listener);
 });
 ```
 
-### handlePreimageSubmit
+### preimage.handleSubmit
 
 ```ts
-container.handlePreimageSubmit(async (preimage, { ok, err }) => {
+container.preimage.handleSubmit(async (preimage, { ok, err }) => {
   try {
     const key = await preimageService.submit(preimage);
     return ok(key);
@@ -601,12 +723,12 @@ container.handlePreimageSubmit(async (preimage, { ok, err }) => {
 });
 ```
 
-### handlePaymentBalanceSubscribe
+### payment.handleBalanceSubscribe
 
 Called when a product subscribes to balance updates. Host should prompt for user consent on the first call; interrupt the subscription to communicate denial.
 
 ```ts
-container.handlePaymentBalanceSubscribe((_params, send, interrupt) => {
+container.payment.handleBalanceSubscribe((_params, send, interrupt) => {
   const unsubscribe = balanceService.subscribe(balance => {
     send({ available: balance.available, pending: balance.pending });
   });
@@ -615,20 +737,20 @@ container.handlePaymentBalanceSubscribe((_params, send, interrupt) => {
 });
 ```
 
-### handlePaymentTopUp
+### payment.handleTopUp
 
 Called when a product requests a balance top-up from a product-controlled source. Does not require user consent.
 
 The handler MUST return as soon as the top up is registered — it does not wait for the funds. `id` is an opaque 32-byte
 `Uint8Array` chosen by the product and is the idempotency key: answer `AlreadyExists` if a top up is already registered
 under it. A source can carry only one live top up at a time — answer `SourceBusy` while its previous top up has not
-reached a terminal status. The outcome is reported through `handlePaymentTopUpStatusSubscribe`, keyed on the same id.
+reached a terminal status. The outcome is reported through `payment.handleTopUpStatusSubscribe`, keyed on the same id.
 
 Once the host accepts a top up it owns it: it MUST drive the operation to a terminal status, surviving a full host
 restart, and it MUST keep that status readable indefinitely.
 
 ```ts
-container.handlePaymentTopUp(async ({ amount, source, id }, { ok, err }) => {
+container.payment.handleTopUp(async ({ amount, source, id }, { ok, err }) => {
   // `id` is a raw 32-byte Uint8Array, so key storage by its hex form.
   const key = toHex(id);
   if (topUps.has(key)) return err(new PaymentTopUpErr.AlreadyExists());
@@ -647,17 +769,17 @@ container.handlePaymentTopUp(async ({ amount, source, id }, { ok, err }) => {
 });
 ```
 
-### handlePaymentTopUpStatusSubscribe
+### payment.handleTopUpStatusSubscribe
 
 Called when a product subscribes to the outcome of a top up it registered. Interrupt with `PaymentTopUpStatusErr.NotFound`
 when the id is unknown.
 
 `Claimed { finalized: true }`, `ClaimedPartially` and `NotClaimed` are terminal — send nothing after them, and take no
-further action on the operation. A partial claim is reported here, not as a `handlePaymentTopUp` error; it is also what
+further action on the operation. A partial claim is reported here, not as a `payment.handleTopUp` error; it is also what
 an `amount` below the smallest coinage denomination produces, the host claiming `amount - amount % 2^min_coinage_exponent`.
 
 ```ts
-container.handlePaymentTopUpStatusSubscribe((id, send, interrupt) => {
+container.payment.handleTopUpStatusSubscribe((id, send, interrupt) => {
   const topUp = topUps.get(toHex(id));
   if (!topUp) {
     interrupt(new PaymentTopUpStatusErr.NotFound());
@@ -674,20 +796,20 @@ container.handlePaymentTopUpStatusSubscribe((id, send, interrupt) => {
 });
 ```
 
-### handlePaymentRequest
+### payment.handleRequest
 
 Called when a product requests a payment from the user's balance to a destination account. Host MUST show a
 confirmation UI.
 
 The handler MUST return as soon as the payment is registered — it does not wait for settlement. `id` is an opaque
 32-byte `Uint8Array` chosen by the product and is the idempotency key: answer `AlreadyExists` if a payment is already
-registered under it. The outcome is reported through `handlePaymentStatusSubscribe`, keyed on the same id.
+registered under it. The outcome is reported through `payment.handleStatusSubscribe`, keyed on the same id.
 
 Once the host accepts a payment it owns it: it MUST drive the operation to a terminal status, surviving a full host
 restart, and it MUST keep that status readable indefinitely.
 
 ```ts
-container.handlePaymentRequest(async ({ amount, destination, id }, { ok, err }) => {
+container.payment.handleRequest(async ({ amount, destination, id }, { ok, err }) => {
   // `id` is a raw 32-byte Uint8Array, so key storage by its hex form.
   const key = toHex(id);
   if (payments.has(key)) return err(new PaymentRequestErr.AlreadyExists());
@@ -700,7 +822,7 @@ container.handlePaymentRequest(async ({ amount, destination, id }, { ok, err }) 
 });
 ```
 
-### handlePaymentStatusSubscribe
+### payment.handleStatusSubscribe
 
 Called when a product subscribes to the outcome of a payment it registered. Interrupt with
 `PaymentStatusErr.PaymentNotFound` when the id is unknown.
@@ -709,7 +831,7 @@ Called when a product subscribes to the outcome of a payment it registered. Inte
 operation. `PartiallyClaimed` carries the amount that actually reached the destination, less than requested.
 
 ```ts
-container.handlePaymentStatusSubscribe((id, send, interrupt) => {
+container.payment.handleStatusSubscribe((id, send, interrupt) => {
   const payment = payments.get(toHex(id));
   if (!payment) {
     interrupt(new PaymentStatusErr.PaymentNotFound());
@@ -725,6 +847,56 @@ container.handlePaymentStatusSubscribe((id, send, interrupt) => {
 });
 ```
 
+### pocket.handleListSubscribe
+
+Sends the calling product's whole card set on subscribe and again after every change. `privileged` cards were placed by
+the host itself and can be removed by neither the user nor the product.
+
+```ts
+container.pocket.handleListSubscribe((_, send, interrupt) => {
+  const listener = (cards) => send({ cards: cards.map(({ cardId, privileged }) => ({ cardId, privileged })) });
+  pocket.on('change', listener);
+  send({ cards: pocket.list(productId) });
+  return () => pocket.off('change', listener);
+});
+```
+
+### pocket.handleRemoveCard
+
+Removing a card that is not present succeeds.
+
+```ts
+import { PocketRemoveCardErr } from '@novasamatech/host-api';
+
+container.pocket.handleRemoveCard(async ({ cardId }, { ok, err }) => {
+  if (pocket.isPrivileged(productId, cardId)) {
+    return err(new PocketRemoveCardErr.Privileged());
+  }
+  await pocket.remove(productId, cardId);
+  return ok(undefined);
+});
+```
+
+### contacts.handlePick
+
+Lets the user pick a contact. The answer is an opaque, product-scoped 32-byte handle — it names the contact to the host
+(e.g. as a `signing.createTransaction` recipient) without disclosing who the contact is.
+
+```ts
+import { ContactsPickErr } from '@novasamatech/host-api';
+
+container.contacts.handlePick(async (_, { ok, err, signal }) => {
+  if (!isConnected()) {
+    return err(new ContactsPickErr.NotConnected());
+  }
+  const contact = await showContactPicker({ signal });
+  if (!contact) {
+    return ok({ outcome: { tag: 'Dismissed', value: undefined } });
+  }
+  return ok({ outcome: { tag: 'Picked', value: { handle: { bytes: contactHandleFor(productId, contact) } } } });
+});
+```
+
 ### handleChainConnection
 
 ```ts
@@ -735,14 +907,18 @@ const chains = new Map([
   ['0xb0a8d493285c2df73290dfb7e61f870f17b41801197a149ca93654499ea3dafe', 'wss://kusama-rpc.polkadot.io'],
 ]);
 
-container.handleChainConnection({
-  factory(genesisHash) {
-    const endpoint = chains.get(genesisHash);
-    if (!endpoint) return null;
-    return getWsProvider(endpoint);
-  }
+const disconnect = container.handleChainConnection(genesisHash => {
+  const endpoint = chains.get(genesisHash);
+  if (!endpoint) return null;
+  return getWsProvider(endpoint);
 });
 ```
+
+Serves every `chain` method except `getChainInfo` (`container.chain.handleGetChainInfo`) from JSON-RPC providers:
+`followHeadSubscribe`, `getHeadHeader`, `getHeadBody`, `getHeadStorage`, `callHead`, `unpinHead`, `continueHead`,
+`stopHeadOperation`, `getSpecGenesisHash`, `getSpecChainName`, `getSpecProperties`, `broadcastTransaction` (gated by the
+`ChainSubmit` remote permission) and `stopTransaction`. Before it is called, and after `disconnect()`, they answer
+`Unsupported`.
 
 ### isReady
 

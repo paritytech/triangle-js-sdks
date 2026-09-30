@@ -1,7 +1,6 @@
 import { Bytes, Enum, ErrEnum } from '@novasamatech/scale';
 import { Option, Struct, Tuple, Vector, _void, bool, u64 } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
 import { GenericErr, GenericError } from '../commonCodecs.js';
 
 import { ProductAccountId } from './accounts.js';
@@ -73,7 +72,7 @@ export const SignedStatementsPage = Struct({
 
 export const StatementStoreSubscribeV1_start = TopicFilter;
 export const StatementStoreSubscribeV1_receive = SignedStatementsPage;
-export const StatementStoreSubscribeV1_interrupt = _void;
+export const StatementStoreSubscribeV1_interrupt = GenericError;
 
 // creating proof
 
@@ -84,14 +83,17 @@ export const StatementProofErr = ErrEnum('StatementProofErr', {
 });
 
 export const StatementStoreCreateProofV1_request = Tuple(ProductAccountId, Statement);
-export const StatementStoreCreateProofV1_response = CallResult(StatementProof, StatementProofErr);
+export const StatementStoreCreateProofV1_response = StatementProof;
+export const StatementStoreCreateProofV1_error = StatementProofErr;
 
 // creating proof using a host-internal allowance account (no product account required)
 
 export const StatementStoreCreateProofAuthorizedV1_request = Statement;
-export const StatementStoreCreateProofAuthorizedV1_response = CallResult(StatementProof, StatementProofErr);
+export const StatementStoreCreateProofAuthorizedV1_response = StatementProof;
+export const StatementStoreCreateProofAuthorizedV1_error = StatementProofErr;
 
 // submit
 
 export const StatementStoreSubmitV1_request = SignedStatement;
-export const StatementStoreSubmitV1_response = CallResult(_void, GenericError);
+export const StatementStoreSubmitV1_response = _void;
+export const StatementStoreSubmitV1_error = GenericError;

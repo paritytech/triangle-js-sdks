@@ -35,6 +35,7 @@ See [CHANGELOG.md](./CHANGELOG.md) for release history.
 
 ## Migration guides
 
+* [**v0.12 → v0.13**](./docs/migration/v0.13.md)
 * [**v0.11 → v0.12**](./docs/migration/v0.12.md)
 * [**v0.10 → v0.11**](./docs/migration/v0.11.md)
 * [**v0.9 → v0.10**](./docs/migration/v0.10.md)

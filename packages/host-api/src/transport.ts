@@ -1,73 +1,130 @@
-import { enumValue, isEnumVariant, resultErr, resultOk, toHex } from '@novasamatech/scale';
+import { enumValue, resultErr, resultOk, toHex } from '@novasamatech/scale';
 import type { Emitter } from 'nanoevents';
 import { createNanoEvents } from 'nanoevents';
-import type { CodecType } from 'scale-ts';
 
 import { HANDSHAKE_INTERVAL, HANDSHAKE_TIMEOUT, SCALE_CODEC_PROTOCOL_ID } from './constants.js';
-import { composeAction, createRequestId, delay, extractErrorMessage, promiseWithResolvers } from './helpers.js';
-import { CALL_ERROR_FAILURE } from './protocol/callError.js';
+import { createRequestId, delay, extractErrorMessage, promiseWithResolvers } from './helpers.js';
+import type { CallErrorTransportFailure } from './protocol/callError.js';
+import { callErrorMarker, isCallErrorMarker } from './protocol/callError.js';
 import type {
-  ComposeMessageAction,
-  MessageAction,
-  MessagePayloadSchema,
-  PickMessagePayload,
-  PickMessagePayloadValue,
+  InterruptPayload,
+  ReceivePayload,
+  RequestMethodName,
+  RequestPayload,
+  ResponsePayload,
+  StartPayload,
+  SubscriptionMethodName,
+  TraitName,
+  VersionedProtocolMethod,
+  VersionedProtocolRequest,
+  VersionedProtocolSubscription,
+} from './protocol/impl.js';
+import { lookupAddress, resolveMethod } from './protocol/impl.js';
+import type { Frame, MessageLeg } from './protocol/messageCodec.js';
+import {
+  MessageType,
+  PROTOCOL_ERROR_METHOD_ID,
+  PROTOCOL_ERROR_TRAIT_ID,
+  decodeFrame,
+  decodeProtocolError,
+  encodeFrame,
+  encodeUnsupportedMessage,
 } from './protocol/messageCodec.js';
-import { Message, MessagePayload } from './protocol/messageCodec.js';
 import { HandshakeErr } from './protocol/v1/handshake.js';
 import type { Provider } from './provider.js';
 import type {
   ConnectionStatus,
   DebugMessageEvent,
-  HostApiMethod,
-  MessageProvider,
+  DecodedMessage,
   RequestHandler,
   SubscriptionFor,
   SubscriptionHandler,
   Transport,
 } from './types.js';
 
+const EMPTY = new Uint8Array(0);
+
 function isConnected(status: ConnectionStatus) {
   return status === 'connected';
 }
 
-function getSubscriptionKey(method: string, payload: MessagePayloadSchema) {
-  return `${method}_${toHex(MessagePayload.enc(payload))}`;
+function isProtocolError(frame: Frame) {
+  return frame.traitId === PROTOCOL_ERROR_TRAIT_ID && frame.methodId === PROTOCOL_ERROR_METHOD_ID;
 }
 
-function createMessageProvider(provider: Provider): MessageProvider {
-  const subscribers = new Set<(message: CodecType<typeof Message>) => void>();
-  let unsubscribeProvider: VoidFunction | null = null;
+function legOf(definition: VersionedProtocolMethod, messageType: number): MessageLeg | undefined {
+  if (definition.kind === 'request') {
+    switch (messageType) {
+      case MessageType.request:
+        return 'request';
+      case MessageType.response:
+        return 'response';
+      case MessageType.cancel:
+        return 'cancel';
+      default:
+        return undefined;
+    }
+  }
+  switch (messageType) {
+    case MessageType.start:
+      return 'start';
+    case MessageType.receive:
+      return 'receive';
+    case MessageType.interrupt:
+      return 'interrupt';
+    case MessageType.stop:
+      return 'stop';
+    default:
+      return undefined;
+  }
+}
 
+function decodeLeg(definition: VersionedProtocolMethod, leg: MessageLeg, payload: Uint8Array): unknown {
+  switch (leg) {
+    case 'request':
+      return (definition as VersionedProtocolRequest).request.dec(payload);
+    case 'response':
+      return (definition as VersionedProtocolRequest).response.dec(payload);
+    case 'start':
+      return (definition as VersionedProtocolSubscription).start.dec(payload);
+    case 'receive':
+      return (definition as VersionedProtocolSubscription).receive.dec(payload);
+    case 'interrupt':
+      return (definition as VersionedProtocolSubscription).interrupt.dec(payload);
+    case 'cancel':
+    case 'stop':
+      return undefined;
+  }
+}
+
+function describeFrame(frame: Frame, decoded?: () => unknown): DecodedMessage {
+  const address = lookupAddress(frame.traitId, frame.methodId);
+  const leg = address ? legOf(address.definition, frame.messageType) : undefined;
+  let value: unknown;
+  if (decoded) {
+    value = decoded();
+  } else if (address && leg) {
+    try {
+      value = decodeLeg(address.definition, leg, frame.payload);
+    } catch {
+      value = undefined;
+    }
+  }
   return {
-    postMessage(message) {
-      provider.postMessage(Message.enc(message));
-    },
-    subscribe(fn) {
-      if (subscribers.size === 0) {
-        unsubscribeProvider = provider.subscribe(payload => {
-          try {
-            const message = Message.dec(payload);
-            for (const subscriber of subscribers) {
-              subscriber(message);
-            }
-          } catch (e) {
-            provider.logger.error('Transport error', e);
-          }
-        });
-      }
-
-      subscribers.add(fn);
-      return () => {
-        subscribers.delete(fn);
-
-        if (subscribers.size === 0 && unsubscribeProvider) {
-          unsubscribeProvider();
-          unsubscribeProvider = null;
-        }
-      };
-    },
+    trait: address?.trait,
+    method: address?.method,
+    traitId: frame.traitId,
+    methodId: frame.methodId,
+    leg,
+    value,
   };
+}
+
+// A decoded response/interrupt carrying a transport failure is tagged with the
+// first version, since a failure has no version on the wire. Re-tag it with
+// the version the call was made in, so callers see the version they spoke.
+function retagFailure<V extends { tag: string; value: unknown }>(decoded: V, tag: string): V {
+  return isCallErrorMarker(decoded.value) ? ({ ...decoded, tag } as V) : decoded;
 }
 
 type InternalListener = {
@@ -134,54 +191,175 @@ export function createTransport(provider: Provider): Transport {
     throwIfInvalidCodecVersion();
   }
 
-  const messageProvider = createMessageProvider(provider);
+  // inbound frames — decoded once per frame, fanned out to every listener
+
+  const frameListeners = new Set<(frame: Frame) => void>();
+  let unsubscribeProvider: VoidFunction | null = null;
+
+  function onFrame(bytes: Uint8Array) {
+    let frame: Frame;
+    try {
+      frame = decodeFrame(bytes);
+    } catch (e) {
+      provider.logger.error('Transport error: undecodable frame', e);
+      return;
+    }
+
+    for (const listener of [...frameListeners]) {
+      try {
+        listener(frame);
+      } catch (e) {
+        provider.logger.error('Transport error', e);
+      }
+    }
+
+    // A request-leg frame for an address this build does not know: tell the
+    // peer, so its call settles as unsupported instead of hanging.
+    if (
+      !isProtocolError(frame) &&
+      frame.messageType === MessageType.request &&
+      !lookupAddress(frame.traitId, frame.methodId)
+    ) {
+      provider.logger.warn(`Unsupported wire address (${frame.traitId}, ${frame.methodId})`);
+      try {
+        post({
+          requestId: frame.requestId,
+          traitId: PROTOCOL_ERROR_TRAIT_ID,
+          methodId: PROTOCOL_ERROR_METHOD_ID,
+          messageType: MessageType.response,
+          payload: encodeUnsupportedMessage(frame.traitId, frame.methodId),
+        });
+      } catch (e) {
+        provider.logger.error('Transport error: failed to answer an unsupported frame', e);
+      }
+    }
+  }
+
+  function subscribeFrames(listener: (frame: Frame) => void): VoidFunction {
+    if (frameListeners.size === 0) {
+      unsubscribeProvider = provider.subscribe(onFrame);
+    }
+    frameListeners.add(listener);
+
+    return () => {
+      frameListeners.delete(listener);
+      if (frameListeners.size === 0 && unsubscribeProvider) {
+        unsubscribeProvider();
+        unsubscribeProvider = null;
+      }
+    };
+  }
+
+  // Settles on a protocol error correlated to `requestId` and addressed at the
+  // given method (or at nothing this build can read, from a later peer).
+  function isProtocolErrorFor(frame: Frame, requestId: string, traitId: number, methodId: number) {
+    if (!isProtocolError(frame) || frame.requestId !== requestId) return false;
+    try {
+      const unsupported = decodeProtocolError(frame.payload);
+      return unsupported === null || (unsupported.traitId === traitId && unsupported.methodId === methodId);
+    } catch (e) {
+      provider.logger.error('Transport error: malformed protocol error', e);
+      return false;
+    }
+  }
+
+  const handshakeAddress = resolveMethod('system', 'handshake');
+
+  function post(frame: Frame, decoded?: () => unknown) {
+    throwIfDisposed();
+    throwIfIncorrectEnvironment();
+    // The handshake is how the codec version gets negotiated, so its frames
+    // must flow even once a peer asked for a version we do not speak — that is
+    // how the peer learns `UnsupportedProtocolVersion`.
+    if (frame.traitId !== handshakeAddress.traitId || frame.methodId !== handshakeAddress.methodId) {
+      throwIfInvalidCodecVersion();
+    }
+
+    if (debugListenerCount > 0) {
+      const payload = describeFrame(frame, decoded);
+      events.emit('debugMessage', { direction: 'outgoing', requestId: frame.requestId, payload });
+    }
+
+    provider.postMessage(encodeFrame(frame));
+  }
 
   // subscriptions management (multiplexing)
   const activeSubscriptions: Map<string, InternalSubscription> = new Map();
+
+  function sendFailure<T extends TraitName, M extends SubscriptionMethodName<T>>(
+    subscription: InternalSubscription,
+    tag: string,
+    failure: CallErrorTransportFailure,
+  ) {
+    const payload = { tag, value: callErrorMarker(failure) } as InterruptPayload<T, M>;
+    subscription.latchedInterrupt = { payload };
+    subscription.interruptEvents.emit('interrupt', payload);
+  }
 
   // Wires a real subscription on the transport; later subscribers with the same
   // start payload join it through `listeners` instead of opening another. The
   // first listener is registered before `start` is posted: an in-process host
   // may send its first value synchronously while handling it.
-  function openSubscription<const Method extends HostApiMethod>(
-    method: Method,
+  function openSubscription<const T extends TraitName, const M extends SubscriptionMethodName<T>>(
+    trait: T,
+    method: M,
     subscriptionKey: string,
-    startPayload: PickMessagePayload<ComposeMessageAction<Method, 'start'>>,
+    startPayload: StartPayload<T, M>,
+    startBytes: Uint8Array,
     listener: InternalListener,
   ): InternalSubscription {
+    const { traitId, methodId, definition } = resolveMethod(trait, method);
+    const codecs = definition as unknown as VersionedProtocolSubscription;
     const requestId = createRequestId();
+    const startTag = (startPayload as { tag: string }).tag;
 
-    const stopAction = composeAction(method, 'stop');
-    const interruptAction = composeAction(method, 'interrupt');
-    const receiveAction = composeAction(method, 'receive');
+    const unsubscribeFrames = subscribeFrames(frame => {
+      if (frame.requestId !== requestId) return;
 
-    const unsubscribeReceive = transport.listenMessages(receiveAction, (receivedId, data) => {
-      if (receivedId === requestId) {
-        for (const listener of subscription.listeners) {
-          try {
-            listener.call(data.value);
-          } catch (e) {
-            provider.logger.error(`subscription "${method}" listener threw`, e);
-          }
-        }
-      }
-    });
-
-    const unsubscribeInterrupt = transport.listenMessages(interruptAction, (receivedId, data) => {
-      if (receivedId === requestId) {
-        // The host has dropped this subscription. Tear it down first so a
-        // re-subscribe with the same payload, even from inside onInterrupt,
-        // opens a fresh one instead of joining this dead entry.
+      if (isProtocolErrorFor(frame, requestId, traitId, methodId)) {
         stopSubscription();
-        subscription.latchedInterrupt = { payload: data.value };
-        subscription.interruptEvents.emit('interrupt', data.value);
+        sendFailure(subscription, startTag, { tag: 'Unsupported' });
+        return;
+      }
+
+      if (frame.traitId !== traitId || frame.methodId !== methodId) return;
+
+      switch (frame.messageType) {
+        case MessageType.receive: {
+          const value = codecs.receive.dec(frame.payload);
+          for (const listener of subscription.listeners) {
+            try {
+              listener.call(value);
+            } catch (e) {
+              provider.logger.error(`subscription "${trait}.${method}" listener threw`, e);
+            }
+          }
+          return;
+        }
+        case MessageType.interrupt: {
+          // The host has dropped this subscription. Tear it down first so a
+          // re-subscribe with the same payload, even from inside onInterrupt,
+          // opens a fresh one instead of joining this dead entry.
+          stopSubscription();
+          let payload: unknown;
+          try {
+            payload = retagFailure(codecs.interrupt.dec(frame.payload), startTag);
+          } catch (e) {
+            payload = {
+              tag: startTag,
+              value: callErrorMarker({ tag: 'MalformedFrame', value: { reason: extractErrorMessage(e) } }),
+            };
+          }
+          subscription.latchedInterrupt = { payload };
+          subscription.interruptEvents.emit('interrupt', payload);
+          return;
+        }
       }
     });
 
     const stopSubscription = () => {
       activeSubscriptions.delete(subscriptionKey);
-      unsubscribeReceive();
-      unsubscribeInterrupt();
+      unsubscribeFrames();
     };
 
     const subscription: InternalSubscription = {
@@ -190,16 +368,12 @@ export function createTransport(provider: Provider): Transport {
       interruptEvents: createNanoEvents(),
       kill: () => {
         stopSubscription();
-
-        const stopPayload = enumValue(stopAction, undefined) as PickMessagePayload<
-          ComposeMessageAction<Method, 'stop'>
-        >;
-        transport.postMessage(requestId, stopPayload);
+        post({ requestId, traitId, methodId, messageType: MessageType.stop, payload: EMPTY });
       },
     };
 
     activeSubscriptions.set(subscriptionKey, subscription);
-    transport.postMessage(requestId, startPayload);
+    post({ requestId, traitId, methodId, messageType: MessageType.start, payload: startBytes }, () => startPayload);
 
     return subscription;
   }
@@ -207,23 +381,67 @@ export function createTransport(provider: Provider): Transport {
   // Lazy provider subscription — zero per-message decode cost while no
   // debug listener is attached.
   let debugListenerCount = 0;
-  let debugProviderUnsubscribe: VoidFunction | null = null;
+  let debugFramesUnsubscribe: VoidFunction | null = null;
 
-  function ensureDebugProviderSubscription(): void {
-    if (debugProviderUnsubscribe) return;
-    debugProviderUnsubscribe = messageProvider.subscribe(message => {
+  function ensureDebugFrameSubscription(): void {
+    if (debugFramesUnsubscribe) return;
+    debugFramesUnsubscribe = subscribeFrames(frame => {
       events.emit('debugMessage', {
         direction: 'incoming',
-        requestId: message.requestId,
-        payload: message.payload,
+        requestId: frame.requestId,
+        payload: describeFrame(frame),
       });
     });
   }
 
-  function maybeDisposeDebugProviderSubscription(): void {
+  function maybeDisposeDebugFrameSubscription(): void {
     if (debugListenerCount > 0) return;
-    debugProviderUnsubscribe?.();
-    debugProviderUnsubscribe = null;
+    debugFramesUnsubscribe?.();
+    debugFramesUnsubscribe = null;
+  }
+
+  function performHandshake() {
+    const { traitId, methodId, definition } = handshakeAddress;
+    const request = enumValue('v1', codecVersion);
+    const requestBytes = definition.request.enc(request);
+
+    return new Promise<boolean>(resolve => {
+      const ids = new Set<string>();
+      let settled = false;
+
+      const finish = (result: boolean) => {
+        if (settled) return;
+        settled = true;
+        clearInterval(interval);
+        unsubscribe();
+        handshakeAbortController.signal.removeEventListener('abort', onAbort);
+        resolve(result);
+      };
+      const onAbort = () => finish(false);
+
+      const unsubscribe = subscribeFrames(frame => {
+        if (!ids.has(frame.requestId)) return;
+        if (frame.traitId !== traitId || frame.methodId !== methodId || frame.messageType !== MessageType.response) {
+          return;
+        }
+        const response = definition.response.dec(frame.payload);
+        // Only an `Ok` completes the handshake; an `Err` (e.g. an unsupported
+        // codec version) means the host will not talk to us.
+        finish(!isCallErrorMarker(response.value) && response.value.success);
+      });
+
+      handshakeAbortController.signal.addEventListener('abort', onAbort, { once: true });
+
+      const interval = setInterval(() => {
+        if (handshakeAbortController.signal.aborted) {
+          finish(false);
+          return;
+        }
+        const requestId = createRequestId();
+        ids.add(requestId);
+        post({ requestId, traitId, methodId, messageType: MessageType.request, payload: requestBytes }, () => request);
+      }, HANDSHAKE_INTERVAL);
+    });
   }
 
   const transport: Transport = {
@@ -246,45 +464,14 @@ export function createTransport(provider: Provider): Transport {
 
       changeConnectionStatus('connecting');
 
-      const performHandshake = () => {
-        const id = createRequestId();
-        let resolved = false;
-
-        const cleanup = (interval: ReturnType<typeof setInterval>, unsubscribe: VoidFunction) => {
-          clearInterval(interval);
-          unsubscribe();
-          handshakeAbortController.signal.removeEventListener('abort', unsubscribe);
-        };
-
-        return new Promise<boolean>(resolve => {
-          const unsubscribe = transport.listenMessages('host_handshake_response', responseId => {
-            if (responseId === id) {
-              cleanup(interval, unsubscribe);
-              resolved = true;
-              resolve(true);
-            }
-          });
-
-          handshakeAbortController.signal.addEventListener('abort', unsubscribe, { once: true });
-
-          const interval = setInterval(() => {
-            if (handshakeAbortController.signal.aborted) {
-              clearInterval(interval);
-              resolve(false);
-              return;
-            }
-
-            transport.postMessage(id, enumValue('host_handshake_request', enumValue('v1', codecVersion)));
-          }, HANDSHAKE_INTERVAL);
-        }).then(success => {
-          if (!success && !resolved) {
+      const timedOutRequest = Promise.race([performHandshake(), delay(HANDSHAKE_TIMEOUT).then(() => false)]).then(
+        success => {
+          if (!success) {
             handshakeAbortController.abort('Timeout');
           }
           return success;
-        });
-      };
-
-      const timedOutRequest = Promise.race([performHandshake(), delay(HANDSHAKE_TIMEOUT).then(() => false)]);
+        },
+      );
 
       handshakePromise = timedOutRequest.then(result => {
         handshakePromise = null;
@@ -296,9 +483,10 @@ export function createTransport(provider: Provider): Transport {
       return handshakePromise;
     },
 
-    async request<const Method extends HostApiMethod>(
-      method: Method,
-      payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'request'>>,
+    async request<const T extends TraitName, const M extends RequestMethodName<T>>(
+      trait: T,
+      method: M,
+      payload: RequestPayload<T, M>,
       signal?: AbortSignal,
     ) {
       checks();
@@ -309,12 +497,12 @@ export function createTransport(provider: Provider): Transport {
 
       signal?.throwIfAborted();
 
+      const { traitId, methodId, definition } = resolveMethod(trait, method);
+      const codecs = definition as unknown as VersionedProtocolRequest;
       const requestId = createRequestId();
-      const requestAction = composeAction(method, 'request');
-      const responseAction = composeAction(method, 'response');
+      const requestTag = (payload as { tag: string }).tag;
 
-      const { resolve, reject, promise } =
-        promiseWithResolvers<PickMessagePayloadValue<ComposeMessageAction<Method, 'response'>>>();
+      const { resolve, reject, promise } = promiseWithResolvers<ResponsePayload<T, M>>();
 
       const cleanup = () => {
         unsubscribe();
@@ -323,74 +511,156 @@ export function createTransport(provider: Provider): Transport {
 
       const onAbort = () => {
         cleanup();
+        // Withdraw the call so the host can stop working on it. The host still
+        // answers (`CallError::Cancelled`), but nobody is listening any more.
+        try {
+          post({ requestId, traitId, methodId, messageType: MessageType.cancel, payload: EMPTY });
+        } catch (e) {
+          provider.logger.warn(`request "${trait}.${method}": failed to send cancel`, e);
+        }
         reject(signal?.reason ?? new Error('Request aborted'));
       };
 
-      const unsubscribe = transport.listenMessages(responseAction, (receivedId, payload) => {
-        if (receivedId === requestId) {
+      const unsubscribe = subscribeFrames(frame => {
+        if (frame.requestId !== requestId) return;
+
+        if (isProtocolErrorFor(frame, requestId, traitId, methodId)) {
           cleanup();
-          resolve(payload.value as PickMessagePayloadValue<ComposeMessageAction<Method, 'response'>>);
+          resolve({ tag: requestTag, value: callErrorMarker({ tag: 'Unsupported' }) } as ResponsePayload<T, M>);
+          return;
+        }
+
+        if (frame.traitId !== traitId || frame.methodId !== methodId || frame.messageType !== MessageType.response) {
+          return;
+        }
+
+        cleanup();
+        try {
+          resolve(retagFailure(codecs.response.dec(frame.payload), requestTag) as ResponsePayload<T, M>);
+        } catch (e) {
+          reject(new Error(`Malformed "${trait}.${method}" response: ${extractErrorMessage(e)}`));
         }
       });
 
       signal?.addEventListener('abort', onAbort, { once: true });
 
-      const requestMessage = enumValue(requestAction, payload) as never as PickMessagePayload<
-        ComposeMessageAction<Method, 'request'>
-      >;
-
-      transport.postMessage(requestId, requestMessage);
+      post(
+        {
+          requestId,
+          traitId,
+          methodId,
+          messageType: MessageType.request,
+          payload: codecs.request.enc(payload as never),
+        },
+        () => payload,
+      );
 
       return promise;
     },
 
-    handleRequest<const Method extends HostApiMethod>(method: Method, handler: RequestHandler<Method>) {
+    handleRequest<const T extends TraitName, const M extends RequestMethodName<T>>(
+      trait: T,
+      method: M,
+      handler: RequestHandler<T, M>,
+    ) {
       checks();
 
-      const requestAction = composeAction(method, 'request');
-      const responseAction = composeAction(method, 'response');
+      const { traitId, methodId, definition } = resolveMethod(trait, method);
+      const codecs = definition as unknown as VersionedProtocolRequest;
+      const [fallbackTag = 'v1'] = codecs.tags;
 
-      return transport.listenMessages(requestAction, (requestId, payload) => {
-        handler(payload.value as never).then(
-          result => {
-            const responseMessage = enumValue(responseAction, result) as never as PickMessagePayload<
-              ComposeMessageAction<Method, 'response'>
-            >;
+      // In-flight calls by request id, so a `Cancel` can reach its handler.
+      const inFlight = new Map<string, { controller: AbortController; tag: string }>();
 
-            transport.postMessage(requestId, responseMessage);
-          },
-          (error: unknown) => {
-            provider.logger.error(`handleRequest: handler for "${method}" rejected`, error);
-            // Answer a transport-level CallError so the caller sees a failed
-            // request rather than a hung promise. Domain errors are the
-            // handler's job; this is the fallback when the handler itself threw.
-            const failure = enumValue('v1', {
-              [CALL_ERROR_FAILURE]: { tag: 'HostFailure' as const, value: { reason: extractErrorMessage(error) } },
-            });
-            const responseMessage = enumValue(responseAction, failure) as never as PickMessagePayload<
-              ComposeMessageAction<Method, 'response'>
-            >;
-            transport.postMessage(requestId, responseMessage);
-          },
-        );
+      const respond = (requestId: string, response: unknown) => {
+        let payload: Uint8Array;
+        try {
+          payload = codecs.response.enc(response as never);
+        } catch (e) {
+          // A handler answered with a value its codec cannot encode. Tell the
+          // caller the host failed rather than leaving the call unanswered.
+          provider.logger.error(`handleRequest: "${trait}.${method}" answered a value that does not encode`, e);
+          const tag = (response as { tag?: string } | undefined)?.tag ?? fallbackTag;
+          payload = codecs.response.enc({
+            tag,
+            value: callErrorMarker({ tag: 'HostFailure', value: { reason: extractErrorMessage(e) } }),
+          } as never);
+        }
+        post({ requestId, traitId, methodId, messageType: MessageType.response, payload }, () => response);
+      };
+
+      const respondFailure = (requestId: string, tag: string, failure: CallErrorTransportFailure) => {
+        respond(requestId, { tag, value: callErrorMarker(failure) });
+      };
+
+      return subscribeFrames(frame => {
+        if (frame.traitId !== traitId || frame.methodId !== methodId) return;
+
+        if (frame.messageType === MessageType.cancel) {
+          const call = inFlight.get(frame.requestId);
+          if (!call) return;
+          // Exactly one response per call: answer `Cancelled` now and drop
+          // whatever the handler resolves with later.
+          inFlight.delete(frame.requestId);
+          call.controller.abort(new Error('Request cancelled by the caller'));
+          respondFailure(frame.requestId, call.tag, { tag: 'Cancelled' });
+          return;
+        }
+
+        if (frame.messageType !== MessageType.request) return;
+
+        const { requestId } = frame;
+        let params: RequestPayload<T, M>;
+        try {
+          params = codecs.request.dec(frame.payload) as RequestPayload<T, M>;
+        } catch (e) {
+          respondFailure(requestId, fallbackTag, {
+            tag: 'MalformedFrame',
+            value: { reason: extractErrorMessage(e) },
+          });
+          return;
+        }
+
+        const tag = (params as { tag: string }).tag;
+        const call = { controller: new AbortController(), tag };
+        inFlight.set(requestId, call);
+
+        const isCurrent = () => inFlight.get(requestId) === call;
+
+        Promise.resolve()
+          .then(() => handler(params, { signal: call.controller.signal }))
+          .then(
+            result => {
+              if (!isCurrent()) return;
+              inFlight.delete(requestId);
+              respond(requestId, result);
+            },
+            (error: unknown) => {
+              if (!isCurrent()) return;
+              inFlight.delete(requestId);
+              provider.logger.error(`handleRequest: handler for "${trait}.${method}" rejected`, error);
+              // Answer a transport-level CallError so the caller sees a failed
+              // request rather than a hung promise. Domain errors are the
+              // handler's job; this is the fallback when the handler itself threw.
+              respondFailure(requestId, tag, { tag: 'HostFailure', value: { reason: extractErrorMessage(error) } });
+            },
+          );
       });
     },
 
-    subscribe<const Method extends HostApiMethod>(
-      method: Method,
-      payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'start'>>,
-      callback: (payload: PickMessagePayloadValue<ComposeMessageAction<Method, 'receive'>>) => void,
-    ): SubscriptionFor<Method> {
+    subscribe<const T extends TraitName, const M extends SubscriptionMethodName<T>>(
+      trait: T,
+      method: M,
+      payload: StartPayload<T, M>,
+      callback: (payload: ReceivePayload<T, M>) => void,
+    ): SubscriptionFor<T, M> {
       checks();
 
-      type InterruptPayload = PickMessagePayloadValue<ComposeMessageAction<Method, 'interrupt'>>;
+      type Interrupt = InterruptPayload<T, M>;
 
-      const startAction = composeAction(method, 'start');
-      const startPayload = enumValue(startAction, payload) as never as PickMessagePayload<
-        ComposeMessageAction<Method, 'start'>
-      >;
-
-      const subscriptionKey = getSubscriptionKey(method, startPayload);
+      const { traitId, methodId, definition } = resolveMethod(trait, method);
+      const startBytes = (definition as unknown as VersionedProtocolSubscription).start.enc(payload as never);
+      const subscriptionKey = `${traitId}:${methodId}:${toHex(startBytes)}`;
 
       function unsubscribeListener() {
         const subscription = activeSubscriptions.get(subscriptionKey);
@@ -411,13 +681,13 @@ export function createTransport(provider: Provider): Transport {
 
       const existing = activeSubscriptions.get(subscriptionKey);
       existing?.listeners.push(listener);
-      const subscription = existing ?? openSubscription(method, subscriptionKey, startPayload, listener);
+      const subscription = existing ?? openSubscription(trait, method, subscriptionKey, payload, startBytes, listener);
 
       return {
         unsubscribe: unsubscribeListener,
         onInterrupt(callback) {
           if (subscription.latchedInterrupt) {
-            callback(subscription.latchedInterrupt.payload as InterruptPayload);
+            callback(subscription.latchedInterrupt.payload as Interrupt);
             return () => {
               /* already delivered */
             };
@@ -427,27 +697,89 @@ export function createTransport(provider: Provider): Transport {
       };
     },
 
-    handleSubscription<const Method extends HostApiMethod>(method: Method, handler: SubscriptionHandler<Method>) {
+    handleSubscription<const T extends TraitName, const M extends SubscriptionMethodName<T>>(
+      trait: T,
+      method: M,
+      handler: SubscriptionHandler<T, M>,
+    ) {
       checks();
 
-      const startAction = composeAction(method, 'start');
-      const stopAction = composeAction(method, 'stop');
-      const interruptAction = composeAction(method, 'interrupt');
-      const receiveAction = composeAction(method, 'receive');
+      const { traitId, methodId, definition } = resolveMethod(trait, method);
+      const codecs = definition as unknown as VersionedProtocolSubscription;
 
       const subscriptions: Map<string, VoidFunction> = new Map();
 
-      const unsubStart = transport.listenMessages(startAction, (requestId, payload) => {
+      const encodeFailure = (e: unknown) =>
+        codecs.interrupt.enc({
+          tag: codecs.tags[0] ?? 'v1',
+          value: callErrorMarker({ tag: 'HostFailure', value: { reason: extractErrorMessage(e) } }),
+        } as never);
+
+      const postInterrupt = (requestId: string, value: unknown) => {
+        let payload: Uint8Array;
+        try {
+          payload = codecs.interrupt.enc(value as never);
+        } catch (e) {
+          provider.logger.error(
+            `handleSubscription: "${trait}.${method}" interrupted with a value that does not encode`,
+            e,
+          );
+          payload = encodeFailure(e);
+        }
+        post({ requestId, traitId, methodId, messageType: MessageType.interrupt, payload }, () => value);
+      };
+
+      const unsubscribeFrames = subscribeFrames(frame => {
+        if (frame.traitId !== traitId || frame.methodId !== methodId) return;
+        const { requestId } = frame;
+
+        if (frame.messageType === MessageType.stop) {
+          const cleanup = subscriptions.get(requestId);
+          subscriptions.delete(requestId);
+          cleanup?.();
+          return;
+        }
+
+        if (frame.messageType !== MessageType.start) return;
         if (subscriptions.has(requestId)) return;
+
+        let params: StartPayload<T, M>;
+        try {
+          params = codecs.start.dec(frame.payload) as StartPayload<T, M>;
+        } catch (e) {
+          postInterrupt(requestId, {
+            tag: codecs.tags[0] ?? 'v1',
+            value: callErrorMarker({ tag: 'MalformedFrame', value: { reason: extractErrorMessage(e) } }),
+          });
+          return;
+        }
+
         let interrupted = false;
 
         const unsubscribe = handler(
-          payload.value as never,
+          params,
           value => {
-            const receivePayload = enumValue(receiveAction, value) as never as PickMessagePayload<
-              ComposeMessageAction<Method, 'receive'>
-            >;
-            transport.postMessage(requestId, receivePayload);
+            let payload: Uint8Array;
+            try {
+              payload = codecs.receive.enc(value as never);
+            } catch (e) {
+              // An item that does not encode ends the stream: the product
+              // would otherwise wait on a value that never arrives.
+              provider.logger.error(`handleSubscription: "${trait}.${method}" sent a value that does not encode`, e);
+              const cleanup = subscriptions.get(requestId);
+              subscriptions.delete(requestId);
+              interrupted = true;
+              post({
+                requestId,
+                traitId,
+                methodId,
+                messageType: MessageType.interrupt,
+                payload: encodeFailure(e),
+              });
+              cleanup?.();
+              return;
+            }
+            post({ requestId, traitId, methodId, messageType: MessageType.receive, payload }, () => value);
           },
           value => {
             interrupted = true;
@@ -455,12 +787,7 @@ export function createTransport(provider: Provider): Transport {
             // own cleanup, which must run since no `stop` will ever arrive.
             const cleanup = subscriptions.get(requestId);
             subscriptions.delete(requestId);
-            transport.postMessage(
-              requestId,
-              enumValue(interruptAction, value) as never as PickMessagePayload<
-                ComposeMessageAction<Method, 'interrupt'>
-              >,
-            );
+            postInterrupt(requestId, value);
             cleanup?.();
           },
         );
@@ -472,41 +799,19 @@ export function createTransport(provider: Provider): Transport {
         }
       });
 
-      const unsubStop = transport.listenMessages(stopAction, requestId => {
-        subscriptions.get(requestId)?.();
-      });
-
       return () => {
         subscriptions.forEach(unsub => unsub());
-        unsubStart();
-        unsubStop();
+        subscriptions.clear();
+        unsubscribeFrames();
       };
     },
 
-    postMessage(requestId, payload) {
-      checks();
-
-      if (debugListenerCount > 0) {
-        events.emit('debugMessage', { direction: 'outgoing', requestId, payload });
-      }
-
-      messageProvider.postMessage({ requestId, payload });
+    postMessage(frame) {
+      post(frame);
     },
 
-    listenMessages<const Action extends MessageAction>(
-      action: Action,
-      callback: (requestId: string, data: PickMessagePayload<Action>) => void,
-      onError?: (error: unknown) => void,
-    ) {
-      return messageProvider.subscribe(message => {
-        try {
-          if (isEnumVariant(message.payload, action)) {
-            callback(message.requestId, message.payload as PickMessagePayload<Action>);
-          }
-        } catch (e) {
-          onError?.(e);
-        }
-      });
+    listenMessages(callback) {
+      return subscribeFrames(callback);
     },
 
     onConnectionStatusChange(callback: (status: ConnectionStatus) => void) {
@@ -521,22 +826,26 @@ export function createTransport(provider: Provider): Transport {
 
     destroy() {
       disposed = true;
-      debugProviderUnsubscribe?.();
-      debugProviderUnsubscribe = null;
+      debugFramesUnsubscribe?.();
+      debugFramesUnsubscribe = null;
       debugListenerCount = 0;
+      frameListeners.clear();
+      unsubscribeProvider?.();
+      unsubscribeProvider = null;
       provider.dispose();
       changeConnectionStatus('disconnected');
       events.emit('destroy');
       events.events = {};
       handshakeAbortController.abort('Transport disposed');
     },
+
     onDebugMessage(callback) {
       debugListenerCount++;
-      ensureDebugProviderSubscription();
+      ensureDebugFrameSubscription();
       // Wrap each listener individually: nanoevents iterates listeners
       // synchronously and a throw aborts the loop, so without per-listener
       // isolation a single broken listener could starve siblings *and*
-      // (on the incoming side) starve unrelated messageProvider subscribers.
+      // (on the incoming side) starve unrelated frame listeners.
       // Route to console.error (not provider.logger.error) so debug-callback
       // bugs stay distinct from real protocol errors — matches the same
       // policy used by host-papp's debugBus.
@@ -554,13 +863,13 @@ export function createTransport(provider: Provider): Transport {
         disposed = true;
         unsubscribe();
         debugListenerCount--;
-        maybeDisposeDebugProviderSubscription();
+        maybeDisposeDebugFrameSubscription();
       };
     },
   };
 
   if (provider.isCorrectEnvironment()) {
-    transport.handleRequest('host_handshake', async version => {
+    transport.handleRequest('system', 'handshake', async version => {
       switch (version.tag) {
         case 'v1': {
           codecVersion = version.value;

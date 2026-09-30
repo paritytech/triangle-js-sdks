@@ -1,4 +1,4 @@
-import { LoginErr, RequestCredentialsErr, StorageErr, createTransport } from '@novasamatech/host-api';
+import { GenericError, LoginErr, RequestCredentialsErr, StorageErr, createTransport } from '@novasamatech/host-api';
 import { createAccountsProvider, createLocalStorage } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
 
@@ -21,9 +21,9 @@ describe('Container default handlers', () => {
     // The container replies with the transport-level `Unsupported` variant;
     // the wrapper folds it into the method's own `Unknown` error, so the
     // instance type is unchanged and the reason names the unsupported method.
-    it('handleRequestLogin default folds Unsupported into LoginErr.Unknown', async () => {
+    it('account.handleRequestLogin default folds Unsupported into LoginErr.Unknown', async () => {
       const { accountsProvider } = setup();
-      // No container.handleRequestLogin(...) call — default is active
+      // No container.account.handleRequestLogin(...) call — default is active
 
       const result = await accountsProvider.requestLogin();
 
@@ -33,9 +33,9 @@ describe('Container default handlers', () => {
       expect(error.payload?.reason).toContain('unsupported');
     });
 
-    it('handleAccountGet default folds Unsupported into RequestCredentialsErr.Unknown', async () => {
+    it('account.handleGetAccount default folds Unsupported into RequestCredentialsErr.Unknown', async () => {
       const { accountsProvider } = setup();
-      // No container.handleAccountGet(...) call — default is active
+      // No container.account.handleGetAccount(...) call — default is active
 
       const result = await accountsProvider.getProductAccount('product.dot', 0);
 
@@ -45,18 +45,18 @@ describe('Container default handlers', () => {
       expect(error.payload?.reason).toContain('unsupported');
     });
 
-    it('handleLocalStorageRead default returns StorageErr.Unknown', async () => {
+    it('localStorage.handleRead default returns StorageErr.Unknown', async () => {
       const { localStorage } = setup();
-      // No container.handleLocalStorageRead(...) call — default is active
+      // No container.localStorage.handleRead(...) call — default is active
 
       await expect(localStorage.readBytes('key')).rejects.toBeInstanceOf(StorageErr.Unknown);
     });
   });
 
   describe('unregistered subscription handler immediately interrupts', () => {
-    it('handleAccountConnectionStatusSubscribe default interrupts immediately', async () => {
+    it('account.handleConnectionStatusSubscribe default interrupts immediately with Unsupported', async () => {
       const { accountsProvider } = setup();
-      // No container.handleAccountConnectionStatusSubscribe(...) call
+      // No container.account.handleConnectionStatusSubscribe(...) call
 
       const onInterrupt = vi.fn();
       const subscription = accountsProvider.subscribeAccountConnectionStatus(vi.fn());
@@ -65,15 +65,19 @@ describe('Container default handlers', () => {
       await new Promise(resolve => setTimeout(resolve, 10));
 
       expect(onInterrupt).toHaveBeenCalledOnce();
+      // The `Unsupported` marker is folded into the method's own error type.
+      const [reason] = onInterrupt.mock.calls[0] ?? [];
+      expect(reason).toBeInstanceOf(GenericError);
+      expect((reason as InstanceType<typeof GenericError>).payload.reason).toContain('unsupported');
     });
   });
 
   describe('cleanup restores default handler', () => {
-    it('after cleanup of handleAccountGet, default not-implemented error is returned', async () => {
+    it('after cleanup of account.handleGetAccount, default not-implemented error is returned', async () => {
       const { container, accountsProvider } = setup();
 
       // Register user handler
-      const cleanup = container.handleAccountGet((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
+      const cleanup = container.account.handleGetAccount((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
 
       // Verify user handler works
       const okResult = await accountsProvider.getProductAccount('product.dot', 0);
@@ -90,14 +94,14 @@ describe('Container default handlers', () => {
   });
 
   describe('slot replacement (double handle* call)', () => {
-    it('second handleAccountGet call replaces first without cleanup', async () => {
+    it('second account.handleGetAccount call replaces first without cleanup', async () => {
       const { container, accountsProvider } = setup();
 
       const firstHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
       const secondHandler = vi.fn((_, { ok }) => ok({ publicKey: new Uint8Array(32) }));
 
-      container.handleAccountGet(firstHandler);
-      container.handleAccountGet(secondHandler); // replaces first
+      container.account.handleGetAccount(firstHandler);
+      container.account.handleGetAccount(secondHandler); // replaces first
 
       await accountsProvider.getProductAccount('product.dot', 0);
 
@@ -108,7 +112,7 @@ describe('Container default handlers', () => {
 
   it('post-dispose teardown is idempotent (cleanup callbacks and dispose itself)', () => {
     const { container } = setup();
-    const unsub = container.handleGetLegacyAccounts((_, { ok }) => ok([]));
+    const unsub = container.account.handleGetLegacyAccounts((_, { ok }) => ok([]));
 
     container.dispose();
     expect(() => unsub()).not.toThrow();

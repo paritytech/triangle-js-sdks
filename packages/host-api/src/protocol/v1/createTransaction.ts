@@ -2,10 +2,10 @@ import { Bytes, ErrEnum } from '@novasamatech/scale';
 import type { Codec } from 'scale-ts';
 import { Struct, Vector, _void, str, u8 } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
 import { GenericErr, GenesisHash } from '../commonCodecs.js';
 
 import { AccountId, ProductAccountId } from './accounts.js';
+import { ContactHandle } from './contacts.js';
 
 /**
  * createTransaction implementation
@@ -21,6 +21,8 @@ export const CreateTransactionErr = ErrEnum('CreateTransactionErr', {
   NotSupported: [str, 'Not Supported'],
   PermissionDenied: [_void, 'Permission denied'],
   Unknown: [GenericErr, 'Unknown error'],
+  // `contacts` named a handle the host cannot resolve.
+  UnknownContact: [_void, 'Unknown contact'],
 });
 
 export const TxPayloadExtensionV1 = Struct({
@@ -38,8 +40,8 @@ export const TxPayloadExtensionV1 = Struct({
   additionalSigned: Bytes(),
 });
 
-function GenericTxPayloadV1<Signer>(signer: Codec<Signer>) {
-  return Struct({
+function txPayloadFieldsV1<Signer>(signer: Codec<Signer>) {
+  return {
     signer,
     /**
      * Chain identifier where transaction will be executed
@@ -64,16 +66,27 @@ function GenericTxPayloadV1<Signer>(signer: Codec<Signer>) {
      *  - MAY use this field to infer missing extensions that the implementer could know how to handle.
      */
     txExtVersion: u8,
-  });
+  };
 }
 
 // transaction in the context of a host api account model
 
-export const ProductAccountTransaction = GenericTxPayloadV1(ProductAccountId);
-export const LegacyTransaction = GenericTxPayloadV1(AccountId);
+export const ProductAccountTransaction = Struct({
+  ...txPayloadFieldsV1(ProductAccountId),
+  /**
+   * Contact handles (from `contacts.pick`) that `callData` names. The host
+   * replaces them with the accounts they resolve to before anything is signed
+   * or shown, and refuses with `CreateTransactionErr.UnknownContact` when it
+   * cannot resolve one. A call naming nobody leaves this empty.
+   */
+  contacts: Vector(ContactHandle),
+});
+export const LegacyTransaction = Struct(txPayloadFieldsV1(AccountId));
 
 export const CreateTransactionV1_request = ProductAccountTransaction;
-export const CreateTransactionV1_response = CallResult(Bytes(), CreateTransactionErr);
+export const CreateTransactionV1_response = Bytes();
+export const CreateTransactionV1_error = CreateTransactionErr;
 
 export const CreateTransactionWithLegacyAccountV1_request = LegacyTransaction;
-export const CreateTransactionWithLegacyAccountV1_response = CallResult(Bytes(), CreateTransactionErr);
+export const CreateTransactionWithLegacyAccountV1_response = Bytes();
+export const CreateTransactionWithLegacyAccountV1_error = CreateTransactionErr;

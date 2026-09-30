@@ -1,7 +1,6 @@
-import { Bytes, Enum, ErrEnum, Hex } from '@novasamatech/scale';
-import { Option, Struct, Vector, _void, bool, str, u32 } from 'scale-ts';
+import { Bytes, Enum, ErrEnum, Hex, OptionBool } from '@novasamatech/scale';
+import { Option, Struct, Vector, _void, str, u32 } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
 import { GenericErr } from '../commonCodecs.js';
 
 import { ProductAccountId } from './accounts.js';
@@ -38,10 +37,12 @@ export const SigningRawPayloadWithoutAccount = Struct({
 });
 
 export const SignRawV1_request = SigningRawPayload;
-export const SignRawV1_response = CallResult(SigningResult, SigningErr);
+export const SignRawV1_response = SigningResult;
+export const SignRawV1_error = SigningErr;
 
 export const SignRawWithLegacyAccountV1_request = SigningRawPayloadWithoutAccount;
-export const SignRawWithLegacyAccountV1_response = CallResult(SigningResult, SigningErr);
+export const SignRawWithLegacyAccountV1_response = SigningResult;
+export const SignRawWithLegacyAccountV1_error = SigningErr;
 
 // sign payload
 
@@ -60,7 +61,7 @@ const SigningPayloadPayload = Struct({
   assetId: Option(Hex()),
   metadataHash: Option(Hex()),
   mode: Option(u32),
-  withSignedTransaction: Option(bool),
+  withSignedTransaction: OptionBool,
 });
 
 export const SigningPayload = Struct({
@@ -74,7 +75,9 @@ export const SigningPayloadWithoutAccount = Struct({
 });
 
 export const SignPayloadV1_request = SigningPayload;
-export const SignPayloadV1_response = CallResult(SigningResult, SigningErr);
+export const SignPayloadV1_response = SigningResult;
+export const SignPayloadV1_error = SigningErr;
 
 export const SignPayloadWithLegacyAccountV1_request = SigningPayloadWithoutAccount;
-export const SignPayloadWithLegacyAccountV1_response = CallResult(SigningResult, SigningErr);
+export const SignPayloadWithLegacyAccountV1_response = SigningResult;
+export const SignPayloadWithLegacyAccountV1_error = SigningErr;

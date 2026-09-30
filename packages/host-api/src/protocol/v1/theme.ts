@@ -1,6 +1,8 @@
 import { Enum, Status } from '@novasamatech/scale';
 import { Struct, _void, str } from 'scale-ts';
 
+import { GenericError } from '../commonCodecs.js';
+
 export const ThemeName = Enum({
   Custom: str,
   Default: _void,
@@ -15,4 +17,4 @@ export const Theme = Struct({
 
 export const ThemeSubscribeV1_start = _void;
 export const ThemeSubscribeV1_receive = Theme;
-export const ThemeSubscribeV1_interrupt = _void;
+export const ThemeSubscribeV1_interrupt = GenericError;

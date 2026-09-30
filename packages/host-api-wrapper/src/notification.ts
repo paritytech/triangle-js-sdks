@@ -21,7 +21,7 @@ export const createNotificationManager = (transport = sandboxTransport) => {
       return resultToPromise(
         unwrapVersionedResult(
           supportedVersion,
-          hostApi.pushNotification(
+          hostApi.notifications.sendPushNotification(
             enumValue(supportedVersion, {
               text,
               deeplink,
@@ -33,7 +33,10 @@ export const createNotificationManager = (transport = sandboxTransport) => {
     },
     cancel(id: NotificationId): Promise<void> {
       return resultToPromise(
-        unwrapVersionedResult(supportedVersion, hostApi.pushNotificationCancel(enumValue(supportedVersion, id))),
+        unwrapVersionedResult(
+          supportedVersion,
+          hostApi.notifications.cancelPushNotification(enumValue(supportedVersion, id)),
+        ),
       );
     },
   };

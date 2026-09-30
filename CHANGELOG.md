@@ -1,3 +1,23 @@
+## 0.13.0 (Unreleased)
+
+### ⚠️ Breaking Changes
+
+- **host-api / host-container / host-api-wrapper:** the wire follows truapi's codec 3 (RFC 0027). Every frame is `[requestId][trait][method][message_type][payload]`: methods are addressed by truapi's `(trait, method)` wire table instead of one flat index, and `message_type` names the leg (`request`/`response`/`cancel`, `start`/`receive`/`interrupt`/`stop`). The version tag moved inside the result — responses are `Result<Versioned<Ok>, CallError<Versioned<Err>>>`, interrupts `Result<(), CallError<Versioned<Err>>>` — `CallError` gained `Cancelled`, and the handshake negotiates codec version 3. Wire-incompatible with every earlier release, so hosts and products upgrade together. The v0.11/v0.12 payment and coin payment payloads are unchanged; `payment.topUpStatusSubscribe`, not yet in truapi, sits at `(9, 4)`. See the [migration guide](./docs/migration/v0.13.md#codec-3-wire-format).
+- **host-api / host-container:** the API is nested by trait and uses truapi's method names: `hostApi.account.getAccount(...)`, `transport.request('localStorage', 'read', ...)`, `container.chat.handleRegisterBot(...)`. Container request handlers receive `{ ok, err, signal }`. `HostApiMethod` and `MessagePayloadSchema` are removed; `transport.postMessage` / `listenMessages` take raw frames and debug events carry a `DecodedMessage`. See the [migration guide](./docs/migration/v0.13.md#nested-api).
+- **host-api / host-container / host-api-wrapper:** every subscription has a typed interrupt; the formerly payload-less ones carry `GenericError`, and `undefined` is a clean completion. Wrapper `onInterrupt` callbacks receive the method's own error or `undefined`. Unhandled container subscriptions interrupt with `Unsupported` rather than completing. See the [migration guide](./docs/migration/v0.13.md#typed-interrupts).
+- **host-api / host-container / host-api-wrapper / product-react-renderer:** the `renderer` trait replaces the chat custom renderer (truapi retired chat method 5). The host starts `renderer.render` with a `RenderContext` (chat message, input widget, Pocket card) and body interactions arrive on `renderer.actionSubscribe`. `CustomRendererNode` is `RendererNode`: `Spacer` and `TextField` lose `children`, `Image` and `Effect` nodes, `Shape.Square` and the `opacity` / `blendingMode` modifiers are added, and text-field values travel as plain UTF-8. `chat.onCustomMessageRenderingRequest`, `matchChatCustomRenderers` and `container.renderChatCustomMessage` are replaced by `productRenderer.onRender`, `matchChatMessageRenderers` and `container.renderer.render`. See the [migration guide](./docs/migration/v0.13.md#renderer-replaces-the-chat-custom-renderer).
+- **host-api:** `signing.createTransaction` carries the contact handles its call names (`contacts`, last) and fails with the new `CreateTransactionErr.UnknownContact`; signing payloads encode `withSignedTransaction` as `OptionBool`, as truapi does. See the [migration guide](./docs/migration/v0.13.md#payload-changes).
+
+### 🚀 Features
+
+- **host-api / host-container / host-api-wrapper:** truapi methods the SDK did not implement yet: `pocket.listSubscribe` / `removeCard`, `contacts.pick`, `signing.signRawUnwatermarkedDeprecated` (and its legacy-account variant), host-internal `permissions.authorizeRemotePermission` / `authorizeDevicePermission`, and `localStorage.read` v2, which reads another product's storage under its manifest's `storage` grant.
+- **host-api:** aborting a request's signal withdraws it with a `cancel` frame; the host's handler sees its own `signal` abort and the call is answered `Cancelled`. A request for an address the receiver does not know is answered with truapi's protocol error and settles as `Unsupported` instead of hanging.
+
+### 🩹 Fixes
+
+- **host-api:** the handshake connects only on an `Ok` answer; a host refusing the codec version used to count as connected. A host now also gets its `UnsupportedProtocolVersion` answer out, which the codec-version check used to swallow.
+- **host-container:** chain requests answer `Unsupported` until `handleChainConnection` is called instead of hanging, and calling it again replaces the previous handlers rather than registering a second set.
+
 ## 0.12.0 (Unreleased)
 
 ### ⚠️ Breaking Changes

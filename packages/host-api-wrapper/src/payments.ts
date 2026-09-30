@@ -1,13 +1,12 @@
-import type {
-  AccountSelector,
-  CodecType,
+import type { AccountSelector, CodecType, Subscription, Transport } from '@novasamatech/host-api';
+import {
   PaymentBalanceErr,
   PaymentStatusErr,
   PaymentTopUpStatusErr,
-  Subscription,
-  Transport,
+  createHostApi,
+  derivationIndexOf,
+  enumValue,
 } from '@novasamatech/host-api';
-import { createHostApi, derivationIndexOf, enumValue } from '@novasamatech/host-api';
 
 import { resultToPromise, unwrapVersionedResult, unwrapVersionedSubscription } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
@@ -66,11 +65,12 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
     subscribeBalance(
       callback: (balance: PaymentBalance) => void,
       purse?: PurseId,
-    ): Subscription<CodecType<typeof PaymentBalanceErr>> {
+    ): Subscription<CodecType<typeof PaymentBalanceErr> | undefined> {
       return unwrapVersionedSubscription(
-        hostApi.paymentBalanceSubscribe(enumValue(version, { purse }), payload => {
+        hostApi.payment.balanceSubscribe(enumValue(version, { purse }), payload => {
           if (payload.tag === version) callback(payload.value);
         }),
+        reason => new PaymentBalanceErr.Unknown({ reason }),
       );
     },
 
@@ -99,7 +99,7 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
       return resultToPromise(
         unwrapVersionedResult(
           version,
-          hostApi.paymentTopUp(enumValue(version, { into, amount, source: sourceCodec, id })),
+          hostApi.payment.topUp(enumValue(version, { into, amount, source: sourceCodec, id })),
         ),
       );
     },
@@ -113,9 +113,9 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
     subscribeTopUpStatus(
       id: Uint8Array,
       callback: (status: TopUpStatus) => void,
-    ): Subscription<CodecType<typeof PaymentTopUpStatusErr>> {
+    ): Subscription<CodecType<typeof PaymentTopUpStatusErr> | undefined> {
       return unwrapVersionedSubscription(
-        hostApi.paymentTopUpStatusSubscribe(enumValue(version, id), payload => {
+        hostApi.payment.topUpStatusSubscribe(enumValue(version, id), payload => {
           if (payload.tag !== version) return;
 
           const raw = payload.value;
@@ -136,6 +136,7 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
               raw satisfies never;
           }
         }),
+        reason => new PaymentTopUpStatusErr.Unknown({ reason }),
       );
     },
 
@@ -151,7 +152,7 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
      */
     async requestPayment(amount: bigint, destination: Uint8Array, id: Uint8Array, from?: PurseId): Promise<void> {
       return resultToPromise(
-        unwrapVersionedResult(version, hostApi.paymentRequest(enumValue(version, { from, amount, destination, id }))),
+        unwrapVersionedResult(version, hostApi.payment.request(enumValue(version, { from, amount, destination, id }))),
       );
     },
 
@@ -164,9 +165,9 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
     subscribePaymentStatus(
       id: Uint8Array,
       callback: (status: PaymentStatus) => void,
-    ): Subscription<CodecType<typeof PaymentStatusErr>> {
+    ): Subscription<CodecType<typeof PaymentStatusErr> | undefined> {
       return unwrapVersionedSubscription(
-        hostApi.paymentStatusSubscribe(enumValue(version, id), payload => {
+        hostApi.payment.statusSubscribe(enumValue(version, id), payload => {
           if (payload.tag !== version) return;
 
           const raw = payload.value;
@@ -183,6 +184,7 @@ export const createPaymentManager = (transport: Transport = sandboxTransport) =>
               raw satisfies never;
           }
         }),
+        reason => new PaymentStatusErr.Unknown({ reason }),
       );
     },
   };

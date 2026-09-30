@@ -1,23 +1,26 @@
 import type {
-  Codec,
-  CodecType,
   ConnectionStatus,
+  DecodedMessage,
   HexString,
-  HostApiProtocol,
-  MessagePayloadSchema,
+  InterruptPayload,
+  MethodName,
+  ProtocolMethod,
+  ReceivePayload,
+  RequestMethodName,
+  RequestPayload,
+  ResponsePayload,
+  StartPayload,
   Subscription,
-  VersionedProtocolRequest,
+  SubscriptionMethodName,
+  TraitName,
   VersionedProtocolSubscription,
 } from '@novasamatech/host-api';
-import { CustomRendererNode } from '@novasamatech/host-api';
-import type { ResultAsync, errAsync } from 'neverthrow';
-import { okAsync } from 'neverthrow';
+import type { ResultAsync, errAsync, okAsync } from 'neverthrow';
 import type { JsonRpcProvider } from 'polkadot-api';
 
 type SuccessResponse<T> = T extends { success: true; value: infer U } ? U : never;
 type ErrorResponse<T> = T extends { success: false; value: infer U } ? U : never;
 
-export type CodecValue<T extends Codec<any> | Codec<never>> = T extends Codec<any> ? CodecType<T> : unknown;
 type OrPromise<T> = T | Promise<T>;
 type ExtractEnumValue<T> = T extends { tag: string; value: infer V } ? V : never;
 
@@ -31,41 +34,100 @@ export type UnwrapErrorResponse<V extends string, T> = T extends { tag: infer Ta
   ? WithVersion<V, { tag: Tag; value: ErrorResponse<Value> }>
   : never;
 
-type UnwrapVersionedResult<V extends string, T> = T extends { tag: infer Tag; value: infer Value }
-  ? ResultAsync<
-      WithVersion<V, { tag: Tag; value: SuccessResponse<Value> }>,
-      WithVersion<V, { tag: Tag; value: ErrorResponse<Value> }>
-    >
-  : never;
+/**
+ * The version a host handler works in. A handler always sees the latest
+ * version of its method: the container upgrades an older request to it and
+ * answers each caller in the version it spoke. Methods not listed here have a
+ * single version.
+ */
+type HandlerVersions = {
+  localStorage: { read: 'v2' };
+};
 
-export type ContainerRequestHandler<V extends string, T extends VersionedProtocolRequest> = (
-  params: WithVersion<V, CodecValue<T['request']>>,
+export type HandlerVersion<T extends TraitName, M extends string> = T extends keyof HandlerVersions
+  ? M extends keyof HandlerVersions[T]
+    ? HandlerVersions[T][M]
+    : 'v1'
+  : 'v1';
+
+export type ContainerRequestHandler<
+  T extends TraitName,
+  M extends RequestMethodName<T>,
+  V extends string = HandlerVersion<T, M>,
+> = (
+  params: WithVersion<V, RequestPayload<T, M>>,
   helpers: {
-    ok: typeof okAsync<UnwrapSuccessResponse<V, CodecValue<T['response']>>>;
-    err: typeof errAsync<never, UnwrapErrorResponse<V, CodecValue<T['response']>>>;
+    ok: typeof okAsync<UnwrapSuccessResponse<V, ResponsePayload<T, M>>>;
+    err: typeof errAsync<never, UnwrapErrorResponse<V, ResponsePayload<T, M>>>;
+    /**
+     * Aborted when the product withdraws the call. The product has already
+     * been answered `Cancelled` by then, so whatever the handler resolves with
+     * afterwards is dropped.
+     */
+    signal: AbortSignal;
   },
-) => OrPromise<UnwrapVersionedResult<V, CodecValue<T['response']>>>;
+) => OrPromise<
+  ResultAsync<UnwrapSuccessResponse<V, ResponsePayload<T, M>>, UnwrapErrorResponse<V, ResponsePayload<T, M>>>
+>;
 
-type InferRequestHandler<V extends string, T extends VersionedProtocolRequest> = (
-  callback: ContainerRequestHandler<V, T>,
+/**
+ * `interrupt(undefined)` completes the subscription cleanly; any other value
+ * ends it with that domain error (or a transport failure marker).
+ */
+export type ContainerSubscriptionHandler<
+  T extends TraitName,
+  M extends SubscriptionMethodName<T>,
+  V extends string = 'v1',
+> = (
+  params: WithVersion<V, StartPayload<T, M>>,
+  send: (payload: WithVersion<V, ReceivePayload<T, M>>) => void,
+  interrupt: (payload: WithVersion<V, InterruptPayload<T, M>>) => void,
 ) => VoidFunction;
 
-type InferSubscribeHandler<V extends string, T extends VersionedProtocolSubscription> = (
-  callback: (
-    params: WithVersion<V, CodecValue<T['start']>>,
-    send: (payload: WithVersion<V, CodecValue<T['receive']>>) => void,
-    interrupt: (payload: WithVersion<V, CodecValue<T['interrupt']>>) => void,
-  ) => VoidFunction,
-) => VoidFunction;
+/**
+ * A host-initiated subscription: the host subscribes and the product serves
+ * it (e.g. `renderer.render`).
+ */
+export type ContainerSubscribeFn<T extends TraitName, M extends SubscriptionMethodName<T>, V extends string = 'v1'> = (
+  params: WithVersion<V, StartPayload<T, M>>,
+  callback: (payload: WithVersion<V, ReceivePayload<T, M>>) => void,
+) => Subscription<WithVersion<V, InterruptPayload<T, M>>>;
 
-type InferHandler<
-  V extends string,
-  T extends VersionedProtocolRequest | VersionedProtocolSubscription,
-> = T extends VersionedProtocolRequest
-  ? InferRequestHandler<V, T>
-  : T extends VersionedProtocolSubscription
-    ? InferSubscribeHandler<V, T>
-    : never;
+type HostInitiatedMethodName<T extends TraitName> = {
+  [M in SubscriptionMethodName<T>]: ProtocolMethod<T, M> extends VersionedProtocolSubscription<any, 'host'> ? M : never;
+}[SubscriptionMethodName<T>];
+
+// Methods the container does not expose as their own `handle*` slot.
+type UnservedMethods = {
+  // The transport answers the handshake itself.
+  system: 'handshake';
+  // Served together by `handleChainConnection`.
+  chain: Exclude<MethodName<'chain'>, 'getChainInfo'>;
+};
+
+type UnservedMethodName<T extends TraitName> = T extends keyof UnservedMethods ? UnservedMethods[T] : never;
+
+type ServedRequestName<T extends TraitName> = Exclude<RequestMethodName<T>, UnservedMethodName<T>>;
+type ServedSubscriptionName<T extends TraitName> = Exclude<
+  SubscriptionMethodName<T>,
+  UnservedMethodName<T> | HostInitiatedMethodName<T>
+>;
+
+/**
+ * One trait's slots: `handle<Method>(handler)` for every product-initiated
+ * method the container serves, returning a function that restores the
+ * default handler; plus `<method>(params, callback)` for every host-initiated
+ * subscription.
+ */
+export type ContainerTrait<T extends TraitName> = {
+  [M in ServedRequestName<T> as `handle${Capitalize<M>}`]: (handler: ContainerRequestHandler<T, M>) => VoidFunction;
+} & {
+  [M in ServedSubscriptionName<T> as `handle${Capitalize<M>}`]: (
+    handler: ContainerSubscriptionHandler<T, M>,
+  ) => VoidFunction;
+} & {
+  [M in HostInitiatedMethodName<T>]: ContainerSubscribeFn<T, M>;
+};
 
 export type ContainerHandlerOf<T extends (...args: any[]) => any> = Parameters<T>[0];
 
@@ -78,7 +140,7 @@ export type HostApiDebugMessageEvent = {
   direction: 'incoming' | 'outgoing';
   productId: string | undefined;
   requestId: string;
-  payload: MessagePayloadSchema;
+  payload: DecodedMessage;
 };
 
 export type CreateContainerOptions = {
@@ -90,129 +152,20 @@ export type CreateContainerOptions = {
   productId?: string;
 };
 
+/**
+ * Host-side container, nested the way the wire addresses methods:
+ * `container.<trait>.handle<Method>(handler)`, e.g.
+ * `container.account.handleGetAccount(...)`.
+ */
 export type Container = {
-  // host
-
-  handleFeatureSupported: InferHandler<'v1', HostApiProtocol['host_feature_supported']>;
-  handleDevicePermission: InferHandler<'v1', HostApiProtocol['host_device_permission']>;
-  handlePermission: InferHandler<'v1', HostApiProtocol['remote_permission']>;
-  handlePushNotification: InferHandler<'v1', HostApiProtocol['host_push_notification']>;
-  handlePushNotificationCancel: InferHandler<'v1', HostApiProtocol['host_push_notification_cancel']>;
-  handleNavigateTo: InferHandler<'v1', HostApiProtocol['host_navigate_to']>;
-
-  // entropy derivation
-
-  handleDeriveEntropy: InferHandler<'v1', HostApiProtocol['host_derive_entropy']>;
-
-  // storage
-
-  handleLocalStorageRead: InferHandler<'v1', HostApiProtocol['host_local_storage_read']>;
-  handleLocalStorageWrite: InferHandler<'v1', HostApiProtocol['host_local_storage_write']>;
-  handleLocalStorageClear: InferHandler<'v1', HostApiProtocol['host_local_storage_clear']>;
-  handleLocalStorageSubscribe: InferHandler<'v1', HostApiProtocol['host_local_storage_subscribe']>;
-
-  // worker
-
-  handleWorkerBeginOperation: InferHandler<'v1', HostApiProtocol['host_worker_begin_operation']>;
-  handleWorkerEndOperation: InferHandler<'v1', HostApiProtocol['host_worker_end_operation']>;
-
-  // system
-
-  handleGetProductContext: InferHandler<'v1', HostApiProtocol['host_get_product_context']>;
-  handleInfo: InferHandler<'v1', HostApiProtocol['host_info']>;
-
-  // accounts
-
-  handleGetUserId: InferHandler<'v1', HostApiProtocol['host_get_user_id']>;
-  handleRequestLogin: InferHandler<'v1', HostApiProtocol['host_request_login']>;
-  handleAccountConnectionStatusSubscribe: InferHandler<
-    'v1',
-    HostApiProtocol['host_account_connection_status_subscribe']
-  >;
-  handleLocaleSubscribe: InferHandler<'v1', HostApiProtocol['host_locale_subscribe']>;
-  handleThemeSubscribe: InferHandler<'v1', HostApiProtocol['host_theme_subscribe']>;
-  handleAccountGet: InferHandler<'v1', HostApiProtocol['host_account_get']>;
-  handleAccountGetAlias: InferHandler<'v1', HostApiProtocol['host_account_get_alias']>;
-  handleAccountCreateProof: InferHandler<'v1', HostApiProtocol['host_account_create_proof']>;
-  handleAccountSignVrf: InferHandler<'v1', HostApiProtocol['host_account_sign_vrf']>;
-  handleGetLegacyAccounts: InferHandler<'v1', HostApiProtocol['host_get_legacy_accounts']>;
-
-  // ring VRF key registry (RFC-0024)
-
-  handleAccountRegisterRingVrfKey: InferHandler<'v1', HostApiProtocol['host_account_register_ring_vrf_key']>;
-  handleAccountListRingVrfKeys: InferHandler<'v1', HostApiProtocol['host_account_list_ring_vrf_keys']>;
-  handleAccountRingVrfSign: InferHandler<'v1', HostApiProtocol['host_account_ring_vrf_sign']>;
-
-  // chain info
-
-  handleChainGetChainInfo: InferHandler<'v1', HostApiProtocol['remote_chain_get_chain_info']>;
-
-  // signing
-
-  handleCreateTransaction: InferHandler<'v1', HostApiProtocol['host_create_transaction']>;
-  handleCreateTransactionWithLegacyAccount: InferHandler<
-    'v1',
-    HostApiProtocol['host_create_transaction_with_legacy_account']
-  >;
-  handleSignRaw: InferHandler<'v1', HostApiProtocol['host_sign_raw']>;
-  handleSignPayload: InferHandler<'v1', HostApiProtocol['host_sign_payload']>;
-  handleSignRawWithLegacyAccount: InferHandler<'v1', HostApiProtocol['host_sign_raw_with_legacy_account']>;
-  handleSignPayloadWithLegacyAccount: InferHandler<'v1', HostApiProtocol['host_sign_payload_with_legacy_account']>;
-
-  // chat
-
-  handleChatCreateRoom: InferHandler<'v1', HostApiProtocol['host_chat_create_room']>;
-  handleChatBotRegistration: InferHandler<'v1', HostApiProtocol['host_chat_register_bot']>;
-  handleChatListSubscribe: InferHandler<'v1', HostApiProtocol['host_chat_list_subscribe']>;
-  handleChatPostMessage: InferHandler<'v1', HostApiProtocol['host_chat_post_message']>;
-  handleChatActionSubscribe: InferHandler<'v1', HostApiProtocol['host_chat_action_subscribe']>;
-
-  renderChatCustomMessage(
-    params: { messageId: string; messageType: string; payload: Uint8Array },
-    callback: (node: CodecType<typeof CustomRendererNode>) => void,
-  ): Subscription;
-
-  // statement store
-
-  handleStatementStoreSubscribe: InferHandler<'v1', HostApiProtocol['remote_statement_store_subscribe']>;
-  handleStatementStoreCreateProof: InferHandler<'v1', HostApiProtocol['remote_statement_store_create_proof']>;
-  handleStatementStoreCreateProofAuthorized: InferHandler<
-    'v1',
-    HostApiProtocol['remote_statement_store_create_proof_authorized']
-  >;
-  handleStatementStoreSubmit: InferHandler<'v1', HostApiProtocol['remote_statement_store_submit']>;
-
-  // preimage
-
-  handlePreimageLookupSubscribe: InferHandler<'v1', HostApiProtocol['remote_preimage_lookup_subscribe']>;
-  handlePreimageSubmit: InferHandler<'v1', HostApiProtocol['remote_preimage_submit']>;
-
-  // payments
-
-  handlePaymentBalanceSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_balance_subscribe']>;
-  handlePaymentTopUp: InferHandler<'v1', HostApiProtocol['host_payment_top_up']>;
-  handlePaymentRequest: InferHandler<'v1', HostApiProtocol['host_payment_request']>;
-  handlePaymentStatusSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_status_subscribe']>;
-  handlePaymentTopUpStatusSubscribe: InferHandler<'v1', HostApiProtocol['host_payment_top_up_status_subscribe']>;
-
-  // coin payment (RFC 0017)
-
-  handleCoinPaymentCreatePurse: InferHandler<'v1', HostApiProtocol['host_coin_payment_create_purse']>;
-  handleCoinPaymentQueryPurse: InferHandler<'v1', HostApiProtocol['host_coin_payment_query_purse']>;
-  handleCoinPaymentRebalancePurse: InferHandler<'v1', HostApiProtocol['host_coin_payment_rebalance_purse']>;
-  handleCoinPaymentDeletePurse: InferHandler<'v1', HostApiProtocol['host_coin_payment_delete_purse']>;
-  handleCoinPaymentCreateReceivable: InferHandler<'v1', HostApiProtocol['host_coin_payment_create_receivable']>;
-  handleCoinPaymentCreateCheque: InferHandler<'v1', HostApiProtocol['host_coin_payment_create_cheque']>;
-  handleCoinPaymentDeposit: InferHandler<'v1', HostApiProtocol['host_coin_payment_deposit']>;
-  handleCoinPaymentRefund: InferHandler<'v1', HostApiProtocol['host_coin_payment_refund']>;
-  handleCoinPaymentListenForPayment: InferHandler<'v1', HostApiProtocol['host_coin_payment_listen_for_payment']>;
-
-  // resource allocation
-
-  handleRequestResourceAllocation: InferHandler<'v1', HostApiProtocol['host_request_resource_allocation']>;
-
+  [T in TraitName]: ContainerTrait<T>;
+} & {
   // chain interaction
 
+  /**
+   * Serves every `chain` method except `getChainInfo` (see
+   * `container.chain.handleGetChainInfo`) from JSON-RPC providers.
+   */
   handleChainConnection: (factory: (genesisHash: HexString) => JsonRpcProvider | null) => VoidFunction;
 
   isReady(): Promise<boolean>;

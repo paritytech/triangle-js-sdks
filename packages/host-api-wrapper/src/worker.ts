@@ -14,7 +14,7 @@ export const createWorker = (transport: Transport = sandboxTransport) => {
     // after the product's surface goes away. Returns the operation id.
     async beginOperation(label?: string): Promise<number> {
       const { id } = await resultToPromise(
-        unwrapVersionedResult(supportedVersion, hostApi.workerBeginOperation(enumValue(supportedVersion, { label }))),
+        unwrapVersionedResult(supportedVersion, hostApi.worker.beginOperation(enumValue(supportedVersion, { label }))),
       );
       return id;
     },
@@ -22,7 +22,7 @@ export const createWorker = (transport: Transport = sandboxTransport) => {
     // still resolves.
     async endOperation(id: number): Promise<void> {
       return resultToPromise(
-        unwrapVersionedResult(supportedVersion, hostApi.workerEndOperation(enumValue(supportedVersion, { id }))),
+        unwrapVersionedResult(supportedVersion, hostApi.worker.endOperation(enumValue(supportedVersion, { id }))),
       );
     },
   };

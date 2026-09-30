@@ -74,7 +74,7 @@ describe('Host API: StatementStore', () => {
     const statement1 = createMockSignedStatement(1);
     const statement2 = createMockSignedStatement(2);
 
-    container.handleStatementStoreSubscribe((params, send) => {
+    container.statementStore.handleSubscribe((params, send) => {
       expect(params).toEqual({ tag: 'MatchAll', value: [createTopic(1)] });
       // Simulate sending updates
       send({ statements: [statement1, statement2], isComplete: true });
@@ -101,16 +101,17 @@ describe('Host API: StatementStore', () => {
       signer: new Uint8Array(32).fill(6),
     });
 
-    const handler = vi.fn<ContainerHandlerOf<typeof container.handleStatementStoreCreateProof>>((_, { ok }) =>
+    const handler = vi.fn<ContainerHandlerOf<typeof container.statementStore.handleCreateProof>>((_, { ok }) =>
       ok(expectedProof),
     );
-    container.handleStatementStoreCreateProof(handler);
+    container.statementStore.handleCreateProof(handler);
 
     const result = await statementStore.createProof(accountId, statement);
 
     expect(handler).toHaveBeenCalledWith([mockWireAccountId, statement], {
       ok: expect.any(Function),
       err: expect.any(Function),
+      signal: expect.any(AbortSignal),
     });
     expect(result).toEqual(expectedProof);
   });
@@ -119,18 +120,22 @@ describe('Host API: StatementStore', () => {
     const { container, statementStore } = setup();
     const signedStatement = createMockSignedStatement(1);
 
-    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.handlePermission>>((_params, { ok }) =>
-      ok(true),
+    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.permissions.handleRequestRemotePermission>>(
+      (_params, { ok }) => ok(true),
     );
-    container.handlePermission(permissionHandler);
-    const handler = vi.fn<ContainerHandlerOf<typeof container.handleStatementStoreSubmit>>((_, { ok }) =>
+    container.permissions.handleRequestRemotePermission(permissionHandler);
+    const handler = vi.fn<ContainerHandlerOf<typeof container.statementStore.handleSubmit>>((_, { ok }) =>
       ok(undefined),
     );
-    container.handleStatementStoreSubmit(handler);
+    container.statementStore.handleSubmit(handler);
 
     await statementStore.submit(signedStatement);
 
-    expect(handler).toHaveBeenCalledWith(signedStatement, { ok: expect.any(Function), err: expect.any(Function) });
+    expect(handler).toHaveBeenCalledWith(signedStatement, {
+      ok: expect.any(Function),
+      err: expect.any(Function),
+      signal: expect.any(AbortSignal),
+    });
     expect(permissionHandler).toHaveBeenCalledOnce();
     const [receivedParams] = permissionHandler.mock.calls[0]!;
     expect(receivedParams).toEqual({ tag: 'StatementSubmit', value: undefined });
@@ -142,7 +147,7 @@ describe('Host API: StatementStore', () => {
     const statement = createMockStatement(1);
     const error = new StatementProofErr.UnknownAccount();
 
-    container.handleStatementStoreCreateProof((_, { err }) => err(error));
+    container.statementStore.handleCreateProof((_, { err }) => err(error));
 
     await expect(statementStore.createProof(accountId, statement)).rejects.toEqual(error);
   });
@@ -152,11 +157,11 @@ describe('Host API: StatementStore', () => {
     const signedStatement = createMockSignedStatement(1);
     const error = new GenericError({ reason: 'Submit failed' });
 
-    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.handlePermission>>((_params, { ok }) =>
-      ok(true),
+    const permissionHandler = vi.fn<ContainerHandlerOf<typeof container.permissions.handleRequestRemotePermission>>(
+      (_params, { ok }) => ok(true),
     );
-    container.handlePermission(permissionHandler);
-    container.handleStatementStoreSubmit((_, { err }) => err(error));
+    container.permissions.handleRequestRemotePermission(permissionHandler);
+    container.statementStore.handleSubmit((_, { err }) => err(error));
 
     await expect(statementStore.submit(signedStatement)).rejects.toEqual(error);
 
@@ -171,7 +176,7 @@ describe('Host API: StatementStore', () => {
     const statement = createMockSignedStatement(1);
     const cleanupFn = vi.fn();
 
-    container.handleStatementStoreSubscribe((_, send) => {
+    container.statementStore.handleSubscribe((_, send) => {
       // Send initial update
       send({ statements: [statement], isComplete: true });
       return cleanupFn;

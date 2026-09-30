@@ -25,7 +25,7 @@ describe('Host API: Locale', () => {
     it('should deliver the host language tag to the callback', async () => {
       const { container, locale } = setup();
 
-      container.handleLocaleSubscribe((_params, send, _interrupt) => {
+      container.locale.handleSubscribe((_params, send, _interrupt) => {
         send({ languageTag: 'en' });
         return noop;
       });
@@ -41,7 +41,7 @@ describe('Host API: Locale', () => {
     it('should preserve a script subtag through the codec', async () => {
       const { container, locale } = setup();
 
-      container.handleLocaleSubscribe((_params, send, _interrupt) => {
+      container.locale.handleSubscribe((_params, send, _interrupt) => {
         send({ languageTag: 'zh-Hans' });
         return noop;
       });
@@ -57,7 +57,7 @@ describe('Host API: Locale', () => {
     it('should deliver successive locale updates in order', async () => {
       const { container, locale } = setup();
 
-      container.handleLocaleSubscribe((_params, send, _interrupt) => {
+      container.locale.handleSubscribe((_params, send, _interrupt) => {
         send({ languageTag: 'en' });
         send({ languageTag: 'de' });
         send({ languageTag: 'pt-BR' });
@@ -74,8 +74,8 @@ describe('Host API: Locale', () => {
 
     it('should subscribe with the v1 start payload', async () => {
       const { container, locale } = setup();
-      const handler = vi.fn<ContainerHandlerOf<typeof container.handleLocaleSubscribe>>(() => noop);
-      container.handleLocaleSubscribe(handler);
+      const handler = vi.fn<ContainerHandlerOf<typeof container.locale.handleSubscribe>>(() => noop);
+      container.locale.handleSubscribe(handler);
 
       locale.subscribeLocale(noop);
 

@@ -26,7 +26,6 @@
   "dependencies": {
     "@novasamatech/host-api": "0.12.0",
     "@novasamatech/host-api-wrapper": "0.12.0",
-    "scale-ts": "1.6.1",
     "react-reconciler": "0.33.0"
   },
   "devDependencies": {

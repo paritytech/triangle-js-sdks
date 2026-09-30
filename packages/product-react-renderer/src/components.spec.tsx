@@ -6,10 +6,9 @@ globalThis['IS_REACT_ACT_ENVIRONMENT'] = true;
 
 import type { ReactNode } from 'react';
 import { act } from 'react';
-import { str } from 'scale-ts';
 import { describe, expect, it, vi } from 'vitest';
 
-import { Box, Button, Column, Row, Spacer, Text, TextField } from './components.js';
+import { Box, Button, Column, Effect, Image, Row, Spacer, Text, TextField } from './components.js';
 import type { ActionCallback } from './context.js';
 import { createRenderer } from './renderer.js';
 
@@ -23,7 +22,8 @@ function makeActionBus() {
     };
   });
 
-  function dispatch(actionId: string, payload?: Uint8Array) {
+  // A `Button` press carries an empty payload.
+  function dispatch(actionId: string, payload: Uint8Array = new Uint8Array()) {
     listener?.(actionId, payload);
   }
 
@@ -103,9 +103,9 @@ describe('custom components', () => {
   });
 
   describe('Spacer', () => {
-    it('serializes as a Spacer node with no props', async () => {
+    it('serializes as a Spacer node with modifiers only', async () => {
       const { node } = await mount(<Spacer />);
-      expect(node.tag).toBe('Spacer');
+      expect(node).toEqual({ tag: 'Spacer', value: { modifiers: [] } });
     });
 
     it('forwards layout modifiers', async () => {
@@ -153,7 +153,7 @@ describe('custom components', () => {
       expect((node.value.props.clickAction as string).length).toBeGreaterThan(0);
     });
 
-    it('calls onClick when the clickAction is dispatched without a payload', async () => {
+    it('calls onClick when the clickAction is dispatched with an empty payload', async () => {
       const onClick = vi.fn();
       const { node, dispatchAction } = await mount(<Button text="Go" onClick={onClick} />);
 
@@ -206,6 +206,11 @@ describe('custom components', () => {
       expect(node.value.props.text).toBe('hello');
     });
 
+    it('serializes without children', async () => {
+      const { node } = await mount(<TextField value="" onValueChange={vi.fn()} />);
+      expect(Object.keys(node.value).sort()).toEqual(['modifiers', 'props']);
+    });
+
     it('serializes placeholder, label and enabled props', async () => {
       const { node } = await mount(
         <TextField value="" placeholder="Type here" label="Name" enabled={false} onValueChange={vi.fn()} />,
@@ -221,18 +226,18 @@ describe('custom components', () => {
       expect((node.value.props.valueChangeAction as string).length).toBeGreaterThan(0);
     });
 
-    it('calls onValueChange with the decoded string when the action fires with a SCALE string payload', async () => {
+    it('calls onValueChange with the decoded string when the action fires with a UTF-8 payload', async () => {
       const onValueChange = vi.fn();
       const { node, dispatchAction } = await mount(<TextField value="" onValueChange={onValueChange} />);
 
-      const encoded = str.enc('hello world');
+      const encoded = new TextEncoder().encode('hello world');
       await dispatchAction(node.value.props.valueChangeAction as string, encoded);
 
       expect(onValueChange).toHaveBeenCalledOnce();
       expect(onValueChange).toHaveBeenCalledWith('hello world');
     });
 
-    it('calls onValueChange with empty string when the action fires without a payload', async () => {
+    it('calls onValueChange with empty string when the action fires with an empty payload', async () => {
       const onValueChange = vi.fn();
       const { node, dispatchAction } = await mount(<TextField value="" onValueChange={onValueChange} />);
 
@@ -260,13 +265,57 @@ describe('custom components', () => {
         renderer.mount(<TextField value="" onValueChange={handler2} />);
       });
 
-      const encoded = str.enc('updated');
+      const encoded = new TextEncoder().encode('updated');
       await act(async () => {
         bus.dispatch(actionId, encoded);
       });
 
       expect(handler1).not.toHaveBeenCalled();
       expect(handler2).toHaveBeenCalledWith('updated');
+    });
+  });
+
+  describe('Image', () => {
+    it('serializes source and fit with modifiers and no children', async () => {
+      const { node } = await mount(<Image source={{ tag: 'Bulletin', value: 'bafy' }} fit="cover" width={64} />);
+      expect(node).toEqual({
+        tag: 'Image',
+        value: {
+          modifiers: [{ tag: 'width', value: 64 }],
+          props: { source: { tag: 'Bulletin', value: 'bafy' }, fit: 'cover' },
+        },
+      });
+    });
+  });
+
+  describe('Effect', () => {
+    it('serializes the effect and its children without modifiers', async () => {
+      const { node } = await mount(
+        <Effect effect="rainbow">
+          <Text>shiny</Text>
+        </Effect>,
+      );
+      expect(node.tag).toBe('Effect');
+      expect(node.value.props).toEqual({ effect: 'rainbow' });
+      expect(node.value).not.toHaveProperty('modifiers');
+      expect(node.value.children[0].tag).toBe('Text');
+    });
+  });
+
+  describe('modifiers', () => {
+    it('serializes opacity, blendingMode and a Square shape', async () => {
+      const { node } = await mount(
+        <Box
+          opacity={128}
+          blendingMode="multiply"
+          background={{ color: 'bg.surface.main', shape: { tag: 'Square', value: undefined } }}
+        />,
+      );
+      expect(node.value.modifiers).toEqual([
+        { tag: 'background', value: { color: 'bg.surface.main', shape: { tag: 'Square', value: undefined } } },
+        { tag: 'opacity', value: 128 },
+        { tag: 'blendingMode', value: 'multiply' },
+      ]);
     });
   });
 });

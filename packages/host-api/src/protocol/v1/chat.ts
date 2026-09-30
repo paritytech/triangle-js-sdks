@@ -1,12 +1,7 @@
 import { Bytes, Enum, ErrEnum, Status } from '@novasamatech/scale';
-import type { Codec } from 'scale-ts';
 import { Option, Struct, Vector, _void, str, u64 } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
-import { GenericErr } from '../commonCodecs.js';
-
-import type { CustomRendererNodeType } from './customRenderer.js';
-import { CustomRendererNode } from './customRenderer.js';
+import { GenericErr, GenericError } from '../commonCodecs.js';
 
 // room registration
 
@@ -28,7 +23,8 @@ export const ChatRoomRegistrationResult = Struct({
 });
 
 export const ChatCreateRoomV1_request = ChatRoomRequest;
-export const ChatCreateRoomV1_response = CallResult(ChatRoomRegistrationResult, ChatRoomRegistrationErr);
+export const ChatCreateRoomV1_response = ChatRoomRegistrationResult;
+export const ChatCreateRoomV1_error = ChatRoomRegistrationErr;
 
 // register as a bot
 
@@ -50,7 +46,8 @@ export const ChatBotRegistrationResult = Struct({
 });
 
 export const ChatRegisterBotV1_request = ChatBotRequest;
-export const ChatRegisterBotV1_response = CallResult(ChatBotRegistrationResult, ChatBotRegistrationErr);
+export const ChatRegisterBotV1_response = ChatBotRegistrationResult;
+export const ChatRegisterBotV1_error = ChatBotRegistrationErr;
 
 // receiving rooms
 
@@ -63,7 +60,7 @@ export const ChatRoom = Struct({
 
 export const ChatListSubscribeV1_start = _void;
 export const ChatListSubscribeV1_receive = Vector(ChatRoom);
-export const ChatListSubscribeV1_interrupt = _void;
+export const ChatListSubscribeV1_interrupt = GenericError;
 
 // message format
 
@@ -132,7 +129,8 @@ export const ChatPostMessageV1_request = Struct({
   roomId: str,
   payload: ChatMessageContent,
 });
-export const ChatPostMessageV1_response = CallResult(ChatPostMessageResult, ChatMessagePostingErr);
+export const ChatPostMessageV1_response = ChatPostMessageResult;
+export const ChatPostMessageV1_error = ChatMessagePostingErr;
 
 // receiving a message
 
@@ -161,10 +159,4 @@ export const ReceivedChatAction = Struct({
 
 export const ChatActionSubscribeV1_start = _void;
 export const ChatActionSubscribeV1_receive = ReceivedChatAction;
-export const ChatActionSubscribeV1_interrupt = _void;
-
-// custom message rendering
-
-export const ChatCustomMessageRenderingV1_start = Struct({ messageId: str, messageType: str, payload: Bytes() });
-export const ChatCustomMessageRenderingV1_receive: Codec<CustomRendererNodeType> = CustomRendererNode;
-export const ChatCustomMessageRenderingV1_interrupt = _void;
+export const ChatActionSubscribeV1_interrupt = GenericError;

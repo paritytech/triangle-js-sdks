@@ -3,9 +3,10 @@
 // @ts-expect-error Untyped
 globalThis['IS_REACT_ACT_ENVIRONMENT'] = true;
 
-import type { CodecType } from '@novasamatech/host-api';
-import { CustomRendererNode, Modifier, createTransport, enumValue } from '@novasamatech/host-api';
-import { createProductChatManager } from '@novasamatech/host-api-wrapper';
+import type { CodecType, RendererNodeType } from '@novasamatech/host-api';
+import { Modifier, createTransport } from '@novasamatech/host-api';
+import type { RenderContext, RendererAction } from '@novasamatech/host-api-wrapper';
+import { createProductRenderer, matchChatMessageRenderers } from '@novasamatech/host-api-wrapper';
 import { createContainer } from '@novasamatech/host-container';
 import {
   Box,
@@ -16,17 +17,20 @@ import {
   Text,
   TextField,
   registerChatMessageRenderer,
+  registerRenderer,
 } from '@novasamatech/product-react-renderer';
 
 import { nanoid } from 'nanoid';
 import { act, useState } from 'react';
-import { str } from 'scale-ts';
 import { describe, expect, it, vi } from 'vitest';
 
+import { delay } from './__mocks__/helpers.js';
 import { createHostApiProviders } from './__mocks__/hostApiProviders.js';
 
-type RendererNode = CodecType<typeof CustomRendererNode>;
+type RendererNode = RendererNodeType;
 type RendererModifier = CodecType<typeof Modifier>;
+
+const ROOM_ID = 'room';
 
 function findChildOfTag<T extends RendererNode['tag']>(
   children: RendererNode[],
@@ -37,29 +41,24 @@ function findChildOfTag<T extends RendererNode['tag']>(
   return found;
 }
 
-type ActionMsg = {
-  roomId: string;
-  peer: string;
-  payload: {
-    tag: 'ActionTriggered';
-    value: { messageId: string; actionId: string; payload: Uint8Array };
-  };
-};
+function chatMessageContext(messageId: string, messageType: string, roomId = ROOM_ID): RenderContext {
+  return { tag: 'ChatMessage', value: { roomId, messageId, messageType } };
+}
 
 function setup() {
   const providers = createHostApiProviders();
   const container = createContainer(providers.host);
   const sdkTransport = createTransport(providers.sdk);
-  const chat = createProductChatManager(sdkTransport);
+  const renderer = createProductRenderer(sdkTransport);
 
   /**
    * Collect every action-send function the host receives — one per product
-   * chatActionSubscribe() call (each rendered message creates its own subscription).
-   * triggerAction fans out to all of them so the per-messageId filter inside
-   * subscribeActions can route each event to the correct renderer.
+   * `renderer.actionSubscribe` call (each rendered body opens its own
+   * subscription). triggerAction fans out to all of them so the per-context
+   * filter inside subscribeActions can route each event to the correct body.
    */
-  const sendActions: ((action: ActionMsg) => void)[] = [];
-  container.handleChatActionSubscribe((_, send) => {
+  const sendActions: ((action: RendererAction) => void)[] = [];
+  container.renderer.handleActionSubscribe((_, send) => {
     sendActions.push(send);
     return () => {
       /* empty */
@@ -67,130 +66,132 @@ function setup() {
   });
 
   /**
-   * Simulate the host firing an ActionTriggered event for a rendered message.
-   * payload is optional — omit it for Button clicks, pass a SCALE-encoded value
-   * (e.g. str.enc('text')) for TextField changes.
+   * Simulate the host firing an action inside a rendered body. payload is
+   * empty for Button clicks and the plain UTF-8 bytes of the new value for
+   * TextField changes.
    */
-  function triggerAction(messageId: string, actionId: string, payload: Uint8Array) {
-    sendActions.forEach(send =>
-      send({
-        roomId: 'room',
-        peer: 'bot',
-        payload: enumValue('ActionTriggered', { messageId, actionId, payload }),
-      }),
-    );
+  function triggerAction(context: RenderContext, actionId: string, payload: Uint8Array) {
+    sendActions.forEach(send => send({ context, actionId, payload }));
   }
 
   /**
-   * Subscribe and wait for the initial render in one act() pass so the mount
-   * that happens synchronously inside renderChatCustomMessage is properly tracked.
+   * Start a host render and wait for the initial tree in one act() pass so
+   * the mount that happens when the product serves the request is tracked.
    */
-  async function subscribe(
-    messageId: string,
-    messageType: string,
-    payload: Uint8Array,
-    callback: (node: CodecType<typeof CustomRendererNode>) => VoidFunction,
-  ) {
+  async function subscribeContext(context: RenderContext, payload: Uint8Array, callback: (node: RendererNode) => void) {
     return act(async () => {
-      return container.renderChatCustomMessage({ messageId, messageType, payload }, callback);
+      const subscription = container.renderer.render({ context, payload }, callback);
+      await delay(10);
+      return subscription;
     });
   }
 
-  return { container, chat, triggerAction, subscribe };
+  function subscribe(
+    messageId: string,
+    messageType: string,
+    payload: Uint8Array,
+    callback: (node: RendererNode) => void,
+  ) {
+    return subscribeContext(chatMessageContext(messageId, messageType), payload, callback);
+  }
+
+  return { container, renderer, triggerAction, subscribe, subscribeContext };
 }
 
-describe('registerChatMessageRenderer + createProductChatManager integration', () => {
-  it('renders a React element and delivers it as a CustomRendererNode to the container', async () => {
-    const { chat, subscribe } = setup();
+describe('registerChatMessageRenderer + productRenderer integration', () => {
+  it('renders a React element and delivers it as a RendererNode to the container', async () => {
+    const { renderer, subscribe } = setup();
 
-    chat.onCustomMessageRenderingRequest(
-      registerChatMessageRenderer(
-        payload => payload,
-        () => (
-          <Column horizontalAlignment="center" verticalArrangement="spaceBetween" padding={16} fillMaxWidth>
-            {/* Box A: contentAlignment, background+Rounded shape, border, fillMaxWidth */}
-            <Box
-              contentAlignment="topStart"
-              background={{ color: 'bg.surface.container', shape: { tag: 'Rounded', value: 8 } }}
-              border={{ width: 1, color: 'fg.tertiary', shape: undefined }}
-              fillMaxWidth
-            >
-              <Text style="title.medium.regular" color="fg.secondary">
-                Title
-              </Text>
-            </Box>
-            {/* Box B: background as plain ColorToken, width/height/minWidth/minHeight */}
-            <Box
-              contentAlignment="center"
-              background="bg.surface.main"
-              width={40}
-              height={40}
-              minWidth={20}
-              minHeight={20}
-            >
-              {/* Inner Box: Circle shape, fillMaxWidth + fillMaxHeight */}
+    renderer.onRender(
+      matchChatMessageRenderers({
+        'all-widgets': registerChatMessageRenderer(
+          payload => payload,
+          () => (
+            <Column horizontalAlignment="center" verticalArrangement="spaceBetween" padding={16} fillMaxWidth>
+              {/* Box A: contentAlignment, background+Rounded shape, border, fillMaxWidth */}
               <Box
-                background={{ color: 'bg.surface.nested', shape: { tag: 'Circle', value: undefined } }}
+                contentAlignment="topStart"
+                background={{ color: 'bg.surface.container', shape: { tag: 'Rounded', value: 8 } }}
+                border={{ width: 1, color: 'fg.tertiary', shape: undefined }}
                 fillMaxWidth
-                fillMaxHeight
+              >
+                <Text style="title.medium.regular" color="fg.secondary">
+                  Title
+                </Text>
+              </Box>
+              {/* Box B: background as plain ColorToken, width/height/minWidth/minHeight */}
+              <Box
+                contentAlignment="center"
+                background="bg.surface.main"
+                width={40}
+                height={40}
+                minWidth={20}
+                minHeight={20}
+              >
+                {/* Inner Box: Circle shape, fillMaxWidth + fillMaxHeight */}
+                <Box
+                  background={{ color: 'bg.surface.nested', shape: { tag: 'Circle', value: undefined } }}
+                  fillMaxWidth
+                  fillMaxHeight
+                />
+              </Box>
+              {/* Row: verticalAlignment, horizontalArrangement, margin; covers bodyM/bodyS/caption + success/warning/error */}
+              <Row verticalAlignment="bottom" horizontalArrangement="spaceEvenly" margin={8}>
+                <Text style="body.medium.regular" color="fg.success">
+                  Item A
+                </Text>
+                <Spacer width={8} height={4} />
+                <Text style="body.small.regular" color="fg.warning">
+                  Item B
+                </Text>
+                <Text style="body.small.regular" color="fg.error">
+                  Item C
+                </Text>
+              </Row>
+              <Text style="headline.large" color="fg.primary">
+                Balance: 100 DOT
+              </Text>
+              {/* Spacer with fillMaxHeight */}
+              <Spacer fillMaxHeight />
+              <Button
+                text="Submit"
+                variant="primary"
+                enabled={true}
+                loading={false}
+                onClick={() => {
+                  /* empty */
+                }}
               />
-            </Box>
-            {/* Row: verticalAlignment, horizontalArrangement, margin; covers bodyM/bodyS/caption + success/warning/error */}
-            <Row verticalAlignment="bottom" horizontalArrangement="spaceEvenly" margin={8}>
-              <Text style="body.medium.regular" color="fg.success">
-                Item A
-              </Text>
-              <Spacer width={8} height={4} />
-              <Text style="body.small.regular" color="fg.warning">
-                Item B
-              </Text>
-              <Text style="body.small.regular" color="fg.error">
-                Item C
-              </Text>
-            </Row>
-            <Text style="headline.large" color="fg.primary">
-              Balance: 100 DOT
-            </Text>
-            {/* Spacer with fillMaxHeight */}
-            <Spacer fillMaxHeight />
-            <Button
-              text="Submit"
-              variant="primary"
-              enabled={true}
-              loading={false}
-              onClick={() => {
-                /* empty */
-              }}
-            />
-            <Button
-              text="Cancel"
-              variant="secondary"
-              onClick={() => {
-                /* empty */
-              }}
-            />
-            <Button
-              text="Link"
-              variant="text"
-              onClick={() => {
-                /* empty */
-              }}
-            />
-            <TextField
-              value="initial"
-              placeholder="Type here"
-              label="Amount"
-              enabled={true}
-              onValueChange={() => {
-                /* empty */
-              }}
-            />
-            test string
-            {null}
-            {false}
-          </Column>
+              <Button
+                text="Cancel"
+                variant="secondary"
+                onClick={() => {
+                  /* empty */
+                }}
+              />
+              <Button
+                text="Link"
+                variant="text"
+                onClick={() => {
+                  /* empty */
+                }}
+              />
+              <TextField
+                value="initial"
+                placeholder="Type here"
+                label="Amount"
+                enabled={true}
+                onValueChange={() => {
+                  /* empty */
+                }}
+              />
+              test string
+              {null}
+              {false}
+            </Column>
+          ),
         ),
-      ),
+      }),
     );
 
     const messageId = nanoid();
@@ -340,16 +341,20 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     });
   });
 
-  it('forwards messageId and messageType to the renderFn', async () => {
-    const { chat, subscribe } = setup();
+  it('forwards roomId, messageId and messageType to the renderFn', async () => {
+    const { renderer, subscribe } = setup();
 
     const renderFn = vi.fn(() => <Text>ok</Text>);
-    chat.onCustomMessageRenderingRequest(registerChatMessageRenderer(payload => payload, renderFn));
+    renderer.onRender(
+      matchChatMessageRenderers({ 'my-type': registerChatMessageRenderer(payload => payload, renderFn) }),
+    );
 
     const messageId = nanoid();
     const sub = await subscribe(messageId, 'my-type', new Uint8Array(), vi.fn());
 
-    expect(renderFn).toHaveBeenCalledWith(expect.objectContaining({ messageId, messageType: 'my-type' }));
+    expect(renderFn).toHaveBeenCalledWith(
+      expect.objectContaining({ roomId: ROOM_ID, messageId, messageType: 'my-type' }),
+    );
 
     await act(async () => {
       sub.unsubscribe();
@@ -357,7 +362,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
   });
 
   it('passes the raw payload through mapPayload before renderFn receives it', async () => {
-    const { chat, subscribe } = setup();
+    const { renderer, subscribe } = setup();
 
     const data = { token: 'DOT', balance: '42.5' };
     const encoded = new TextEncoder().encode(JSON.stringify(data));
@@ -365,7 +370,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     const renderFn = vi.fn(() => <Text>ok</Text>);
     const mapPayload = vi.fn((raw: Uint8Array) => JSON.parse(new TextDecoder().decode(raw)) as typeof data);
 
-    chat.onCustomMessageRenderingRequest(registerChatMessageRenderer(mapPayload, renderFn));
+    renderer.onRender(matchChatMessageRenderers({ 'balance-card': registerChatMessageRenderer(mapPayload, renderFn) }));
 
     const messageId = nanoid();
     const sub = await subscribe(messageId, 'balance-card', encoded, vi.fn());
@@ -378,8 +383,8 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     });
   });
 
-  it('re-renders when a Button click ActionTriggered event arrives for the correct messageId', async () => {
-    const { chat, triggerAction, subscribe } = setup();
+  it('re-renders when a Button click action arrives for the rendered message context', async () => {
+    const { renderer, triggerAction, subscribe } = setup();
 
     function Counter() {
       const [count, setCount] = useState(0);
@@ -391,11 +396,13 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
       );
     }
 
-    chat.onCustomMessageRenderingRequest(
-      registerChatMessageRenderer(
-        payload => payload,
-        () => <Counter />,
-      ),
+    renderer.onRender(
+      matchChatMessageRenderers({
+        counter: registerChatMessageRenderer(
+          payload => payload,
+          () => <Counter />,
+        ),
+      }),
     );
 
     const messageId = nanoid();
@@ -407,7 +414,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     const clickActionId = btn.value.props.clickAction!;
 
     await act(async () => {
-      triggerAction(messageId, clickActionId, new Uint8Array());
+      triggerAction(chatMessageContext(messageId, 'counter'), clickActionId, new Uint8Array());
       await new Promise<void>(resolve => setTimeout(resolve, 10));
     });
 
@@ -421,8 +428,8 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     });
   });
 
-  it('re-renders when a TextField ActionTriggered event arrives carrying a SCALE-encoded string', async () => {
-    const { chat, triggerAction, subscribe } = setup();
+  it('re-renders when a TextField action arrives carrying the new value as UTF-8 bytes', async () => {
+    const { renderer, triggerAction, subscribe } = setup();
 
     function InputForm() {
       const [value, setValue] = useState('');
@@ -434,11 +441,13 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
       );
     }
 
-    chat.onCustomMessageRenderingRequest(
-      registerChatMessageRenderer(
-        payload => payload,
-        () => <InputForm />,
-      ),
+    renderer.onRender(
+      matchChatMessageRenderers({
+        form: registerChatMessageRenderer(
+          payload => payload,
+          () => <InputForm />,
+        ),
+      }),
     );
 
     const messageId = nanoid();
@@ -450,7 +459,11 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     const valueChangeActionId = tf.value.props.valueChangeAction!;
 
     await act(async () => {
-      triggerAction(messageId, valueChangeActionId, str.enc('hello world'));
+      triggerAction(
+        chatMessageContext(messageId, 'form'),
+        valueChangeActionId,
+        new TextEncoder().encode('hello world'),
+      );
       await new Promise<void>(resolve => setTimeout(resolve, 10));
     });
 
@@ -463,15 +476,17 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     });
   });
 
-  it('does not route actions intended for a different messageId', async () => {
-    const { chat, triggerAction, subscribe } = setup();
+  it('does not route actions intended for a different message context', async () => {
+    const { renderer, triggerAction, subscribe } = setup();
 
     const onClick = vi.fn();
-    chat.onCustomMessageRenderingRequest(
-      registerChatMessageRenderer(
-        payload => payload,
-        () => <Button text="Click" onClick={onClick} />,
-      ),
+    renderer.onRender(
+      matchChatMessageRenderers({
+        btn: registerChatMessageRenderer(
+          payload => payload,
+          () => <Button text="Click" onClick={onClick} />,
+        ),
+      }),
     );
 
     const messageId = nanoid();
@@ -481,9 +496,13 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     const node = callback.mock.calls[0]![0];
     const clickActionId: string = node.value.props.clickAction;
 
-    // Fire the action for a *different* messageId — onClick must not be called.
+    // Fire the action for a *different* body — another messageId, or the same
+    // messageId in another room — onClick must not be called.
     await act(async () => {
-      triggerAction('other-message-id', clickActionId, new Uint8Array());
+      triggerAction(chatMessageContext('other-message-id', 'btn'), clickActionId, new Uint8Array());
+      triggerAction(chatMessageContext(messageId, 'btn', 'other-room'), clickActionId, new Uint8Array());
+      triggerAction({ tag: 'PocketCard', value: { cardId: messageId } }, clickActionId, new Uint8Array());
+      await delay(10);
     });
 
     expect(onClick).not.toHaveBeenCalled();
@@ -494,7 +513,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
   });
 
   it('two concurrent messages have isolated state and independent action routing', async () => {
-    const { chat, triggerAction, subscribe } = setup();
+    const { renderer, triggerAction, subscribe } = setup();
 
     function Counter({ start }: { start: number }) {
       const [count, setCount] = useState(start);
@@ -506,12 +525,11 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
       );
     }
 
-    chat.onCustomMessageRenderingRequest(
-      registerChatMessageRenderer(
-        payload => payload,
-        ({ messageType }) => <Counter start={messageType === 'a' ? 0 : 10} />,
-      ),
+    const counterRenderer = registerChatMessageRenderer(
+      payload => payload,
+      ({ messageType }) => <Counter start={messageType === 'a' ? 0 : 10} />,
     );
+    renderer.onRender(matchChatMessageRenderers({ a: counterRenderer, b: counterRenderer }));
 
     const messageIdA = nanoid();
     const messageIdB = nanoid();
@@ -525,7 +543,7 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
 
     // Click only message A's button
     await act(async () => {
-      triggerAction(messageIdA, btnA.value.props.clickAction!, new Uint8Array());
+      triggerAction(chatMessageContext(messageIdA, 'a'), btnA.value.props.clickAction!, new Uint8Array());
       await new Promise<void>(resolve => setTimeout(resolve, 10));
     });
 
@@ -544,21 +562,25 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
   });
 
   it('unsubscribing from the container unmounts the React renderer', async () => {
-    const { chat, subscribe } = setup();
+    const { renderer, subscribe } = setup();
 
     const cleanupSpy = vi.fn();
-    const renderer = registerChatMessageRenderer(
+    const chatRenderer = registerChatMessageRenderer(
       payload => payload,
       () => <Text>bye</Text>,
     );
 
-    chat.onCustomMessageRenderingRequest((params, render) => {
-      const cleanup = renderer(params, render);
-      return () => {
-        cleanup();
-        cleanupSpy();
-      };
-    });
+    renderer.onRender(
+      matchChatMessageRenderers({
+        test: (params, render) => {
+          const cleanup = chatRenderer(params, render);
+          return () => {
+            cleanup();
+            cleanupSpy();
+          };
+        },
+      }),
+    );
 
     const callback = vi.fn();
     const messageId = nanoid();
@@ -571,5 +593,65 @@ describe('registerChatMessageRenderer + createProductChatManager integration', (
     });
 
     expect(cleanupSpy).toHaveBeenCalledOnce();
+  });
+
+  it('registerRenderer draws a Pocket card body and routes its actions through renderer.actionSubscribe', async () => {
+    const { renderer, triggerAction, subscribeContext } = setup();
+
+    function Card({ cardId }: { cardId: string }) {
+      const [opened, setOpened] = useState(false);
+      return (
+        <Column>
+          <Text>{opened ? `${cardId} opened` : cardId}</Text>
+          <Button text="Open" onClick={() => setOpened(true)} />
+        </Column>
+      );
+    }
+
+    renderer.onRender(
+      registerRenderer(
+        payload => new TextDecoder().decode(payload),
+        ({ context, payload }) => (
+          <Card cardId={context.tag === 'PocketCard' ? `${context.value.cardId}:${payload}` : ''} />
+        ),
+      ),
+    );
+
+    const context: RenderContext = { tag: 'PocketCard', value: { cardId: 'ticket-42' } };
+    const callback = vi.fn();
+    const sub = await subscribeContext(context, new TextEncoder().encode('gold'), callback);
+
+    const firstNode = callback.mock.calls[callback.mock.calls.length - 1]![0];
+    expect(findChildOfTag(firstNode.value.children as RendererNode[], 'Text').value.children[0]).toEqual({
+      tag: 'String',
+      value: 'ticket-42:gold',
+    });
+    const clickActionId = findChildOfTag(firstNode.value.children as RendererNode[], 'Button').value.props.clickAction!;
+
+    // A chat message sharing nothing but the id space must not reach the card.
+    await act(async () => {
+      triggerAction(chatMessageContext('ticket-42', 'card'), clickActionId, new Uint8Array());
+      await delay(10);
+    });
+    const unchanged = callback.mock.calls[callback.mock.calls.length - 1]![0];
+    expect(findChildOfTag(unchanged.value.children as RendererNode[], 'Text').value.children[0]).toEqual({
+      tag: 'String',
+      value: 'ticket-42:gold',
+    });
+
+    await act(async () => {
+      triggerAction(context, clickActionId, new Uint8Array());
+      await delay(10);
+    });
+
+    const updatedNode = callback.mock.calls[callback.mock.calls.length - 1]![0];
+    expect(findChildOfTag(updatedNode.value.children as RendererNode[], 'Text').value.children[0]).toEqual({
+      tag: 'String',
+      value: 'ticket-42:gold opened',
+    });
+
+    await act(async () => {
+      sub.unsubscribe();
+    });
   });
 });

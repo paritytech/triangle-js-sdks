@@ -25,7 +25,8 @@ function makeActionBus() {
     };
   });
 
-  function dispatch(actionId: string, payload?: Uint8Array) {
+  // A `Button` press carries an empty payload.
+  function dispatch(actionId: string, payload: Uint8Array = new Uint8Array()) {
     listener?.(actionId, payload);
   }
 

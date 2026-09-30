@@ -111,7 +111,7 @@ function createTestSetup(): TestSetup {
   const sdkTransport = createTransport(providers.sdk);
   const provider = createPapiProvider(POLKADOT_GENESIS_HASH, undefined, { transport: sdkTransport });
 
-  container.handleFeatureSupported((params, { ok }) =>
+  container.system.handleFeatureSupported((params, { ok }) =>
     ok(params.tag === 'Chain' && params.value === POLKADOT_GENESIS_HASH),
   );
 

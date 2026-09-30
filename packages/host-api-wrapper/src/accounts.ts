@@ -25,6 +25,7 @@ import {
   RingLocation,
   RingVrfSignErr,
   SignVrfErr,
+  SigningErr,
   SigningPayload,
   SigningPayloadWithoutAccount,
   SigningRawPayload,
@@ -47,9 +48,17 @@ import type { SignerTxCreator } from 'polkadot-api/tx-creator';
 /** v3 `TxPayloadV1`, taken from the `TxCreator` call signature (not exported directly). */
 type TxPayloadV1 = Parameters<SignerTxCreator>[0];
 
+import type { ContactHandle } from './contacts.js';
+import type { GenericInterrupt } from './helpers.js';
+import { genericInterrupt, unwrapVersionedSubscription } from './helpers.js';
 import { sandboxTransport } from './sandboxTransport.js';
 
 export type { AccountSelector } from '@novasamatech/host-api';
+
+export type ProductAccountSignerOptions = {
+  /** Contact handles the signed call data names. Defaults to none. */
+  contacts?: ContactHandle[];
+};
 
 export type ProductAccountId = CodecType<typeof ProductAccountIdCodec>;
 
@@ -113,7 +122,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
 
   return {
     getUserId() {
-      return hostApi
+      return hostApi.account
         .getUserId(enumValue('v1', undefined))
         .mapErr(e => e.value)
         .andThen(response => {
@@ -125,7 +134,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         });
     },
     requestLogin(reason?: string) {
-      return hostApi
+      return hostApi.account
         .requestLogin(enumValue('v1', reason))
         .mapErr(e => e.value)
         .andThen(response => {
@@ -137,8 +146,8 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         });
     },
     getProductAccount(dotNsIdentifier: string, derivationIndex: AccountSelector = 0) {
-      return hostApi
-        .accountGet(enumValue('v1', [dotNsIdentifier, derivationIndexOf(derivationIndex)]))
+      return hostApi.account
+        .getAccount(enumValue('v1', [dotNsIdentifier, derivationIndexOf(derivationIndex)]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -165,8 +174,8 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
      * still discovered only by attempting a proof.
      */
     registerRingVrfKey(index: AccountSelector, ring: CodecType<typeof RingLocation>) {
-      return hostApi
-        .accountRegisterRingVrfKey(enumValue('v1', [derivationIndexOf(index), ring]))
+      return hostApi.account
+        .registerRingVrfKey(enumValue('v1', [derivationIndexOf(index), ring]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -189,8 +198,8 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
      * Select the entry you want by the rings it declares, never by index.
      */
     listRingVrfKeys(owner: string, disclosure: RingVrfKeyDisclosure = 'Anonymized') {
-      return hostApi
-        .accountListRingVrfKeys(enumValue('v1', [owner, disclosure]))
+      return hostApi.account
+        .listRingVrfKeys(enumValue('v1', [owner, disclosure]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -213,8 +222,8 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
      * has moved — nothing else watches for it.
      */
     getContextualAlias(keyHandle: RingVrfKeyHandle, context: ProofContext, ring: CodecType<typeof RingLocation>) {
-      return hostApi
-        .accountGetAlias(enumValue('v1', [keyHandle, toProofContext(context), ring]))
+      return hostApi.account
+        .getAccountAlias(enumValue('v1', [keyHandle, toProofContext(context), ring]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -225,7 +234,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
         });
     },
     getLegacyAccounts() {
-      return hostApi
+      return hostApi.account
         .getLegacyAccounts(enumValue('v1', undefined))
         .mapErr(e => e.value)
         .andThen(response => {
@@ -251,8 +260,8 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
       ring: CodecType<typeof RingLocation>,
       message: Uint8Array,
     ) {
-      return hostApi
-        .accountCreateProof(enumValue('v1', [keyHandle, toProofContext(context), ring, message]))
+      return hostApi.account
+        .createAccountProof(enumValue('v1', [keyHandle, toProofContext(context), ring, message]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -276,8 +285,8 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
      * manifest allowlist and has no prompt fallback.
      */
     ringVrfSign(keyHandle: RingVrfKeyHandle, message: Uint8Array) {
-      return hostApi
-        .accountRingVrfSign(enumValue('v1', [keyHandle, message]))
+      return hostApi.account
+        .ringVrfSign(enumValue('v1', [keyHandle, message]))
         .mapErr(e => e.value)
         .andThen(response => {
           if (isEnumVariant(response, 'v1')) {
@@ -302,8 +311,8 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
       transcriptLabel: Uint8Array,
       items: VrfTranscriptItem[],
     ) {
-      return hostApi
-        .accountSignVrf(
+      return hostApi.account
+        .signVrf(
           enumValue('v1', { account: [dotNsIdentifier, derivationIndexOf(derivationIndex)], transcriptLabel, items }),
         )
         .mapErr(e => e.value)
@@ -323,11 +332,19 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
      *
      * `publicKey` is exposed synchronously on the returned object and is taken
      * from `account`, so no up-front `host_account_get` is needed.
+     *
+     * `options.contacts` lists the contact handles (from `contacts.pick`) that
+     * the call data names in place of a recipient account. The host replaces
+     * each with the account it resolves to before anything is shown or signed,
+     * and refuses with `CreateTransactionErr.UnknownContact` when one cannot be
+     * resolved. Defaults to none; only the `createTransaction` signer uses it.
      */
     getProductAccountSigner(
       account: ProductAccount,
       signerType: 'signPayload' | 'createTransaction' = 'createTransaction',
+      options: ProductAccountSignerOptions = {},
     ): SignerTxCreator {
+      const contacts = options.contacts ?? [];
       const hostApi = createHostApi(transport);
       const productAccountId: ProductAccountId = [account.dotNsIdentifier, derivationIndexOf(account.derivationIndex)];
 
@@ -343,7 +360,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
               payload: buildSigningPayloadFields(payload),
             };
 
-            const response = await hostApi.signPayload(enumValue('v1', codecPayload));
+            const response = await hostApi.signing.signPayload(enumValue('v1', codecPayload));
 
             return response.match(
               response => {
@@ -375,7 +392,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
                     },
             };
 
-            const response = await hostApi.signRaw(enumValue('v1', payload));
+            const response = await hostApi.signing.signRaw(enumValue('v1', payload));
 
             return response.match(
               response => {
@@ -439,9 +456,10 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
             additionalSigned: fromHex(additionalSigned),
           })),
           txExtVersion: payload.txExtVersion ?? deriveDefaultTxExtVersion(payload.context.metadata),
+          contacts,
         };
 
-        const response = await hostApi.createTransaction(enumValue('v1', txPayload));
+        const response = await hostApi.signing.createTransaction(enumValue('v1', txPayload));
 
         return response.match(
           response => {
@@ -456,7 +474,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
       };
 
       const signBytes = async (data: Uint8Array): Promise<Uint8Array> => {
-        const response = await hostApi.signRaw(
+        const response = await hostApi.signing.signRaw(
           enumValue('v1', {
             account: productAccountId,
             payload: { tag: 'Bytes', value: data },
@@ -477,17 +495,73 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
 
       return Object.assign(createTx, { publicKey: account.publicKey, signBytes }) as SignerTxCreator;
     },
-    subscribeAccountConnectionStatus(callback: (status: AccountConnectionStatus) => void): Subscription<void> {
-      const subscriber = hostApi.accountConnectionStatusSubscribe(enumValue('v1', undefined), status => {
-        if (status.tag === 'v1') {
-          callback(status.value);
-        }
-      });
+    subscribeAccountConnectionStatus(
+      callback: (status: AccountConnectionStatus) => void,
+    ): Subscription<GenericInterrupt | undefined> {
+      return unwrapVersionedSubscription(
+        hostApi.account.connectionStatusSubscribe(enumValue('v1', undefined), status => {
+          if (status.tag === 'v1') {
+            callback(status.value);
+          }
+        }),
+        genericInterrupt,
+      );
+    },
 
-      return {
-        unsubscribe: subscriber.unsubscribe,
-        onInterrupt: cb => subscriber.onInterrupt(v => cb(v.value)),
-      };
+    /**
+     * Signs raw data with a product account **without** the `<Bytes>…</Bytes>`
+     * watermark: the decoded bytes are signed exactly as supplied.
+     *
+     * A `Uint8Array` is signed as bytes; a string goes through the host's
+     * `Payload` decoding, as with watermarked `signRaw`. The host requires
+     * signing authorization and an explicit user confirmation.
+     *
+     * @deprecated Temporary compatibility API for runtime ownership proofs.
+     * Migrate to watermarked signing once the runtime supports it; this method
+     * will be removed. See https://github.com/paritytech/host-rust-core/issues/612
+     */
+    signRawUnwatermarkedDeprecated(account: ProductAccount, data: Uint8Array | string) {
+      return hostApi.signing
+        .signRawUnwatermarkedDeprecated(
+          enumValue('v1', {
+            account: [account.dotNsIdentifier, derivationIndexOf(account.derivationIndex)],
+            payload: toRawPayload(data),
+          }),
+        )
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new SigningErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
+    },
+
+    /**
+     * Legacy-account counterpart of {@link signRawUnwatermarkedDeprecated}.
+     *
+     * @deprecated Temporary compatibility API for runtime ownership proofs.
+     * Migrate to watermarked signing once the runtime supports it; this method
+     * will be removed. See https://github.com/paritytech/host-rust-core/issues/612
+     */
+    signRawUnwatermarkedDeprecatedWithLegacyAccount(account: LegacyAccount, data: Uint8Array | string) {
+      return hostApi.signing
+        .signRawUnwatermarkedDeprecatedWithLegacyAccount(
+          enumValue('v1', {
+            // SS58 address, as `getLegacyAccountSigner` passes it.
+            signer: AccountId().dec(account.publicKey),
+            payload: toRawPayload(data),
+          }),
+        )
+        .mapErr(e => e.value)
+        .andThen(response => {
+          if (isEnumVariant(response, 'v1')) {
+            return ok(response.value);
+          }
+          // @ts-expect-error response.tag is never here
+          return err(new SigningErr.Unknown({ reason: `Unsupported response version ${response.tag}` }));
+        });
     },
     getLegacyAccountSigner(account: LegacyAccount): SignerTxCreator {
       // The pjs `address` is propagated verbatim into the wire `signer` field
@@ -503,7 +577,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
             payload: buildSigningPayloadFields(payload),
           };
 
-          const response = await hostApi.signPayloadWithLegacyAccount(enumValue('v1', codecPayload));
+          const response = await hostApi.signing.signPayloadWithLegacyAccount(enumValue('v1', codecPayload));
 
           return response.match(
             response => {
@@ -526,7 +600,7 @@ export const createAccountsProvider = (transport: Transport = sandboxTransport) 
             payload: { tag: 'Bytes', value: fromHex(asHex(raw.data)) },
           };
 
-          const response = await hostApi.signRawWithLegacyAccount(enumValue('v1', payload));
+          const response = await hostApi.signing.signRawWithLegacyAccount(enumValue('v1', payload));
 
           return response.match(
             response => {
@@ -552,6 +626,10 @@ export const accounts = createAccountsProvider();
 
 function toProofContext([productId, suffix]: ProofContext): CodecType<typeof ProductProofContext> {
   return [productId, derivationIndexOf(suffix)];
+}
+
+function toRawPayload(data: Uint8Array | string): CodecType<typeof SigningRawPayload>['payload'] {
+  return typeof data === 'string' ? { tag: 'Payload', value: data } : { tag: 'Bytes', value: data };
 }
 
 function asHex(v: string): HexString {

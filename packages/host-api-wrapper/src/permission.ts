@@ -14,8 +14,8 @@ export type RemotePermissionItem = CodecType<typeof RemotePermission>;
  *   - err(...)  — transport or encoding error
  */
 export function requestDevicePermission(permission: DevicePermissionKind) {
-  return hostApi
-    .devicePermission(enumValue('v1', permission))
+  return hostApi.permissions
+    .requestDevicePermission(enumValue('v1', permission))
     .map(r => r.value)
     .mapErr(e => e.value);
 }
@@ -28,8 +28,8 @@ export function requestDevicePermission(permission: DevicePermissionKind) {
  *   - err(...)  — transport or encoding error
  */
 export function requestPermission(permission: RemotePermissionItem) {
-  return hostApi
-    .permission(enumValue('v1', permission))
+  return hostApi.permissions
+    .requestRemotePermission(enumValue('v1', permission))
     .map(r => r.value)
     .mapErr(e => e.value);
 }

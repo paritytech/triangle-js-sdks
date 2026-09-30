@@ -1,12 +1,33 @@
-import { LegacyTransaction, ProductAccountTransaction } from '@novasamatech/host-api';
-import { Bytes, Enum } from '@novasamatech/scale';
+import { LegacyTransaction, ProductAccountId } from '@novasamatech/host-api';
+import { Bytes, Enum, Hex } from '@novasamatech/scale';
 import type { CodecType } from 'scale-ts';
-import { Result, Struct, str } from 'scale-ts';
+import { Result, Struct, Vector, str, u8 } from 'scale-ts';
+
+/**
+ * A product-account transaction as it crosses to the signing host: host-api's
+ * `ProductAccountTransaction` without `contacts`. The pairing host substitutes
+ * every declared contact handle in `callData` before relaying, so the signing
+ * host has none to resolve and the wire keeps the shape existing wallets
+ * decode (truapi's `SsoProductTxPayload`).
+ */
+const SsoProductTransaction = Struct({
+  signer: ProductAccountId,
+  genesisHash: Hex(32),
+  callData: Bytes(),
+  extensions: Vector(
+    Struct({
+      id: str,
+      extra: Bytes(),
+      additionalSigned: Bytes(),
+    }),
+  ),
+  txExtVersion: u8,
+});
 
 export type CreateTransactionRequest = CodecType<typeof CreateTransactionRequestCodec>;
 export const CreateTransactionRequestCodec = Struct({
   payload: Enum({
-    v1: ProductAccountTransaction,
+    v1: SsoProductTransaction,
   }),
 });
 

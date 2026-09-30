@@ -1,7 +1,6 @@
 import { Enum, ErrEnum, Hex, Nullable, Status } from '@novasamatech/scale';
 import { Option, Struct, Tuple, Vector, _void, bool, str, u32 } from 'scale-ts';
 
-import { CallResult } from '../callError.js';
 import { GenericErr, GenericError } from '../commonCodecs.js';
 
 // === Shared types ===
@@ -109,7 +108,7 @@ export const ChainHeadEvent = Enum({
 });
 
 export const ChainHeadFollowV1_receive = ChainHeadEvent;
-export const ChainHeadFollowV1_interrupt = _void;
+export const ChainHeadFollowV1_interrupt = GenericError;
 
 // === ChainHead Header ===
 
@@ -118,7 +117,8 @@ export const ChainHeadHeaderV1_request = Struct({
   followSubscriptionId: str,
   hash: BlockHash,
 });
-export const ChainHeadHeaderV1_response = CallResult(Nullable(Hex()), GenericError);
+export const ChainHeadHeaderV1_response = Nullable(Hex());
+export const ChainHeadHeaderV1_error = GenericError;
 
 // === ChainHead Body ===
 
@@ -127,7 +127,8 @@ export const ChainHeadBodyV1_request = Struct({
   followSubscriptionId: str,
   hash: BlockHash,
 });
-export const ChainHeadBodyV1_response = CallResult(OperationStartedResult, GenericError);
+export const ChainHeadBodyV1_response = OperationStartedResult;
+export const ChainHeadBodyV1_error = GenericError;
 
 // === ChainHead Storage ===
 
@@ -138,7 +139,8 @@ export const ChainHeadStorageV1_request = Struct({
   items: Vector(StorageQueryItem),
   childTrie: Nullable(Hex()),
 });
-export const ChainHeadStorageV1_response = CallResult(OperationStartedResult, GenericError);
+export const ChainHeadStorageV1_response = OperationStartedResult;
+export const ChainHeadStorageV1_error = GenericError;
 
 // === ChainHead Call ===
 
@@ -149,7 +151,8 @@ export const ChainHeadCallV1_request = Struct({
   function: str,
   callParameters: Hex(),
 });
-export const ChainHeadCallV1_response = CallResult(OperationStartedResult, GenericError);
+export const ChainHeadCallV1_response = OperationStartedResult;
+export const ChainHeadCallV1_error = GenericError;
 
 // === ChainHead Unpin ===
 
@@ -158,7 +161,8 @@ export const ChainHeadUnpinV1_request = Struct({
   followSubscriptionId: str,
   hashes: Vector(BlockHash),
 });
-export const ChainHeadUnpinV1_response = CallResult(_void, GenericError);
+export const ChainHeadUnpinV1_response = _void;
+export const ChainHeadUnpinV1_error = GenericError;
 
 // === ChainHead Continue ===
 
@@ -167,7 +171,8 @@ export const ChainHeadContinueV1_request = Struct({
   followSubscriptionId: str,
   operationId: OperationId,
 });
-export const ChainHeadContinueV1_response = CallResult(_void, GenericError);
+export const ChainHeadContinueV1_response = _void;
+export const ChainHeadContinueV1_error = GenericError;
 
 // === ChainHead StopOperation ===
 
@@ -176,7 +181,8 @@ export const ChainHeadStopOperationV1_request = Struct({
   followSubscriptionId: str,
   operationId: OperationId,
 });
-export const ChainHeadStopOperationV1_response = CallResult(_void, GenericError);
+export const ChainHeadStopOperationV1_response = _void;
+export const ChainHeadStopOperationV1_error = GenericError;
 
 // === Chain info ===
 
@@ -189,21 +195,22 @@ export const ChainInfoErr = ErrEnum('ChainInfoErr', {
 });
 
 export const ChainInfoV1_request = Struct({ chain: ChainIdentifier });
-export const ChainInfoV1_response = CallResult(
-  Struct({ network: str, chain: ChainIdentifier, genesisHash: Hex(32) }),
-  ChainInfoErr,
-);
+export const ChainInfoV1_response = Struct({ network: str, chain: ChainIdentifier, genesisHash: Hex(32) });
+export const ChainInfoV1_error = ChainInfoErr;
 
 // === ChainSpec ===
 
 export const ChainSpecGenesisHashV1_request = Hex();
-export const ChainSpecGenesisHashV1_response = CallResult(Hex(), GenericError);
+export const ChainSpecGenesisHashV1_response = Hex();
+export const ChainSpecGenesisHashV1_error = GenericError;
 
 export const ChainSpecChainNameV1_request = Hex();
-export const ChainSpecChainNameV1_response = CallResult(str, GenericError);
+export const ChainSpecChainNameV1_response = str;
+export const ChainSpecChainNameV1_error = GenericError;
 
 export const ChainSpecPropertiesV1_request = Hex();
-export const ChainSpecPropertiesV1_response = CallResult(str, GenericError);
+export const ChainSpecPropertiesV1_response = str;
+export const ChainSpecPropertiesV1_error = GenericError;
 
 // === Transaction Broadcast ===
 
@@ -211,7 +218,8 @@ export const TransactionBroadcastV1_request = Struct({
   genesisHash: Hex(),
   transaction: Hex(),
 });
-export const TransactionBroadcastV1_response = CallResult(Nullable(str), GenericError);
+export const TransactionBroadcastV1_response = Nullable(str);
+export const TransactionBroadcastV1_error = GenericError;
 
 // === Transaction Stop ===
 
@@ -219,4 +227,5 @@ export const TransactionStopV1_request = Struct({
   genesisHash: Hex(),
   operationId: str,
 });
-export const TransactionStopV1_response = CallResult(_void, GenericError);
+export const TransactionStopV1_response = _void;
+export const TransactionStopV1_error = GenericError;
