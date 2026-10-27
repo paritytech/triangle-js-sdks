@@ -34,7 +34,7 @@
     "neverthrow": "^8.2.0"
   },
   "devDependencies": {
-    "electron": "^44.1.0"
+    "electron": "^44.9.1"
   },
   "publishConfig": {
     "access": "public"
