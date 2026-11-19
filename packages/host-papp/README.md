@@ -55,6 +55,25 @@ const papp = createPappAdapter({
 Custom adapters (statement store, identity RPC, storage, lazy chain client) can be supplied via the `adapters` option
 for testing or non-browser environments.
 
+### Chain endpoint
+
+Unless `adapters.lazyClient` is supplied, the adapter connects to `SS_STABLE_STAGE_ENDPOINTS`
+(`wss://pop3-testnet.parity-lab.parity.io/people`). This is a test network endpoint with no availability guarantee, and
+it is not meant for production use. Pass your own People chain endpoint instead:
+
+```ts
+import { createPappAdapter } from '@novasamatech/host-papp';
+import { createLazyClient } from '@novasamatech/statement-store';
+import { getWsProvider } from 'polkadot-api/ws';
+
+const papp = createPappAdapter({
+  appId: 'my-host-app',
+  adapters: {
+    lazyClient: createLazyClient(getWsProvider(['wss://your-people-chain-endpoint'])),
+  },
+});
+```
+
 ## Authentication and pairing (V1)
 
 The V1 SSO flow described in this section is the single-device pairing protocol used by `papp.sso.authenticate()`. For

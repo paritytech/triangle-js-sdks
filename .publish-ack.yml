@@ -1,0 +1,76 @@
+version: 1
+repo: triangle-js-sdks
+audited_at: 2026-11-20
+audited_commit: c7fcf98
+accepts:
+  - id: repository-security-policy
+    item: 3a
+    location: SECURITY.md
+    finding: >-
+      The repository carries its own SECURITY.md.
+    reason: >-
+      The policy was agreed with the security team for this repository.
+    mitigation: >-
+      The README Security section links the disclosure process.
+    accepted_by: repository maintainers
+  - id: source-file-headers
+    item: 3
+    location: packages/*/src
+    finding: >-
+      Source files carry no per-file licence header.
+    reason: >-
+      Every published package ships LICENSE and NOTICE; headers are optional.
+    mitigation: >-
+      Licence is declared in LICENSE, NOTICE, each package manifest and the README.
+    accepted_by: repository maintainers
+  - id: default-people-endpoint
+    item: 5
+    location: packages/host-papp/src/constants.ts:1
+    finding: >-
+      The default People chain endpoint is a test network host.
+    reason: >-
+      The adapter needs a default to work out of the box; changing it is a breaking change for consumers.
+    mitigation: >-
+      Documented in packages/host-papp/README.md together with how to override it.
+    accepted_by: repository maintainers
+  - id: generated-chain-descriptors
+    item: 5
+    location: packages/*/.papi
+    finding: >-
+      Generated chain descriptors embed documentation strings from chain metadata, including links to repositories that
+      are not public.
+    reason: >-
+      The files are generated from on-chain metadata and must match it.
+    mitigation: >-
+      None required.
+    accepted_by: repository maintainers
+  - id: third-party-repository-links
+    item: 5
+    location: THIRD_PARTY_NOTICES.md
+    finding: >-
+      The generated notices list links declared by dependencies, one of which points to a repository that is not public.
+    reason: >-
+      The link comes from the dependency's published manifest.
+    mitigation: >-
+      None required.
+    accepted_by: repository maintainers
+  - id: test-vectors
+    item: 1
+    location: '**/*.spec.ts'
+    finding: >-
+      Secret scanners flag three constants in test files.
+    reason: >-
+      They are public test vectors and a storage key, not credentials.
+    mitigation: >-
+      None required.
+    accepted_by: repository maintainers
+  - id: commit-author-emails
+    item: 5
+    location: git history
+    finding: >-
+      Commits carry the authors' real e-mail addresses.
+    reason: >-
+      Authorship metadata, not removable without rewriting history.
+    mitigation: >-
+      None required.
+    accepted_by: repository maintainers

@@ -46,8 +46,7 @@ export const Response = Struct({
  * one-shot symmetric key wrapped for this device (see `session/codec/envelope.ts`).
  *
  * `statementAccountId` is a FIXED 32-byte array, matching Android's `RequestDeviceInfo`
- * (paritytech/polkadot-app-android-v2#605) and desktop. Pre-#605 Android builds emit
- * `Vec<u8>` here and are not interoperable.
+ * and desktop. Older Android builds emit `Vec<u8>` here and are not interoperable.
  */
 export const RequestDeviceInfo = Struct({
   statementAccountId: Bytes(32),

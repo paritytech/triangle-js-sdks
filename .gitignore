@@ -37,6 +37,14 @@ packages/*/dist
 local-tarballs
 
 storybook-static
+coverage
+
+# AI tooling state
+.claude/settings.local.json
+.claude/sessions/
+.claude/cache/
+.cursor/
+.mcp.json
 
 docs/superpowers/
 docs/design/

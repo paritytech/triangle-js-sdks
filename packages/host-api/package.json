@@ -19,7 +19,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "NOTICE"
   ],
   "dependencies": {
     "@novasamatech/scale": "0.12.0",

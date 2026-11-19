@@ -2,7 +2,7 @@
   "name": "@novasamatech/storage-adapter",
   "type": "module",
   "version": "0.12.0",
-  "description": "Statement store integration",
+  "description": "Key-value storage abstraction",
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
@@ -22,7 +22,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "NOTICE"
   ],
   "dependencies": {
     "nanoevents": "10.0.0",

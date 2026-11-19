@@ -32,7 +32,8 @@
   "files": [
     "dist",
     ".papi",
-    "README.md"
+    "README.md",
+    "NOTICE"
   ],
   "dependencies": {
     "@noble/ciphers": "2.4.0",

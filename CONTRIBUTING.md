@@ -9,17 +9,9 @@ please [file an issue](https://github.com/paritytech/triangle-js-sdks/issues/new
 
 Host API change requests should be raised in [truapi](https://github.com/paritytech/host-rust-core).
 
-## Design Documents
-
-Canonical design documentation lives in `docs/design/`. To propose updates or add new design docs:
-
-1. Edit or add a file in `docs/design/`
-2. Include YAML frontmatter (`title`, `type: design`, `status`, `author`, `created`, `pr`)
-3. Open a PR with the `design-doc` label
-
 ## Development
 
-If you have been assigned to fix an issue or develop a new feature, please follow these steps to get started:
+To fix an issue or develop a new feature, follow these steps to get started:
 
 - Fork this repository.
 - Install dependencies
@@ -49,7 +41,7 @@ If you have been assigned to fix an issue or develop a new feature, please follo
 
 - Implement your changes and tests in files in the `packages/` and `__tests__` directories.
 - Document your changes in the appropriate doc page.
-- Git stage your required changes and commit (see below commit guidelines).
+- Git stage your required changes and commit.
 - Submit PR for review.
 
 ## Pull requests
