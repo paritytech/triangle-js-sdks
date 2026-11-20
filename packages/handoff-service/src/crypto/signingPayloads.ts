@@ -1,4 +1,4 @@
-import { blake2b } from '@noble/hashes/blake2.js';
+import { blake2b256 } from './hash.js';
 
 /**
  * Domain-separated 32-byte payloads that the HOP node verifies for
@@ -25,10 +25,6 @@ function concat(...parts: Uint8Array[]): Uint8Array {
     offset += p.length;
   }
   return out;
-}
-
-function blake2b256(data: Uint8Array): Uint8Array {
-  return blake2b(data, { dkLen: 32 });
 }
 
 function u64LeBytes(value: bigint): Uint8Array {

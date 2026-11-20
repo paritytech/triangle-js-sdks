@@ -10,7 +10,39 @@ export type HopClient = {
   claim(hash: Uint8Array, signature: Uint8Array): ResultAsync<Uint8Array, Error>;
   ack(hash: Uint8Array, signature: Uint8Array): ResultAsync<null, Error>;
   poolStatus(): ResultAsync<PoolStatus, Error>;
+  /**
+   * `bitswap_v1_get` — fetch a promoted (on-chain) entry by CID (chat RFC
+   * 0001). Exposed on the same connection as the hop_* methods; nodes
+   * referenced in messages MUST serve both.
+   */
+  bitswapGet(cid: string): ResultAsync<Uint8Array, Error>;
 };
+
+/**
+ * Error codes returned by the `hop_*` methods (`substrate/client/hop/src/types.rs`).
+ * These live in a different space from `BitswapErrorCode` — the same condition
+ * has a different number on each RPC, so the two tables must not be conflated.
+ */
+export const HopErrorCode = {
+  /** The pool no longer holds this entry — it may have been promoted on-chain. */
+  notFound: 1004,
+} as const;
+
+/**
+ * JSON-RPC failure with the server error code preserved, so callers can
+ * distinguish `NotFound` (fall back / retry) from terminal errors. Constructed
+ * only when the server actually reported a code, so `instanceof HopRpcError`
+ * alone proves the code is available.
+ */
+export class HopRpcError extends Error {
+  readonly code: number;
+
+  constructor(message: string, code: number) {
+    super(message);
+    this.name = 'HopRpcError';
+    this.code = code;
+  }
+}
 
 function toHexString(bytes: Uint8Array): HexString {
   return toHex(bytes) as HexString;
@@ -25,6 +57,12 @@ function encodeSr25519Signature(signature: Uint8Array): HexString {
 }
 
 function toError(e: unknown): Error {
+  if (typeof e === 'object' && e !== null) {
+    const { code, message } = e as { code?: unknown; message?: unknown };
+    if (typeof code === 'number') {
+      return new HopRpcError(message === undefined ? String(e) : String(message), code);
+    }
+  }
   return e instanceof Error ? e : new Error(String(e));
 }
 
@@ -60,6 +98,13 @@ export function createHopClient(requestFn: RequestFn): HopClient {
 
     poolStatus() {
       return fromPromise(requestFn<PoolStatus>('hop_poolStatus', []), toError);
+    },
+
+    bitswapGet(cid) {
+      return fromPromise(
+        requestFn<HexString>('bitswap_v1_get', [cid]).then(hex => fromHex(hex)),
+        toError,
+      );
     },
   };
 }
