@@ -543,7 +543,7 @@ The host app's own code uses the same pool through `lockApi` and `getProvider`. 
 
 ## Full example
 
-Production-grade setup matching the architecture of [polkadot-desktop](https://github.com/paritytech/polkadot-desktop). Includes Smoldot light client fallback, metadata caching, specName-based descriptor resolution, and a rich resolved API type.
+A complete setup matching the architecture of [polkadot-desktop-community](https://github.com/paritytech/polkadot-desktop-community). Includes Smoldot light client fallback, metadata caching, specName-based descriptor resolution, and a rich resolved API type.
 
 ```ts
 import {

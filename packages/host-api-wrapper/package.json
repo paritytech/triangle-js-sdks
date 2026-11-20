@@ -22,7 +22,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "NOTICE"
   ],
   "dependencies": {
     "@polkadot/extension-inject": "^0.63.1",

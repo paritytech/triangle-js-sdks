@@ -22,7 +22,8 @@
   },
   "files": [
     "dist",
-    "README.md"
+    "README.md",
+    "NOTICE"
   ],
   "dependencies": {
     "@polkadot-api/utils": "^0.4.0",

@@ -28,7 +28,8 @@
   "files": [
     "dist",
     ".papi",
-    "README.md"
+    "README.md",
+    "NOTICE"
   ],
   "dependencies": {
     "@novasamatech/host-api-wrapper": "0.12.0",
