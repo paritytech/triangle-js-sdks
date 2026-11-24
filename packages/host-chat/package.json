@@ -27,6 +27,10 @@
       "types": "./dist/codec/attachment.d.ts",
       "default": "./dist/codec/attachment.js"
     },
+    "./seen": {
+      "types": "./dist/seen.d.ts",
+      "default": "./dist/seen.js"
+    },
     "./session": {
       "types": "./dist/session.d.ts",
       "default": "./dist/session.js"

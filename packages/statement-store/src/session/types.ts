@@ -3,8 +3,7 @@ import type { Codec } from 'scale-ts';
 
 import type { Callback } from '../types.js';
 
-import type { DecodingError } from './error.js';
-import { DecryptionError, UnknownError } from './error.js';
+import type { DecodingError, DecryptionError, MessageReplacedError, UnknownError } from './error.js';
 import type { ResponseStatus } from './scale/statementData.js';
 
 export type RequestPayload<T> =
@@ -36,7 +35,10 @@ export type Message<T> = RequestMessage<T> | ResponseMessage;
 export type Filter<T, S> = (value: T) => S | undefined;
 
 export type Session = {
-  request<T>(codec: Codec<T>, payload: T): ResultAsync<void, DecodingError | DecryptionError | UnknownError | Error>;
+  request<T>(
+    codec: Codec<T>,
+    payload: T,
+  ): ResultAsync<void, DecodingError | DecryptionError | UnknownError | MessageReplacedError | Error>;
 
   submitRequestMessage<T>(codec: Codec<T>, payload: T): ResultAsync<{ requestId: string }, Error>;
   submitResponseMessage(requestId: string, responseCode: ResponseStatus): ResultAsync<void, Error>;
@@ -65,6 +67,12 @@ export type Session = {
    */
   clearOutgoingStatement(): ResultAsync<void, Error>;
   waitForRequestMessage<T, S>(codec: Codec<T>, filter: Filter<T, S>): ResultAsync<S, Error>;
+  /**
+   * Settle with the peer's response to the message submitted under `requestId` (the token
+   * returned by {@link submitRequestMessage}). Rejects with `MessageReplacedError` when the
+   * session's replacement policy replaced the message before delivery; a message the policy
+   * dropped as redundant settles with the response to the pending message it duplicated.
+   */
   waitForResponseMessage(requestId: string): ResultAsync<ResponseMessage, Error>;
   subscribe<T>(codec: Codec<T>, callback: Callback<Message<T>[]>): VoidFunction;
   dispose(): void;

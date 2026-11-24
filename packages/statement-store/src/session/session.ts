@@ -16,6 +16,8 @@ import { createStaticTopics } from './codec/incomingTopics.js';
 import { createBodyBuilder } from './codec/outgoingBody.js';
 import { DEFAULT_MAX_REQUEST_SIZE, createSessionCore } from './core.js';
 import type { Encryption } from './encyption.js';
+import type { PendingMessageReplacementPolicy } from './replacementPolicy.js';
+import { keepAllMessages } from './replacementPolicy.js';
 import type { StatementProver } from './statementProver.js';
 import type { Session } from './types.js';
 
@@ -53,6 +55,12 @@ export type SessionParams = {
    * chain, never less.
    */
   maxRequestSize?: number;
+  /**
+   * Which pending outgoing messages a new one may drop or replace (e.g. at most one
+   * undelivered seen receipt per peer, chat-spec RFC 0006). Defaults to
+   * {@link keepAllMessages}: every message is sent.
+   */
+  replacementPolicy?: PendingMessageReplacementPolicy;
 };
 
 /**
@@ -69,6 +77,7 @@ export function createSession({
   sessionKey,
   allocator = createExpiryAllocator(),
   maxRequestSize = DEFAULT_MAX_REQUEST_SIZE,
+  replacementPolicy = keepAllMessages,
 }: SessionParams): Session {
   const outgoingTopic = createSessionId(sessionKey, localAccount, remoteAccount);
   const incomingTopic = createSessionId(sessionKey, remoteAccount, localAccount);
@@ -88,5 +97,6 @@ export function createSession({
     // No envelope: a single-device session neither emits nor accepts multi-device variants.
     decoder: createStatementDecoder({ prover, ownEncryption: encryption }),
     peerDevices: () => [],
+    replacementPolicy,
   });
 }

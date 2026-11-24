@@ -32,7 +32,9 @@ export { createSlotAccountProver, createSr25519Prover } from './session/statemen
 export type { Encryption } from './session/encyption.js';
 export { createEncryption } from './session/encyption.js';
 
-export { DecodingError, DecryptionError, UnknownError } from './session/error.js';
+export { DecodingError, DecryptionError, MessageReplacedError, UnknownError } from './session/error.js';
+export type { PendingMessageReplacementPolicy, ReplacementDecision } from './session/replacementPolicy.js';
+export { keepAllMessages } from './session/replacementPolicy.js';
 
 export type { LazyClient } from './adapter/lazyClient.js';
 export { createLazyClient } from './adapter/lazyClient.js';

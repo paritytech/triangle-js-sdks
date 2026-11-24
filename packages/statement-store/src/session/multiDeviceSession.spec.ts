@@ -16,7 +16,9 @@ import { createExpiryAllocator } from '../submit/allocator.js';
 
 import type { DeviceTarget } from './codec/envelope.js';
 import type { PeerRoster } from './codec/incomingTopics.js';
+import { MessageReplacedError } from './error.js';
 import { createMultiDeviceSession } from './multiDeviceSession.js';
+import type { PendingMessageReplacementPolicy } from './replacementPolicy.js';
 import type { StatementProver } from './statementProver.js';
 
 const rawCodec = Bytes();
@@ -420,5 +422,107 @@ describe('multi-device session', () => {
 
     restored.dispose();
     bobSession.dispose();
+  });
+
+  // The policy lives in the shared core; this checks the multi-device wiring and envelope path.
+  describe('replacement policy', () => {
+    const text = (value: string) => new TextEncoder().encode(value);
+    // `seen:<watermark>#<id>` is a receipt; equal watermarks are redundant, others supersede.
+    const watermarkOf = (encoded: Uint8Array) =>
+      new TextDecoder().decode(rawCodec.dec(encoded)).match(/^seen:(.*)#/)?.[1];
+    const keepSingleSeen: PendingMessageReplacementPolicy = {
+      isReplaceable: encoded => watermarkOf(encoded) !== undefined,
+      decide: (next, pending) => {
+        const pendingWatermark = watermarkOf(pending);
+        if (pendingWatermark === undefined) return 'keepBoth';
+        return pendingWatermark === watermarkOf(next) ? 'dropNew' : 'replacePending';
+      },
+    };
+
+    function setup() {
+      const store = createInMemoryStatementStore();
+      const alice = createIdentity();
+      const bob = createIdentity();
+      const aliceDevice = createDevice();
+      const bobDevice = createDevice();
+      const aliceParams = {
+        localDevice: aliceDevice,
+        localIdentity: alice,
+        remoteIdentity: { accountId: bob.accountId, chatPublicKey: bob.chatPublicKey },
+        peerRoster: mutableRoster([toTarget(bobDevice)]).roster,
+        statementStore: store,
+        prover: mockProver,
+        allocator: createExpiryAllocator(),
+        replacementPolicy: keepSingleSeen,
+      };
+
+      // Bob comes online only when asked, so he sees just what survived on the channel.
+      function bobOnline() {
+        const received: string[] = [];
+        const session = createMultiDeviceSession({
+          localDevice: bobDevice,
+          localIdentity: bob,
+          remoteIdentity: { accountId: alice.accountId, chatPublicKey: alice.chatPublicKey },
+          peerRoster: mutableRoster([toTarget(aliceDevice)]).roster,
+          statementStore: store,
+          prover: mockProver,
+          allocator: createExpiryAllocator(),
+        });
+        session.respondToRequests(rawCodec, request => {
+          if (request.payload.status === 'parsed') received.push(new TextDecoder().decode(request.payload.value));
+          return 'success';
+        });
+        return { session, received };
+      }
+
+      return { aliceParams, bobOnline };
+    }
+
+    async function submit(session: ReturnType<typeof createMultiDeviceSession>, value: string) {
+      const { requestId } = (await session.submitRequestMessage(rawCodec, text(value)))._unsafeUnwrap();
+      return { delivery: session.waitForResponseMessage(requestId) };
+    }
+
+    it('replaces a receipt in the live batch and rejects its waiter as replaced', async () => {
+      const { aliceParams, bobOnline } = setup();
+      const alice = createMultiDeviceSession(aliceParams);
+      alice.subscribe(rawCodec, vi.fn());
+      await delay();
+
+      const { delivery: hello } = await submit(alice, 'hello');
+      const { delivery: oldSeen } = await submit(alice, 'seen:5#a');
+      const { delivery: newSeen } = await submit(alice, 'seen:6#b');
+      expect((await oldSeen)._unsafeUnwrapErr()).toBeInstanceOf(MessageReplacedError);
+      await delay();
+
+      const bob = bobOnline();
+      await expect(hello).toBeOk();
+      await expect(newSeen).toBeOk();
+      expect(bob.received).toEqual(['hello', 'seen:6#b']);
+
+      alice.dispose();
+      bob.session.dispose();
+    });
+
+    it('reconciles a receipt submitted during init with the batch restored after a restart', async () => {
+      const { aliceParams, bobOnline } = setup();
+      const before = createMultiDeviceSession(aliceParams);
+      await delay();
+      await submit(before, 'seen:5#a');
+      await delay();
+      before.dispose(); // Bob never answered.
+
+      const after = createMultiDeviceSession(aliceParams);
+      after.subscribe(rawCodec, vi.fn());
+      const { delivery: newSeen } = await submit(after, 'seen:6#b'); // still initializing
+      await delay();
+
+      const bob = bobOnline();
+      await expect(newSeen).toBeOk();
+      expect(bob.received).toEqual(['seen:6#b']);
+
+      after.dispose();
+      bob.session.dispose();
+    });
   });
 });

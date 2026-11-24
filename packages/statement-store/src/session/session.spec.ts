@@ -16,7 +16,8 @@ import { createAccountId, createLocalSessionAccount, createRemoteSessionAccount 
 import { STATEMENT_OVERHEAD } from './core.js';
 import type { Encryption } from './encyption.js';
 import { createEncryption } from './encyption.js';
-import { DecodingError, UnknownError } from './error.js';
+import { DecodingError, MessageReplacedError, UnknownError } from './error.js';
+import type { PendingMessageReplacementPolicy } from './replacementPolicy.js';
 import { StatementData } from './scale/statementData.js';
 import { createSession } from './session.js';
 import type { StatementProver } from './statementProver.js';
@@ -182,7 +183,7 @@ const requestMsg = (id: string): CodecType<typeof RemoteMsg> => ({ id, kind: 're
 const PAIRWISE_SECRET = new Uint8Array(32).fill(0x5a);
 const realProver = () => createSr25519Prover(createSr25519Secret(new Uint8Array(32).fill(0x5b)));
 
-function makeHost(adapter: StatementStoreAdapter) {
+function makeHost(adapter: StatementStoreAdapter, replacementPolicy?: PendingMessageReplacementPolicy) {
   return createSession({
     localAccount: localA,
     remoteAccount: remoteB,
@@ -190,6 +191,7 @@ function makeHost(adapter: StatementStoreAdapter) {
     encryption: createEncryption(PAIRWISE_SECRET),
     prover: realProver(),
     sessionKey: SHARED_KEY,
+    replacementPolicy,
   });
 }
 function makeMobile(adapter: StatementStoreAdapter) {
@@ -1605,6 +1607,149 @@ describe('session', () => {
         host.dispose();
         mobile.dispose();
       });
+    });
+  });
+
+  // At most one undelivered seen receipt per peer (chat-spec RFC 0006), end to end over a
+  // shared store. The peer comes online only after the sender has finished, so what it
+  // receives is exactly what survived on the channel.
+  describe('replacement policy', () => {
+    const seenMsg = (id: string, watermark: string): CodecType<typeof RemoteMsg> => ({
+      id,
+      kind: 'seen',
+      respondingTo: '',
+      body: watermark,
+    });
+    const decodeRemote = (encoded: Uint8Array) => {
+      try {
+        return RemoteMsg.dec(encoded);
+      } catch {
+        return undefined;
+      }
+    };
+    const keepSingleSeen: PendingMessageReplacementPolicy = {
+      isReplaceable: encoded => decodeRemote(encoded)?.kind === 'seen',
+      decide: (next, pending) => {
+        const pendingSeen = decodeRemote(pending);
+        if (pendingSeen?.kind !== 'seen') return 'keepBoth';
+        return pendingSeen.body === decodeRemote(next)?.body ? 'dropNew' : 'replacePending';
+      },
+    };
+
+    async function submit(session: ReturnType<typeof makeHost>, message: CodecType<typeof RemoteMsg>) {
+      const { requestId } = (await session.submitRequestMessage(RemoteMsg, message))._unsafeUnwrap();
+      // Register before anything can settle the token: a settled token is forgotten. Wrapped,
+      // because a ResultAsync is thenable and returning it bare would await delivery here.
+      return { delivery: session.waitForResponseMessage(requestId) };
+    }
+
+    function onlinePeer(store: StatementStoreAdapter) {
+      const mobile = makeMobile(store);
+      const received: string[] = [];
+      mobile.respondToRequests(RemoteMsg, request => {
+        if (request.payload.status === 'parsed') received.push(request.payload.value.id);
+        return 'success';
+      });
+      return { mobile, received };
+    }
+
+    it('replaces a seen receipt in the live batch and rejects its waiter as replaced', async () => {
+      const store = createInMemoryStatementStore();
+      const host = makeHost(store, keepSingleSeen);
+      host.subscribe(RemoteMsg, () => undefined);
+      await settle();
+
+      const { delivery: text } = await submit(host, requestMsg('t1'));
+      const { delivery: oldSeen } = await submit(host, seenMsg('s1', '5'));
+      const { delivery: newSeen } = await submit(host, seenMsg('s2', '6'));
+      await settle();
+
+      const replaced = await oldSeen;
+      expect(replaced._unsafeUnwrapErr()).toBeInstanceOf(MessageReplacedError);
+
+      const { mobile, received } = onlinePeer(store);
+      await settle();
+
+      // The text message was never touched; the old receipt never went out again.
+      expect(received).toEqual(['t1', 's2']);
+      await expect(text).toBeOk();
+      await expect(newSeen).toBeOk();
+
+      host.dispose();
+      mobile.dispose();
+    });
+
+    it('sends nothing for a receipt with the same content, and resolves it on delivery of the pending one', async () => {
+      const store = createInMemoryStatementStore();
+      const host = makeHost(store, keepSingleSeen);
+      host.subscribe(RemoteMsg, () => undefined);
+      await settle();
+
+      const { delivery: first } = await submit(host, seenMsg('s1', '5'));
+      await settle();
+      const accepted = store.acceptedStatements().length;
+      const { delivery: second } = await submit(host, seenMsg('s2', '5'));
+      await settle();
+      expect(store.acceptedStatements().length).toBe(accepted);
+
+      const { mobile, received } = onlinePeer(store);
+      await settle();
+
+      expect(received).toEqual(['s1']);
+      await expect(first).toBeOk();
+      await expect(second).toBeOk();
+
+      host.dispose();
+      mobile.dispose();
+    });
+
+    it('replaces a receipt restored after a restart with one submitted during init', async () => {
+      const store = createInMemoryStatementStore();
+      const before = makeHost(store, keepSingleSeen);
+      await settle();
+      void submit(before, seenMsg('s1', '5'));
+      await settle();
+      before.dispose(); // the peer never answered
+
+      const after = makeHost(store, keepSingleSeen);
+      after.subscribe(RemoteMsg, () => undefined);
+      const { delivery: newSeen } = await submit(after, seenMsg('s2', '6')); // still initializing
+      await settle();
+
+      const { mobile, received } = onlinePeer(store);
+      await settle();
+
+      expect(received).toEqual(['s2']);
+      await expect(newSeen).toBeOk();
+
+      after.dispose();
+      mobile.dispose();
+    });
+
+    it('drops a receipt matching the restored one and resolves it when the restored one is answered', async () => {
+      const store = createInMemoryStatementStore();
+      const before = makeHost(store, keepSingleSeen);
+      await settle();
+      void submit(before, seenMsg('s1', '5'));
+      await settle();
+      before.dispose();
+
+      const after = makeHost(store, keepSingleSeen);
+      after.subscribe(RemoteMsg, () => undefined);
+      await settle(); // active, with the restored batch live
+      const accepted = store.acceptedStatements().length;
+      const { delivery: again } = await submit(after, seenMsg('s2', '5'));
+      await settle();
+      expect(store.acceptedStatements().length).toBe(accepted);
+
+      const { mobile, received } = onlinePeer(store);
+      await settle();
+
+      expect(received).toEqual(['s1']);
+      await expect(again).toBeOk();
+
+      after.dispose();
+      mobile.dispose();
     });
   });
 });

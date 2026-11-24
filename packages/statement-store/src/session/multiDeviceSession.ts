@@ -21,6 +21,8 @@ import { createRosterTopics } from './codec/incomingTopics.js';
 import { createBodyBuilder } from './codec/outgoingBody.js';
 import { DEFAULT_MAX_REQUEST_SIZE, createSessionCore } from './core.js';
 import { createEncryption } from './encyption.js';
+import type { PendingMessageReplacementPolicy } from './replacementPolicy.js';
+import { keepAllMessages } from './replacementPolicy.js';
 import type { StatementProver } from './statementProver.js';
 import type { Session } from './types.js';
 
@@ -48,6 +50,12 @@ export type MultiDeviceSessionParams = {
   prover: StatementProver;
   allocator?: ExpiryAllocator;
   maxRequestSize?: number;
+  /**
+   * Which pending outgoing messages a new one may drop or replace (e.g. at most one
+   * undelivered seen receipt per peer, chat-spec RFC 0006). Defaults to
+   * {@link keepAllMessages}: every message is sent.
+   */
+  replacementPolicy?: PendingMessageReplacementPolicy;
 };
 
 /**
@@ -70,6 +78,7 @@ export function createMultiDeviceSession({
   prover,
   allocator = createExpiryAllocator(),
   maxRequestSize = DEFAULT_MAX_REQUEST_SIZE,
+  replacementPolicy = keepAllMessages,
 }: MultiDeviceSessionParams): Session {
   const outgoingSharedSecret = x25519.getSharedSecret(localDevice.encryptionPrivateKey, remoteIdentity.chatPublicKey);
   const outgoingEncryption = createEncryption(outgoingSharedSecret);
@@ -107,5 +116,6 @@ export function createMultiDeviceSession({
     }),
     decoder: createStatementDecoder({ prover, envelope, ownEncryption: outgoingEncryption }),
     peerDevices: () => peerRoster.current(),
+    replacementPolicy,
   });
 }

@@ -1,7 +1,7 @@
 import { Bytes, Enum, Hex, Nullable, Status } from '@novasamatech/scale';
 import { Option, Struct, Vector, _void, compact, str, u64 } from 'scale-ts';
 
-import { FileVariant } from './attachment.js';
+import { FileVariant, NodeEndpoint } from './attachment.js';
 
 const AccountIdCodec = Bytes(32);
 const PublicKeyCodec = Bytes(32);
@@ -80,8 +80,7 @@ export const DeviceInfoContent = Struct({
 //   DeviceChatAccepted = { requestId: String, device: DeviceInfo }
 // Sent via identity-level session SessionId(B, A) encrypted with K(A,B);
 // identity-level encryption lets all of A's devices decrypt without per-device
-// envelope. Index 19 is reserved (placeholder slot between deviceRemoved=18
-// and deviceChatAccepted=20).
+// envelope.
 export const DeviceChatAcceptedContent = Struct({
   requestId: str,
   device: DeviceInfoContent,
@@ -127,6 +126,28 @@ export const CoinagePaymentContent = Struct({
   coinKeys: Vector(Bytes()),
 });
 
+// Message compaction commit (index 19). Matches Android `CompactionCommit`:
+//   { claimIdentifier: Vec<u8>, claimTicket: Vec<u8>, node: NodeEndpoint }
+// The payload points at a compacted batch held by a HOP node. Desktop does not expand
+// compaction yet; the codec exists so a commit consumes its payload bytes instead of
+// decoding as an empty variant (the `_void` mis-advance described above).
+export const CompactedMessagesContent = Struct({
+  claimIdentifier: Bytes(),
+  claimTicket: Bytes(),
+  node: NodeEndpoint,
+});
+
+// Seen receipt (index 22, chat-spec RFC 0006). Names the newest displayable message the
+// recipient has shown; the sender marks it and every earlier outgoing message as Seen.
+// `messageId` is the `ChatMessage.messageId` of that message and `timestamp` its
+// `ChatMessage.timestamp` (ms). The RFC types `messageId` as a UUID, but Android
+// encodes it as a SCALE string (`Seen(messageId: String, timestamp: ULong)`), so we do too.
+// A seen message is transient: never stored, never synced between own devices, never pushed.
+export const SeenContent = Struct({
+  messageId: str,
+  timestamp: u64,
+});
+
 // Note: enum indices MUST match iOS/Android SCALE codecs.
 // Indices are auto-assigned sequentially, so order matters.
 export const MessageContent = Enum({
@@ -149,8 +170,10 @@ export const MessageContent = Enum({
   coinagePayment: CoinagePaymentContent, // 16 (Android-only; consumed for cross-device sync wire-stability)
   deviceAdded: DeviceAddedContent, // 17
   deviceRemoved: DeviceRemovedContent, // 18
-  _reserved19: _void, // 19 — reserved (placeholder so deviceChatAccepted lands on the spec'd index 20)
+  compactedMessages: CompactedMessagesContent, // 19 (Android: `CompactionCommit`)
   deviceChatAccepted: DeviceChatAcceptedContent, // 20 (multi-device accept, spec v0.1)
+  _reserved21: _void, // 21 — reserved for `deleted` (RFC 0003, still an open PR); placeholder so `seen` lands on 22
+  seen: SeenContent, // 22 (RFC 0006 seen receipt)
 });
 
 export const VersionedMessageContent = Enum({

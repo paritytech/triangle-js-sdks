@@ -27,8 +27,9 @@ import type { IncomingTopicSpec, ReadableEvent, StatementDecoder, TransportEvent
 import type { DeviceTarget } from './codec/envelope.js';
 import type { IncomingTopics } from './codec/incomingTopics.js';
 import type { OutgoingBodyBuilder, StatementBody } from './codec/outgoingBody.js';
-import { DecodingError, DecryptionError, UnknownError } from './error.js';
+import { DecodingError, DecryptionError, MessageReplacedError, UnknownError } from './error.js';
 import { toMessage } from './messageMapper.js';
+import type { PendingMessageReplacementPolicy } from './replacementPolicy.js';
 import type { ResponseStatus } from './scale/statementData.js';
 import type { SessionEffect, SessionEvent, SessionState } from './stateMachine.js';
 import { incomingRequest, initialSessionState, liveRequestId, transition } from './stateMachine.js';
@@ -117,6 +118,8 @@ export type SessionCoreParams = {
   outgoingTopic: SessionId;
   /** Peer devices, for reading back our own multi-device envelopes. Empty when single-device. */
   peerDevices: () => DeviceTarget[];
+  /** Which pending outgoing messages a new one may drop or replace. */
+  replacementPolicy: PendingMessageReplacementPolicy;
 };
 
 export function createSessionCore({
@@ -129,6 +132,7 @@ export function createSessionCore({
   decoder,
   outgoingTopic,
   peerDevices,
+  replacementPolicy,
 }: SessionCoreParams): Session {
   // Message bytes must fit within the statement limit minus the fixed wire overhead.
   const maxPayloadSize = Math.max(0, maxRequestSize - STATEMENT_OVERHEAD);
@@ -138,6 +142,7 @@ export function createSessionCore({
   const transitionContext = {
     fits: (messages: Uint8Array[]) => requestPayloadSize(messages) <= maxPayloadSize,
     newRequestId: nanoid,
+    replacementPolicy,
   };
   let machineState: SessionState = initialSessionState();
 
@@ -219,6 +224,9 @@ export function createSessionCore({
         }
         case 'rejectTokens':
           settleTokens(effect.tokens, deferred => deferred.reject(effect.error));
+          break;
+        case 'replaceTokens':
+          settleTokens(effect.tokens, deferred => deferred.reject(new MessageReplacedError()));
           break;
       }
     }

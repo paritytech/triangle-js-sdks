@@ -10,6 +10,17 @@ export class DecodingError extends Error {
   }
 }
 
+/**
+ * A delivery waiter's message was replaced by a newer one under the session's
+ * `PendingMessageReplacementPolicy` and will never be sent. It is not a delivery
+ * failure: the replacing message carries the content forward.
+ */
+export class MessageReplacedError extends Error {
+  constructor() {
+    super('Message replaced by a newer pending message');
+  }
+}
+
 export class UnknownError extends Error {
   constructor() {
     super('Unknown error during request.');
