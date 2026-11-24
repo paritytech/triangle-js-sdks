@@ -3,7 +3,7 @@ import { createPapiProvider } from '@novasamatech/host-api-wrapper';
 import type { ClientConfig } from '@parity/bulletin-sdk';
 import { AsyncBulletinClient } from '@parity/bulletin-sdk';
 import { createClient } from 'polkadot-api';
-import type { TxCreator } from 'polkadot-api/tx-creator';
+import type { SignerTxCreator } from 'polkadot-api/tx-creator';
 
 import { BulletinChain } from './constants.js';
 
@@ -15,8 +15,8 @@ export interface CreateBulletinClientOptions {
   genesisHash: HexString;
   /** PAPI chain descriptor for the target network */
   descriptor: BulletinDescriptor;
-  /** PAPI tx creator for transaction submission */
-  signer: TxCreator;
+  /** PAPI signer for transaction submission, e.g. `accounts.getProductAccountSigner(account)` */
+  signer: SignerTxCreator;
   /** Optional AsyncBulletinClient config (chunk size, manifest behavior) */
   config?: Partial<ClientConfig>;
 }

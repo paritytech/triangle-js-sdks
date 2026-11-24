@@ -42,7 +42,7 @@
     "@novasamatech/scale": "0.12.0",
     "@novasamatech/statement-store": "0.12.0",
     "@novasamatech/storage-adapter": "0.12.0",
-    "nanoid": "6.0.1",
+    "nanoid": "6.0.2",
     "neverthrow": "^8.2.0",
     "polkadot-api": ">=3"
   },
