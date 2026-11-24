@@ -83,6 +83,7 @@ function createSession(params: SessionParams): Session
 | `statementStore` | `StatementStoreAdapter` | Chain adapter for submitting/subscribing to statements |
 | `encryption` | `Encryption` | Encryption instance (use `createEncryption`) |
 | `prover` | `StatementProver` | Proof signer/verifier (use `createSr25519Prover`) |
+| `replacementPolicy` | `PendingMessageReplacementPolicy` | Optional. Lets a new message drop or replace an undelivered one. Defaults to `keepAllMessages`. See [Replacing pending messages](#replacing-pending-messages). |
 
 **`Session` methods**
 
@@ -92,9 +93,38 @@ function createSession(params: SessionParams): Session
 | `submitRequestMessage` | `(codec, payload) → ResultAsync<{ requestId }, Error>` | Submit a request without waiting for a response. Returns the generated `requestId`. |
 | `submitResponseMessage` | `(requestId, responseCode) → ResultAsync<void, Error>` | Send an explicit response to a request identified by `requestId`. |
 | `waitForRequestMessage` | `(codec, filter) → ResultAsync<S, Error>` | Wait for the next incoming request whose decoded payload passes `filter`. Unsubscribes automatically once matched. |
-| `waitForResponseMessage` | `(requestId) → ResultAsync<ResponseMessage, Error>` | Wait for the response to a specific outgoing request. |
+| `waitForResponseMessage` | `(requestId) → ResultAsync<ResponseMessage, Error>` | Wait for the response to a specific outgoing request. Rejects with `MessageReplacedError` if the replacement policy replaced the message before delivery. |
 | `subscribe` | `(codec, callback) → VoidFunction` | Subscribe to all incoming messages, decoded with `codec`. Returns an unsubscribe function. |
 | `dispose` | `() → void` | Unsubscribe all active subscriptions created by this session. |
+
+#### Replacing pending messages
+
+Some messages make an earlier, undelivered message of the same kind obsolete. A seen receipt (chat-spec RFC 0006) is one: only the newest matters, and a peer that stays offline should get one receipt, not one per app launch. Pass a `PendingMessageReplacementPolicy` to `createSession` or `createMultiDeviceSession`:
+
+```ts
+type PendingMessageReplacementPolicy = {
+  isReplaceable(message: Uint8Array): boolean;
+  decide(newMessage: Uint8Array, pendingMessage: Uint8Array): 'keepBoth' | 'dropNew' | 'replacePending';
+};
+```
+
+The session hands the policy encoded message bytes. It never calls `decide` for a message that `isReplaceable` rejects, so such a message never drops or replaces anything. It checks a new message against:
+
+- the queue of messages not yet submitted;
+- the live request batch. A replacement there resubmits the whole batch under a fresh request id;
+- a batch restored from the store at startup, for messages submitted while the session was still initializing.
+
+When several pending messages are candidates, any `dropNew` wins; otherwise the first `replacePending` is taken.
+
+What the caller sees on `waitForResponseMessage`:
+
+| Verdict | Delivery waiter |
+|---|---|
+| `keepBoth` | Settles when this message's batch is answered, as usual. |
+| `dropNew` | Nothing is sent. Settles with the response to the pending message it duplicated, including a pending message restored from a previous run. |
+| `replacePending` | The new message's waiter settles normally. The replaced message's waiter rejects with `MessageReplacedError`. |
+
+`@novasamatech/host-chat` ships `keepSingleSeenMessage`, the RFC 0006 policy for sessions that carry `ChatMessage`.
 
 ---
 

@@ -1,5 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
+import type { PendingMessageReplacementPolicy } from './replacementPolicy.js';
+import { keepAllMessages } from './replacementPolicy.js';
 import type { SessionEffect, SessionEvent, SessionState, TransitionContext } from './stateMachine.js';
 import { incomingRequest, initialSessionState, liveRequestId, transition } from './stateMachine.js';
 
@@ -9,19 +11,22 @@ const msg = (text: string) => new TextEncoder().encode(text);
  * `fits` counts messages rather than bytes, so a test can say "two per statement" and read
  * as the batching rule it exercises. Ids are sequential for the same reason.
  */
-function makeContext({ capacity = Infinity }: { capacity?: number } = {}): TransitionContext {
+type ContextOptions = { capacity?: number; policy?: PendingMessageReplacementPolicy };
+
+function makeContext({ capacity = Infinity, policy = keepAllMessages }: ContextOptions = {}): TransitionContext {
   let next = 0;
 
   return {
     fits: messages => messages.length <= capacity,
     newRequestId: () => `r${(++next).toString()}`,
+    replacementPolicy: policy,
   };
 }
 
 /** Fold a sequence of events, keeping only the effects of the LAST one. */
 function run(
   events: SessionEvent[],
-  opts: { capacity?: number; from?: SessionState } = {},
+  opts: ContextOptions & { from?: SessionState } = {},
 ): { state: SessionState; effects: SessionEffect[] } {
   const ctx = makeContext(opts);
   let state = opts.from ?? initialSessionState();
@@ -154,7 +159,7 @@ describe('session state machine', () => {
       const seeded: SessionState = {
         ...initialSessionState(),
         phase: 'active',
-        outgoingRequest: { requestIds: ['r0'], messages: [msg('x')], tokens: ['t0'] },
+        outgoingRequest: { requestIds: ['r0'], entries: [{ encoded: msg('x'), tokens: ['t0'] }] },
         messageQueue: [
           { encoded: msg('dup'), tokens: ['t1'] },
           { encoded: msg('dup'), tokens: ['t2'] },
@@ -356,6 +361,226 @@ describe('session state machine', () => {
       const { state } = run([{ type: 'responseSubmitted', requestId: 'ghost' }]);
 
       expect(incomingRequest(state, 'ghost')).toBeUndefined();
+    });
+  });
+
+  // A stand-in for the chat seen-receipt policy: `seen:<watermark>#<messageId>` is
+  // replaceable, the same watermark is redundant, a different one supersedes. The
+  // messageId suffix keeps two receipts with the same watermark byte-distinct, as real
+  // chat messages are, so byte-dedup never short-circuits the policy.
+  describe('replacement policy', () => {
+    const seen = (watermark: string, id: string) => `seen:${watermark}#${id}`;
+    const watermarkOf = (encoded: Uint8Array) => new TextDecoder().decode(encoded).match(/^seen:(.*)#/)?.[1];
+    const seenPolicy: PendingMessageReplacementPolicy = {
+      isReplaceable: encoded => watermarkOf(encoded) !== undefined,
+      decide: (next, pending) => {
+        const pendingWatermark = watermarkOf(pending);
+        if (pendingWatermark === undefined) return 'keepBoth';
+        return pendingWatermark === watermarkOf(next) ? 'dropNew' : 'replacePending';
+      },
+    };
+    const policy = seenPolicy;
+
+    describe('against the queue', () => {
+      it('replaces a queued message and settles its waiter as replaced', () => {
+        const { state, effects } = run([send(seen('5', 'a'), 't1'), send(seen('6', 'b'), 't2')], { policy });
+
+        expect(effects).toEqual([{ type: 'replaceTokens', tokens: ['t1'] }]);
+        expect(state.messageQueue).toEqual([{ encoded: msg(seen('6', 'b')), tokens: ['t2'] }]);
+      });
+
+      it('drops a redundant message onto the queued one it duplicates', () => {
+        const { state, effects } = run([send(seen('5', 'a'), 't1'), send(seen('5', 'b'), 't2')], { policy });
+
+        expect(effects).toEqual([]);
+        expect(state.messageQueue).toEqual([{ encoded: msg(seen('5', 'a')), tokens: ['t1', 't2'] }]);
+      });
+
+      it('replaces in place, keeping the queue order', () => {
+        const { state } = run(
+          [
+            ACTIVATE,
+            send('x', 't0'),
+            send('a', 't1'),
+            send(seen('5', 'a'), 't2'),
+            send('b', 't3'),
+            send(seen('6', 'b'), 't4'),
+          ],
+          { policy, capacity: 1 },
+        );
+
+        expect(state.messageQueue.map(e => e.tokens)).toEqual([['t1'], ['t4'], ['t3']]);
+      });
+    });
+
+    describe('against the live batch', () => {
+      it('swaps the message and resubmits the whole batch under a fresh id', () => {
+        const { state, effects } = run(
+          [ACTIVATE, send('a', 't1'), send(seen('5', 'a'), 't2'), send(seen('6', 'b'), 't3')],
+          {
+            policy,
+          },
+        );
+
+        expect(effects).toEqual([
+          { type: 'replaceTokens', tokens: ['t2'] },
+          { type: 'submitRequest', requestId: 'r3', messages: [msg('a'), msg(seen('6', 'b'))] },
+        ]);
+        expect(liveRequestId(state)).toBe('r3');
+      });
+
+      it('resolves the survivors, not the replaced message, when the batch is answered', () => {
+        const { effects } = run(
+          [
+            ACTIVATE,
+            send('a', 't1'),
+            send(seen('5', 'a'), 't2'),
+            send(seen('6', 'b'), 't3'),
+            { type: 'responseReceived', requestId: 'r3', responseCode: 'success' },
+          ],
+          { policy },
+        );
+
+        expect(effects).toEqual([
+          { type: 'resolveTokens', tokens: ['t1', 't3'], requestId: 'r3', responseCode: 'success' },
+        ]);
+      });
+
+      it('drops a redundant message without resubmitting, and resolves it with the batch', () => {
+        const dropped = run([ACTIVATE, send(seen('5', 'a'), 't1'), send(seen('5', 'b'), 't2')], { policy });
+        expect(dropped.effects).toEqual([]);
+
+        const answered = run([{ type: 'responseReceived', requestId: 'r1', responseCode: 'success' }], {
+          policy,
+          from: dropped.state,
+        });
+        expect(answered.effects).toEqual([
+          { type: 'resolveTokens', tokens: ['t1', 't2'], requestId: 'r1', responseCode: 'success' },
+        ]);
+      });
+
+      it('falls back to sending both when the swapped batch would not fit', () => {
+        let next = 0;
+        const ctx: TransitionContext = {
+          // Byte budget: the longer replacement no longer fits beside 'a'.
+          fits: messages => messages.reduce((n, m) => n + m.length, 0) <= 11,
+          newRequestId: () => `r${(++next).toString()}`,
+          replacementPolicy: policy,
+        };
+        let state: SessionState = initialSessionState();
+        let effects: SessionEffect[] = [];
+        for (const event of [ACTIVATE, send('a', 't1'), send(seen('5', 'a'), 't2'), send(seen('6', 'bbbb'), 't3')]) {
+          ({ state, effects } = transition(state, event, ctx));
+        }
+
+        expect(effects).toEqual([]);
+        expect(state.messageQueue).toEqual([{ encoded: msg(seen('6', 'bbbb')), tokens: ['t3'] }]);
+      });
+    });
+
+    describe('message selection', () => {
+      it('never consults the policy for, or lets it touch, a non-replaceable message', () => {
+        const decide = vi.fn(seenPolicy.decide);
+        // Would replace anything it is asked about — only isReplaceable keeps 'b' out.
+        const greedy: PendingMessageReplacementPolicy = {
+          isReplaceable: seenPolicy.isReplaceable,
+          decide: (...args) => {
+            decide(...args);
+            return 'replacePending';
+          },
+        };
+
+        const { state, effects } = run([ACTIVATE, send(seen('5', 'a'), 't1'), send('b', 't2')], { policy: greedy });
+
+        expect(decide).not.toHaveBeenCalled();
+        expect(effects).toEqual([
+          { type: 'submitRequest', requestId: 'r2', messages: [msg(seen('5', 'a')), msg('b')] },
+        ]);
+        expect(state.outgoingRequest?.entries.map(e => e.tokens)).toEqual([['t1'], ['t2']]);
+      });
+
+      it('leaves pending messages the policy keeps', () => {
+        const { effects } = run([ACTIVATE, send('a', 't1'), send(seen('5', 'a'), 't2')], { policy });
+
+        expect(effects).toEqual([
+          { type: 'submitRequest', requestId: 'r2', messages: [msg('a'), msg(seen('5', 'a'))] },
+        ]);
+      });
+
+      it('lets a drop verdict win over a replace verdict', () => {
+        const seeded: SessionState = {
+          ...initialSessionState(),
+          messageQueue: [
+            { encoded: msg(seen('5', 'a')), tokens: ['t1'] },
+            { encoded: msg(seen('6', 'b')), tokens: ['t2'] },
+          ],
+        };
+
+        const { state, effects } = run([send(seen('6', 'c'), 't3')], { policy, from: seeded });
+
+        expect(effects).toEqual([]);
+        expect(state.messageQueue.map(e => e.tokens)).toEqual([['t1'], ['t2', 't3']]);
+      });
+
+      it('keeps every message under the default policy', () => {
+        const { state } = run([send(seen('5', 'a'), 't1'), send(seen('6', 'b'), 't2')]);
+
+        expect(state.messageQueue).toHaveLength(2);
+      });
+    });
+
+    // A batch restored from the store is only known at activation, so messages submitted
+    // during initialization are reconciled with it then.
+    describe('against a restored batch', () => {
+      const restored = (...messages: string[]): SessionEvent => ({
+        type: 'outgoingRestored',
+        requestId: 'old',
+        messages: messages.map(msg),
+      });
+
+      it('replaces a restored message and resubmits once', () => {
+        const { state, effects } = run([send(seen('6', 'b'), 't1'), restored('a', seen('5', 'a')), ACTIVATE], {
+          policy,
+        });
+
+        // Restored messages carry no waiters, so nobody is settled as replaced.
+        expect(effects).toEqual([
+          { type: 'submitRequest', requestId: 'r1', messages: [msg('a'), msg(seen('6', 'b'))] },
+        ]);
+        expect(state.messageQueue).toEqual([]);
+      });
+
+      it('drops a redundant message onto the restored one, which then answers its waiter', () => {
+        const activated = run([send(seen('5', 'b'), 't1'), restored(seen('5', 'a')), ACTIVATE], { policy });
+        expect(activated.effects).toEqual([]);
+
+        const answered = run([{ type: 'responseReceived', requestId: 'old', responseCode: 'success' }], {
+          policy,
+          from: activated.state,
+        });
+        expect(answered.effects).toEqual([
+          { type: 'resolveTokens', tokens: ['t1'], requestId: 'old', responseCode: 'success' },
+        ]);
+      });
+
+      it('replaces and appends in a single submission', () => {
+        const { effects } = run(
+          [send(seen('6', 'b'), 't1'), send('c', 't2'), restored('a', seen('5', 'a')), ACTIVATE],
+          {
+            policy,
+          },
+        );
+
+        expect(effects).toEqual([
+          { type: 'submitRequest', requestId: 'r1', messages: [msg('a'), msg(seen('6', 'b')), msg('c')] },
+        ]);
+      });
+
+      it('leaves a restored batch alone when nothing replaces into it', () => {
+        const { effects } = run([restored('a', seen('5', 'a')), ACTIVATE], { policy });
+
+        expect(effects).toEqual([]);
+      });
     });
   });
 });
