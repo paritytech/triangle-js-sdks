@@ -1,4 +1,4 @@
-## 0.13.0 (Unreleased)
+## 0.13.0 (2026-11-24)
 
 ### ⚠️ Breaking Changes
 
@@ -7,18 +7,27 @@
 - **host-api / host-container / host-api-wrapper:** every subscription has a typed interrupt; the formerly payload-less ones carry `GenericError`, and `undefined` is a clean completion. Wrapper `onInterrupt` callbacks receive the method's own error or `undefined`. Unhandled container subscriptions interrupt with `Unsupported` rather than completing. See the [migration guide](./docs/migration/v0.13.md#typed-interrupts).
 - **host-api / host-container / host-api-wrapper / product-react-renderer:** the `renderer` trait replaces the chat custom renderer (truapi retired chat method 5). The host starts `renderer.render` with a `RenderContext` (chat message, input widget, Pocket card) and body interactions arrive on `renderer.actionSubscribe`. `CustomRendererNode` is `RendererNode`: `Spacer` and `TextField` lose `children`, `Image` and `Effect` nodes, `Shape.Square` and the `opacity` / `blendingMode` modifiers are added, and text-field values travel as plain UTF-8. `chat.onCustomMessageRenderingRequest`, `matchChatCustomRenderers` and `container.renderChatCustomMessage` are replaced by `productRenderer.onRender`, `matchChatMessageRenderers` and `container.renderer.render`. See the [migration guide](./docs/migration/v0.13.md#renderer-replaces-the-chat-custom-renderer).
 - **host-api:** `signing.createTransaction` carries the contact handles its call names (`contacts`, last) and fails with the new `CreateTransactionErr.UnknownContact`; signing payloads encode `withSignedTransaction` as `OptionBool`, as truapi does. See the [migration guide](./docs/migration/v0.13.md#payload-changes).
+- **product-bulletin:** the `signer` option of `createBulletinClient` is a `SignerTxCreator`, as `@parity/bulletin-sdk` 0.5 requires. Passing `accounts.getProductAccountSigner(account)` needs no change. See the [migration guide](./docs/migration/v0.13.md#product-bulletin-signer).
 
 ### 🚀 Features
 
 - **host-api / host-container / host-api-wrapper:** truapi methods the SDK did not implement yet: `pocket.listSubscribe` / `removeCard`, `contacts.pick`, `signing.signRawUnwatermarkedDeprecated` (and its legacy-account variant), host-internal `permissions.authorizeRemotePermission` / `authorizeDevicePermission`, and `localStorage.read` v2, which reads another product's storage under its manifest's `storage` grant.
+- **host-chat:** seen receipts (chat-spec RFC 0006). `MessageContent` gains `seen` at index 22, carrying `{ messageId, timestamp }` of the last message the recipient displayed; index 21 is reserved for `deleted` (RFC 0003). `keepSingleSeenMessage` keeps at most one undelivered receipt per peer. Byte-compatible with Android.
+- **statement-store:** `createSession` and `createMultiDeviceSession` take an optional `replacementPolicy` that lets a new message drop or replace an undelivered one: in the queue, in the request already in flight, and in the request restored after a restart. A replaced message's `waitForResponseMessage` rejects with the new `MessageReplacedError`; a dropped one settles with the message it duplicated. The default, `keepAllMessages`, keeps every message.
 - **host-api:** aborting a request's signal withdraws it with a `cancel` frame; the host's handler sees its own `signal` abort and the call is answered `Cancelled`. A request for an address the receiver does not know is answered with truapi's protocol error and settles as `Unsupported` instead of hanging.
 
 ### 🩹 Fixes
 
 - **host-api:** the handshake connects only on an `Ok` answer; a host refusing the codec version used to count as connected. A host now also gets its `UnsupportedProtocolVersion` answer out, which the codec-version check used to swallow.
 - **host-container:** chain requests answer `Unsupported` until `handleChainConnection` is called instead of hanging, and calling it again replaces the previous handlers rather than registering a second set.
+- **host-chat:** `MessageContent` index 19 decodes a message compaction commit (`compactedMessages`) instead of an empty placeholder that left its payload unread, so the entries after it in the same buffer decoded from the wrong offset.
 
-## 0.12.0 (Unreleased)
+### ❤️ Thank You
+
+- Dmitry
+- Sergey Zhuravlev
+
+## 0.12.0 (2026-09-11)
 
 ### ⚠️ Breaking Changes
 

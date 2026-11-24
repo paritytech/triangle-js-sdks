@@ -1,7 +1,7 @@
 {
   "name": "@novasamatech/host-container",
   "type": "module",
-  "version": "0.12.0",
+  "version": "0.13.0",
   "description": "Host container for hosting and managing products within the Polkadot ecosystem.",
   "license": "Apache-2.0",
   "repository": {
@@ -29,7 +29,7 @@
     "@noble/hashes": "2.4.0",
     "polkadot-api": ">=3",
     "@polkadot-api/substrate-client": "^0.7.0",
-    "@novasamatech/host-api": "0.12.0",
+    "@novasamatech/host-api": "0.13.0",
     "nanoevents": "10.0.0",
     "nanoid": "6.0.2",
     "neverthrow": "^8.2.0"
