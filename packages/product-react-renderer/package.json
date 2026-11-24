@@ -27,10 +27,10 @@
   "dependencies": {
     "@novasamatech/host-api": "0.12.0",
     "@novasamatech/host-api-wrapper": "0.12.0",
-    "react-reconciler": "0.33.0"
+    "react-reconciler": "0.34.0"
   },
   "devDependencies": {
-    "@types/react-reconciler": "0.33.0"
+    "@types/react-reconciler": "0.34.1"
   },
   "peerDependencies": {
     "react": "^19.0.0"

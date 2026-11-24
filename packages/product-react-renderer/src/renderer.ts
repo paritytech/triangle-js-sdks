@@ -7,7 +7,7 @@ import { noop } from './helpers.js';
 import type { Container } from './reconciler.js';
 import { reconciler } from './reconciler.js';
 
-function onError(error: Error): void {
+function onError(error: unknown): void {
   console.error('[product-react-renderer]', error);
 }
 
@@ -30,7 +30,8 @@ export function createRenderer({ onRender, subscribeActions }: RendererParams) {
     onError,
     onError,
     onError,
-    noop,
+    noop, // onDefaultTransitionIndicator
+    null, // transitionCallbacks (typed, but ignored by the 0.34 runtime)
   );
 
   return {

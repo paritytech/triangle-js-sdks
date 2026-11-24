@@ -50,6 +50,7 @@ const hostConfig: ReactReconciler.HostConfig<
   Container, // Container
   WidgetInstance, // Instance
   TextInstance, // TextInstance
+  never, // ActivityInstance
   never, // SuspenseInstance
   never, // HydratableInstance
   never, // FormInstance
@@ -58,12 +59,27 @@ const hostConfig: ReactReconciler.HostConfig<
   never, // ChildSet
   ReturnType<typeof setTimeout>, // TimeoutHandle
   -1, // NoTimeout
-  null // TransitionStatus
+  null, // TransitionStatus
+  null, // SuspendedState
+  null, // RendererInspectionConfig
+  never, // FormStateMarkerInstance
+  never, // HoistableRoot
+  never // Resource
 > = {
   supportsMutation: true,
   supportsPersistence: false,
   supportsHydration: false,
   isPrimaryRenderer: false,
+
+  // DevTools identity — read from the host config since react-reconciler 0.34.
+  rendererVersion: '0.6.4',
+  rendererPackageName: '@novasamatech/product-react-renderer',
+  extraDevToolsConfig: null,
+  // Replays Server console logs; only reachable through the default error handlers.
+  bindToConsole: (methodName, args) => {
+    const method = (console as unknown as Record<string, (...a: unknown[]) => void>)[methodName] ?? console.log;
+    return method.bind(console, ...(args as unknown[]));
+  },
   warnsIfNotActing: false,
 
   // Scheduler
@@ -179,16 +195,16 @@ const hostConfig: ReactReconciler.HostConfig<
 
   // Suspense commit (not used)
   maySuspendCommit: () => false,
+  maySuspendCommitOnUpdate: () => false,
+  maySuspendCommitInSyncRender: () => false,
   preloadInstance: () => true,
-  startSuspendingCommit: noop,
+  startSuspendingCommit: () => null,
   suspendInstance: noop,
   waitForCommitToBeReady: () => null,
+  suspendOnActiveViewTransition: noop,
+  getSuspendedCommitReason: () => null,
 };
 
 export const reconciler = ReactReconciler(hostConfig);
 
-reconciler.injectIntoDevTools({
-  bundleType: 0,
-  version: '0.6.4',
-  rendererPackageName: '@novasamatech/product-react-renderer',
-});
+reconciler.injectIntoDevTools();
